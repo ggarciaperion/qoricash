@@ -725,6 +725,42 @@ def _buscar_cliente(doc):
         return None
 
 
+def _operacion_activa_cliente(numero):
+    """
+    Retorna la operación más reciente en estado Pendiente o En proceso
+    del cliente asociado al número de WhatsApp, o None si no tiene ninguna.
+    """
+    try:
+        from app.models.client import Client
+        from app.models.operation import Operation
+        digits = re.sub(r'\D', '', numero)
+        local = digits[-9:] if len(digits) >= 9 else digits
+        if not local:
+            return None
+        client = Client.query.filter(Client.phone.ilike(f'%{local}%')).first()
+        if not client:
+            return None
+        return Operation.query.filter(
+            Operation.client_id == client.id,
+            Operation.status.in_(['Pendiente', 'En proceso'])
+        ).order_by(Operation.created_at.desc()).first()
+    except Exception as e:
+        log.warning(f'[WaBot] Error buscando operación activa {numero}: {e}')
+        return None
+
+
+def _flujo_op_ya_activa(numero, op):
+    """Informa al cliente que ya tiene una operación activa y no puede cotizar."""
+    estado_texto = 'pendiente de pago' if op.status == 'Pendiente' else 'siendo procesada'
+    send_buttons(numero,
+        f'⏳ Tu operación *{op.operation_id}* está {estado_texto}.\n\n'
+        f'Solo puedes tener una operación activa a la vez. '
+        f'En cuanto se complete podrás iniciar una nueva.\n\n'
+        f'¿Tienes alguna consulta?',
+        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+    )
+
+
 def _buscar_clientes_por_telefono(numero):
     """
     Busca todos los clientes con KYC aprobado cuyo campo phone contenga
@@ -905,12 +941,9 @@ def _flujo_registrar_codigo_op(numero, codigo, session):
             f'✅ *¡Código registrado!*\n\n'
             f'📋 *Operación:* {op.operation_id}\n'
             f'🔢 *Código bancario:* {codigo}\n\n'
-            f'Tu operación pasó a *En proceso*. Un asesor verificará tu transferencia y completará el cambio en breve.\n\n'
-            f'¿Tienes alguna consulta?',
-            [
-                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
-                {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
-            ]
+            f'Tu operación está siendo procesada. Nuestro equipo verificará tu transferencia y realizará el depósito en tu cuenta en breve.\n\n'
+            f'Te notificaremos cuando esté completada. ¿Tienes alguna consulta?',
+            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
         )
         session.cotiz_op_id = ''
         session.estado = 'inicio'
@@ -1331,18 +1364,32 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 _flujo_fuera_horario(numero)
 
             elif btn_id == 'btn_cotizar':
-                _flujo_cotizar_inicio(numero)
-                session.estado = 'eligiendo_operacion'
+                _op_activa = _operacion_activa_cliente(numero)
+                if _op_activa:
+                    _flujo_op_ya_activa(numero, _op_activa)
+                else:
+                    _flujo_cotizar_inicio(numero)
+                    session.estado = 'eligiendo_operacion'
 
             elif btn_id == 'btn_comprar':
-                session.cotiz_op = 'compra'
-                _flujo_pedir_importe(numero, 'compra')
-                session.estado = 'esperando_importe'
+                _op_activa = _operacion_activa_cliente(numero)
+                if _op_activa:
+                    _flujo_op_ya_activa(numero, _op_activa)
+                    session.estado = 'inicio'
+                else:
+                    session.cotiz_op = 'compra'
+                    _flujo_pedir_importe(numero, 'compra')
+                    session.estado = 'esperando_importe'
 
             elif btn_id == 'btn_vender':
-                session.cotiz_op = 'venta'
-                _flujo_pedir_importe(numero, 'venta')
-                session.estado = 'esperando_importe'
+                _op_activa = _operacion_activa_cliente(numero)
+                if _op_activa:
+                    _flujo_op_ya_activa(numero, _op_activa)
+                    session.estado = 'inicio'
+                else:
+                    session.cotiz_op = 'venta'
+                    _flujo_pedir_importe(numero, 'venta')
+                    session.estado = 'esperando_importe'
 
             elif btn_id == 'btn_aceptar_cotiz':
                 # P2 — Buscar cliente por número de teléfono antes de preguntar DNI
@@ -1687,7 +1734,12 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                             ]
                         )
                 else:
-                    _bienvenida(numero, session.nombre)
+                    # Si tiene operación activa, recordarle antes de mostrar bienvenida con Cotizar
+                    _op_activa_txt = _operacion_activa_cliente(numero)
+                    if _op_activa_txt:
+                        _flujo_op_ya_activa(numero, _op_activa_txt)
+                    else:
+                        _bienvenida(numero, session.nombre)
 
             elif estado in ('esperando_dni_front', 'esperando_dni_back', 'esperando_ruc', 'esperando_email'):
                 _flujo_recordatorio_registro(numero, estado)
