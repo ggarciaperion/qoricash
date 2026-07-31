@@ -18,25 +18,99 @@ ASESOR_NUMERO   = os.environ.get('WA_ASESOR_NUMERO', '51910624404')
 # Números de administración que reciben alertas del bot (registro, asesor, nueva op)
 ADMIN_WA_NUMEROS = ['51926011920', '51906237356']
 
+# Email de los operadores para notificaciones de respaldo (siempre llega)
+ADMIN_EMAILS = ['gerencia@qoricash.pe', 'ggarcia@qoricash.pe']
+
+# Nombre de la plantilla aprobada por Meta para alertas a operadores.
+# Debe tener exactamente 1 variable {{1}} en el cuerpo.
+# Si la plantilla no existe aún en Meta, la función cae al fallback de email.
+ADMIN_ALERT_TEMPLATE = 'qoricash_alerta_operador'
+
+
+def _notificar_admins_email(asunto, cuerpo_texto):
+    """Envía email a los operadores. Siempre llega, no depende de ventana WA."""
+    try:
+        from flask_mail import Message as MailMessage
+        from app.extensions import mail
+        from flask import current_app
+        import eventlet as _ev
+
+        def _send():
+            with current_app.app_context():
+                try:
+                    msg = MailMessage(
+                        subject=asunto,
+                        sender=current_app.config.get('MAIL_DEFAULT_SENDER', 'info@qoricash.pe'),
+                        recipients=ADMIN_EMAILS,
+                        body=cuerpo_texto,
+                    )
+                    mail.send(msg)
+                    log.info(f'[WaBot] Email de alerta enviado a {ADMIN_EMAILS}')
+                except Exception as e_mail:
+                    log.warning(f'[WaBot] Error enviando email de alerta: {e_mail}')
+
+        _ev.spawn_n(_send)
+    except Exception as e:
+        log.warning(f'[WaBot] No se pudo preparar email de alerta: {e}')
+
 
 def _notificar_admins_wa(mensaje):
-    """Envía un mensaje WA directo a todos los números de administración.
-    Usa requests.post directo (sin _save_outgoing) para evitar conflictos de DB."""
+    """
+    Envía alerta WA a todos los números de administración.
+
+    Estrategia de dos capas:
+    1. Template aprobado (ADMIN_ALERT_TEMPLATE) — funciona SIN ventana de 24h.
+       Si la plantilla no existe o Meta la rechaza, cae al paso 2.
+    2. Texto libre — solo funciona si el número tiene ventana de 24h activa.
+       (ocurre cuando el operador interactuó con el bot recientemente)
+
+    El email (_notificar_admins_email) se llama por separado en cada punto
+    de alerta para garantizar entrega independientemente del estado WA.
+    """
     for num in ADMIN_WA_NUMEROS:
+        enviado = False
+        # ── Intento 1: plantilla aprobada (sin restricción 24h) ─────────
         try:
-            payload = {
+            payload_tmpl = {
+                'messaging_product': 'whatsapp',
+                'to': num,
+                'type': 'template',
+                'template': {
+                    'name': ADMIN_ALERT_TEMPLATE,
+                    'language': {'code': 'es'},
+                    'components': [{
+                        'type': 'body',
+                        'parameters': [{'type': 'text', 'text': mensaje}]
+                    }]
+                }
+            }
+            r = requests.post(WA_API_URL, json=payload_tmpl, headers=_headers(), timeout=10)
+            if r.ok:
+                log.info(f'[WaBot] Alerta admin (template) enviada a {num}')
+                enviado = True
+            else:
+                log.warning(f'[WaBot] Template admin rechazado por Meta ({num}): {r.status_code} — {r.text[:200]}')
+        except Exception as e:
+            log.warning(f'[WaBot] Error template admin {num}: {e}')
+
+        if enviado:
+            continue
+
+        # ── Intento 2: texto libre (requiere ventana 24h activa) ────────
+        try:
+            payload_txt = {
                 'messaging_product': 'whatsapp',
                 'to': num,
                 'type': 'text',
                 'text': {'body': mensaje},
             }
-            r = requests.post(WA_API_URL, json=payload, headers=_headers(), timeout=10)
-            if r.ok:
-                log.info(f'[WaBot] Notificación admin enviada a {num}')
+            r2 = requests.post(WA_API_URL, json=payload_txt, headers=_headers(), timeout=10)
+            if r2.ok:
+                log.info(f'[WaBot] Alerta admin (texto) enviada a {num}')
             else:
-                log.warning(f'[WaBot] Meta rechazó notif admin a {num}: {r.status_code} — {r.text}')
-        except Exception as e:
-            log.warning(f'[WaBot] Error notificando admin {num}: {e}')
+                log.warning(f'[WaBot] Texto admin rechazado por Meta ({num}): {r2.status_code} — ventana 24h cerrada')
+        except Exception as e2:
+            log.warning(f'[WaBot] Error texto admin {num}: {e2}')
 
 # 1 pip = 0.0001 (estándar forex para pares con PEN)
 SPREAD_TC = 0.0020   # 20 pips: spread que aplica el bot sobre el TC oficial
@@ -762,18 +836,23 @@ def _crear_op_y_confirmar(numero, session, client):
             NotificationService.notify_dashboard_update()
         except Exception as _notif_err:
             log.warning(f'[WaBot] Error notificando nueva op al sistema: {_notif_err}')
-        # Notificar a admins por WA
+        # Notificar a admins por WA + email
         try:
             titular = client.full_name or client.razon_social or numero
             tipo_op = 'Compra USD' if op.operation_type == 'Compra' else 'Venta USD'
-            _notificar_admins_wa(
-                f'💱 *Nueva operación desde el bot*\n\n'
+            _msg_op = (
+                f'💱 Nueva operación desde el bot\n\n'
                 f'Op:      {op.operation_id}\n'
                 f'Cliente: {titular}\n'
                 f'Tipo:    {tipo_op}\n'
                 f'Monto:   USD {session.cotiz_importe:,.2f}\n'
                 f'TC:      S/ {session.cotiz_tc:.4f}\n\n'
                 f'Esperando transferencia del cliente.'
+            )
+            _notificar_admins_wa(_msg_op)
+            _notificar_admins_email(
+                f'💱 Nueva operación bot — {op.operation_id}',
+                _msg_op
             )
         except Exception as _wa_err:
             log.warning(f'[WaBot] Error notificando nueva op a admins: {_wa_err}')
@@ -839,38 +918,16 @@ def _flujo_asesor(numero):
         'En breve un asesor se pondrá en contacto contigo por este mismo chat para brindarte el soporte que necesitas.'
     )
     log.info(f'[WaBot] {numero} solicitó hablar con asesor.')
-    _notificar_admins_wa(
-        f'💬 *Cliente solicita asesor*\n\n'
+    _msg_asesor = (
+        f'💬 Cliente solicita asesor\n\n'
         f'WA: {numero}\n\n'
-        f'Ingresa al panel para atenderlo: https://app.qoricash.pe/crm/whatsapp'
+        f'Atiéndelo en: https://app.qoricash.pe/crm/whatsapp'
     )
-    # ── Email a gerencia ─────────────────────────────────────────────
-    try:
-        from flask_mail import Message
-        from app.extensions import mail
-        from flask import current_app
-        import eventlet as _ev
-        app = current_app._get_current_object()
-        email_msg = Message(
-            subject=f'[Bot WA] Cliente solicita hablar con asesor — {numero}',
-            sender='info@qoricash.pe',
-            recipients=['gerencia@qoricash.pe'],
-            body=(
-                f'Un cliente ha solicitado hablar con un asesor a través del bot de WhatsApp.\n\n'
-                f'Número WA: {numero}\n\n'
-                f'Atiéndelo en: https://app.qoricash.pe/crm/whatsapp'
-            ),
-        )
-        def _do_send():
-            with app.app_context():
-                try:
-                    mail.send(email_msg)
-                    log.info(f'[WaBot] Email asesor enviado a gerencia para {numero}')
-                except Exception as e:
-                    log.warning(f'[WaBot] Error enviando email asesor: {e}')
-        _ev.spawn_n(_do_send)
-    except Exception as e:
-        log.warning(f'[WaBot] No se pudo enviar email asesor: {e}')
+    _notificar_admins_wa(_msg_asesor)
+    _notificar_admins_email(
+        f'💬 Cliente solicita asesor — {numero}',
+        _msg_asesor
+    )
 
 
 def _flujo_tipo_cliente(numero):
@@ -976,18 +1033,22 @@ def _notificar_admin_registro(numero, session, tipo_desc):
     except Exception as e:
         log.warning(f'[WaBot] No se pudo preparar email de registro: {e}')
 
-    # ── WhatsApp: notificar a todos los admins ───────────────────────
-    wa_msg = (
-        f'🔔 *Nuevo registro pendiente — {tipo_desc}*\n\n'
+    # ── WhatsApp + Email: notificar a todos los admins ──────────────
+    _msg_reg = (
+        f'🔔 Nuevo registro pendiente — {tipo_desc}\n\n'
         f'Nombre:   {nombre}\n'
         f'DNI/RUC:  {doc}\n'
         f'Email:    {email_cl}\n'
         f'WA:       {numero}\n\n'
-        f'⏱ Tiempo máximo de activación: *15 minutos*\n'
+        f'Tiempo maximo de activacion: 15 minutos\n'
         f'Revisa el panel de KYC para activar la cuenta.'
     )
-    _notificar_admins_wa(wa_msg)
-    log.info(f'[WaBot] Notificación WA de registro enviada a admins para {numero}')
+    _notificar_admins_wa(_msg_reg)
+    _notificar_admins_email(
+        f'🔔 Nuevo registro pendiente — {nombre}',
+        _msg_reg
+    )
+    log.info(f'[WaBot] Notificación WA+Email de registro enviada a admins para {numero}')
 
 
 def _registrar_lead(numero, session):
