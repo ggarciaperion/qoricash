@@ -315,6 +315,19 @@ class MarketService:
             .order_by(EconomicEvent.event_date.asc())
             .all()
         )
+        # Auto-fetch si la DB está vacía para esta semana (primer uso o tabla nueva)
+        if not cal_rows:
+            try:
+                MarketService.run_calendar_cycle()
+                cal_rows = (
+                    EconomicEvent.query
+                    .filter(EconomicEvent.event_date >= week_start_utc)
+                    .filter(EconomicEvent.event_date < week_end_utc)
+                    .order_by(EconomicEvent.event_date.asc())
+                    .all()
+                )
+            except Exception:
+                pass
         calendar_data = [e.to_dict() for e in cal_rows]
 
         daily_analysis = DailyAnalysisService.get_today_analysis()
