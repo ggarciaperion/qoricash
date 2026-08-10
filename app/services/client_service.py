@@ -241,14 +241,25 @@ class ClientService:
                 if legacy_accounts:
                     bank_accounts = legacy_accounts
 
-            # Requerir mínimo 2 cuentas
-            if not bank_accounts or not isinstance(bank_accounts, (list, tuple)) or len(bank_accounts) < 2:
-                return False, 'Debes registrar al menos 2 cuentas bancarias', None
+            # Usuario BOT (rol 'App' / dni '99999999'): cuentas bancarias opcionales.
+            # La cuenta se recoge durante la primera operación vía WhatsApp bot.
+            _is_bot_user = (
+                getattr(current_user, 'role', '') == 'App' or
+                getattr(current_user, 'dni', '') == '99999999'
+            )
 
-            # Validar cuentas usando el método del modelo (ahora estático)
-            is_valid, message = Client.validate_bank_accounts(bank_accounts)
-            if not is_valid:
-                return False, message, None
+            if not _is_bot_user:
+                # Requerir mínimo 2 cuentas (una S/ y una $)
+                if not bank_accounts or not isinstance(bank_accounts, (list, tuple)) or len(bank_accounts) < 2:
+                    return False, 'Debes registrar al menos 2 cuentas bancarias', None
+                is_valid, message = Client.validate_bank_accounts(bank_accounts)
+                if not is_valid:
+                    return False, message, None
+            elif bank_accounts and isinstance(bank_accounts, (list, tuple)) and len(bank_accounts) > 0:
+                # BOT: si envió cuentas igual las validamos, pero no son obligatorias
+                is_valid, message = Client.validate_bank_accounts(bank_accounts)
+                if not is_valid:
+                    return False, message, None
 
             # --- Construcción del objeto cliente (no persistir todavía hasta validaciones completadas) ---
             client = Client()

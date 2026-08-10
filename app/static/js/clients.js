@@ -929,12 +929,17 @@ function saveClient() {
     }
 
     // Validar cuentas bancarias mínimas
-    const validationResult = validateMinimumAccounts();
-    if (!validationResult) {
-        showNotification('error', 'Debes registrar al menos una cuenta en Soles (S/) y otra en Dólares ($)');
-        document.getElementById('accountsValidationMessage')?.scrollIntoView({ behavior: 'smooth' });
-        restoreButton();
-        return;
+    // El usuario BOT (rol 'App') puede crear clientes sin cuentas bancarias:
+    // la cuenta se recopila en la primera operación vía WhatsApp bot.
+    const isBotUser = window.currentUserRole === 'App';
+    if (!isBotUser) {
+        const validationResult = validateMinimumAccounts();
+        if (!validationResult) {
+            showNotification('error', 'Debes registrar al menos una cuenta en Soles (S/) y otra en Dólares ($)');
+            document.getElementById('accountsValidationMessage')?.scrollIntoView({ behavior: 'smooth' });
+            restoreButton();
+            return;
+        }
     }
 
     // Validar duplicados

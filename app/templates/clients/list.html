@@ -591,10 +591,15 @@
                         <span class="sec-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-bank"></i></span>
                         Información Bancaria
                     </div>
-                    <div class="alert alert-info small mb-3">
+                    <div class="alert alert-info small mb-3" id="bankAccountsInfoMsg">
                         <i class="bi bi-info-circle me-1"></i>
                         <strong>Importante:</strong> Registra al menos una cuenta en Soles (S/) y una en Dólares ($). Máximo 6 cuentas.
                         El cliente puede registrar cuentas en cualquier banco (BCP, BBVA, Scotiabank, Interbank, etc.).
+                    </div>
+                    <div class="alert alert-warning small mb-3" id="bankAccountsBotMsg" style="display:none;">
+                        <i class="bi bi-whatsapp me-1"></i>
+                        <strong>Registro vía WhatsApp Bot:</strong> Las cuentas bancarias son <strong>opcionales</strong> en este paso.
+                        Se solicitarán al cliente directamente durante su primera operación por el bot.
                     </div>
 
                     <div id="bankAccountsContainer"></div>
@@ -868,6 +873,19 @@
                 setTimeout(function() {
                     applyRoleRestrictions(window.currentUserRole);
                 }, 100);
+            }
+
+            // Mostrar mensaje correcto en sección de cuentas bancarias según rol
+            if (window.currentUserRole === 'App') {
+                const infoMsg = document.getElementById('bankAccountsInfoMsg');
+                const botMsg  = document.getElementById('bankAccountsBotMsg');
+                if (infoMsg) infoMsg.style.display = 'none';
+                if (botMsg)  botMsg.style.display  = 'block';
+            } else {
+                const infoMsg = document.getElementById('bankAccountsInfoMsg');
+                const botMsg  = document.getElementById('bankAccountsBotMsg');
+                if (infoMsg) infoMsg.style.display = 'block';
+                if (botMsg)  botMsg.style.display  = 'none';
             }
 
             // Foco en primer input (solo si no es Trader/Operador)
