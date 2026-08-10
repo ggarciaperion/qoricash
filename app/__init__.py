@@ -184,6 +184,34 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Migration] wa_bot_sessions.cotiz_timestamp: {e}")
 
+    # Migración: tabla economic_events — calendario económico (idempotente)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS economic_events (
+                    id         SERIAL PRIMARY KEY,
+                    event_key  VARCHAR(32) UNIQUE NOT NULL,
+                    event_date TIMESTAMP NOT NULL,
+                    country    VARCHAR(10),
+                    flag       VARCHAR(10),
+                    event_name VARCHAR(250),
+                    impact     VARCHAR(10),
+                    actual     VARCHAR(30),
+                    forecast   VARCHAR(30),
+                    previous   VARCHAR(30),
+                    source     VARCHAR(50) DEFAULT 'ForexFactory',
+                    fetched_at TIMESTAMP DEFAULT NOW()
+                )
+            """))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_events_date ON economic_events(event_date)"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] economic_events: {e}")
+
     # Migración: tablas del ecosistema de Agentes IA (idempotente)
     try:
         with app.app_context():
@@ -1475,6 +1503,7 @@ def start_market_schedulers(app):
     _run_every(5  * 60, 'Precios de mercado',   _prices)
     _run_every(15 * 60, 'Noticias RSS',          _news)
     _run_every(6  * 3600, 'Indicadores macro',   _macro)
+    _run_every(6  * 3600, 'Calendario económico', _calendar)
     # FX Monitor: loop back-to-back con watchdog de dos niveles.
     # Nivel 1 — inner loop: captura errores por ciclo, reintenta en 2s.
     # Nivel 2 — watchdog: si el greenlet muere por cualquier razón, lo respawnea.
@@ -1525,7 +1554,6 @@ def start_market_schedulers(app):
                 gt = eventlet.spawn(_fx_monitor_loop)
 
     eventlet.spawn(_fx_monitor_watchdog)
-    _run_every(24 * 3600, 'Calendario económico', _calendar)
 
     # Análisis diario a las 8:30 AM Lima, lunes a viernes
     def _daily_analysis_at_time():
