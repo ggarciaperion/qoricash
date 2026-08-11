@@ -995,11 +995,17 @@ def _flujo_registrar_codigo_op(numero, codigo, session):
         db.session.commit()
         log.info(f'[WaBot] {numero} envió código op {codigo} para {op.operation_id} → En proceso')
 
+        if _is_horario_atencion():
+            tiempo_msg = 'Nuestro equipo verificará tu transferencia y realizará el depósito en tu cuenta en breve.'
+        else:
+            proximo = _next_business_day()
+            tiempo_msg = f'Recibimos tu operación. Como estamos fuera de horario, será procesada el *{proximo}*, cuando nuestro equipo inicie operaciones.'
+
         send_buttons(numero,
             f'✅ *¡Código registrado!*\n\n'
             f'📋 *Operación:* {op.operation_id}\n'
             f'🔢 *Código bancario:* {codigo}\n\n'
-            f'Tu operación está siendo procesada. Nuestro equipo verificará tu transferencia y realizará el depósito en tu cuenta en breve.\n\n'
+            f'{tiempo_msg}\n\n'
             f'Te notificaremos cuando esté completada. ¿Tienes alguna consulta?',
             [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
         )
@@ -1371,6 +1377,34 @@ def _is_horario_atencion():
     if day == 5:               # Sábado
         return 9 <= hour < 14
     return False               # Domingo
+
+
+# Feriados nacionales Perú 2026 (fecha, mes)
+_FERIADOS_PE = {
+    (1, 1), (9, 4), (10, 4), (1, 5), (29, 6), (28, 7), (29, 7),
+    (30, 8), (8, 10), (1, 11), (8, 12), (25, 12),
+}
+
+
+def _next_business_day():
+    """
+    Retorna un string con el próximo día hábil (lun–vie, no feriado)
+    y la hora de apertura. Ejemplo: 'lunes 11 de agosto a las 9:00 AM'
+    """
+    from app.utils.formatters import now_peru
+    from datetime import timedelta
+    DIAS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
+    MESES = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+             'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+    candidate = now_peru().date() + timedelta(days=1)
+    for _ in range(14):  # máximo 2 semanas hacia adelante
+        wd = candidate.weekday()
+        es_feriado = (candidate.day, candidate.month) in _FERIADOS_PE
+        if wd < 5 and not es_feriado:  # lun–vie, no feriado
+            nombre_dia = DIAS[wd]
+            return f'{nombre_dia} {candidate.day} de {MESES[candidate.month]} a las 9:00 AM'
+        candidate += timedelta(days=1)
+    return 'el próximo día hábil a las 9:00 AM'
 
 
 def _flujo_fuera_horario(numero):
