@@ -671,12 +671,26 @@ def _cotiz_expirada(session):
 
 
 def _flujo_sesion_expirada(numero):
-    """Avisa al cliente que la sesión expiró por inactividad."""
-    send_buttons(numero,
-        '⏰ Tu sesión ha expirado por inactividad.\n\n'
-        'Cuando desees volver a operar, escríbenos y comenzamos de nuevo.',
-        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
-    )
+    """
+    Avisa al cliente que la sesión expiró.
+    Si el último mensaje saliente fue la notificación de operación completada,
+    envía un cierre de cortesía en lugar del genérico de inactividad.
+    """
+    if _ultimo_saliente_fue_op_completada(numero):
+        send_buttons(numero,
+            '¡Fue un placer ayudarte con tu operación! 😊\n'
+            'Estamos aquí siempre que lo necesites.',
+            [
+                {'id': 'btn_volver_cotizar', 'title': '💱 Volver a cotizar'},
+                {'id': 'btn_asesor',         'title': '💬 Hablar con asesor'},
+            ]
+        )
+    else:
+        send_buttons(numero,
+            '⏰ Tu sesión ha expirado por inactividad.\n\n'
+            'Cuando desees volver a operar, escríbenos y comenzamos de nuevo.',
+            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+        )
 
 
 def _reset_sesion(session):
@@ -1473,21 +1487,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
             db.session.commit()
             return
 
-        # ── Post-operación completada: respuesta de cortesía del cliente ──────
-        # Si el último mensaje saliente fue qoricash_operacion_completada y el
-        # cliente responde (gracias, ok, sticker, emoji, cualquier cosa), NO
-        # enviar bienvenida — responder con mensaje de cierre + opciones.
-        if estado == 'inicio' and _ultimo_saliente_fue_op_completada(numero):
-            send_buttons(numero,
-                '¡Fue un placer ayudarte con tu operación! 🙌\n'
-                'Estamos aquí siempre que lo necesites.',
-                [
-                    {'id': 'btn_volver_cotizar', 'title': '💱 Volver a cotizar'},
-                    {'id': 'btn_asesor',         'title': '💬 Hablar con asesor'},
-                ]
-            )
-            db.session.commit()
-            return
+        # Nota: el mensaje de cierre "¡Fue un placer!" se envía proactivamente
+        # por el job de expiración de sesiones (antes de resetear), no aquí.
+        # Si el cliente escribe tras una sesión reseteada, recibe bienvenida.
 
         # ── Botones interactivos ───────────────────────────────────
         if tipo_msg == 'interactive':
