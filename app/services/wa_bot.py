@@ -1926,6 +1926,55 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         _flujo_op_ya_activa(numero, _op_activa_txt)
                     else:
                         _bienvenida(numero, session.nombre)
+                        session.estado = 'menu_mostrado'  # evita loop de bienvenida
+
+            elif estado == 'menu_mostrado':
+                # El cliente ya recibió la bienvenida. No re-enviarla; responder con inteligencia.
+                txt_lower = texto.lower()
+                if any(k in txt_lower for k in ('como funciona', 'cómo funciona', 'como opera', 'es seguro', 'es confiable')):
+                    _flujo_como_funciona(numero)
+                elif any(k in txt_lower for k in ('horario', 'hora', 'atienden', 'trabajan', 'abren', 'cierran')):
+                    _flujo_horario(numero)
+                elif any(k in txt_lower for k in ('no quiero', 'no me interesa', 'no gracias', 'no tengo', 'salir', 'exit', 'stop', 'cancelar')):
+                    send_text(numero, 'Entendido 😊 Cuando necesites cambiar dólares, aquí estaremos.')
+                    session.estado = 'inicio'
+                elif any(k in txt_lower for k in ('euro', 'eur ', 'libra', 'gbp', 'yuan', 'yen', 'otra moneda')):
+                    send_buttons(numero,
+                        '💱 Por el momento operamos solo cambio de *USD ↔ PEN* (dólares americanos a soles).\n\n'
+                        '¿Deseas cotizar el tipo de cambio dólar / sol?',
+                        [
+                            {'id': 'btn_cotizar', 'title': '💱 Cotizar USD'},
+                            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                        ]
+                    )
+                elif any(k in txt_lower for k in (
+                    'cotizar', 'cotizacion', 'cotización', 'tipo de cambio', ' tc ', 'cambio',
+                    'precio del dólar', 'precio del dolar', 'cuánto está', 'cuanto esta',
+                    'comprar', 'vender', 'cambiar', 'dólar', 'dolar', 'quiero', 'necesito'
+                )):
+                    _flujo_cotizar_inicio(numero)
+                    session.estado = 'eligiendo_operacion'
+                elif any(k in txt_lower for k in ('registr', 'mi cuenta', 'activar', 'cuándo activan', 'cuando activan', 'estado de mi cuenta')):
+                    if session.cotiz_doc:
+                        send_buttons(numero,
+                            '⏳ Tu solicitud de registro está siendo revisada por nuestro equipo.\n\n'
+                            'Te notificaremos por aquí mismo cuando tu cuenta esté activa.',
+                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                        )
+                    else:
+                        send_buttons(numero,
+                            '¿Deseas registrarte en Qoricash?',
+                            [
+                                {'id': 'btn_registro', 'title': '📝 Registrarme'},
+                                {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
+                            ]
+                        )
+                else:
+                    _op_activa_txt = _operacion_activa_cliente(numero)
+                    if _op_activa_txt:
+                        _flujo_op_ya_activa(numero, _op_activa_txt)
+                    else:
+                        _menu_rapido(numero)
 
             elif estado in ('esperando_dni_front', 'esperando_dni_back', 'esperando_ruc', 'esperando_email'):
                 _flujo_recordatorio_registro(numero, estado)
@@ -2024,6 +2073,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
 
                 else:
                     _bienvenida(numero, session.nombre)
+                    session.estado = 'menu_mostrado'
 
         # ── Imágenes / documentos ─────────────────────────────────
         elif tipo_msg in ('image', 'document'):
