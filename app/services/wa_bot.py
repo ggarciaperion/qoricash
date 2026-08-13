@@ -1887,9 +1887,12 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
 
             elif estado == 'inicio':
                 txt_lower = texto.lower()
-                if any(k in txt_lower for k in ('como funciona', 'cómo funciona', 'como opera', 'es seguro', 'es confiable')):
+                if any(k in txt_lower for k in ('hola', 'buenas', 'buenos', 'hi ', 'hey', 'saludos', 'buen dia', 'buen día')):
+                    _bienvenida(numero, session.nombre)
+                    session.estado = 'menu_mostrado'
+                elif any(k in txt_lower for k in ('como funciona', 'cómo funciona', 'como opera', 'es seguro', 'es confiable', 'información', 'informacion', 'info', 'cuéntame', 'cuentame')):
                     _flujo_como_funciona(numero)
-                elif any(k in txt_lower for k in ('horario', 'hora', 'atienden', 'trabajan', 'abren', 'cierran')):
+                elif any(k in txt_lower for k in ('horario', 'hora', 'atienden', 'trabajan', 'abren', 'cierran', 'disponible', 'disponibles')):
                     _flujo_horario(numero)
                 elif any(k in txt_lower for k in ('cancelar', 'salir', 'exit', 'stop', 'no gracias')):
                     send_text(numero,
@@ -1919,8 +1922,19 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                                 {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
                             ]
                         )
+                elif any(k in txt_lower for k in (
+                    'cotizar', 'cotizacion', 'cotización', 'tipo de cambio', 'cambio', 'precio',
+                    'comprar', 'vender', 'cambiar', 'dólar', 'dolar', 'quiero', 'necesito',
+                    'cuanto', 'cuánto', 'tc', 'tasa', 'me interesa', 'saber',
+                )):
+                    _op_activa_txt = _operacion_activa_cliente(numero)
+                    if _op_activa_txt:
+                        _flujo_op_ya_activa(numero, _op_activa_txt)
+                    else:
+                        _flujo_cotizar_inicio(numero)
+                        session.estado = 'eligiendo_operacion'
                 else:
-                    # Si tiene operación activa, recordarle antes de mostrar bienvenida con Cotizar
+                    # Si tiene operación activa, recordarle antes de mostrar bienvenida
                     _op_activa_txt = _operacion_activa_cliente(numero)
                     if _op_activa_txt:
                         _flujo_op_ya_activa(numero, _op_activa_txt)
@@ -1931,9 +1945,28 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
             elif estado == 'menu_mostrado':
                 # El cliente ya recibió la bienvenida. No re-enviarla; responder con inteligencia.
                 txt_lower = texto.lower()
-                if any(k in txt_lower for k in ('como funciona', 'cómo funciona', 'como opera', 'es seguro', 'es confiable')):
+                _entendido = True  # flag para resetear contador si se entiende el mensaje
+
+                if any(k in txt_lower for k in ('hola', 'buenas', 'buenos', 'hi ', 'hey', 'saludos', 'buen dia', 'buen día')):
+                    send_buttons(numero,
+                        '¡Hola! 👋 ¿En qué te puedo ayudar hoy?',
+                        [
+                            {'id': 'btn_cotizar',  'title': '💱 Cotizar'},
+                            {'id': 'btn_registro', 'title': '📝 Registrarme'},
+                            {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
+                        ]
+                    )
+                elif any(k in txt_lower for k in ('ok', 'okey', 'okay', 'entendido', 'gracias', 'listo', 'perfecto', 'bien', 'dale', 'claro', 'de acuerdo')):
+                    send_buttons(numero,
+                        '😊 ¿Hay algo más en lo que pueda ayudarte?',
+                        [
+                            {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                        ]
+                    )
+                elif any(k in txt_lower for k in ('como funciona', 'cómo funciona', 'como opera', 'es seguro', 'es confiable', 'información', 'informacion', 'info', 'cuéntame', 'cuentame')):
                     _flujo_como_funciona(numero)
-                elif any(k in txt_lower for k in ('horario', 'hora', 'atienden', 'trabajan', 'abren', 'cierran')):
+                elif any(k in txt_lower for k in ('horario', 'hora', 'atienden', 'trabajan', 'abren', 'cierran', 'disponible', 'disponibles')):
                     _flujo_horario(numero)
                 elif any(k in txt_lower for k in ('no quiero', 'no me interesa', 'no gracias', 'no tengo', 'salir', 'exit', 'stop', 'cancelar')):
                     send_text(numero, 'Entendido 😊 Cuando necesites cambiar dólares, aquí estaremos.')
@@ -1948,12 +1981,19 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         ]
                     )
                 elif any(k in txt_lower for k in (
-                    'cotizar', 'cotizacion', 'cotización', 'tipo de cambio', ' tc ', 'cambio',
-                    'precio del dólar', 'precio del dolar', 'cuánto está', 'cuanto esta',
-                    'comprar', 'vender', 'cambiar', 'dólar', 'dolar', 'quiero', 'necesito'
+                    'cotizar', 'cotizacion', 'cotización', 'tipo de cambio', 'cambio', 'precio',
+                    'comprar', 'vender', 'cambiar', 'dólar', 'dolar', 'quiero', 'necesito',
+                    'cuanto', 'cuánto', 'tc', 'tasa', 'me interesa', 'saber', ' tc ', 'cuánto está', 'cuanto esta',
                 )):
-                    _flujo_cotizar_inicio(numero)
-                    session.estado = 'eligiendo_operacion'
+                    _op_activa_txt = _operacion_activa_cliente(numero)
+                    if _op_activa_txt:
+                        _flujo_op_ya_activa(numero, _op_activa_txt)
+                    else:
+                        _flujo_cotizar_inicio(numero)
+                        session.estado = 'eligiendo_operacion'
+                elif any(k in txt_lower for k in ('asesor', 'ayuda', 'ayúdame', 'ayudame', 'hablar', 'persona', 'humano', 'soporte', 'contacto')):
+                    _flujo_asesor(numero)
+                    session.estado = 'inicio'
                 elif any(k in txt_lower for k in ('registr', 'mi cuenta', 'activar', 'cuándo activan', 'cuando activan', 'estado de mi cuenta')):
                     if session.cotiz_doc:
                         send_buttons(numero,
@@ -1970,11 +2010,40 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                             ]
                         )
                 else:
+                    _entendido = False
                     _op_activa_txt = _operacion_activa_cliente(numero)
                     if _op_activa_txt:
                         _flujo_op_ya_activa(numero, _op_activa_txt)
                     else:
-                        _menu_rapido(numero)
+                        # Contar mensajes no entendidos consecutivamente para evitar loop
+                        try:
+                            session.cotiz_intentos = (session.cotiz_intentos or 0) + 1
+                            _no_entendidos = session.cotiz_intentos
+                        except Exception:
+                            _no_entendidos = 1
+
+                        if _no_entendidos >= 2:
+                            # Tras 2 mensajes sin entender: derivar a asesor automáticamente
+                            try:
+                                session.cotiz_intentos = 0
+                            except Exception:
+                                pass
+                            send_buttons(numero,
+                                'Parece que no logro entenderte bien. 😊\n\n'
+                                'Te conecto con un asesor para que pueda ayudarte mejor.',
+                                [
+                                    {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                                    {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                                ]
+                            )
+                        else:
+                            _menu_rapido(numero)
+
+                if _entendido:
+                    try:
+                        session.cotiz_intentos = 0
+                    except Exception:
+                        pass
 
             elif estado in ('esperando_dni_front', 'esperando_dni_back', 'esperando_ruc', 'esperando_email'):
                 _flujo_recordatorio_registro(numero, estado)
