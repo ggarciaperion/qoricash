@@ -11,6 +11,7 @@ Principio de aislamiento:
   - Todos los métodos públicos capturan sus propios errores
   - Un fallo contable NO afecta el flujo de la operación
 """
+from __future__ import annotations
 import logging
 from datetime import date as date_type
 from app.utils.formatters import now_peru
