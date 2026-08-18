@@ -482,8 +482,22 @@ class EmailService:
         logger.info(f'[email] nueva_op {getattr(operation, "operation_id", "?")} dest_num={dest_num} accounts={len(client_accounts)} destination_acc={destination_acc}')
 
         from app.config.bank_accounts import get_accounts_for_currency, QORICASH_TITULAR, QORICASH_RUC
-        usd_accounts = get_accounts_for_currency('USD')
-        pen_accounts = get_accounts_for_currency('PEN')
+
+        # Determinar banco de origen del cliente para filtrar cuentas QoriCash
+        _BANCOS_PROPIOS = {'BCP', 'INTERBANK', 'BANBIF'}
+        _src_bank_raw = getattr(operation, 'source_bank_name', None) or ''
+        _src_bank = _src_bank_raw.upper().strip()
+        _es_interbancaria = not any(b in _src_bank for b in _BANCOS_PROPIOS)
+
+        if _es_interbancaria:
+            # Solo mostrar cuenta INTERBANK (operación interbancaria: el cliente abona por CCI)
+            usd_accounts = [acc for acc in get_accounts_for_currency('USD') if acc['banco'] == 'INTERBANK']
+            pen_accounts = [acc for acc in get_accounts_for_currency('PEN') if acc['banco'] == 'INTERBANK']
+        else:
+            usd_accounts = get_accounts_for_currency('USD')
+            pen_accounts = get_accounts_for_currency('PEN')
+
+        logger.info(f'[email] nueva_op {getattr(operation, "operation_id", "?")} source_bank="{_src_bank_raw}" interbancaria={_es_interbancaria}')
 
         body = """
       <tr>
