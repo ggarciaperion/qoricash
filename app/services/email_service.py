@@ -608,6 +608,11 @@ class EmailService:
           <p style="margin:0 0 3px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #5CB85C;">
             {% if operation.operation_type == 'Compra' %}¿A dónde transfiero mis dólares?{% else %}¿A dónde transfiero mis soles?{% endif %}
           </p>
+          {% if es_interbancaria %}
+          <div style="border-radius:6px;padding:10px 14px;margin:0 0 10px 0;background:#EFF6FF;border:1px solid #BFDBFE;font-size:12px;color:#1e40af;line-height:1.6;">
+            Su banco de origen no pertenece a nuestra red directa (BCP, INTERBANK o BANBIF). Por ello, debe realizar una <strong>transferencia interbancaria</strong> usando el CCI de nuestra cuenta INTERBANK indicada a continuación.
+          </div>
+          {% endif %}
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="background:#F8FAFC;border-bottom:1px solid #E2E8F0;">
               <td colspan="4" style="padding:9px 14px;font-size:11px;color:#64748b;text-align:justify;">
@@ -700,6 +705,7 @@ class EmailService:
             qoricash_ruc=QORICASH_RUC,
             client_accounts=client_accounts,
             destination_acc=destination_acc,
+            es_interbancaria=_es_interbancaria,
         )
         return _apply_theme_colors(html, _theme)
 
