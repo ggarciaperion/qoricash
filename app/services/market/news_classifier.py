@@ -4,6 +4,87 @@ Determina: impacto (high/medium/low) y dirección (bullish_usd / bearish_usd / n
 Sin ML — basado en keywords ponderadas para máxima velocidad y transparencia.
 """
 
+# ── Filtro de relevancia financiera ──────────────────────────────────────────
+# Términos que delatan contenido NO financiero → rechazar el artículo
+_BLOCKLIST = [
+    # Deportes
+    'futbol', 'fútbol', 'football', 'partido de fut', 'gol ', ' goles',
+    'liga de fútbol', 'liga española', 'premier league', 'champions league',
+    'europa league', 'copa del mundo', 'copa america', 'copa américa',
+    'mundial de fut', 'selección peruana', 'seleccion peruana',
+    'sporting cristal', 'universitario', 'alianza lima',
+    'nba ', ' nfl ', ' mlb ', ' nhl ', ' fifa ',
+    'baloncesto', 'basquetbol', 'basquet', 'vóley', 'voley', 'voleibol',
+    'atletismo', 'ciclismo', 'natación', 'tenis ',
+    'directv sport', 'direc tv sport', 'espn ', 'fanatiz', 'win sport',
+    # Entretenimiento / espectáculos
+    'farándula', 'farandula', 'espectáculos', 'espectaculos',
+    'telenovela', 'reality show', 'reality tv',
+    'concierto de ', 'gira de ', 'álbum de ', 'album de ',
+    'película del', 'pelicula del', 'serie de netflix', 'serie de hbo',
+    'disney+', 'amazon prime video',
+    'cantante ', 'reggaeton', 'salsa ', 'cumbia ',
+    # Tecnología de consumo (no fintech)
+    'playstation', 'xbox game', 'nintendo switch', 'videojuego', 'gaming ',
+    # Salud / lifestyle
+    'receta de ', 'receta cocin', 'dieta ', 'adelgazar', 'horóscopo', 'horoscopo',
+    'turismo ', 'destino turístico', 'destino turistico',
+    # Política sin impacto económico
+    'elecciones municipales', 'candidato a la alcaldía',
+]
+
+# Al menos uno de estos términos debe estar presente → noticia financiera
+_FINANCIAL_REQUIRED = [
+    # Divisas / tipo de cambio
+    'dólar', 'dollar', 'usd', 'tipo de cambio', 'exchange rate', 'divisa',
+    'sol peruano', 'pen ', 'moneda ',
+    # Mercados de valores
+    'bolsa', 'mercado ', 'market', 'acciones', 'stock ', 'índice', 'indice',
+    'wall street', 's&p', 'nasdaq', 'dow jones', 'nyse', 'bvl',
+    # Commodities
+    'oro ', 'gold ', 'petróleo', 'petroleo', 'oil ', 'cobre ', 'copper',
+    'plata ', 'silver ', 'commodity', 'commodities', 'mineral', 'minería', 'mineria',
+    # Macro
+    'economía', 'economia', 'economy', 'pbi', 'gdp', 'pib',
+    'inflación', 'inflation', 'deflación', 'deflation',
+    'tasa de interés', 'tasa de interes', 'interest rate',
+    'fed ', 'federal reserve', 'banco central', 'bcrp', 'bce', 'bcra',
+    'crecimiento económico', 'recesión', 'recesion', 'recession',
+    'exportaciones', 'importaciones', 'balanza comercial', 'balanza de pagos',
+    'déficit fiscal', 'deficit fiscal', 'superávit', 'superavit',
+    'reservas internacionales', 'deuda pública', 'deuda publica',
+    # Finanzas corporativas / banca
+    'finanzas', 'finance', 'inversión', 'inversion', 'investment',
+    'deuda ', 'debt ', 'bono ', 'bond ', 'yield ', 'rendimiento financiero',
+    'banco ', 'bank ', 'crédito', 'credito', 'préstamo', 'prestamo',
+    'fusión', 'fusion', 'adquisición', 'acquisition', 'opa ', 'ipo ',
+    'utilidades ', 'earnings', 'ganancias empresa',
+    # Comercio / política económica
+    'arancel', 'tariff', 'guerra comercial', 'trade war', 'sanción', 'sanction',
+    'fmi', 'imf', 'banco mundial', 'world bank', 'ocde', 'oecd',
+    'mef ', 'sunat ', 'indecopi', 'sbs ', 'smv ',
+    # Criptomonedas
+    'bitcoin', 'btc', 'ethereum', 'eth ', 'crypto', 'criptomoneda', 'blockchain',
+]
+
+
+def is_financial(title: str, summary: str = '') -> bool:
+    """
+    Retorna True solo si el artículo es de temática financiera/económica.
+    Doble filtro:
+      1. Blocklist: rechaza si hay términos de deportes / entretenimiento / lifestyle
+      2. Whitelist: requiere al menos un término financiero
+    """
+    text = (title + ' ' + (summary or '')).lower()
+
+    # Capa 1: rechazar contenido claramente no financiero
+    if any(term in text for term in _BLOCKLIST):
+        return False
+
+    # Capa 2: requiere al menos un término de temática financiera
+    return any(term in text for term in _FINANCIAL_REQUIRED)
+
+
 # ── Palabras clave por nivel de impacto ──────────────────────────────────────
 
 HIGH_IMPACT = [

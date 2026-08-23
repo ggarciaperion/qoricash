@@ -12,7 +12,7 @@ from typing import Optional
 import feedparser
 import requests
 
-from .news_classifier import classify as _keyword_classify
+from .news_classifier import classify as _keyword_classify, is_financial as _is_financial
 
 def classify(title: str, summary: str = '') -> tuple:
     """Clasifica con Claude Haiku; fallback a keywords si falla."""
@@ -132,10 +132,22 @@ RSS_SOURCES = [
     },
     # ── Perú ─────────────────────────────────────────────────────────────────
     {
-        "name":    "Gestión",
+        "name":    "Gestión — Economía",
         "country": "PE",
-        "url":     "https://gestion.pe/arc/outboundfeeds/rss/?outputType=xml",
+        "url":     "https://gestion.pe/arc/outboundfeeds/rss/category/economia/?outputType=xml",
         "limit":   20,
+    },
+    {
+        "name":    "Gestión — Mercados",
+        "country": "PE",
+        "url":     "https://gestion.pe/arc/outboundfeeds/rss/category/mercados/?outputType=xml",
+        "limit":   15,
+    },
+    {
+        "name":    "Gestión — Empresas",
+        "country": "PE",
+        "url":     "https://gestion.pe/arc/outboundfeeds/rss/category/empresas/?outputType=xml",
+        "limit":   10,
     },
     {
         "name":    "El Comercio Economía",
@@ -203,6 +215,10 @@ def _fetch_source(source: dict) -> list[dict]:
             # Traducir al español si el texto está en inglés
             title   = _translate(title,   max_chars=290)
             summary = _translate(summary, max_chars=400)
+
+            # Descartar artículos no financieros antes de clasificar y guardar
+            if not _is_financial(title, summary):
+                continue
 
             impact, direction, sentiment = classify(title, summary)
 

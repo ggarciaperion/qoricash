@@ -105,10 +105,16 @@ class MarketService:
     @staticmethod
     def run_news_cycle() -> dict:
         """Fetch de noticias + deduplicación (se ejecuta cada 15 min)."""
+        from .news_classifier import is_financial as _is_financial
         try:
             articles = fetch_all_news()
             new_count = 0
+            skipped = 0
             for art in articles:
+                # Guardia final: descartar si no es financiero (doble seguro tras el filtro en fetcher)
+                if not _is_financial(art.get('title', ''), art.get('summary', '')):
+                    skipped += 1
+                    continue
                 # Deduplicar por url_hash
                 exists = MarketNews.query.filter_by(url_hash=art['url_hash']).first()
                 if not exists:
@@ -127,8 +133,8 @@ class MarketService:
                     ))
                     new_count += 1
             db.session.commit()
-            logger.info(f"[Noticias] {new_count} nuevas noticias guardadas (de {len(articles)} scrapeadas)")
-            return {'ok': True, 'new': new_count, 'total': len(articles)}
+            logger.info(f"[Noticias] {new_count} nuevas noticias guardadas (de {len(articles)} scrapeadas, {skipped} descartadas por no financieras)")
+            return {'ok': True, 'new': new_count, 'total': len(articles), 'skipped': skipped}
 
         except Exception as e:
             db.session.rollback()
@@ -259,13 +265,20 @@ class MarketService:
         snap   = MarketSnapshot.query.order_by(MarketSnapshot.captured_at.desc()).first()
         signal = MarketSignal.query.order_by(MarketSignal.generated_at.desc()).first()
 
-        # Noticias: last 48h, ordenadas por más reciente primero
+        # Noticias: last 48h, solo high/medium impact, priorizadas por impacto luego por recencia
+        from sqlalchemy import case as sa_case
         since_news = now_peru() - timedelta(hours=48)
+        impact_order = sa_case(
+            {'high': 1, 'medium': 2},
+            value=MarketNews.impact_level,
+            else_=3,
+        )
         news_rows = (
             MarketNews.query
             .filter(MarketNews.fetched_at >= since_news)
-            .order_by(MarketNews.fetched_at.desc())
-            .limit(50)
+            .filter(MarketNews.impact_level.in_(['high', 'medium']))
+            .order_by(impact_order.asc(), MarketNews.fetched_at.desc())
+            .limit(60)
             .all()
         )
 
