@@ -4,19 +4,24 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { Icon } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { View } from 'react-native';
+import { View, ImageBackground, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useLoginLoading } from '../contexts/LoginLoadingContext';
 import { Colors } from '../constants/colors';
 import { STORAGE_KEYS } from '../constants/config';
 import { LoginLoadingScreen } from '../components/LoginLoadingScreen';
+import { LogoutOverlay } from '../components/LogoutOverlay';
+import { CustomTabBar } from '../components/CustomTabBar';
 
 // Auth Screens
 import { LoginScreen } from '../screens/LoginScreen';
 import { PublicCalculatorScreen } from '../screens/PublicCalculatorScreen';
 import { ClientTypeSelectionScreen } from '../screens/ClientTypeSelectionScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
+import { RegisterWithGoogleScreen } from '../screens/RegisterWithGoogleScreen';
 import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
 import { VerifyIdentityScreen } from '../screens/VerifyIdentityScreen';
 
@@ -27,6 +32,7 @@ import { TransferScreen } from '../screens/TransferScreen';
 import { ReceiveScreen } from '../screens/ReceiveScreen';
 import { OperationDetailScreen } from '../screens/OperationDetailScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
+import { MarketScreen } from '../screens/MarketScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { LogsScreen } from '../screens/LogsScreen';
 
@@ -37,48 +43,16 @@ const Tab = createBottomTabNavigator();
 const TabNavigator = () => {
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName = 'home';
-
-          if (route.name === 'HomeTab') {
-            iconName = 'home';
-          } else if (route.name === 'HistoryTab') {
-            iconName = 'history';
-          } else if (route.name === 'ProfileTab') {
-            iconName = 'account';
-          }
-
-          return <Icon source={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: Colors.success,
-        tabBarInactiveTintColor: Colors.textMuted,
-      })}
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+        sceneStyle: { backgroundColor: 'transparent' },
+      }}
     >
-      <Tab.Screen
-        name="HomeTab"
-        component={HomeScreen}
-        options={{
-          title: 'Inicio',
-          headerShown: false,
-        }}
-      />
-      <Tab.Screen
-        name="HistoryTab"
-        component={HistoryScreen}
-        options={{
-          title: 'Historial',
-          headerTitle: 'Historial de Operaciones',
-        }}
-      />
-      <Tab.Screen
-        name="ProfileTab"
-        component={ProfileScreen}
-        options={{
-          title: 'Perfil',
-          headerTitle: 'Mi Perfil',
-        }}
-      />
+      <Tab.Screen name="HomeTab"    component={HomeScreen}    options={{ title: 'Inicio' }} />
+      <Tab.Screen name="HistoryTab" component={HistoryScreen} options={{ title: 'Historial' }} />
+      <Tab.Screen name="MarketTab"  component={MarketScreen}  options={{ title: 'Mercado', headerShown: false }} />
+      <Tab.Screen name="ProfileTab" component={ProfileScreen} options={{ title: 'Perfil' }} />
     </Tab.Navigator>
   );
 };
@@ -86,31 +60,79 @@ const TabNavigator = () => {
 // Auth Navigator
 const AuthNavigator = () => {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="PublicCalculator" component={PublicCalculatorScreen} />
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen
-        name="ClientTypeSelection"
-        component={ClientTypeSelectionScreen}
-        options={{
-          headerShown: false,
-        }}
+    <View style={{ flex: 1 }}>
+      {/* Fondo fijo — nunca transiciona, compartido por todas las pantallas auth */}
+      <ImageBackground
+        source={require('../../assets/cd.png')}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
       />
-      <Stack.Screen
-        name="Register"
-        component={RegisterScreen}
-        options={{
+
+      {/* Stack con cards transparentes — el fondo es fijo, solo transiciona el contenido */}
+      <Stack.Navigator
+        screenOptions={{
           headerShown: false,
+          cardStyle: { backgroundColor: 'transparent' },
+          cardOverlayEnabled: false,
+          cardStyleInterpolator: ({ current, next, layouts }) => ({
+            cardStyle: {
+              // Entrada: slide desde derecha + fade in sutil
+              opacity: current.progress.interpolate({
+                inputRange:  [0, 0.4, 1],
+                outputRange: [0, 0.7, 1],
+                extrapolate: 'clamp',
+              }),
+              transform: [
+                {
+                  translateX: current.progress.interpolate({
+                    inputRange:  [0, 1],
+                    outputRange: [layouts.screen.width * 0.28, 0],
+                    extrapolate: 'clamp',
+                  }),
+                },
+                {
+                  scale: current.progress.interpolate({
+                    inputRange:  [0, 1],
+                    outputRange: [0.96, 1],
+                    extrapolate: 'clamp',
+                  }),
+                },
+              ],
+              // Salida: pantalla anterior se encoge y se desvanece
+              ...(next && {
+                opacity: next.progress.interpolate({
+                  inputRange:  [0, 0.3],
+                  outputRange: [1, 0],
+                  extrapolate: 'clamp',
+                }),
+              }),
+            },
+          }),
+          transitionSpec: {
+            open:  { animation: 'spring', config: { stiffness: 380, damping: 38, mass: 1, overshootClamping: false } },
+            close: { animation: 'spring', config: { stiffness: 380, damping: 38, mass: 1, overshootClamping: false } },
+          },
         }}
-      />
-    </Stack.Navigator>
+      >
+        <Stack.Screen name="PublicCalculator" component={PublicCalculatorScreen} />
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="ClientTypeSelection" component={ClientTypeSelectionScreen} />
+        <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen name="RegisterWithGoogle" component={RegisterWithGoogleScreen} />
+      </Stack.Navigator>
+    </View>
   );
 };
 
 // Main Navigator
 const MainNavigator = () => {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        cardStyle: { backgroundColor: 'transparent' },
+        cardOverlayEnabled: false,
+      }}
+    >
       <Stack.Screen
         name="Tabs"
         component={TabNavigator}
@@ -174,8 +196,8 @@ const MainNavigator = () => {
 
 // Root Navigator
 export const AppNavigator = () => {
-  const { isAuthenticated, loading, client } = useAuth();
-  const { showLoginLoading, setShowLoginLoading } = useLoginLoading();
+  const { isAuthenticated, loading, client, logout } = useAuth();
+  const { showLoginLoading, setShowLoginLoading, showLogoutLoading, setShowLogoutLoading } = useLoginLoading();
   const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
 
   useEffect(() => {
@@ -201,7 +223,7 @@ export const AppNavigator = () => {
   const shouldShowAuthScreen = !isAuthenticated || showLoginLoading;
 
   return (
-    <>
+    <View style={{ flex: 1, backgroundColor: '#000000' }}>
       <NavigationContainer>
         {shouldShowAuthScreen ? (
           <AuthNavigator />
@@ -233,6 +255,13 @@ export const AppNavigator = () => {
         visible={showLoginLoading}
         onComplete={() => setShowLoginLoading(false)}
       />
-    </>
+
+      {/* Logout Overlay - Global overlay */}
+      <LogoutOverlay
+        visible={showLogoutLoading}
+        onLogout={logout}
+        onComplete={() => setShowLogoutLoading(false)}
+      />
+    </View>
   );
 };

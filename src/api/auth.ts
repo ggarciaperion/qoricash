@@ -1,5 +1,5 @@
 import apiClient from './client';
-import { LoginCredentials, LoginResponse, User } from '../types';
+import { LoginCredentials, LoginResponse, RegisterRequest, RegisterResponse, User } from '../types';
 
 export const authApi = {
   /**
@@ -60,6 +60,48 @@ export const authApi = {
     } catch (error: any) {
       // Limpiar sesión local incluso si hay error
       await apiClient.clearSession();
+    }
+  },
+
+  /**
+   * Register new client (web endpoint)
+   */
+  register: async (data: RegisterRequest): Promise<RegisterResponse> => {
+    try {
+      const response = await apiClient.post<RegisterResponse>('/api/web/register', data);
+      if (!response.success) {
+        throw new Error(response.message || 'Error al registrarse');
+      }
+      return response;
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || error.message || 'Error al registrarse';
+      throw new Error(errorMsg);
+    }
+  },
+
+  /**
+   * Authenticate or register via Google OAuth (mobile only)
+   * Sends the Google access_token to the backend for verification.
+   * Returns action='login' (existing client) or action='register' (new user)
+   */
+  googleAuth: async (accessToken: string): Promise<{
+    action: 'login' | 'register';
+    client?: any;
+    google_email?: string;
+    google_name?: string;
+    message?: string;
+  }> => {
+    try {
+      const response = await apiClient.post<any>('/api/client/google-auth', {
+        access_token: accessToken,
+      });
+      if (!response.success) {
+        throw new Error(response.message || 'Error al autenticar con Google');
+      }
+      return response;
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || error.message || 'Error al autenticar con Google';
+      throw new Error(errorMsg);
     }
   },
 

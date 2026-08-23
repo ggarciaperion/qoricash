@@ -5,8 +5,22 @@ import {
   TouchableOpacity,
   TextInput as RNTextInput,
   Animated,
+  Alert,
+  InputAccessoryView,
+  Keyboard,
+  Platform,
 } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSequence,
+  withSpring,
+  interpolateColor,
+  interpolate,
+  Easing,
+} from 'react-native-reanimated';
 import axios from 'axios';
 import { Colors } from '../constants/colors';
 import { API_CONFIG } from '../constants/config';
@@ -15,10 +29,16 @@ import socketService from '../services/socketService';
 
 interface CalculatorProps {
   onOperationReady?: (operationType: 'Compra' | 'Venta', amountUSD: string, exchangeRate: number) => void;
+  onAmountChange?: (isReady: boolean, operationType: 'Compra' | 'Venta', amountUSD: string, rate: number) => void;
+  onRatesChange?: (rates: { compra: number; venta: number }) => void;
+  onOperationTypeChange?: (tipo: 'Compra' | 'Venta') => void;
+  externalOperationType?: 'Compra' | 'Venta';
+  hideTabs?: boolean;
   showHeader?: boolean;
   showContinueButton?: boolean;
   showInitiateButton?: boolean;
   continueButtonText?: string;
+  lightMode?: boolean;
 }
 
 interface ExchangeRates {
@@ -28,20 +48,57 @@ interface ExchangeRates {
 
 export const Calculator: React.FC<CalculatorProps> = ({
   onOperationReady,
+  onAmountChange,
+  onRatesChange,
+  onOperationTypeChange,
+  externalOperationType,
+  hideTabs = false,
   showHeader = false,
   showContinueButton = false,
   showInitiateButton = false,
   continueButtonText = 'CONTINUAR',
+  lightMode = false,
 }) => {
   const [operationType, setOperationType] = useState<'Compra' | 'Venta'>('Compra');
+  const activeOperationType = externalOperationType ?? operationType;
   const [amountUSD, setAmountUSD] = useState('');
   const [amountPEN, setAmountPEN] = useState('');
   const [exchangeRates, setExchangeRates] = useState<ExchangeRates | null>(null);
 
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  const inputCurrency = operationType === 'Compra' ? 'USD' : 'PEN';
-  const outputCurrency = operationType === 'Compra' ? 'PEN' : 'USD';
+  // Reanimated shared values
+  const tabProgress = useSharedValue(0);   // 0 = Compra, 1 = Venta
+  const swapScale   = useSharedValue(1);
+
+  // Fondo animado de cada tarjeta (verde sólido cuando está activa)
+  const animCompraTabStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      tabProgress.value, [0, 1],
+      ['rgba(34,197,94,0.22)', 'transparent'],
+    ),
+  }));
+  const animVentaTabStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      tabProgress.value, [0, 1],
+      ['transparent', 'rgba(34,197,94,0.22)'],
+    ),
+  }));
+
+  // Opacidad del valor: lleno cuando activo, atenuado cuando inactivo
+  const animCompraValueStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(tabProgress.value, [0, 1], [1, 0.42]),
+  }));
+  const animVentaValueStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(tabProgress.value, [0, 1], [0.42, 1]),
+  }));
+
+  const animSwapStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: swapScale.value }],
+  }));
+
+  const inputCurrency = activeOperationType === 'Compra' ? 'USD' : 'PEN';
+  const outputCurrency = activeOperationType === 'Compra' ? 'PEN' : 'USD';
 
   useEffect(() => {
     fetchExchangeRates();
@@ -63,9 +120,24 @@ export const Calculator: React.FC<CalculatorProps> = ({
     };
   }, []);
 
+  // Sincronizar animación de tab cuando el tipo viene de afuera
+  useEffect(() => {
+    if (externalOperationType !== undefined) {
+      tabProgress.value = withTiming(externalOperationType === 'Venta' ? 1 : 0, {
+        duration: 280,
+        easing: Easing.out(Easing.cubic),
+      });
+    }
+  }, [externalOperationType]);
+
+  // Notificar al padre cuando cambian los rates
+  useEffect(() => {
+    if (exchangeRates) onRatesChange?.(exchangeRates);
+  }, [exchangeRates]);
+
   useEffect(() => {
     calculateAmount();
-  }, [amountUSD, operationType, exchangeRates]);
+  }, [amountUSD, activeOperationType, exchangeRates]);
 
   const fetchExchangeRates = async () => {
     try {
@@ -83,22 +155,35 @@ export const Calculator: React.FC<CalculatorProps> = ({
   const calculateAmount = () => {
     if (!amountUSD || !exchangeRates) {
       setAmountPEN('');
+      onAmountChange?.(false, activeOperationType, '', 0);
       return;
     }
 
     const amount = parseFloat(amountUSD);
     if (isNaN(amount) || amount <= 0) {
       setAmountPEN('');
+      onAmountChange?.(false, activeOperationType, '', 0);
       return;
     }
 
-    if (operationType === 'Compra') {
+    if (activeOperationType === 'Compra') {
       const pen = (amount * exchangeRates.compra).toFixed(2);
       setAmountPEN(pen);
+      onAmountChange?.(true, activeOperationType, amountUSD, exchangeRates.compra);
     } else {
       const usd = (amount / exchangeRates.venta).toFixed(2);
       setAmountPEN(usd);
+      onAmountChange?.(true, activeOperationType, amountUSD, exchangeRates.venta);
     }
+  };
+
+  const switchTab = (tipo: 'Compra' | 'Venta') => {
+    setOperationType(tipo);
+    onOperationTypeChange?.(tipo);
+    tabProgress.value = withTiming(tipo === 'Venta' ? 1 : 0, {
+      duration: 280,
+      easing: Easing.out(Easing.cubic),
+    });
   };
 
   const handleSwapCurrency = () => {
@@ -115,18 +200,24 @@ export const Calculator: React.FC<CalculatorProps> = ({
       }),
     ]).start();
 
-    setOperationType(operationType === 'Compra' ? 'Venta' : 'Compra');
+    swapScale.value = withSequence(
+      withSpring(0.8, { damping: 4, stiffness: 300 }),
+      withSpring(1,   { damping: 6, stiffness: 200 }),
+    );
+
+    const next = activeOperationType === 'Compra' ? 'Venta' : 'Compra';
+    switchTab(next);
   };
 
   const handleContinue = () => {
     if (onOperationReady && amountUSD && exchangeRates) {
-      const rate = operationType === 'Compra' ? exchangeRates.compra : exchangeRates.venta;
-      onOperationReady(operationType, amountUSD, rate);
+      const rate = activeOperationType === 'Compra' ? exchangeRates.compra : exchangeRates.venta;
+      onOperationReady(activeOperationType, amountUSD, rate);
     }
   };
 
   const currentRate = exchangeRates
-    ? operationType === 'Compra'
+    ? activeOperationType === 'Compra'
       ? exchangeRates.compra
       : exchangeRates.venta
     : 0;
@@ -137,6 +228,8 @@ export const Calculator: React.FC<CalculatorProps> = ({
     return (amount * 0.03).toFixed(2);
   };
 
+  const INPUT_ACCESSORY_ID = 'calculator-amount-input';
+
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '180deg'],
@@ -146,53 +239,73 @@ export const Calculator: React.FC<CalculatorProps> = ({
     <View style={styles.container}>
       {showHeader && (
         <View style={styles.subtitleContainer}>
-          <Text style={styles.subtitle}>Tipo de cambio hoy en Perú</Text>
-          <IconButton icon="help-circle-outline" size={18} iconColor={Colors.textMuted} />
+          <Text style={[styles.subtitle, lightMode && styles.subtitleLight]}>Tipo de cambio hoy en Perú</Text>
+          <IconButton
+            icon="help-circle-outline"
+            size={18}
+            iconColor={Colors.textMuted}
+            onPress={() =>
+              Alert.alert(
+                'Tipo de cambio en vivo',
+                'El tipo de cambio mostrado es en tiempo real y está sujeto a variación según el mercado. El valor final de tu operación se confirmará al momento de iniciarla.',
+                [{ text: 'Entendido', style: 'default' }]
+              )
+            }
+          />
         </View>
       )}
 
-      {/* Tabs de Compra/Venta */}
-      <View style={styles.tabsContainer}>
-        <TouchableOpacity
-          style={[styles.tab, operationType === 'Compra' && styles.tabActive]}
-          onPress={() => {
-            setOperationType('Compra');
-          }}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.tabText, operationType === 'Compra' && styles.tabTextActive]}>
-            Compra: {exchangeRates?.compra.toFixed(3) || '0.000'}
-          </Text>
+      {/* Tarjetas de tipo de cambio — Compra / Venta (ocultas cuando hideTabs=true) */}
+      {!hideTabs && <View style={[styles.tabsContainer, lightMode && styles.tabsContainerLight]}>
+        {/* Card Compra */}
+        <TouchableOpacity onPress={() => switchTab('Compra')} activeOpacity={0.82} style={styles.rateTab}>
+          <Reanimated.View style={[StyleSheet.absoluteFill, animCompraTabStyle]} />
+          <Text style={[styles.rateTabLabel, lightMode && styles.rateTabLabelLight]}>Qoricash compra</Text>
+          <Reanimated.Text style={[styles.rateTabValue, lightMode && styles.rateTabValueLight, animCompraValueStyle]}>
+            S/ {exchangeRates?.compra.toFixed(3) || '—'}
+          </Reanimated.Text>
+          <View style={styles.rateTabPill}>
+            <Text style={styles.rateTabPillText}>USD → PEN</Text>
+          </View>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, operationType === 'Venta' && styles.tabActive]}
-          onPress={() => {
-            setOperationType('Venta');
-          }}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.tabText, operationType === 'Venta' && styles.tabTextActive]}>
-            Venta: {exchangeRates?.venta.toFixed(3) || '0.000'}
-          </Text>
+
+        <View style={styles.rateTabDivider} />
+
+        {/* Card Venta */}
+        <TouchableOpacity onPress={() => switchTab('Venta')} activeOpacity={0.82} style={styles.rateTab}>
+          <Reanimated.View style={[StyleSheet.absoluteFill, animVentaTabStyle]} />
+          <Text style={[styles.rateTabLabel, lightMode && styles.rateTabLabelLight]}>Qoricash vende</Text>
+          <Reanimated.Text style={[styles.rateTabValue, lightMode && styles.rateTabValueLight, animVentaValueStyle]}>
+            S/ {exchangeRates?.venta.toFixed(3) || '—'}
+          </Reanimated.Text>
+          <View style={styles.rateTabPill}>
+            <Text style={styles.rateTabPillText}>PEN → USD</Text>
+          </View>
         </TouchableOpacity>
-      </View>
+      </View>}
 
       {/* Calculadora */}
       <View style={styles.calculatorContainer}>
         {/* Fila superior: Input y Moneda */}
         <View style={styles.calculatorRow}>
-          <View style={styles.inputBox}>
-            <Text style={styles.inputLabel}>¿Cuánto envías?</Text>
+          <View style={[styles.inputBox, lightMode && styles.inputBoxLight]}>
+            <Text style={[styles.inputLabel, lightMode && styles.inputLabelLight]}>¿Cuánto envías?</Text>
             <RNTextInput
               value={formatInputAmount(amountUSD)}
               onChangeText={(text) => setAmountUSD(text.replace(/,/g, ''))}
               keyboardType="decimal-pad"
               placeholder="0"
               placeholderTextColor={Colors.textMuted}
-              style={styles.inputAmount}
+              style={[styles.inputAmount, lightMode && styles.amountLight]}
+              inputAccessoryViewID={Platform.OS === 'ios' ? INPUT_ACCESSORY_ID : undefined}
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
             />
           </View>
           <View style={styles.currencyBox}>
+            <Text style={styles.currencySymbol}>
+              {inputCurrency === 'USD' ? '$' : 'S/'}
+            </Text>
             <Text style={styles.currencyText}>
               {inputCurrency === 'USD' ? 'Dólares' : 'Soles'}
             </Text>
@@ -201,20 +314,25 @@ export const Calculator: React.FC<CalculatorProps> = ({
 
         {/* Botón de intercambio */}
         <TouchableOpacity onPress={handleSwapCurrency} activeOpacity={0.8} style={{ zIndex: 100 }}>
-          <Animated.View style={[styles.swapButton, { transform: [{ rotate: spin }] }]}>
-            <IconButton icon="swap-vertical" size={24} iconColor={Colors.textDark} />
-          </Animated.View>
+          <Reanimated.View style={[styles.swapButton, animSwapStyle]}>
+            <Animated.View style={{ transform: [{ rotate: spin }] }}>
+              <IconButton icon="swap-vertical" size={24} iconColor={Colors.textDark} />
+            </Animated.View>
+          </Reanimated.View>
         </TouchableOpacity>
 
         {/* Fila inferior: Output y Moneda */}
         <View style={styles.calculatorRow}>
-          <View style={styles.inputBox}>
-            <Text style={styles.inputLabel}>Entonces recibes</Text>
-            <Text style={styles.outputAmount}>
+          <View style={[styles.inputBox, lightMode && styles.inputBoxLight]}>
+            <Text style={[styles.inputLabel, lightMode && styles.inputLabelLight]}>Entonces recibes</Text>
+            <Text style={[styles.outputAmount, lightMode && styles.amountLight]}>
               {formatInputAmount(amountPEN) || '0.00'}
             </Text>
           </View>
           <View style={styles.currencyBox}>
+            <Text style={styles.currencySymbol}>
+              {outputCurrency === 'USD' ? '$' : 'S/'}
+            </Text>
             <Text style={styles.currencyText}>
               {outputCurrency === 'USD' ? 'Dólares' : 'Soles'}
             </Text>
@@ -224,15 +342,26 @@ export const Calculator: React.FC<CalculatorProps> = ({
         {/* Información adicional */}
         {amountPEN && (
           <View style={styles.infoRow}>
-            <Text style={styles.infoText}>
+            <Text style={[styles.infoText, lightMode && styles.infoTextLight]}>
               Ahorro estimado: S/ {formatInputAmount(String(calculateSavings()))}
             </Text>
-            <Text style={styles.infoText}>
+            <Text style={[styles.infoText, lightMode && styles.infoTextLight]}>
               Tipo de cambio: {currentRate.toFixed(3)}
             </Text>
           </View>
         )}
       </View>
+
+      {/* Tecla "ocultar teclado" (solo iOS) */}
+      {Platform.OS === 'ios' && (
+        <InputAccessoryView nativeID={INPUT_ACCESSORY_ID}>
+          <View style={styles.keyboardAccessory}>
+            <TouchableOpacity onPress={() => Keyboard.dismiss()} style={styles.keyboardKey} activeOpacity={0.6}>
+              <Text style={styles.keyboardKeyIcon}>⌄</Text>
+            </TouchableOpacity>
+          </View>
+        </InputAccessoryView>
+      )}
 
       {/* Botón Continuar o Iniciar Operación (opcional) */}
       {(showContinueButton || showInitiateButton) && (
@@ -270,33 +399,61 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 15,
-    color: Colors.textDark,
+    color: '#FFFFFF',
   },
   tabsContainer: {
     flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.09)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.17)',
+    borderRadius: 22,
     marginBottom: 24,
-    marginHorizontal: 8,
-    borderRadius: 12,
     overflow: 'hidden',
   },
-  tab: {
+  rateTab: {
     flex: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 18,
+    gap: 6,
+    overflow: 'hidden',
   },
-  tabActive: {
-    backgroundColor: Colors.secondary,
+  rateTabLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.52)',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    fontWeight: '400',
   },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textMuted,
+  rateTabLabelLight: {
+    color: '#94a3b8',
   },
-  tabTextActive: {
+  rateTabValue: {
+    fontSize: 26,
+    fontWeight: '700',
     color: '#FFFFFF',
+    letterSpacing: -0.5,
+    lineHeight: 32,
+  },
+  rateTabValueLight: {
+    color: '#0D1B2A',
+  },
+  rateTabPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginTop: 2,
+  },
+  rateTabPillText: {
+    fontSize: 9.5,
+    color: 'rgba(255,255,255,0.55)',
+    letterSpacing: 0.3,
+  },
+  rateTabDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255,255,255,0.17)',
+    marginVertical: 16,
   },
   calculatorContainer: {
     marginBottom: 20,
@@ -309,7 +466,7 @@ const styles = StyleSheet.create({
   },
   inputBox: {
     flex: 1,
-    backgroundColor: '#E8E8E8',
+    backgroundColor: 'rgba(255,255,255,0.25)',
     borderRadius: 14,
     padding: 16,
     marginRight: 10,
@@ -317,20 +474,20 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 13,
-    color: Colors.textDark,
+    color: '#FFFFFF',
     marginBottom: 6,
   },
   inputAmount: {
     fontSize: 30,
     fontWeight: 'bold',
-    color: Colors.textDark,
+    color: '#FFFFFF',
     padding: 0,
     margin: 0,
   },
   outputAmount: {
     fontSize: 30,
     fontWeight: 'bold',
-    color: Colors.textDark,
+    color: '#FFFFFF',
   },
   currencyBox: {
     width: 95,
@@ -341,10 +498,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1,
   },
-  currencyText: {
-    fontSize: 14,
-    fontWeight: '600',
+  currencySymbol: {
+    fontSize: 22,
+    fontWeight: '800',
     color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  currencyText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.85)',
     textAlign: 'center',
   },
   swapButton: {
@@ -371,7 +535,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 13,
-    color: Colors.textDark,
+    color: '#FFFFFF',
     fontWeight: '500',
   },
   continueButton: {
@@ -403,5 +567,53 @@ const styles = StyleSheet.create({
   },
   continueButtonTextDisabled: {
     color: Colors.textMuted,
+  },
+  keyboardAccessory: {
+    backgroundColor: '#CDD0D6',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+  },
+  keyboardKey: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 5,
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.35,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  keyboardKeyIcon: {
+    fontSize: 22,
+    color: '#000000',
+    lineHeight: 26,
+  },
+
+  /* ── Light mode overrides ── */
+  subtitleLight: {
+    color: '#64748b',
+  },
+  tabsContainerLight: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
+  },
+  inputBoxLight: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  inputLabelLight: {
+    color: '#64748b',
+  },
+  amountLight: {
+    color: '#0D1B2A',
+  },
+  infoTextLight: {
+    color: '#64748b',
   },
 });

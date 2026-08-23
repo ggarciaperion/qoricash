@@ -14,6 +14,7 @@ interface AuthContextData {
   loading: boolean;
   isAuthenticated: boolean;
   login: (credentials: LoginCredentials, dni: string) => Promise<void>;
+  loginWithGoogle: (clientData: Client) => Promise<void>;
   logout: () => Promise<void>;
   refreshClient: () => Promise<void>;
 }
@@ -181,6 +182,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const loginWithGoogle = async (clientData: Client) => {
+    try {
+      const googleUser: User = {
+        id: clientData.id,
+        username: clientData.dni,
+        role: 'Cliente',
+      };
+      setUser(googleUser);
+      setClient(clientData);
+
+      // Registrar push notifications
+      try {
+        await notificationService.registerForPushNotifications(clientData.dni);
+      } catch (pushError) {
+        console.error('❌ [GOOGLE AUTH] Error registrando push token:', pushError);
+      }
+
+      console.log('✅ [GOOGLE AUTH] Sesión iniciada para:', clientData.email);
+    } catch (error: any) {
+      console.error('❌ [GOOGLE AUTH] Error:', error);
+      throw new Error(error.message || 'Error al iniciar sesión con Google');
+    }
+  };
+
   const logout = async () => {
     try {
       setLoading(true);
@@ -240,6 +265,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loading,
         isAuthenticated: !!user && !!client,
         login,
+        loginWithGoogle,
         logout,
         refreshClient,
       }}

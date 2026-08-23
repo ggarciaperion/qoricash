@@ -1,63 +1,123 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
-  ScrollView,
+  Animated,
   RefreshControl,
   Image,
+  ImageBackground,
   Alert,
-  SafeAreaView,
-  Animated,
+  TouchableOpacity,
+  Text,
+  Dimensions,
 } from 'react-native';
-import { Text, Icon, Button } from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
+import { MotiView } from 'moti';
+import { Ionicons } from '@expo/vector-icons';
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  Easing as REasing,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '../contexts/AuthContext';
-import { Colors } from '../constants/colors';
 import { Calculator } from '../components/Calculator';
-import { GlobalStyles } from '../styles/globalStyles';
 
-interface HomeScreenProps {
-  navigation: any;
-}
+const { width: W } = Dimensions.get('window');
+const GLASS_BG     = 'rgba(255,255,255,0.09)';
+const GLASS_BORDER = 'rgba(255,255,255,0.17)';
+const GREEN        = '#22c55e';
 
-// Capitalize first letter helper
-const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
+const STICKY_THRESHOLD = 90;   // px scroll antes de que aparece el sticky header
+const TAB_BAR_H        = 72;   // altura del CustomTabBar (incluye safe area)
 
-// ─── Pulsing live indicator dot ───────────────────────────────────────────────
-const LiveDot = () => {
-  const ringScale   = useRef(new Animated.Value(1)).current;
-  const ringOpacity = useRef(new Animated.Value(0.75)).current;
+interface HomeScreenProps { navigation: any }
+
+const capitalize = (s: string) =>
+  s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
+
+// ─── LiveDot — respiración + onda expansiva ───────────────────────────────────
+const LiveDot: React.FC = () => {
+  const scale  = useSharedValue(1);
+  const ringOp = useSharedValue(0);
+  const ringSc = useSharedValue(1);
+
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(ringScale,   { toValue: 2.4, duration: 850, useNativeDriver: true }),
-          Animated.timing(ringOpacity, { toValue: 0,   duration: 850, useNativeDriver: true }),
-        ]),
-        Animated.parallel([
-          Animated.timing(ringScale,   { toValue: 1,    duration: 0, useNativeDriver: true }),
-          Animated.timing(ringOpacity, { toValue: 0.75, duration: 0, useNativeDriver: true }),
-        ]),
-      ])
-    ).start();
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.26, { duration: 750, easing: REasing.inOut(REasing.quad) }),
+        withTiming(1,    { duration: 750, easing: REasing.inOut(REasing.quad) }),
+      ), -1, false,
+    );
+    ringOp.value = withRepeat(
+      withSequence(
+        withTiming(0.55, { duration: 200, easing: REasing.out(REasing.quad) }),
+        withTiming(0,    { duration: 1100, easing: REasing.out(REasing.cubic) }),
+        withTiming(0,    { duration: 200 }),
+      ), -1, false,
+    );
+    ringSc.value = withRepeat(
+      withSequence(
+        withTiming(1,   { duration: 0 }),
+        withTiming(2.8, { duration: 1300, easing: REasing.out(REasing.cubic) }),
+        withTiming(1,   { duration: 0 }),
+      ), -1, false,
+    );
   }, []);
+
+  const dotStyle  = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: ringOp.value,
+    transform: [{ scale: ringSc.value }],
+  }));
+
   return (
-    <View style={{ width: 10, height: 10, justifyContent: 'center', alignItems: 'center' }}>
-      <Animated.View style={{
-        position: 'absolute',
-        width: 10, height: 10, borderRadius: 5,
-        backgroundColor: '#22c55e',
-        opacity: ringOpacity,
-        transform: [{ scale: ringScale }],
-      }} />
-      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22c55e' }} />
+    <View style={s.dotWrap}>
+      <Reanimated.View pointerEvents="none" style={[s.dotPulse, ringStyle]} />
+      <Reanimated.View style={[s.dotCore, dotStyle]} />
     </View>
   );
 };
 
+// ─── Screen ───────────────────────────────────────────────────────────────────
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const { client, refreshClient } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
+  const [pendingOp, setPendingOp] = useState<{
+    ready: boolean;
+    operationType: 'Compra' | 'Venta';
+    amountUSD: string;
+    rate: number;
+  }>({ ready: false, operationType: 'Compra', amountUSD: '', rate: 0 });
+  const [calcOperationType, setCalcOperationType] = useState<'Compra' | 'Venta'>('Compra');
+  const [calcRates, setCalcRates] = useState<{ compra: number; venta: number } | null>(null);
+
+  // Scroll Y para sticky header
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  // Sticky header opacity & translateY
+  const stickyOp = scrollY.interpolate({
+    inputRange:  [STICKY_THRESHOLD, STICKY_THRESHOLD + 32],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  const stickyTY = scrollY.interpolate({
+    inputRange:  [STICKY_THRESHOLD, STICKY_THRESHOLD + 32],
+    outputRange: [-12, 0],
+    extrapolate: 'clamp',
+  });
+
+  // Parallax leve en el fondo
+  const bgTY = scrollY.interpolate({
+    inputRange:  [0, 300],
+    outputRange: [0, -40],
+    extrapolate: 'clamp',
+  });
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -68,13 +128,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const handleInitiateOperation = (
     operationType: 'Compra' | 'Venta',
     amountUSD: string,
-    exchangeRate: number
+    exchangeRate: number,
   ) => {
     if (!client?.has_complete_documents) {
       Alert.alert(
         'Validación de Identidad Requerida',
-        'Necesitamos validar tu DNI antes de iniciar una operación.\n\nPor favor, sube las fotos de tu DNI usando el botón "Validar Identidad".',
-        [{ text: 'Entendido' }]
+        'Necesitamos validar tu DNI antes de iniciar una operación.\n\nPor favor, sube las fotos de tu DNI.',
+        [{ text: 'Entendido' }],
       );
       return;
     }
@@ -83,397 +143,566 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   if (!client) {
     return (
-      <View style={GlobalStyles.container}>
-        <Text>Cargando...</Text>
+      <View style={s.loadWrap}>
+        <Text style={s.loadText}>Cargando...</Text>
       </View>
     );
   }
 
-  // Use client.nombres (given names) for greeting — it contains first name(s) only.
-  // Peruvian DBs often store full_name as "ApellidoPaterno ApellidoMaterno Nombres",
-  // so split(' ')[0] on full_name returns the surname instead of the first name.
   const firstName = (() => {
-    if (client.nombres) return capitalize(client.nombres.split(' ')[0]);
+    if (client.nombres)   return capitalize(client.nombres.split(' ')[0]);
     if (client.full_name) return capitalize(client.full_name.split(' ')[0]);
     return '';
   })();
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        style={styles.scrollView}
+    <View style={s.root}>
+
+      {/* ── Fondo con parallax ── */}
+      <Animated.View
+        style={[StyleSheet.absoluteFill, { transform: [{ translateY: bgTY }] }]}
+        pointerEvents="none"
+      >
+        <ImageBackground
+          source={require('../../assets/cd.png')}
+          style={[StyleSheet.absoluteFill, { top: -60, bottom: -60 }]}
+          resizeMode="cover"
+        />
+      </Animated.View>
+      <View style={[StyleSheet.absoluteFill, s.overlay]} pointerEvents="none" />
+
+      {/* ── Sticky compact header ── */}
+      <Animated.View
+        style={[
+          s.stickyHeader,
+          { top: insets.top, opacity: stickyOp, transform: [{ translateY: stickyTY }] },
+        ]}
+        pointerEvents="none"
+      >
+        <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
+        <View style={s.stickyHairline} />
+        <Image source={require('../../assets/vv.png')} style={s.stickyLogo} resizeMode="contain" />
+        <Text style={s.stickyName}>{firstName}</Text>
+      </Animated.View>
+
+      {/* ── Scroll ── */}
+      <Animated.ScrollView
+        style={s.scroll}
+        contentContainerStyle={[
+          s.content,
+          { paddingTop: insets.top + 20, paddingBottom: insets.bottom + TAB_BAR_H + 16 },
+        ]}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+          useNativeDriver: true,
+        })}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={Colors.primary}
-            colors={[Colors.primary]}
+            tintColor="rgba(255,255,255,0.5)"
           />
         }
       >
-        {/* ── Dark gradient header ── */}
-        <LinearGradient
-          colors={['#0D1B2A', '#111F2C', '#0f2236']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.header}
+
+        {/* ══ Brand + Saludo ══ */}
+        <MotiView
+          from={{ opacity: 0, translateY: -20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'spring', delay: 0, damping: 22, stiffness: 200 }}
+          style={s.headerSection}
         >
-          {/* Subtle teal glow top-right */}
-          <View style={styles.headerGlow} />
-
-          <View style={styles.headerTop}>
-            <View style={styles.headerGreetingBlock}>
-              <Text style={styles.headerGreeting}>Bienvenido,</Text>
-              <Text style={styles.headerName}>{firstName}</Text>
+          <View style={s.headerRow}>
+            <View>
+              <Text style={s.greetingLabel}>Bienvenido,</Text>
+              <Text style={s.greetingName}>{firstName}</Text>
             </View>
-            <Image
-              source={require('../../assets/logo-principal.png')}
-              style={styles.headerLogo}
-              resizeMode="contain"
-            />
+            <Image source={require('../../assets/vv.png')} style={s.logo} resizeMode="contain" />
           </View>
+        </MotiView>
 
-          {/* User info strip */}
-          <View style={styles.userStrip}>
-            <View style={styles.userStripItem}>
-              <Text style={styles.userStripLabel}>Documento</Text>
-              <Text style={styles.userStripValue}>{client.dni}</Text>
-            </View>
-            <View style={styles.userStripDivider} />
-            <View style={styles.userStripItem}>
-              <Text style={styles.userStripLabel}>Estado</Text>
-              <View style={styles.statusBadge}>
-                <View style={styles.statusDot} />
-                <Text style={styles.statusBadgeText}>{capitalize(client.status)}</Text>
-              </View>
-            </View>
-            <View style={styles.userStripDivider} />
-            <View style={styles.userStripItem}>
-              <Text style={styles.userStripLabel}>Tipo</Text>
-              <Text style={styles.userStripValue}>
-                {(client as any).client_type === 'juridico' ? 'Empresa' : 'Natural'}
-              </Text>
+        {/* ══ User info strip ══ */}
+        <MotiView
+          from={{ opacity: 0, translateY: 16, scale: 0.97 }}
+          animate={{ opacity: 1, translateY: 0, scale: 1 }}
+          transition={{ type: 'spring', delay: 80, damping: 20, stiffness: 180 }}
+          style={s.userStrip}
+        >
+          <View style={s.stripItem}>
+            <Text style={s.stripLabel}>Documento</Text>
+            <Text style={s.stripValue}>{client.dni}</Text>
+          </View>
+          <View style={s.stripDivider} />
+          <View style={s.stripItem}>
+            <Text style={s.stripLabel}>Estado</Text>
+            <View style={s.statusRow}>
+              <Text style={s.statusText}>{capitalize(client.status)}</Text>
             </View>
           </View>
-        </LinearGradient>
-
-        {/* ── Content ── */}
-        <View style={styles.content}>
-
-          {/* Verification banners */}
-          {!client.has_complete_documents && (
-            <>
-              {/* Documents NOT submitted */}
-              {(!client.dni_front_url || !client.dni_back_url) && (
-                <View style={styles.verificationBanner}>
-                  <View style={styles.bannerRow}>
-                    <View style={styles.warningIconCircle}>
-                      <Icon source="shield-alert" size={20} color={Colors.warning} />
-                    </View>
-                    <View style={styles.bannerTexts}>
-                      <Text style={styles.bannerTitle}>Validación pendiente</Text>
-                      <Text style={styles.bannerSubtitle}>
-                        Sube tu DNI para empezar a operar.
-                      </Text>
-                    </View>
-                  </View>
-                  <Button
-                    mode="contained"
-                    icon="camera-plus"
-                    onPress={() => navigation.navigate('VerifyIdentity')}
-                    style={styles.verifyBtn}
-                    buttonColor={Colors.warning}
-                    textColor="#FFFFFF"
-                    compact
-                  >
-                    Validar ahora
-                  </Button>
-                </View>
-              )}
-
-              {/* Documents submitted — under review */}
-              {client.dni_front_url && client.dni_back_url && (
-                <View style={styles.processingBanner}>
-                  <View style={styles.bannerRow}>
-                    <View style={styles.infoIconCircle}>
-                      <Icon source="clock-outline" size={20} color={Colors.info} />
-                    </View>
-                    <View style={styles.bannerTexts}>
-                      <Text style={styles.processingTitle}>Validación en proceso</Text>
-                      <Text style={styles.bannerSubtitle}>
-                        ⏱ Aprox. 10 minutos — te notificaremos.
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              )}
-            </>
-          )}
-
-          {/* ── Exchange rate calculator card ── */}
-          <View style={styles.calculatorCard}>
-            {/* Card header */}
-            <View style={styles.calculatorCardHeader}>
-              <View style={styles.calculatorCardHeaderLeft}>
-                <View style={styles.calculatorIconBg}>
-                  <Icon source="swap-horizontal" size={16} color={Colors.primary} />
-                </View>
-                <Text style={styles.calculatorCardTitle}>Tipo de Cambio</Text>
-              </View>
-              <View style={styles.liveChip}>
-                <LiveDot />
-                <Text style={styles.liveChipText}>EN VIVO</Text>
-              </View>
-            </View>
-
-            <Calculator
-              onOperationReady={handleInitiateOperation}
-              showInitiateButton={true}
-            />
+          <View style={s.stripDivider} />
+          <View style={s.stripItem}>
+            <Text style={s.stripLabel}>Tipo</Text>
+            <Text style={s.stripValue}>
+              {(client as any).client_type === 'juridico' ? 'Empresa' : 'Natural'}
+            </Text>
           </View>
+        </MotiView>
 
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        {/* ══ Banners de verificación ══ */}
+        {!client.has_complete_documents && (
+          <MotiView
+            from={{ opacity: 0, translateY: 12 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', delay: 140, damping: 20, stiffness: 160 }}
+          >
+            {(!client.dni_front_url || !client.dni_back_url) && (
+              <TouchableOpacity
+                style={s.warningBanner}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  navigation.navigate('VerifyIdentity');
+                }}
+                activeOpacity={0.82}
+              >
+                <View style={[s.bannerIcon, { backgroundColor: 'rgba(251,191,36,0.12)' }]}>
+                  <Ionicons name="shield-outline" size={18} color="#fbbf24" />
+                </View>
+                <View style={s.bannerBody}>
+                  <Text style={s.warningTitle}>Validación pendiente</Text>
+                  <Text style={s.bannerSub}>Sube tu DNI para empezar a operar.</Text>
+                </View>
+                <View style={s.bannerChevron}>
+                  <Ionicons name="chevron-forward" size={16} color="rgba(251,191,36,0.6)" />
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {client.dni_front_url && client.dni_back_url && (
+              <View style={s.infoBanner}>
+                <View style={[s.bannerIcon, { backgroundColor: 'rgba(96,165,250,0.12)' }]}>
+                  <Ionicons name="time-outline" size={18} color="#60a5fa" />
+                </View>
+                <View style={s.bannerBody}>
+                  <Text style={s.infoTitle}>Validación en proceso</Text>
+                  <Text style={s.bannerSub}>⏱ Aprox. 10 min — te notificaremos.</Text>
+                </View>
+              </View>
+            )}
+          </MotiView>
+        )}
+
+        {/* ══ Live indicator ══ */}
+        <MotiView
+          from={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ type: 'timing', delay: 200, duration: 420 }}
+          style={s.liveRow}
+        >
+          <LiveDot />
+          <Text style={s.liveLabel}>Tipo de cambio en vivo</Text>
+        </MotiView>
+
+        {/* ══ Tarjetas de tipo de cambio (independientes) ══ */}
+        <MotiView
+          from={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', delay: 210, damping: 22, stiffness: 160 }}
+          style={s.ratesCard}
+        >
+          <TouchableOpacity
+            onPress={() => setCalcOperationType('Compra')}
+            activeOpacity={0.82}
+            style={[s.rateTab, calcOperationType === 'Compra' && s.rateTabActive]}
+          >
+            <Text style={s.rateTabLabel}>Qoricash compra</Text>
+            <Text style={[s.rateTabValue, calcOperationType !== 'Compra' && s.rateTabValueDim]}>
+              S/ {calcRates?.compra.toFixed(3) ?? '—'}
+            </Text>
+            <View style={s.rateTabPill}>
+              <Text style={s.rateTabPillText}>USD → PEN</Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={s.rateTabDivider} />
+
+          <TouchableOpacity
+            onPress={() => setCalcOperationType('Venta')}
+            activeOpacity={0.82}
+            style={[s.rateTab, calcOperationType === 'Venta' && s.rateTabActive]}
+          >
+            <Text style={s.rateTabLabel}>Qoricash vende</Text>
+            <Text style={[s.rateTabValue, calcOperationType !== 'Venta' && s.rateTabValueDim]}>
+              S/ {calcRates?.venta.toFixed(3) ?? '—'}
+            </Text>
+            <View style={s.rateTabPill}>
+              <Text style={s.rateTabPillText}>PEN → USD</Text>
+            </View>
+          </TouchableOpacity>
+        </MotiView>
+
+        {/* ══ Calculadora ══ */}
+        <MotiView
+          from={{ opacity: 0, translateY: 20, scale: 0.96 }}
+          animate={{ opacity: 1, translateY: 0, scale: 1 }}
+          transition={{ type: 'spring', delay: 240, damping: 22, stiffness: 160 }}
+          style={s.calcCard}
+        >
+          <Calculator
+            onOperationReady={handleInitiateOperation}
+            onAmountChange={(ready, operationType, amountUSD, rate) =>
+              setPendingOp({ ready, operationType, amountUSD, rate })
+            }
+            onRatesChange={setCalcRates}
+            onOperationTypeChange={setCalcOperationType}
+            externalOperationType={calcOperationType}
+            hideTabs
+          />
+        </MotiView>
+
+        {/* ══ Botón iniciar operación (fuera de la card) ══ */}
+        <MotiView
+          from={{ opacity: 0, translateY: 10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'spring', delay: 300, damping: 22, stiffness: 160 }}
+          style={s.initiateWrap}
+        >
+          <TouchableOpacity
+            style={[s.initiateBtn, !pendingOp.ready && s.initiateBtnDisabled]}
+            onPress={() => {
+              if (pendingOp.ready) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                handleInitiateOperation(pendingOp.operationType, pendingOp.amountUSD, pendingOp.rate);
+              }
+            }}
+            disabled={!pendingOp.ready}
+            activeOpacity={0.82}
+          >
+            <Text style={[s.initiateBtnText, !pendingOp.ready && s.initiateBtnTextDisabled]}>
+              INICIAR OPERACIÓN
+            </Text>
+            <Ionicons name="arrow-forward" size={16} color={pendingOp.ready ? '#fff' : 'rgba(255,255,255,0.3)'} />
+          </TouchableOpacity>
+        </MotiView>
+
+      </Animated.ScrollView>
+    </View>
   );
 };
 
-const styles = StyleSheet.create({
-  safeArea: {
+// ─── Estilos ──────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  root: {
     flex: 1,
-    backgroundColor: '#0D1B2A',
   },
-  scrollView: {
+  overlay: {
+    backgroundColor: 'rgba(0,0,0,0.48)',
+  },
+  loadWrap: {
     flex: 1,
-    backgroundColor: Colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#0a1a2e',
+  },
+  loadText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 14,
+  },
+  scroll: { flex: 1 },
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
   },
 
-  // ── Header ──
-  header: {
-    paddingTop: 20,
-    paddingBottom: 0,
+  // ── Sticky header ──
+  stickyHeader: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     overflow: 'hidden',
   },
-  headerGlow: {
+  stickyHairline: {
     position: 'absolute',
-    top: -60,
-    right: -60,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: Colors.primary,
-    opacity: 0.05,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 20,
+  stickyLogo: {
+    width: 110,
+    height: 22,
   },
-  headerGreetingBlock: {
-    flex: 1,
-  },
-  headerGreeting: {
-    fontSize: 13,
-    color: '#8A9BB5',
-    fontWeight: '400',
-    marginBottom: 2,
-  },
-  headerName: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#F1F5F9',
-    letterSpacing: -0.5,
-  },
-  headerLogo: {
-    width: 52,
-    height: 52,
-    opacity: 0.85,
+  stickyName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.88)',
+    letterSpacing: 0.1,
   },
 
-  // User strip
+  // ── Header section ──
+  headerSection: {
+    marginBottom: 20,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  logo: {
+    width: 120,
+    height: 24,
+  },
+  greetingLabel: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: '400',
+    marginBottom: 2,
+    letterSpacing: 0.2,
+  },
+  greetingName: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.6,
+  },
+
+  // ── User strip ──
   userStrip: {
     flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.07)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    backgroundColor: GLASS_BG,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginBottom: 18,
   },
-  userStripItem: {
+  stripItem: {
     flex: 1,
     alignItems: 'center',
   },
-  userStripLabel: {
-    fontSize: 10,
-    color: '#6B7E94',
+  stripLabel: {
+    fontSize: 9.5,
+    color: 'rgba(255,255,255,0.38)',
     fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 5,
+    letterSpacing: 0.7,
+    marginBottom: 6,
   },
-  userStripValue: {
+  stripValue: {
     fontSize: 13,
-    color: '#B0BBC9',
+    color: 'rgba(255,255,255,0.82)',
     fontWeight: '600',
   },
-  userStripDivider: {
-    width: 1,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+  stripDivider: {
+    width: StyleSheet.hairlineWidth * 2,
+    backgroundColor: GLASS_BORDER,
     marginVertical: 2,
   },
-  statusBadge: {
+  statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
   },
-  statusDot: {
+  statusText: {
+    fontSize: 13,
+    color: GREEN,
+    fontWeight: '700',
+  },
+
+  // ── Live dot ──
+  dotWrap: {
+    width: 11,
+    height: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dotPulse: {
+    position: 'absolute',
+    width: 11,
+    height: 11,
+    borderRadius: 5.5,
+    borderWidth: 1.5,
+    borderColor: '#4ade80',
+  },
+  dotCore: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.success,
-  },
-  statusBadgeText: {
-    fontSize: 13,
-    color: Colors.success,
-    fontWeight: '700',
+    backgroundColor: '#4ade80',
   },
 
-  // ── Content ──
-  content: {
-    padding: 16,
-    paddingTop: 20,
+  // ── Banners ──
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(251,191,36,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(251,191,36,0.22)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+    gap: 12,
+  },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(96,165,250,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(96,165,250,0.22)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+    gap: 12,
+  },
+  bannerIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  bannerBody: { flex: 1 },
+  bannerChevron: {
+    width: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  warningTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#fbbf24',
+    marginBottom: 1,
+  },
+  infoTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#60a5fa',
+    marginBottom: 1,
+  },
+  bannerSub: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.45)',
+    lineHeight: 16,
   },
 
-  // Verification banner — warning
-  verificationBanner: {
-    backgroundColor: '#FFFBEB',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+  // ── Live row ──
+  liveRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    gap: 9,
+    marginBottom: 12,
   },
-  // Verification banner — processing
-  processingBanner: {
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+  liveLabel: {
+    fontSize: 11.5,
+    color: 'rgba(255,255,255,0.68)',
+    letterSpacing: 0.3,
+    fontWeight: '500',
   },
-  bannerRow: {
+
+  // ── Rate cards (independientes) ──
+  ratesCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    backgroundColor: GLASS_BG,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    borderRadius: 22,
+    marginBottom: 14,
+    overflow: 'hidden',
+  },
+  rateTab: {
     flex: 1,
+    paddingVertical: 20,
+    paddingHorizontal: 18,
+    gap: 6,
   },
-  warningIconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#FEF3C7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexShrink: 0,
+  rateTabActive: {
+    backgroundColor: 'rgba(34,197,94,0.13)',
   },
-  infoIconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#DBEAFE',
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexShrink: 0,
+  rateTabLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.52)',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    fontWeight: '400',
   },
-  bannerTexts: {
-    flex: 1,
-  },
-  bannerTitle: {
-    fontSize: 14,
+  rateTabValue: {
+    fontSize: 26,
     fontWeight: '700',
-    color: '#92400E',
-    marginBottom: 2,
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+    lineHeight: 32,
   },
-  processingTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1E40AF',
-    marginBottom: 2,
+  rateTabValueDim: {
+    opacity: 0.42,
   },
-  bannerSubtitle: {
-    fontSize: 12,
-    color: '#78716C',
-    lineHeight: 17,
+  rateTabPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginTop: 2,
   },
-  verifyBtn: {
-    borderRadius: 10,
-    flexShrink: 0,
+  rateTabPillText: {
+    fontSize: 9.5,
+    color: 'rgba(255,255,255,0.55)',
+    letterSpacing: 0.3,
+  },
+  rateTabDivider: {
+    width: 1,
+    backgroundColor: GLASS_BORDER,
+    marginVertical: 16,
   },
 
   // ── Calculator card ──
-  calculatorCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
+  calcCard: {
+    backgroundColor: GLASS_BG,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: GLASS_BORDER,
+    borderRadius: 24,
+    overflow: 'hidden',
+    paddingTop: 20,
   },
-  calculatorCardHeader: {
+
+  // ── Initiate button (outside card) ──
+  initiateWrap: {
+    marginTop: 14,
+  },
+  initiateBtn: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
-  },
-  calculatorCardHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  calculatorIconBg: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: `${Colors.primary}18`,
     justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: GREEN,
+    borderRadius: 18,
+    paddingVertical: 17,
+    gap: 10,
+    shadowColor: GREEN,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
   },
-  calculatorCardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.textDark,
+  initiateBtnDisabled: {
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    shadowOpacity: 0,
+    elevation: 0,
   },
-  liveChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(34, 197, 94, 0.09)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.2)',
-  },
-  // liveDot replaced by <LiveDot /> animated component above
-  liveChipText: {
-    fontSize: 10,
+  initiateBtnText: {
+    fontSize: 15,
     fontWeight: '800',
-    color: '#22c55e',
-    letterSpacing: 0.8,
+    color: '#fff',
+    letterSpacing: 1.2,
+  },
+  initiateBtnTextDisabled: {
+    color: 'rgba(255,255,255,0.30)',
   },
 });

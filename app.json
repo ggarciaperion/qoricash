@@ -2,6 +2,7 @@
   "expo": {
     "name": "QoriCash",
     "slug": "qoricash-app",
+    "scheme": "com.qoricash.app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -58,7 +59,10 @@
           "icon": "./assets/notification-icon.png",
           "color": "#1976D2"
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-font",
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {

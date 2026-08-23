@@ -1713,3 +1713,206 @@ def health():
         'service': 'QoriCash Client Auth API',
         'version': '1.0.0'
     }), 200
+
+
+# ─────────────────────────────────────────────────────────────────
+# GOOGLE AUTH — Autenticación / Registro via Google OAuth
+# ─────────────────────────────────────────────────────────────────
+
+@client_auth_bp.route('/google-auth', methods=['POST', 'OPTIONS'])
+@csrf.exempt
+def google_auth():
+    """
+    Autenticación y registro via Google OAuth (solo app móvil).
+
+    Flujo:
+    1. App obtiene access_token de Google via expo-auth-session
+    2. Se envía aquí para verificación con la API de Google
+    3. Si el email ya existe como cliente → retorna datos de sesión (login)
+    4. Si no existe → retorna datos de Google para completar el registro
+
+    Request JSON:
+    {
+        "access_token": "<Google OAuth access token>"
+    }
+
+    Response (login):
+    {
+        "success": true,
+        "action": "login",
+        "client": { ... }
+    }
+
+    Response (registro nuevo):
+    {
+        "success": true,
+        "action": "register",
+        "google_email": "user@gmail.com",
+        "google_name": "Juan García"
+    }
+    """
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    try:
+        import requests as http_requests
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'Body JSON requerido'}), 400
+
+        access_token = data.get('access_token', '').strip()
+        if not access_token:
+            return jsonify({'success': False, 'message': 'access_token de Google requerido'}), 400
+
+        # Verificar token con Google y obtener datos del usuario
+        google_response = http_requests.get(
+            'https://www.googleapis.com/oauth2/v3/userinfo',
+            headers={'Authorization': f'Bearer {access_token}'},
+            timeout=10
+        )
+
+        if google_response.status_code != 200:
+            logger.warning(f'[GOOGLE AUTH] Token inválido, status: {google_response.status_code}')
+            return jsonify({'success': False, 'message': 'Token de Google inválido o expirado'}), 401
+
+        google_data = google_response.json()
+        google_email = google_data.get('email', '').lower().strip()
+        google_name  = google_data.get('name', '').strip()
+        email_verified = google_data.get('email_verified', False)
+
+        if not google_email:
+            return jsonify({'success': False, 'message': 'No se pudo obtener el email de Google'}), 400
+
+        if not email_verified:
+            return jsonify({'success': False, 'message': 'El email de Google no está verificado'}), 400
+
+        # Buscar cliente por email
+        existing_client = Client.query.filter(
+            db.func.lower(Client.email) == google_email
+        ).first()
+
+        if existing_client:
+            # ── Cliente ya existe → Login ──────────────────────────
+            if existing_client.status == 'Inactivo':
+                return jsonify({
+                    'success': False,
+                    'message': 'Tu cuenta está en proceso de verificación KYC. Contacta a soporte.'
+                }), 403
+
+            client_data = existing_client.to_dict()
+            logger.info(f'[GOOGLE AUTH] Login exitoso: {google_email} (ID: {existing_client.id})')
+
+            return jsonify({
+                'success': True,
+                'action': 'login',
+                'message': 'Sesión iniciada con Google',
+                'client': client_data,
+            }), 200
+
+        else:
+            # ── Cliente no existe → Iniciar registro ───────────────
+            logger.info(f'[GOOGLE AUTH] Nuevo usuario Google, necesita completar registro: {google_email}')
+
+            return jsonify({
+                'success': True,
+                'action': 'register',
+                'message': 'Completa tu registro para continuar',
+                'google_email': google_email,
+                'google_name':  google_name,
+            }), 200
+
+    except Exception as e:
+        logger.error(f'[GOOGLE AUTH] Error: {str(e)}')
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({'success': False, 'message': 'Error al procesar autenticación con Google'}), 500
+
+
+@client_auth_bp.route('/market', methods=['GET'])
+@csrf.exempt
+def client_market():
+    """Datos de mercado para la app móvil (clientes)."""
+    from app.services.market.market_service import MarketService
+
+    try:
+        data = MarketService.get_dashboard_data()
+    except Exception as e:
+        logger.error(f'[Market Mobile] get_dashboard_data falló, usando vacío: {e}', exc_info=True)
+        data = MarketService.empty_dashboard_data()
+
+    def _f(v):
+        if v is None:
+            return None
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    snap   = data.get('snapshot') or {}
+    macro  = data.get('macro')    or {}
+    news   = data.get('news')     or []
+    signal = data.get('signal')   or {}
+
+    indicators = [
+        {'key': 'usdpen',       'label': 'USD / PEN',      'value': _f(snap.get('usdpen')),       'chg': _f(snap.get('usdpen_chg_pct')),   'prefix': 'S/', 'suffix': ''},
+        {'key': 'gold',         'label': 'Oro',             'value': _f(snap.get('gold')),          'chg': _f(snap.get('gold_chg_pct')),     'prefix': '$',  'suffix': '/oz'},
+        {'key': 'oil',          'label': 'Petróleo WTI',   'value': _f(snap.get('oil')),           'chg': _f(snap.get('oil_chg_pct')),      'prefix': '$',  'suffix': '/bbl'},
+        {'key': 'sp500',        'label': 'S&P 500',         'value': _f(snap.get('sp500')),         'chg': _f(snap.get('sp500_chg_pct')),    'prefix': '',   'suffix': ''},
+        {'key': 'nasdaq',       'label': 'Nasdaq',          'value': _f(snap.get('nasdaq')),        'chg': _f(snap.get('nasdaq_chg_pct')),   'prefix': '',   'suffix': ''},
+        {'key': 'dxy',          'label': 'DXY',             'value': _f(snap.get('dxy')),           'chg': _f(snap.get('dxy_chg_pct')),      'prefix': '',   'suffix': ''},
+        {'key': 'vix',          'label': 'VIX',             'value': _f(snap.get('vix')),           'chg': _f(snap.get('vix_chg_pct')),      'prefix': '',   'suffix': ''},
+        {'key': 'copper',       'label': 'Cobre',           'value': _f(snap.get('copper')),        'chg': _f(snap.get('copper_chg_pct')),   'prefix': '$',  'suffix': '/lb'},
+        {'key': 'eurusd',       'label': 'EUR / USD',       'value': _f(snap.get('eurusd')),        'chg': _f(snap.get('eurusd_chg_pct')),   'prefix': '$',  'suffix': ''},
+        {'key': 'treasury_10y', 'label': 'Bono EE.UU. 10Y', 'value': _f(snap.get('treasury_10y')), 'chg': _f(snap.get('treasury_10y_chg')), 'prefix': '',   'suffix': '%'},
+        {'key': 'btc',          'label': 'Bitcoin',         'value': _f(snap.get('btc')),           'chg': _f(snap.get('btc_chg_pct')),      'prefix': '$',  'suffix': ''},
+        {'key': 'usdjpy',       'label': 'USD / JPY',       'value': _f(snap.get('usdjpy')),        'chg': _f(snap.get('usdjpy_chg_pct')),   'prefix': '¥',  'suffix': ''},
+    ]
+    indicators = [i for i in indicators if i['value'] is not None]
+
+    MACRO_ORDER = ['bcrp_rate', 'tc_venta_bcrp', 'inflation_yoy', 'inflation_mom',
+                   'gdp_growth', 'unemployment', 'fed_rate', 'trade_balance']
+    macro_list = []
+    seen_keys  = set()
+    for key in MACRO_ORDER:
+        if key in macro:
+            m = macro[key]
+            macro_list.append({
+                'key': key, 'label': m.get('label') or key,
+                'value': _f(m.get('value')), 'prev_value': _f(m.get('prev_value')),
+                'unit': m.get('unit') or '', 'direction': m.get('direction') or 'neutral',
+                'period': m.get('period') or '', 'source': m.get('source') or '',
+            })
+            seen_keys.add(key)
+    for key, m in macro.items():
+        if key not in seen_keys and _f(m.get('value')) is not None:
+            macro_list.append({
+                'key': key, 'label': m.get('label') or key,
+                'value': _f(m.get('value')), 'prev_value': _f(m.get('prev_value')),
+                'unit': m.get('unit') or '', 'direction': m.get('direction') or 'neutral',
+                'period': m.get('period') or '', 'source': m.get('source') or '',
+            })
+
+    news_list = [
+        {
+            'title': n.get('title', ''), 'source': n.get('source', ''),
+            'time': n.get('published_lima') or n.get('fetched_lima') or '',
+            'impact_level': n.get('impact_level', 1), 'direction': n.get('direction', 'neutral'),
+            'summary': n.get('summary', ''), 'url': n.get('url', ''),
+        }
+        for n in news[:25]
+    ]
+
+    return jsonify({
+        'success':    True,
+        'indicators': indicators,
+        'macro':      macro_list,
+        'news':       news_list,
+        'signal': {
+            'type':       signal.get('signal_type', 'neutral'),
+            'confidence': signal.get('confidence', 0),
+            'title':      signal.get('title', ''),
+            'summary':    signal.get('reasoning', ''),
+        } if signal else None,
+        'last_update': data.get('last_update'),
+    })
