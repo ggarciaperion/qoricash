@@ -511,7 +511,7 @@ export const MarketScreen: React.FC = () => {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   root: { flex: 1 },
-  overlay: { backgroundColor: 'rgba(0,0,0,0.52)' },
+  overlay: { backgroundColor: 'transparent' },
   scroll: { flex: 1 },
   content: { flexGrow: 1, paddingHorizontal: 18 },
 

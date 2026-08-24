@@ -394,7 +394,7 @@ const s = StyleSheet.create({
     flex: 1,
   },
   overlay: {
-    backgroundColor: 'rgba(0,0,0,0.48)',
+    backgroundColor: 'transparent',
   },
   loadWrap: {
     flex: 1,

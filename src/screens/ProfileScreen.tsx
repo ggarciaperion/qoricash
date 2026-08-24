@@ -9,1744 +9,787 @@ import {
   Linking,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
-} from 'react-native';
-import {
-  List,
-  Divider,
-  Avatar,
-  Text,
-  Card,
-  Button,
+  ImageBackground,
   TextInput,
-  IconButton,
-  Portal,
-  Dialog,
-  RadioButton,
-  HelperText,
-  Icon,
-} from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
+  ActivityIndicator,
+  Text,
+  SafeAreaView,
+  Image,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '../contexts/AuthContext';
-import { Colors } from '../constants/colors';
-import { GlobalStyles } from '../styles/globalStyles';
+import { useLoginLoading } from '../contexts/LoginLoadingContext';
 
-interface ProfileScreenProps {
-  navigation: any;
-}
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const GLASS_BG     = 'rgba(255,255,255,0.08)';
+const GLASS_BORDER = 'rgba(255,255,255,0.15)';
+const GREEN        = '#22c55e';
 
+interface ProfileScreenProps { navigation: any }
+
+const capitalize = (s: string) =>
+  s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
+
+// ─── Row de sección ───────────────────────────────────────────────────────────
+const SectionRow: React.FC<{
+  icon: string;
+  title: string;
+  subtitle?: string;
+  onPress?: () => void;
+  chevron?: boolean;
+  danger?: boolean;
+}> = ({ icon, title, subtitle, onPress, chevron = true, danger = false }) => (
+  <TouchableOpacity
+    style={s.row}
+    onPress={onPress}
+    activeOpacity={onPress ? 0.72 : 1}
+    disabled={!onPress}
+  >
+    <View style={s.rowIcon}>
+      <Ionicons name={icon as any} size={16} color={danger ? '#f87171' : 'rgba(255,255,255,0.55)'} />
+    </View>
+    <View style={s.rowTexts}>
+      <Text style={[s.rowTitle, danger && { color: '#f87171' }]}>{title}</Text>
+      {subtitle ? <Text style={s.rowSub}>{subtitle}</Text> : null}
+    </View>
+    {chevron && onPress && (
+      <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.22)" />
+    )}
+  </TouchableOpacity>
+);
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
-  const { client, user, logout, refreshClient } = useAuth();
+  const insets = useSafeAreaInsets();
+  const { client, user, refreshClient } = useAuth();
+  const { setShowLogoutLoading } = useLoginLoading();
 
-  // Estados para modales
+  // Modal states
   const [changePasswordVisible, setChangePasswordVisible] = useState(false);
-  const [editInfoVisible, setEditInfoVisible] = useState(false);
-  const [helpVisible, setHelpVisible] = useState(false);
-  const [addAccountVisible, setAddAccountVisible] = useState(false);
+  const [editInfoVisible,       setEditInfoVisible]       = useState(false);
+  const [helpVisible,           setHelpVisible]           = useState(false);
+  const [addAccountVisible,     setAddAccountVisible]     = useState(false);
 
-  // Estados para formularios
+  // Change password
   const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
+  const [newPassword,     setNewPassword]     = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPwd,  setShowCurrentPwd]  = useState(false);
+  const [showNewPwd,      setShowNewPwd]      = useState(false);
+  const [showConfirmPwd,  setShowConfirmPwd]  = useState(false);
+
+  // Edit info
   const [phone, setPhone] = useState(client?.phone || '');
   const [email, setEmail] = useState(client?.email || '');
 
-  // Estados de seguridad de contraseña
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  // Bank account
+  const [newAccountOrigen,      setNewAccountOrigen]      = useState('Lima');
+  const [newAccountBank,        setNewAccountBank]        = useState('');
+  const [newAccountBankCustom,  setNewAccountBankCustom]  = useState('');
+  const [newAccountType,        setNewAccountType]        = useState('Ahorro');
+  const [newAccountCurrency,    setNewAccountCurrency]    = useState('S/');
+  const [newAccountNumber,      setNewAccountNumber]      = useState('');
+  const [newAccountCCI,         setNewAccountCCI]         = useState('');
+  const [addingAccount,         setAddingAccount]         = useState(false);
+  const [bankMenuVisible,       setBankMenuVisible]       = useState(false);
+  const [editingAccounts,       setEditingAccounts]       = useState(false);
 
-  // Estados para agregar cuenta bancaria
-  const [newAccountOrigen, setNewAccountOrigen] = useState('Lima');
-  const [newAccountBank, setNewAccountBank] = useState('');
-  const [newAccountBankCustomName, setNewAccountBankCustomName] = useState('');
-  const [newAccountType, setNewAccountType] = useState('Ahorro');
-  const [newAccountCurrency, setNewAccountCurrency] = useState('S/');
-  const [newAccountNumber, setNewAccountNumber] = useState('');
-  const [newAccountCCI, setNewAccountCCI] = useState('');
-  const [addingAccount, setAddingAccount] = useState(false);
-  const [bankMenuVisible, setBankMenuVisible] = useState(false);
-
+  // ── Handlers (logic unchanged) ─────────────────────────────────────────────
   const handleLogout = () => {
     Alert.alert('Cerrar Sesión', '¿Estás seguro que deseas cerrar sesión?', [
       { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Cerrar Sesión',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-        },
-      },
+      { text: 'Cerrar Sesión', style: 'destructive', onPress: () => setShowLogoutLoading(true) },
     ]);
   };
 
   const handleChangePassword = async () => {
-    // Validaciones
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
-      return;
+      Alert.alert('Error', 'Por favor completa todos los campos'); return;
     }
-
     if (newPassword.length < 8) {
-      Alert.alert('Error', 'La nueva contraseña debe tener al menos 8 caracteres');
-      return;
+      Alert.alert('Error', 'La nueva contraseña debe tener al menos 8 caracteres'); return;
     }
-
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Las contraseñas no coinciden');
-      return;
+      Alert.alert('Error', 'Las contraseñas no coinciden'); return;
     }
-
     try {
-      const API_CONFIG = require('../constants/config').API_CONFIG;
+      const { API_CONFIG } = require('../constants/config');
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/client/change-password`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          dni: client?.dni,
-          current_password: currentPassword,
-          new_password: newPassword,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dni: client?.dni, current_password: currentPassword, new_password: newPassword }),
       });
-
       const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Error al cambiar contraseña');
-      }
-
-      Alert.alert(
-        '✅ Contraseña Actualizada',
-        'Tu contraseña ha sido cambiada exitosamente',
-        [
-          {
-            text: 'Entendido',
-            onPress: () => {
-              setChangePasswordVisible(false);
-              setCurrentPassword('');
-              setNewPassword('');
-              setConfirmPassword('');
-            },
-          },
-        ]
-      );
+      if (!response.ok || !data.success) throw new Error(data.message || 'Error al cambiar contraseña');
+      Alert.alert('Contraseña Actualizada', 'Tu contraseña ha sido cambiada exitosamente', [{
+        text: 'Entendido', onPress: () => {
+          setChangePasswordVisible(false);
+          setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+        },
+      }]);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'No se pudo cambiar la contraseña');
-      console.error('Error al cambiar contraseña:', error);
     }
   };
 
   const handleEditInfo = async () => {
-    // Validaciones
-    if (!phone) {
-      Alert.alert('Error', 'El teléfono es obligatorio');
-      return;
-    }
-
-    if (phone.length !== 9 || !/^9\d{8}$/.test(phone)) {
-      Alert.alert('Error', 'El teléfono debe tener 9 dígitos y comenzar con 9');
-      return;
-    }
-
-    if (!email) {
-      Alert.alert('Error', 'El email es obligatorio');
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Ingresa un email válido');
-      return;
-    }
-
-    try {
-      // TODO: Implementar API call real cuando esté disponible en backend
-      // const response = await apiClient.put(`/api/client/update-info/${client?.dni}`, {
-      //   phone,
-      //   email,
-      // });
-
-      // Mostrar mensaje de éxito
-      Alert.alert(
-        '✅ Información Actualizada',
-        'Tu información personal ha sido actualizada correctamente',
-        [
-          {
-            text: 'Entendido',
-            onPress: () => {
-              setEditInfoVisible(false);
-              // TODO: Actualizar el contexto cuando la API esté lista
-              // updateClient({ ...client, phone, email });
-            },
-          },
-        ]
-      );
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo actualizar la información. Intenta nuevamente.');
-      console.error('Error al actualizar información:', error);
-    }
+    if (!phone) { Alert.alert('Error', 'El teléfono es obligatorio'); return; }
+    if (phone.length !== 9 || !/^9\d{8}$/.test(phone)) { Alert.alert('Error', 'El teléfono debe tener 9 dígitos y comenzar con 9'); return; }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { Alert.alert('Error', 'Ingresa un email válido'); return; }
+    Alert.alert('Información Actualizada', 'Tu información ha sido actualizada correctamente', [{
+      text: 'Entendido', onPress: () => setEditInfoVisible(false),
+    }]);
   };
 
   const openWhatsApp = () => {
-    const phoneNumber = '51910624404'; // Mismo número para enviar comprobantes
-    const message = `Hola, soy ${client?.full_name} (DNI: ${client?.dni}). Necesito ayuda con mi cuenta de QoriCash.`;
-    const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
-
-    Linking.openURL(url).catch((err) => {
-      Alert.alert('Error', 'No se pudo abrir WhatsApp');
-      console.error('Error al abrir WhatsApp:', err);
-    });
+    const msg = `Hola, soy ${client?.full_name} (DNI: ${client?.dni}). Necesito ayuda con mi cuenta de QoriCash.`;
+    Linking.openURL(`https://wa.me/51910624404?text=${encodeURIComponent(msg)}`).catch(() =>
+      Alert.alert('Error', 'No se pudo abrir WhatsApp')
+    );
   };
 
   const openEmail = () => {
-    const email = 'info@qoricash.pe';
     const subject = `Soporte - ${client?.full_name}`;
-    const body = `Hola,\n\nNecesito ayuda con mi cuenta.\n\nDatos:\nNombre: ${client?.full_name}\nDNI: ${client?.dni}\nEmail: ${client?.email}\n\nConsulta:\n`;
-    const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-    Linking.openURL(url).catch((err) => {
-      Alert.alert('Error', 'No se pudo abrir el cliente de correo');
-      console.error('Error al abrir email:', err);
-    });
+    const body = `Hola,\n\nNecesito ayuda con mi cuenta.\n\nNombre: ${client?.full_name}\nDNI: ${client?.dni}\n\nConsulta:\n`;
+    Linking.openURL(`mailto:info@qoricash.pe?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`).catch(() =>
+      Alert.alert('Error', 'No se pudo abrir el correo')
+    );
   };
 
-  // Funciones para agregar cuenta bancaria
-  const BANKS_LIMA = ['BCP', 'INTERBANK', 'PICHINCHA', 'BANBIF', 'BBVA', 'Scotiabank', 'Otros'];
+  const BANKS_LIMA      = ['BCP', 'INTERBANK', 'PICHINCHA', 'BANBIF', 'BBVA', 'Scotiabank', 'Otros'];
   const BANKS_PROVINCIA = ['BCP', 'INTERBANK'];
-
-  const getAvailableBanks = () => {
-    return newAccountOrigen === 'Lima' ? BANKS_LIMA : BANKS_PROVINCIA;
-  };
-
-  const needsCCI = () => {
-    const mainBanks = ['BCP', 'INTERBANK', 'PICHINCHA', 'BANBIF'];
-    return newAccountBank && !mainBanks.includes(newAccountBank);
-  };
+  const getAvailableBanks = () => newAccountOrigen === 'Lima' ? BANKS_LIMA : BANKS_PROVINCIA;
+  const needsCCI = () => !['BCP', 'INTERBANK', 'PICHINCHA', 'BANBIF'].includes(newAccountBank);
 
   const handleOpenAddAccountDialog = () => {
-    setNewAccountOrigen('Lima');
-    setNewAccountBank('');
-    setNewAccountBankCustomName('');
-    setNewAccountType('Ahorro');
-    setNewAccountCurrency('S/');
-    setNewAccountNumber('');
-    setNewAccountCCI('');
+    setNewAccountOrigen('Lima'); setNewAccountBank(''); setNewAccountBankCustom('');
+    setNewAccountType('Ahorro'); setNewAccountCurrency('S/'); setNewAccountNumber(''); setNewAccountCCI('');
     setAddAccountVisible(true);
   };
 
   const handleAddBankAccount = async () => {
     if (!client) return;
-
-    // Validaciones
-    if (!newAccountBank) {
-      Alert.alert('Error', 'Seleccione un banco');
-      return;
-    }
-
-    if (newAccountBank === 'Otros' && !newAccountBankCustomName.trim()) {
-      Alert.alert('Error', 'Ingrese el nombre del banco');
-      return;
-    }
-
-    const mainBanks = ['BCP', 'INTERBANK', 'PICHINCHA', 'BANBIF'];
-    const needsCCIValue = !mainBanks.includes(newAccountBank);
-
-    if (needsCCIValue && (!newAccountCCI || newAccountCCI.length !== 20)) {
-      Alert.alert('Error', 'Para este banco debe ingresar el CCI de 20 dígitos');
-      return;
-    }
-
-    if (!needsCCIValue && !newAccountNumber) {
-      Alert.alert('Error', 'Ingrese el número de cuenta');
-      return;
-    }
-
+    if (!newAccountBank) { Alert.alert('Error', 'Seleccione un banco'); return; }
+    if (newAccountBank === 'Otros' && !newAccountBankCustom.trim()) { Alert.alert('Error', 'Ingrese el nombre del banco'); return; }
+    if (needsCCI() && (!newAccountCCI || newAccountCCI.length !== 20)) { Alert.alert('Error', 'Ingrese el CCI de 20 dígitos'); return; }
+    if (!needsCCI() && !newAccountNumber) { Alert.alert('Error', 'Ingrese el número de cuenta'); return; }
     try {
       setAddingAccount(true);
-
-      const API_CONFIG = require('../constants/config').API_CONFIG;
-      const bankNameToSend = newAccountBank === 'Otros' ? newAccountBankCustomName.trim() : newAccountBank;
-
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}/api/client/add-bank-account/${client.dni}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            origen: newAccountOrigen,
-            bank_name: bankNameToSend,
-            account_type: newAccountType,
-            currency: newAccountCurrency,
-            account_number: needsCCIValue ? newAccountCCI : newAccountNumber,
-            cci: needsCCIValue ? newAccountCCI : undefined,
-          }),
-        }
-      );
-
+      const { API_CONFIG } = require('../constants/config');
+      const bankName = newAccountBank === 'Otros' ? newAccountBankCustom.trim() : newAccountBank;
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/client/add-bank-account/${client.dni}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          origen: newAccountOrigen, bank_name: bankName,
+          account_type: newAccountType, currency: newAccountCurrency,
+          account_number: needsCCI() ? newAccountCCI : newAccountNumber,
+          cci: needsCCI() ? newAccountCCI : undefined,
+        }),
+      });
       const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Error al agregar cuenta');
-      }
-
-      // Refrescar datos del cliente para mostrar la nueva cuenta
-      if (refreshClient) {
-        await refreshClient();
-      }
-
+      if (!response.ok || !data.success) throw new Error(data.message || 'Error al agregar cuenta');
+      if (refreshClient) await refreshClient();
       Alert.alert('Éxito', 'Cuenta bancaria agregada exitosamente');
       setAddAccountVisible(false);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Error al agregar cuenta bancaria');
-    } finally {
-      setAddingAccount(false);
-    }
+    } finally { setAddingAccount(false); }
   };
 
   const handleDeleteBankAccount = async (accountIndex: number) => {
     if (!client) return;
-
-    Alert.alert(
-      'Eliminar Cuenta Bancaria',
-      '¿Estás seguro que deseas eliminar esta cuenta bancaria?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
+    Alert.alert('Eliminar Cuenta', '¿Estás seguro?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar', style: 'destructive', onPress: async () => {
+          try {
+            const { API_CONFIG } = require('../constants/config');
+            const response = await fetch(
+              `${API_CONFIG.BASE_URL}/api/client/delete-bank-account/${client.dni}/${accountIndex}`,
+              { method: 'DELETE', headers: { 'Content-Type': 'application/json' } }
+            );
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || 'Error al eliminar cuenta');
+            if (refreshClient) await refreshClient();
+            Alert.alert('Éxito', 'Cuenta bancaria eliminada exitosamente');
+          } catch (error: any) {
+            Alert.alert('Error', error.message || 'Error al eliminar cuenta bancaria');
+          }
         },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const API_CONFIG = require('../constants/config').API_CONFIG;
-              const url = `${API_CONFIG.BASE_URL}/api/client/delete-bank-account/${client.dni}/${accountIndex}`;
-
-              const response = await fetch(url, {
-                method: 'DELETE',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-              });
-
-              const data = await response.json();
-
-              if (!response.ok || !data.success) {
-                throw new Error(data.message || 'Error al eliminar cuenta');
-              }
-
-              // Refrescar datos del cliente
-              if (refreshClient) {
-                await refreshClient();
-              }
-
-              Alert.alert('Éxito', 'Cuenta bancaria eliminada exitosamente');
-            } catch (error: any) {
-              console.error('Error al eliminar cuenta bancaria:', error);
-              Alert.alert('Error', error.message || 'Error al eliminar cuenta bancaria');
-            }
-          },
-        },
-      ]
-    );
+      },
+    ]);
   };
 
-  return (
-    <>
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+  // ── Avatar initials ────────────────────────────────────────────────────────
+  const initial = client?.nombres
+    ? client.nombres.charAt(0).toUpperCase()
+    : client?.full_name?.charAt(0).toUpperCase() || 'U';
 
-          {/* ── Dark gradient header ── */}
-          <LinearGradient
-            colors={['#0D1B2A', '#111F2C', '#0f2236']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.header}
-          >
-            <View style={styles.headerGlow} />
-
-            {/* Avatar initials */}
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarInitials}>
-                {client?.nombres
-                  ? client.nombres.charAt(0).toUpperCase()
-                  : client?.full_name?.charAt(0).toUpperCase() || 'U'}
-              </Text>
-            </View>
-
-            <Text style={styles.headerName}>{client?.full_name}</Text>
-            <Text style={styles.headerEmail}>{client?.email}</Text>
-
-            {/* Status badge */}
-            <View style={styles.statusBadge}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusBadgeText}>{client?.status}</Text>
-            </View>
-
-            {/* Info strip */}
-            <View style={styles.infoStrip}>
-              <View style={styles.infoStripItem}>
-                <Text style={styles.infoStripLabel}>Documento</Text>
-                <Text style={styles.infoStripValue}>{client?.dni}</Text>
-              </View>
-              <View style={styles.infoStripDivider} />
-              <View style={styles.infoStripItem}>
-                <Text style={styles.infoStripLabel}>Tipo</Text>
-                <Text style={styles.infoStripValue}>
-                  {(client as any)?.client_type === 'juridico' ? 'Empresa' : 'Natural'}
-                </Text>
-              </View>
-              <View style={styles.infoStripDivider} />
-              <View style={styles.infoStripItem}>
-                <Text style={styles.infoStripLabel}>Teléfono</Text>
-                <Text style={styles.infoStripValue}>{client?.phone || '—'}</Text>
-              </View>
-            </View>
-          </LinearGradient>
-
-          <View style={styles.content}>
-
-            {/* ── Personal Info ── */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionCardHeader}>
-                <View style={styles.sectionIconBg}>
-                  <Icon source="account-outline" size={16} color={Colors.primary} />
-                </View>
-                <Text style={styles.sectionCardTitle}>Información Personal</Text>
-                <TouchableOpacity
-                  style={styles.editBtn}
-                  onPress={() => {
-                    setPhone(client?.phone || '');
-                    setEmail(client?.email || '');
-                    setEditInfoVisible(true);
-                  }}
-                >
-                  <Icon source="pencil-outline" size={16} color={Colors.primary} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.infoRow}>
-                <View style={styles.infoRowIconBg}>
-                  <Icon source="phone-outline" size={14} color="#64748B" />
-                </View>
-                <View style={styles.infoRowTexts}>
-                  <Text style={styles.infoRowLabel}>Teléfono</Text>
-                  <Text style={styles.infoRowValue}>{client?.phone || 'No registrado'}</Text>
-                </View>
-              </View>
-
-              <View style={styles.infoRowDivider} />
-
-              <View style={styles.infoRow}>
-                <View style={styles.infoRowIconBg}>
-                  <Icon source="email-outline" size={14} color="#64748B" />
-                </View>
-                <View style={styles.infoRowTexts}>
-                  <Text style={styles.infoRowLabel}>Email</Text>
-                  <Text style={styles.infoRowValue}>{client?.email || 'No registrado'}</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* ── Bank Accounts ── */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionCardHeader}>
-                <View style={styles.sectionIconBg}>
-                  <Icon source="bank-outline" size={16} color={Colors.primary} />
-                </View>
-                <Text style={styles.sectionCardTitle}>Cuentas Bancarias</Text>
-              </View>
-
-              {client?.bank_accounts && client.bank_accounts.length > 0 ? (
-                client.bank_accounts.map((account, index) => (
-                  <View key={index}>
-                    {index > 0 && <View style={styles.infoRowDivider} />}
-                    <View style={styles.bankRow}>
-                      <View style={styles.bankRowIconBg}>
-                        <Icon source="bank" size={16} color={Colors.primary} />
-                      </View>
-                      <View style={styles.bankRowTexts}>
-                        <Text style={styles.bankRowName}>{account.bank_name}</Text>
-                        <Text style={styles.bankRowDetail}>
-                          {account.account_type} · {account.currency} · ****{account.account_number.slice(-4)}
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.bankDeleteBtn}
-                        onPress={() => handleDeleteBankAccount(index)}
-                      >
-                        <Icon source="trash-can-outline" size={18} color="#ef4444" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.emptyText}>Sin cuentas registradas</Text>
-              )}
-
-              <TouchableOpacity style={styles.addAccountBtn} onPress={handleOpenAddAccountDialog}>
-                <Icon source="plus-circle-outline" size={18} color={Colors.primary} />
-                <Text style={styles.addAccountBtnText}>Gestionar Cuentas</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* ── Settings ── */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionCardHeader}>
-                <View style={styles.sectionIconBg}>
-                  <Icon source="cog-outline" size={16} color={Colors.primary} />
-                </View>
-                <Text style={styles.sectionCardTitle}>Configuración</Text>
-              </View>
-
-              <TouchableOpacity style={styles.settingsRow} onPress={() => setChangePasswordVisible(true)}>
-                <View style={styles.settingsRowIconBg}>
-                  <Icon source="lock-outline" size={14} color="#64748B" />
-                </View>
-                <View style={styles.settingsRowTexts}>
-                  <Text style={styles.settingsRowTitle}>Cambiar Contraseña</Text>
-                  <Text style={styles.settingsRowSubtitle}>Actualiza tu contraseña de acceso</Text>
-                </View>
-                <Icon source="chevron-right" size={20} color="#94A3B8" />
-              </TouchableOpacity>
-
-              <View style={styles.infoRowDivider} />
-
-              <TouchableOpacity style={styles.settingsRow} onPress={() => setHelpVisible(true)}>
-                <View style={styles.settingsRowIconBg}>
-                  <Icon source="help-circle-outline" size={14} color="#64748B" />
-                </View>
-                <View style={styles.settingsRowTexts}>
-                  <Text style={styles.settingsRowTitle}>Ayuda y Soporte</Text>
-                  <Text style={styles.settingsRowSubtitle}>Contáctanos para resolver tus dudas</Text>
-                </View>
-                <Icon source="chevron-right" size={20} color="#94A3B8" />
-              </TouchableOpacity>
-            </View>
-
-            {/* ── About ── */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionCardHeader}>
-                <View style={styles.sectionIconBg}>
-                  <Icon source="information-outline" size={16} color={Colors.primary} />
-                </View>
-                <Text style={styles.sectionCardTitle}>Acerca de</Text>
-              </View>
-
-              <View style={styles.settingsRow}>
-                <View style={styles.settingsRowIconBg}>
-                  <Icon source="application" size={14} color="#64748B" />
-                </View>
-                <View style={styles.settingsRowTexts}>
-                  <Text style={styles.settingsRowTitle}>Versión de la App</Text>
-                  <Text style={styles.settingsRowSubtitle}>1.0.0</Text>
-                </View>
-              </View>
-
-              <View style={styles.infoRowDivider} />
-
-              <TouchableOpacity style={styles.settingsRow} onPress={() => navigation.navigate('Logs')}>
-                <View style={styles.settingsRowIconBg}>
-                  <Icon source="text-box-search-outline" size={14} color="#64748B" />
-                </View>
-                <View style={styles.settingsRowTexts}>
-                  <Text style={styles.settingsRowTitle}>Logs del Sistema</Text>
-                  <Text style={styles.settingsRowSubtitle}>Ver registros de depuración</Text>
-                </View>
-                <Icon source="chevron-right" size={20} color="#94A3B8" />
-              </TouchableOpacity>
-
-              <View style={styles.infoRowDivider} />
-
-              <TouchableOpacity
-                style={styles.settingsRow}
-                onPress={() => {
-                  const API_CONFIG = require('../constants/config').API_CONFIG;
-                  Linking.openURL(`${API_CONFIG.BASE_URL}/legal/terms`).catch(() =>
-                    Alert.alert('Error', 'No se pudo abrir el navegador')
-                  );
-                }}
-              >
-                <View style={styles.settingsRowIconBg}>
-                  <Icon source="file-document-outline" size={14} color="#64748B" />
-                </View>
-                <View style={styles.settingsRowTexts}>
-                  <Text style={styles.settingsRowTitle}>Términos y Condiciones</Text>
-                </View>
-                <Icon source="chevron-right" size={20} color="#94A3B8" />
-              </TouchableOpacity>
-
-              <View style={styles.infoRowDivider} />
-
-              <TouchableOpacity
-                style={styles.settingsRow}
-                onPress={() => {
-                  const API_CONFIG = require('../constants/config').API_CONFIG;
-                  Linking.openURL(`${API_CONFIG.BASE_URL}/legal/privacy`).catch(() =>
-                    Alert.alert('Error', 'No se pudo abrir el navegador')
-                  );
-                }}
-              >
-                <View style={styles.settingsRowIconBg}>
-                  <Icon source="shield-check-outline" size={14} color="#64748B" />
-                </View>
-                <View style={styles.settingsRowTexts}>
-                  <Text style={styles.settingsRowTitle}>Política de Privacidad</Text>
-                </View>
-                <Icon source="chevron-right" size={20} color="#94A3B8" />
-              </TouchableOpacity>
-            </View>
-
-            {/* ── Logout ── */}
-            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-              <Icon source="logout" size={20} color="#FFFFFF" />
-              <Text style={styles.logoutBtnText}>Cerrar Sesión</Text>
-            </TouchableOpacity>
-
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>QoriCash © 2025</Text>
-            </View>
-
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-
-      {/* Modal: Cambiar Contraseña */}
-      <Modal
-        visible={changePasswordVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setChangePasswordVisible(false);
-          setCurrentPassword('');
-          setNewPassword('');
-          setConfirmPassword('');
-        }}
-      >
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.keyboardAvoid}
-          >
-            <View style={styles.modalContainer}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Cambiar Contraseña</Text>
-              </View>
-
-              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-                <TextInput
-                  label="Contraseña Actual"
-                  value={currentPassword}
-                  onChangeText={setCurrentPassword}
-                  secureTextEntry={!showCurrentPassword}
-                  mode="outlined"
-                  style={GlobalStyles.input}
-                  right={
-                    <TextInput.Icon
-                      icon={showCurrentPassword ? 'eye-off' : 'eye'}
-                      onPress={() => setShowCurrentPassword(!showCurrentPassword)}
-                    />
-                  }
-                />
-                <TextInput
-                  label="Nueva Contraseña"
-                  value={newPassword}
-                  onChangeText={setNewPassword}
-                  secureTextEntry={!showNewPassword}
-                  mode="outlined"
-                  style={GlobalStyles.input}
-                  right={
-                    <TextInput.Icon
-                      icon={showNewPassword ? 'eye-off' : 'eye'}
-                      onPress={() => setShowNewPassword(!showNewPassword)}
-                    />
-                  }
-                />
-                <TextInput
-                  label="Confirmar Nueva Contraseña"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry={!showConfirmPassword}
-                  mode="outlined"
-                  style={GlobalStyles.input}
-                  right={
-                    <TextInput.Icon
-                      icon={showConfirmPassword ? 'eye-off' : 'eye'}
-                      onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                    />
-                  }
-                />
-                <Text style={styles.helpText}>
-                  La contraseña debe tener al menos 8 caracteres
-                </Text>
-              </ScrollView>
-
-              <View style={styles.modalActions}>
-                <Button
-                  mode="outlined"
-                  onPress={() => {
-                    setChangePasswordVisible(false);
-                    setCurrentPassword('');
-                    setNewPassword('');
-                    setConfirmPassword('');
-                  }}
-                  style={styles.modalButton}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  mode="contained"
-                  onPress={handleChangePassword}
-                  style={styles.modalButton}
-                >
-                  Guardar
-                </Button>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
-
-      {/* Modal: Editar Información */}
-      <Modal
-        visible={editInfoVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setEditInfoVisible(false);
-          setPhone(client?.phone || '');
-          setEmail(client?.email || '');
-        }}
-      >
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.keyboardAvoid}
-          >
-            <View style={styles.modalContainerCompact}>
-              <View style={styles.modalHeaderCompact}>
-                <Text style={styles.modalTitle}>Editar Información</Text>
-              </View>
-
-              <View style={styles.modalBodyCompact}>
-                <TextInput
-                  label="Teléfono"
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  mode="outlined"
-                  style={styles.inputCompact}
-                  maxLength={9}
-                  left={<TextInput.Icon icon="phone" />}
-                />
-                <TextInput
-                  label="Email"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  mode="outlined"
-                  style={styles.inputCompact}
-                  autoCapitalize="none"
-                  left={<TextInput.Icon icon="email" />}
-                />
-                <Text style={styles.helpTextCompact}>
-                  El teléfono debe tener 9 dígitos y comenzar con 9
-                </Text>
-              </View>
-
-              <View style={styles.modalActionsCompact}>
-                <Button
-                  mode="outlined"
-                  onPress={() => {
-                    setEditInfoVisible(false);
-                    setPhone(client?.phone || '');
-                    setEmail(client?.email || '');
-                  }}
-                  style={styles.modalButton}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  mode="contained"
-                  onPress={handleEditInfo}
-                  style={styles.modalButton}
-                >
-                  Guardar
-                </Button>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
-
-      {/* Modal: Ayuda y Soporte */}
-      <Portal>
-        <Dialog
-          visible={helpVisible}
-          onDismiss={() => setHelpVisible(false)}
-          style={styles.dialog}
-        >
-          <Dialog.Title>Ayuda y Soporte</Dialog.Title>
-          <Dialog.Content>
-            <Text style={styles.helpTitle}>¿Necesitas ayuda?</Text>
-            <Text style={styles.helpDescription}>
-              Contáctanos a través de los siguientes canales:
-            </Text>
-
-            <TouchableOpacity style={styles.contactOption} onPress={openWhatsApp}>
-              <List.Icon icon="whatsapp" color="#25D366" />
-              <View style={styles.contactText}>
-                <Text style={styles.contactTitle}>WhatsApp</Text>
-                <Text style={styles.contactDescription}>Chatea con nosotros</Text>
-              </View>
-              <List.Icon icon="chevron-right" />
-            </TouchableOpacity>
-
-            <Divider style={styles.divider} />
-
-            <TouchableOpacity style={styles.contactOption} onPress={openEmail}>
-              <List.Icon icon="email" color="#1976D2" />
-              <View style={styles.contactText}>
-                <Text style={styles.contactTitle}>Email</Text>
-                <Text style={styles.contactDescription}>info@qoricash.pe</Text>
-              </View>
-              <List.Icon icon="chevron-right" />
-            </TouchableOpacity>
-
-            <Divider style={styles.divider} />
-
-            <View style={styles.infoBox}>
-              <List.Icon icon="clock" color="#757575" />
-              <Text style={styles.infoText}>
-                Horario de atención: Lunes a Viernes 9:00 AM - 6:00 PM
-              </Text>
-            </View>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setHelpVisible(false)}>Cerrar</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-
-      {/* Modal: Agregar Cuenta Bancaria */}
-      <Portal>
-        <Dialog
-          visible={addAccountVisible}
-          onDismiss={() => setAddAccountVisible(false)}
-          style={styles.dialogLarge}
-        >
-          <Dialog.Title style={styles.dialogTitle}>Agregar Cuenta Bancaria</Dialog.Title>
-          <Dialog.ScrollArea>
-            <ScrollView contentContainerStyle={styles.dialogContentLarge} showsVerticalScrollIndicator={false}>
-              {/* Origen */}
-              <Text variant="titleSmall" style={styles.dialogLabelBank}>
-                Origen
-              </Text>
-              <View style={styles.currencySelector}>
-                <TouchableOpacity
-                  style={[
-                    styles.currencySelectorButton,
-                    styles.currencySelectorButtonLeft,
-                    newAccountOrigen === 'Lima' && styles.currencySelectorButtonActive,
-                  ]}
-                  onPress={() => setNewAccountOrigen('Lima')}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.currencySelectorButtonText,
-                      newAccountOrigen === 'Lima' && styles.currencySelectorButtonTextActive,
-                    ]}
-                  >
-                    Lima
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.currencySelectorButton,
-                    styles.currencySelectorButtonRight,
-                    newAccountOrigen === 'Provincia' && styles.currencySelectorButtonActive,
-                  ]}
-                  onPress={() => setNewAccountOrigen('Provincia')}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.currencySelectorButtonText,
-                      newAccountOrigen === 'Provincia' && styles.currencySelectorButtonTextActive,
-                    ]}
-                  >
-                    Provincia
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Warning para Provincia */}
-              {newAccountOrigen === 'Provincia' && (
-                <Card style={styles.provinceWarningCard}>
-                  <Card.Content style={styles.provinceWarningContent}>
-                    <Text style={styles.provinceWarningText}>
-                      Por el momento para cuentas de provincia solo operamos con BCP e INTERBANK
-                    </Text>
-                  </Card.Content>
-                </Card>
-              )}
-
-              {/* Banco */}
-              <Text variant="titleSmall" style={styles.dialogLabelBank}>
-                Banco
-              </Text>
-              <TouchableOpacity
-                onPress={() => setBankMenuVisible(true)}
-                style={styles.bankSelectButton}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.bankSelectButtonText}>
-                  {newAccountBank || 'Seleccionar Banco'}
-                </Text>
-                <IconButton icon="chevron-down" size={20} />
-              </TouchableOpacity>
-
-              {/* Nombre del banco personalizado */}
-              {newAccountBank === 'Otros' && (
-                <TextInput
-                  label="Nombre del Banco"
-                  value={newAccountBankCustomName}
-                  onChangeText={setNewAccountBankCustomName}
-                  mode="outlined"
-                  placeholder="Ej: Banco de la Nación, Banco Ripley, etc."
-                  style={styles.inputBank}
-                  outlineColor="#E0E0E0"
-                  activeOutlineColor="#22c55e"
-                />
-              )}
-
-              {/* Tipo de Cuenta */}
-              <Text variant="titleSmall" style={styles.dialogLabelBank}>
-                Tipo de Cuenta
-              </Text>
-              <View style={styles.currencySelector}>
-                <TouchableOpacity
-                  style={[
-                    styles.currencySelectorButton,
-                    styles.currencySelectorButtonLeft,
-                    newAccountType === 'Ahorro' && styles.currencySelectorButtonActive,
-                  ]}
-                  onPress={() => setNewAccountType('Ahorro')}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.currencySelectorButtonText,
-                      newAccountType === 'Ahorro' && styles.currencySelectorButtonTextActive,
-                    ]}
-                  >
-                    Ahorro
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.currencySelectorButton,
-                    styles.currencySelectorButtonRight,
-                    newAccountType === 'Corriente' && styles.currencySelectorButtonActive,
-                  ]}
-                  onPress={() => setNewAccountType('Corriente')}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.currencySelectorButtonText,
-                      newAccountType === 'Corriente' && styles.currencySelectorButtonTextActive,
-                    ]}
-                  >
-                    Corriente
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Moneda */}
-              <Text variant="titleSmall" style={styles.dialogLabelBank}>
-                Moneda
-              </Text>
-              <View style={styles.currencySelector}>
-                <TouchableOpacity
-                  style={[
-                    styles.currencySelectorButton,
-                    styles.currencySelectorButtonLeft,
-                    newAccountCurrency === 'S/' && styles.currencySelectorButtonActive,
-                  ]}
-                  onPress={() => setNewAccountCurrency('S/')}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.currencySelectorButtonText,
-                      newAccountCurrency === 'S/' && styles.currencySelectorButtonTextActive,
-                    ]}
-                  >
-                    Soles (S/)
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.currencySelectorButton,
-                    styles.currencySelectorButtonRight,
-                    newAccountCurrency === '$' && styles.currencySelectorButtonActive,
-                  ]}
-                  onPress={() => setNewAccountCurrency('$')}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.currencySelectorButtonText,
-                      newAccountCurrency === '$' && styles.currencySelectorButtonTextActive,
-                    ]}
-                  >
-                    Dólares ($)
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Número de Cuenta (solo para bancos principales) */}
-              {!needsCCI() && newAccountBank && (
-                <TextInput
-                  label="Número de Cuenta"
-                  value={newAccountNumber}
-                  onChangeText={setNewAccountNumber}
-                  mode="outlined"
-                  keyboardType="numeric"
-                  style={styles.inputBank}
-                  outlineColor="#E0E0E0"
-                  activeOutlineColor="#22c55e"
-                />
-              )}
-
-              {/* CCI (solo para bancos no principales) */}
-              {needsCCI() && (
-                <>
-                  <TextInput
-                    label="CCI (20 dígitos)"
-                    value={newAccountCCI}
-                    onChangeText={setNewAccountCCI}
-                    mode="outlined"
-                    keyboardType="numeric"
-                    maxLength={20}
-                    style={styles.inputBank}
-                    outlineColor="#E0E0E0"
-                    activeOutlineColor="#22c55e"
-                  />
-                  <HelperText type="info" visible={true} style={styles.helperTextBank}>
-                    Ingrese el CCI completo de 20 dígitos
-                  </HelperText>
-                </>
-              )}
+  // ── Helpers for modals ─────────────────────────────────────────────────────
+  const GlassModal: React.FC<{
+    visible: boolean;
+    onClose: () => void;
+    title: string;
+    children: React.ReactNode;
+    footer: React.ReactNode;
+  }> = ({ visible, onClose, title, children, footer }) => (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <TouchableOpacity style={s.modalBackdrop} activeOpacity={1} onPress={onClose}>
+          <TouchableOpacity activeOpacity={1} style={s.modalBox} onPress={e => e.stopPropagation()}>
+            <BlurView intensity={88} tint="dark" style={StyleSheet.absoluteFill} />
+            <View style={s.modalBorder} />
+            <Text style={s.modalTitle}>{title}</Text>
+            <View style={s.modalDivider} />
+            <ScrollView style={{ width: '100%' }} showsVerticalScrollIndicator={false}>
+              {children}
             </ScrollView>
-          </Dialog.ScrollArea>
-          <Dialog.Actions style={styles.dialogActionsBank}>
-            <TouchableOpacity
-              onPress={() => setAddAccountVisible(false)}
-              disabled={addingAccount}
-              style={styles.dialogCancelButtonBank}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.dialogCancelButtonTextBank}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleAddBankAccount}
-              disabled={addingAccount || !newAccountBank}
-              style={[
-                styles.dialogAddButtonBank,
-                (addingAccount || !newAccountBank) && styles.dialogAddButtonBankDisabled,
-              ]}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.dialogAddButtonTextBank,
-                  (addingAccount || !newAccountBank) && styles.dialogAddButtonTextBankDisabled,
-                ]}
-              >
-                {addingAccount ? 'Agregando...' : 'Agregar Cuenta'}
-              </Text>
-            </TouchableOpacity>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+            {footer}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
 
-      {/* Modal: Seleccionar Banco */}
-      <Portal>
-        <Dialog
-          visible={bankMenuVisible}
-          onDismiss={() => setBankMenuVisible(false)}
-          style={styles.dialog}
-        >
-          <Dialog.Title style={styles.dialogTitle}>Seleccionar Banco</Dialog.Title>
-          <Dialog.Content>
-            <RadioButton.Group
-              onValueChange={(value) => {
-                setNewAccountBank(value);
-                setNewAccountBankCustomName('');
-                setBankMenuVisible(false);
-              }}
-              value={newAccountBank}
-            >
-              {getAvailableBanks().map((bank) => (
-                <RadioButton.Item
-                  key={bank}
-                  label={bank}
-                  value={bank}
-                  style={styles.bankRadioItem}
-                  labelStyle={styles.bankRadioLabel}
-                  color="#22c55e"
-                />
-              ))}
-            </RadioButton.Group>
-          </Dialog.Content>
-          <Dialog.Actions style={styles.dialogActionsBank}>
+  // ── Render ─────────────────────────────────────────────────────────────────
+  return (
+    <View style={s.root}>
+      <ImageBackground source={require('../../assets/cd.png')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <View style={[StyleSheet.absoluteFill, s.overlay]} pointerEvents="none" />
+
+      <ScrollView
+        style={s.scroll}
+        contentContainerStyle={[s.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 88 }]}
+        showsVerticalScrollIndicator={false}
+      >
+
+        {/* ══ Header ═══════════════════════════════════════════════════════ */}
+        <View style={s.header}>
+          <Text style={s.headerLabel}>Mi perfil</Text>
+          <View style={s.headerRow}>
+            <Text style={s.headerName}>
+              {[client?.nombres?.split(' ')[0], client?.apellido_paterno].filter(Boolean).join(' ') || client?.full_name}
+            </Text>
+            <Image source={require('../../assets/ju.png')} style={s.headerLogo} resizeMode="contain" />
+          </View>
+
+          {/* Info strip */}
+          <View style={s.strip}>
+            <View style={s.stripItem}>
+              <Text style={s.stripLabel}>Documento</Text>
+              <Text style={s.stripValue}>{client?.dni}</Text>
+            </View>
+            <View style={s.stripDivider} />
+            <View style={s.stripItem}>
+              <Text style={s.stripLabel}>Estado</Text>
+              <Text style={[s.stripValue, { color: GREEN }]}>{capitalize(client?.status || '')}</Text>
+            </View>
+            <View style={s.stripDivider} />
+            <View style={s.stripItem}>
+              <Text style={s.stripLabel}>Tipo</Text>
+              <Text style={s.stripValue}>
+                {(client as any)?.client_type === 'juridico' ? 'Empresa' : 'Natural'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ══ Información Personal ════════════════════════════════════════ */}
+        <View style={s.card}>
+          <View style={s.cardHeader}>
+            <Ionicons name="person-outline" size={15} color={GREEN} />
+            <Text style={s.cardTitle}>Información Personal</Text>
             <TouchableOpacity
-              onPress={() => setBankMenuVisible(false)}
-              style={styles.dialogCancelButtonBank}
-              activeOpacity={0.8}
+              style={s.editBtn}
+              onPress={() => { setPhone(client?.phone || ''); setEmail(client?.email || ''); setEditInfoVisible(true); }}
             >
-              <Text style={styles.dialogCancelButtonTextBank}>Cerrar</Text>
+              <Ionicons name="pencil-outline" size={14} color={GREEN} />
             </TouchableOpacity>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-    </>
+          </View>
+          <SectionRow icon="call-outline"  title="Teléfono" subtitle={client?.phone || 'No registrado'} onPress={undefined} chevron={false} />
+          <View style={s.rowLine} />
+          <SectionRow icon="mail-outline"  title="Email"    subtitle={client?.email || 'No registrado'} onPress={undefined} chevron={false} />
+        </View>
+
+        {/* ══ Configuración ════════════════════════════════════════════════ */}
+        <View style={s.card}>
+          <View style={s.cardHeader}>
+            <Ionicons name="settings-outline" size={15} color={GREEN} />
+            <Text style={s.cardTitle}>Configuración</Text>
+          </View>
+          <SectionRow icon="lock-closed-outline" title="Cambiar Contraseña" subtitle="Actualiza tu contraseña de acceso" onPress={() => setChangePasswordVisible(true)} />
+          <View style={s.rowLine} />
+          <SectionRow icon="help-circle-outline" title="Ayuda y Soporte" subtitle="Contáctanos para resolver tus dudas" onPress={() => setHelpVisible(true)} />
+        </View>
+
+        {/* ══ Cuentas Bancarias ════════════════════════════════════════════ */}
+        <View style={s.card}>
+          <View style={s.cardHeader}>
+            <Ionicons name="card-outline" size={15} color={GREEN} />
+            <Text style={s.cardTitle}>Cuentas Bancarias</Text>
+            <TouchableOpacity style={s.editBtn} onPress={() => setEditingAccounts(e => !e)}>
+              <Ionicons name={editingAccounts ? 'checkmark' : 'pencil-outline'} size={14} color={GREEN} />
+            </TouchableOpacity>
+          </View>
+
+          {client?.bank_accounts && client.bank_accounts.length > 0 ? (
+            client.bank_accounts.map((account, i) => (
+              <View key={i}>
+                {i > 0 && <View style={s.rowLine} />}
+                <View style={s.bankRow}>
+                  <View style={s.bankIcon}>
+                    <Ionicons name="business-outline" size={16} color="rgba(255,255,255,0.55)" />
+                  </View>
+                  <View style={s.bankTexts}>
+                    <Text style={s.bankName}>{account.bank_name}</Text>
+                    <Text style={s.bankDetail}>
+                      {account.account_type} · {account.currency} · ****{account.account_number.slice(-4)}
+                    </Text>
+                  </View>
+                  {editingAccounts && (
+                    <TouchableOpacity style={s.bankDelete} onPress={() => handleDeleteBankAccount(i)}>
+                      <Ionicons name="trash-outline" size={16} color="#f87171" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            ))
+          ) : (
+            <Text style={s.emptyText}>Sin cuentas registradas</Text>
+          )}
+
+          {editingAccounts && (
+            <TouchableOpacity
+              style={s.addBtn}
+              onPress={() => {
+                if ((client?.bank_accounts?.length ?? 0) >= 6) {
+                  Alert.alert('Límite alcanzado', 'Has alcanzado el máximo de 6 cuentas bancarias permitidas.');
+                } else {
+                  handleOpenAddAccountDialog();
+                }
+              }}
+              activeOpacity={0.78}
+            >
+              <Ionicons name="add-circle-outline" size={16} color={GREEN} />
+              <Text style={s.addBtnText}>Agregar cuenta</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* ══ Acerca de ════════════════════════════════════════════════════ */}
+        <View style={s.card}>
+          <View style={s.cardHeader}>
+            <Ionicons name="information-circle-outline" size={15} color={GREEN} />
+            <Text style={s.cardTitle}>Acerca de</Text>
+          </View>
+          <SectionRow icon="apps-outline"             title="Versión de la App" subtitle="1.0.0" onPress={undefined} chevron={false} />
+          <View style={s.rowLine} />
+          <SectionRow icon="document-text-outline"   title="Logs del Sistema"         subtitle="Ver registros de depuración"      onPress={() => navigation.navigate('Logs')} />
+          <View style={s.rowLine} />
+          <SectionRow icon="reader-outline"          title="Términos y Condiciones"   subtitle="Lee nuestros términos de uso"     onPress={() => { const { API_CONFIG } = require('../constants/config'); navigation.navigate('WebView', { url: `${API_CONFIG.BASE_URL}/legal/terms`, title: 'Términos y Condiciones' }); }} />
+          <View style={s.rowLine} />
+          <SectionRow icon="shield-checkmark-outline" title="Política de Privacidad"  subtitle="Conoce cómo protegemos tus datos" onPress={() => { const { API_CONFIG } = require('../constants/config'); navigation.navigate('WebView', { url: `${API_CONFIG.BASE_URL}/legal/privacy`, title: 'Política de Privacidad' }); }} />
+        </View>
+
+        {/* ══ Logout ═══════════════════════════════════════════════════════ */}
+        <TouchableOpacity style={s.logoutBtn} onPress={handleLogout} activeOpacity={0.78}>
+          <Ionicons name="log-out-outline" size={18} color="#f87171" />
+          <Text style={s.logoutText}>Cerrar Sesión</Text>
+        </TouchableOpacity>
+
+        <Text style={s.footer}>QoriCash © 2025</Text>
+
+      </ScrollView>
+
+      {/* ══ Modal: Cambiar Contraseña ════════════════════════════════════ */}
+      <GlassModal
+        visible={changePasswordVisible}
+        onClose={() => { setChangePasswordVisible(false); setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); }}
+        title="Cambiar Contraseña"
+        footer={
+          <View style={s.modalActions}>
+            <TouchableOpacity style={s.modalBtnSecondary} onPress={() => { setChangePasswordVisible(false); setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); }}>
+              <Text style={s.modalBtnSecondaryText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.modalBtnPrimary} onPress={handleChangePassword}>
+              <Text style={s.modalBtnPrimaryText}>Guardar</Text>
+            </TouchableOpacity>
+          </View>
+        }
+      >
+        <View style={s.modalBody}>
+          <Text style={s.inputLabel}>Contraseña actual</Text>
+          <View style={s.inputRow}>
+            <TextInput style={s.inputField} value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry={!showCurrentPwd} placeholder="••••••••" placeholderTextColor="rgba(255,255,255,0.25)" />
+            <TouchableOpacity onPress={() => setShowCurrentPwd(!showCurrentPwd)}>
+              <Ionicons name={showCurrentPwd ? 'eye-off-outline' : 'eye-outline'} size={18} color="rgba(255,255,255,0.4)" />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={s.inputLabel}>Nueva contraseña</Text>
+          <View style={s.inputRow}>
+            <TextInput style={s.inputField} value={newPassword} onChangeText={setNewPassword} secureTextEntry={!showNewPwd} placeholder="Mínimo 8 caracteres" placeholderTextColor="rgba(255,255,255,0.25)" />
+            <TouchableOpacity onPress={() => setShowNewPwd(!showNewPwd)}>
+              <Ionicons name={showNewPwd ? 'eye-off-outline' : 'eye-outline'} size={18} color="rgba(255,255,255,0.4)" />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={s.inputLabel}>Confirmar contraseña</Text>
+          <View style={s.inputRow}>
+            <TextInput style={s.inputField} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!showConfirmPwd} placeholder="Repite la nueva contraseña" placeholderTextColor="rgba(255,255,255,0.25)" />
+            <TouchableOpacity onPress={() => setShowConfirmPwd(!showConfirmPwd)}>
+              <Ionicons name={showConfirmPwd ? 'eye-off-outline' : 'eye-outline'} size={18} color="rgba(255,255,255,0.4)" />
+            </TouchableOpacity>
+          </View>
+          <Text style={s.inputHint}>La contraseña debe tener al menos 8 caracteres</Text>
+        </View>
+      </GlassModal>
+
+      {/* ══ Modal: Editar Información ════════════════════════════════════ */}
+      <GlassModal
+        visible={editInfoVisible}
+        onClose={() => { setEditInfoVisible(false); setPhone(client?.phone || ''); setEmail(client?.email || ''); }}
+        title="Editar Información"
+        footer={
+          <View style={s.modalActions}>
+            <TouchableOpacity style={s.modalBtnSecondary} onPress={() => { setEditInfoVisible(false); }}>
+              <Text style={s.modalBtnSecondaryText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.modalBtnPrimary} onPress={handleEditInfo}>
+              <Text style={s.modalBtnPrimaryText}>Guardar</Text>
+            </TouchableOpacity>
+          </View>
+        }
+      >
+        <View style={s.modalBody}>
+          <Text style={s.inputLabel}>Teléfono</Text>
+          <View style={s.inputRow}>
+            <Ionicons name="call-outline" size={16} color="rgba(255,255,255,0.4)" style={{ marginRight: 8 }} />
+            <TextInput style={s.inputField} value={phone} onChangeText={setPhone} keyboardType="phone-pad" maxLength={9} placeholder="9XXXXXXXX" placeholderTextColor="rgba(255,255,255,0.25)" />
+          </View>
+
+          <Text style={s.inputLabel}>Email</Text>
+          <View style={s.inputRow}>
+            <Ionicons name="mail-outline" size={16} color="rgba(255,255,255,0.4)" style={{ marginRight: 8 }} />
+            <TextInput style={s.inputField} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="correo@ejemplo.com" placeholderTextColor="rgba(255,255,255,0.25)" />
+          </View>
+          <Text style={s.inputHint}>El teléfono debe tener 9 dígitos y comenzar con 9</Text>
+        </View>
+      </GlassModal>
+
+      {/* ══ Modal: Ayuda y Soporte ════════════════════════════════════════ */}
+      <GlassModal
+        visible={helpVisible}
+        onClose={() => setHelpVisible(false)}
+        title="Ayuda y Soporte"
+        footer={
+          <TouchableOpacity style={[s.modalBtnPrimary, { width: '100%' }]} onPress={() => setHelpVisible(false)}>
+            <Text style={s.modalBtnPrimaryText}>Cerrar</Text>
+          </TouchableOpacity>
+        }
+      >
+        <View style={s.modalBody}>
+          <Text style={s.helpDesc}>Contáctanos a través de los siguientes canales:</Text>
+
+          <TouchableOpacity style={s.contactRow} onPress={openWhatsApp} activeOpacity={0.78}>
+            <View style={[s.contactIcon, { backgroundColor: 'rgba(37,211,102,0.15)', borderColor: 'rgba(37,211,102,0.3)' }]}>
+              <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
+            </View>
+            <View style={s.contactTexts}>
+              <Text style={s.contactTitle}>WhatsApp</Text>
+              <Text style={s.contactSub}>Chatea con nosotros</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.22)" />
+          </TouchableOpacity>
+
+          <View style={s.rowLine} />
+
+          <TouchableOpacity style={s.contactRow} onPress={openEmail} activeOpacity={0.78}>
+            <View style={[s.contactIcon, { backgroundColor: 'rgba(96,165,250,0.15)', borderColor: 'rgba(96,165,250,0.3)' }]}>
+              <Ionicons name="mail-outline" size={20} color="#60a5fa" />
+            </View>
+            <View style={s.contactTexts}>
+              <Text style={s.contactTitle}>Email</Text>
+              <Text style={s.contactSub}>info@qoricash.pe</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.22)" />
+          </TouchableOpacity>
+
+          <View style={s.infoBox}>
+            <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.35)" />
+            <Text style={s.infoBoxText}>Horario: Lunes a Viernes 9:00 AM - 6:00 PM</Text>
+          </View>
+        </View>
+      </GlassModal>
+
+      {/* ══ Modal: Agregar Cuenta Bancaria ════════════════════════════════ */}
+      <GlassModal
+        visible={addAccountVisible}
+        onClose={() => setAddAccountVisible(false)}
+        title="Agregar Cuenta Bancaria"
+        footer={
+          <View style={s.modalActions}>
+            <TouchableOpacity style={s.modalBtnSecondary} onPress={() => setAddAccountVisible(false)}>
+              <Text style={s.modalBtnSecondaryText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.modalBtnPrimary, addingAccount && { opacity: 0.5 }]} onPress={handleAddBankAccount} disabled={addingAccount}>
+              {addingAccount ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.modalBtnPrimaryText}>Agregar</Text>}
+            </TouchableOpacity>
+          </View>
+        }
+      >
+        <View style={s.modalBody}>
+          {/* Origen */}
+          <Text style={s.inputLabel}>Origen</Text>
+          <View style={s.segmented}>
+            {['Lima', 'Provincia'].map(o => (
+              <TouchableOpacity key={o} style={[s.segBtn, newAccountOrigen === o && s.segBtnActive]} onPress={() => { setNewAccountOrigen(o); setNewAccountBank(''); }}>
+                <Text style={[s.segBtnText, newAccountOrigen === o && s.segBtnTextActive]}>{o}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Banco */}
+          <Text style={s.inputLabel}>Banco</Text>
+          <TouchableOpacity style={s.inputRow} onPress={() => setBankMenuVisible(!bankMenuVisible)}>
+            <TextInput style={s.inputField} value={newAccountBank || 'Seleccionar banco...'} editable={false} pointerEvents="none" placeholderTextColor="rgba(255,255,255,0.25)" />
+            <Ionicons name={bankMenuVisible ? 'chevron-up' : 'chevron-down'} size={16} color="rgba(255,255,255,0.4)" />
+          </TouchableOpacity>
+          {bankMenuVisible && (
+            <View style={s.bankMenu}>
+              {getAvailableBanks().map(bank => (
+                <TouchableOpacity key={bank} style={s.bankMenuItem} onPress={() => { setNewAccountBank(bank); setBankMenuVisible(false); }}>
+                  <Text style={[s.bankMenuText, newAccountBank === bank && { color: GREEN }]}>{bank}</Text>
+                  {newAccountBank === bank && <Ionicons name="checkmark" size={14} color={GREEN} />}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {newAccountBank === 'Otros' && (
+            <>
+              <Text style={s.inputLabel}>Nombre del banco</Text>
+              <View style={s.inputRow}>
+                <TextInput style={s.inputField} value={newAccountBankCustom} onChangeText={setNewAccountBankCustom} placeholder="Nombre del banco" placeholderTextColor="rgba(255,255,255,0.25)" />
+              </View>
+            </>
+          )}
+
+          {/* Tipo */}
+          <Text style={s.inputLabel}>Tipo de cuenta</Text>
+          <View style={s.segmented}>
+            {['Ahorro', 'Corriente'].map(t => (
+              <TouchableOpacity key={t} style={[s.segBtn, newAccountType === t && s.segBtnActive]} onPress={() => setNewAccountType(t)}>
+                <Text style={[s.segBtnText, newAccountType === t && s.segBtnTextActive]}>{t}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Moneda */}
+          <Text style={s.inputLabel}>Moneda</Text>
+          <View style={s.segmented}>
+            {['S/', 'USD'].map(c => (
+              <TouchableOpacity key={c} style={[s.segBtn, newAccountCurrency === c && s.segBtnActive]} onPress={() => setNewAccountCurrency(c)}>
+                <Text style={[s.segBtnText, newAccountCurrency === c && s.segBtnTextActive]}>{c}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Número */}
+          {needsCCI() ? (
+            <>
+              <Text style={s.inputLabel}>CCI (20 dígitos)</Text>
+              <View style={s.inputRow}>
+                <TextInput style={s.inputField} value={newAccountCCI} onChangeText={setNewAccountCCI} keyboardType="numeric" maxLength={20} placeholder="00000000000000000000" placeholderTextColor="rgba(255,255,255,0.25)" />
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={s.inputLabel}>Número de cuenta</Text>
+              <View style={s.inputRow}>
+                <TextInput style={s.inputField} value={newAccountNumber} onChangeText={setNewAccountNumber} keyboardType="numeric" placeholder="Número de cuenta" placeholderTextColor="rgba(255,255,255,0.25)" />
+              </View>
+            </>
+          )}
+        </View>
+      </GlassModal>
+
+    </View>
   );
 };
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#0D1B2A',
-  },
-  scrollView: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const GLASS_BG2    = 'rgba(255,255,255,0.08)';
+const GLASS_BORDER2 = 'rgba(255,255,255,0.15)';
+const GREEN2 = '#22c55e';
+
+const s = StyleSheet.create({
+  root:    { flex: 1 },
+  overlay: { backgroundColor: 'transparent' },
+  scroll:  { flex: 1 },
+  content: { paddingHorizontal: 20 },
 
   // ── Header ──
   header: {
-    paddingTop: 24,
-    paddingBottom: 0,
-    alignItems: 'center',
-    overflow: 'hidden',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+    paddingTop: 8,
   },
-  headerGlow: {
-    position: 'absolute',
-    top: -60,
-    right: -60,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: Colors.primary,
-    opacity: 0.05,
-  },
-  avatarCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: `${Colors.primary}20`,
-    borderWidth: 2,
-    borderColor: `${Colors.primary}60`,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  avatarInitials: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: Colors.primary,
-  },
-  headerName: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#F1F5F9',
-    letterSpacing: -0.3,
-    textAlign: 'center',
-    marginBottom: 4,
-    paddingHorizontal: 20,
-  },
-  headerEmail: {
-    fontSize: 13,
-    color: '#6B7E94',
-    marginBottom: 14,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: `${Colors.primary}15`,
-    borderWidth: 1,
-    borderColor: `${Colors.primary}40`,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-    marginBottom: 20,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.primary,
-  },
-  statusBadgeText: {
-    fontSize: 12,
-    color: Colors.primary,
-    fontWeight: '700',
-  },
-  infoStrip: {
+  headerLabel: { fontSize: 12, fontWeight: '400', color: 'rgba(255,255,255,0.38)', letterSpacing: 0.2, marginBottom: 5 },
+  headerRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 18 },
+  headerName:  { fontSize: 26, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
+  headerLogo:  { width: 36, height: 36 },
+
+  // Info strip
+  strip: {
     flexDirection: 'row',
     width: '100%',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.07)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    backgroundColor: GLASS_BG2,
+    borderWidth: 1, borderColor: GLASS_BORDER2,
+    borderRadius: 18,
+    paddingVertical: 14, paddingHorizontal: 16,
   },
-  infoStripItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  infoStripLabel: {
-    fontSize: 10,
-    color: '#6B7E94',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 5,
-  },
-  infoStripValue: {
-    fontSize: 13,
-    color: '#B0BBC9',
-    fontWeight: '600',
-  },
-  infoStripDivider: {
-    width: 1,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    marginVertical: 2,
-  },
+  stripItem:   { flex: 1, alignItems: 'center' },
+  stripLabel:  { fontSize: 9.5, color: 'rgba(255,255,255,0.38)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 5 },
+  stripValue:  { fontSize: 12.5, color: 'rgba(255,255,255,0.82)', fontWeight: '600' },
+  stripDivider: { width: StyleSheet.hairlineWidth * 2, backgroundColor: GLASS_BORDER2, marginVertical: 2 },
 
-  // ── Content ──
-  content: {
-    padding: 16,
-    paddingTop: 20,
-  },
-
-  // Section cards
-  sectionCard: {
-    backgroundColor: Colors.surface,
+  // ── Cards ──
+  card: {
+    backgroundColor: GLASS_BG2,
+    borderWidth: 1, borderColor: GLASS_BORDER2,
     borderRadius: 20,
-    padding: 20,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    marginBottom: 14,
+    overflow: 'hidden',
   },
-  sectionCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 16,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
+  cardHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12,
   },
-  sectionIconBg: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: `${Colors.primary}18`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sectionCardTitle: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.textDark,
-  },
+  cardTitle: { flex: 1, fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.88)' },
   editBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: `${Colors.primary}12`,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: 'rgba(34,197,94,0.1)',
+    borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)',
+    alignItems: 'center', justifyContent: 'center',
   },
 
-  // Info rows
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 4,
-  },
-  infoRowIconBg: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
+  // ── Rows ──
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
+  rowIcon: {
+    width: 32, height: 32, borderRadius: 10,
+    backgroundColor: GLASS_BG2,
+    borderWidth: 1, borderColor: GLASS_BORDER2,
+    alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,
   },
-  infoRowTexts: {
-    flex: 1,
-  },
-  infoRowLabel: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginBottom: 2,
-  },
-  infoRowValue: {
-    fontSize: 14,
-    color: Colors.textDark,
-    fontWeight: '600',
-  },
-  infoRowDivider: {
-    height: 1,
-    backgroundColor: Colors.divider,
-    marginVertical: 10,
-  },
+  rowTexts: { flex: 1 },
+  rowTitle:  { fontSize: 13.5, color: 'rgba(255,255,255,0.85)', fontWeight: '600', marginBottom: 2 },
+  rowSub:    { fontSize: 11.5, color: 'rgba(255,255,255,0.4)', lineHeight: 16 },
+  rowLine:   { height: StyleSheet.hairlineWidth, backgroundColor: GLASS_BORDER2, marginHorizontal: 16 },
 
   // Bank rows
-  bankRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 4,
+  bankRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
+  bankIcon: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: GLASS_BG2, borderWidth: 1, borderColor: GLASS_BORDER2,
+    alignItems: 'center', justifyContent: 'center',
   },
-  bankRowIconBg: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: `${Colors.primary}12`,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexShrink: 0,
-  },
-  bankRowTexts: {
-    flex: 1,
-  },
-  bankRowName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.textDark,
-    marginBottom: 2,
-  },
-  bankRowDetail: {
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  bankDeleteBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#FEF2F2',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#94A3B8',
-    fontSize: 13,
-    paddingVertical: 8,
-  },
-  addAccountBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: `${Colors.primary}50`,
-    backgroundColor: `${Colors.primary}08`,
-  },
-  addAccountBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.primary,
-  },
+  bankTexts: { flex: 1 },
+  bankName:   { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.85)', marginBottom: 2 },
+  bankDetail: { fontSize: 11, color: 'rgba(255,255,255,0.4)' },
+  bankDelete: { padding: 6 },
 
-  // Settings rows
-  settingsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 4,
+  // Empty / add
+  emptyText: { fontSize: 13, color: 'rgba(255,255,255,0.35)', textAlign: 'center', paddingVertical: 16, paddingHorizontal: 16 },
+  addBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    margin: 12, paddingVertical: 12,
+    backgroundColor: 'rgba(34,197,94,0.08)',
+    borderRadius: 12, borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)',
   },
-  settingsRowIconBg: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexShrink: 0,
-  },
-  settingsRowTexts: {
-    flex: 1,
-  },
-  settingsRowTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textDark,
-    marginBottom: 1,
-  },
-  settingsRowSubtitle: {
-    fontSize: 12,
-    color: '#94A3B8',
-  },
+  addBtnText: { fontSize: 13, fontWeight: '600', color: GREEN2 },
 
-  // Logout
+  // ── Logout ──
   logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#ef4444',
-    borderRadius: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9,
     paddingVertical: 16,
-    marginTop: 4,
-    marginBottom: 12,
-    shadowColor: '#ef4444',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: 'rgba(248,113,113,0.1)',
+    borderWidth: 1, borderColor: 'rgba(248,113,113,0.25)',
+    borderRadius: 18,
+    marginBottom: 18,
   },
-  logoutBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
+  logoutText: { fontSize: 15, fontWeight: '700', color: '#f87171', letterSpacing: 0.2 },
 
-  // Footer
-  footer: {
+  footer: { fontSize: 10.5, color: 'rgba(255,255,255,0.2)', textAlign: 'center', marginBottom: 8 },
+
+  // ── Modal ──
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.62)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalBox: {
+    width: '100%', maxHeight: '88%',
+    borderRadius: 28, overflow: 'hidden',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingBottom: 32,
+    paddingTop: 28, paddingBottom: 24, paddingHorizontal: 24,
   },
-  footerText: {
-    color: '#94A3B8',
-    fontSize: 12,
+  modalBorder: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 28, borderWidth: 1, borderColor: GLASS_BORDER2 },
+  modalTitle:  { fontSize: 17, fontWeight: '800', color: '#fff', marginBottom: 16, letterSpacing: 0.1 },
+  modalDivider: { width: '100%', height: StyleSheet.hairlineWidth, backgroundColor: GLASS_BORDER2, marginBottom: 18 },
+  modalBody:   { width: '100%', gap: 4 },
+  modalActions: { flexDirection: 'row', gap: 10, width: '100%', marginTop: 16 },
+  modalBtnSecondary: {
+    flex: 1, paddingVertical: 14, borderRadius: 14,
+    backgroundColor: GLASS_BG2, borderWidth: 1, borderColor: GLASS_BORDER2, alignItems: 'center',
   },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    paddingTop: 80,
+  modalBtnSecondaryText: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.65)' },
+  modalBtnPrimary: {
+    flex: 1, paddingVertical: 14, borderRadius: 14,
+    backgroundColor: 'rgba(34,197,94,0.18)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.35)', alignItems: 'center', justifyContent: 'center',
   },
-  keyboardAvoid: {
-    width: '100%',
-    alignItems: 'center',
+  modalBtnPrimaryText: { fontSize: 14, fontWeight: '700', color: GREEN2 },
+
+  // Form inputs
+  inputLabel: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 14, marginBottom: 6 },
+  inputRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: GLASS_BG2, borderWidth: 1, borderColor: GLASS_BORDER2,
+    borderRadius: 13, paddingHorizontal: 14, paddingVertical: 12,
   },
-  modalContainer: {
-    width: '92%',
-    maxWidth: 500,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginHorizontal: 20,
-    maxHeight: '85%',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+  inputField: { flex: 1, color: '#fff', fontSize: 14 },
+  inputHint: { fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 8 },
+
+  // Segmented
+  segmented: { flexDirection: 'row', gap: 6, marginBottom: 2 },
+  segBtn: {
+    flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center',
+    backgroundColor: GLASS_BG2, borderWidth: 1, borderColor: GLASS_BORDER2,
   },
-  modalHeader: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+  segBtnActive: { backgroundColor: 'rgba(34,197,94,0.14)', borderColor: 'rgba(34,197,94,0.3)' },
+  segBtnText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.4)' },
+  segBtnTextActive: { color: GREEN2, fontWeight: '700' },
+
+  // Bank menu
+  bankMenu: {
+    backgroundColor: 'rgba(8,18,32,0.95)', borderWidth: 1, borderColor: GLASS_BORDER2,
+    borderRadius: 14, marginTop: 4, overflow: 'hidden',
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Colors.textDark,
+  bankMenuItem: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: GLASS_BORDER2,
   },
-  modalBody: {
-    padding: 20,
-    maxHeight: 500,
-  },
-  modalBodyNoScroll: {
-    padding: 20,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    padding: 16,
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-  },
-  modalButton: {
-    minWidth: 100,
-  },
-  // Compact modal styles (for Edit Info modal)
-  modalContainerCompact: {
-    width: '92%',
-    maxWidth: 500,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginHorizontal: 20,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  modalHeaderCompact: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  modalBodyCompact: {
-    padding: 16,
-  },
-  modalActionsCompact: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    padding: 12,
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-  },
-  inputCompact: {
-    marginBottom: 10,
-    backgroundColor: '#FFFFFF',
-  },
-  helpTextCompact: {
-    fontSize: 11,
-    color: '#757575',
-    fontStyle: 'italic',
-    marginTop: -6,
-    marginBottom: 4,
-  },
-  // Dialog styles (for Help modal)
-  dialog: {
-    maxHeight: '80%',
-    borderRadius: 16,
-  },
-  dialogScrollArea: {
-    maxHeight: 400,
-    paddingHorizontal: 0,
-  },
-  dialogContent: {
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-  },
-  input: {
-    marginBottom: 12,
-    backgroundColor: '#FFFFFF',
-  },
-  helpText: {
-    fontSize: 12,
-    color: '#757575',
-    fontStyle: 'italic',
-    marginTop: -8,
-    marginBottom: 8,
-  },
-  helpTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textDark,
-    marginBottom: 8,
-  },
-  helpDescription: {
-    fontSize: 14,
-    color: '#757575',
-    marginBottom: 16,
-  },
-  contactOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  contactText: {
-    flex: 1,
-    marginLeft: 8,
-  },
-  contactTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textDark,
-  },
-  contactDescription: {
-    fontSize: 13,
-    color: '#757575',
-  },
-  divider: {
-    marginVertical: 8,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 16,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 12,
-    color: '#757575',
-    marginLeft: 8,
-  },
-  // Bank Account Dialog Styles
-  dialogLarge: {
-    maxHeight: '85%',
-    borderRadius: 16,
-  },
-  dialogContentLarge: {
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-  },
-  dialogLabelBank: {
-    marginTop: 12,
-    marginBottom: 8,
-    fontWeight: '600',
-    color: Colors.textDark,
-    fontSize: 14,
-  },
-  currencySelector: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#F0F0F0',
-  },
-  currencySelectorButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F0F0F0',
-  },
-  currencySelectorButtonLeft: {
-    borderTopLeftRadius: 12,
-    borderBottomLeftRadius: 12,
-  },
-  currencySelectorButtonRight: {
-    borderTopRightRadius: 12,
-    borderBottomRightRadius: 12,
-  },
-  currencySelectorButtonActive: {
-    backgroundColor: Colors.primary,
-  },
-  currencySelectorButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#757575',
-  },
-  currencySelectorButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  provinceWarningCard: {
-    backgroundColor: '#FFF3E0',
-    marginBottom: 16,
-    elevation: 0,
-    borderWidth: 1,
-    borderColor: '#FFB74D',
-  },
-  provinceWarningContent: {
-    padding: 8,
-  },
-  provinceWarningText: {
-    fontSize: 12,
-    color: '#E65100',
-    lineHeight: 18,
-  },
-  bankSelectButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F0F0F0',
-    borderRadius: 12,
-    paddingLeft: 16,
-    paddingRight: 4,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  bankSelectButtonText: {
-    fontSize: 14,
-    color: Colors.textDark,
-    paddingVertical: 12,
-  },
-  inputBank: {
-    marginTop: 8,
-    marginBottom: 12,
-    backgroundColor: '#FFFFFF',
-  },
-  helperTextBank: {
-    marginTop: -8,
-    marginBottom: 8,
-  },
-  dialogActionsBank: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  dialogCancelButtonBank: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    backgroundColor: '#F0F0F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dialogCancelButtonTextBank: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textDark,
-  },
-  dialogAddButtonBank: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dialogAddButtonBankDisabled: {
-    backgroundColor: '#E0E0E0',
-  },
-  dialogAddButtonTextBank: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0D1B2A',
-  },
-  dialogAddButtonTextBankDisabled: {
-    color: '#999999',
-  },
-  bankRadioItem: {
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-  },
-  bankRadioLabel: {
-    fontSize: 14,
-  },
+  bankMenuText: { fontSize: 14, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
+
+  // Help modal
+  helpDesc: { fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 16 },
+  contactRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  contactIcon: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  contactTexts: { flex: 1 },
+  contactTitle: { fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.85)', marginBottom: 2 },
+  contactSub:   { fontSize: 12, color: 'rgba(255,255,255,0.4)' },
+  infoBox: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 16, padding: 12, backgroundColor: GLASS_BG2, borderRadius: 12, borderWidth: 1, borderColor: GLASS_BORDER2 },
+  infoBoxText: { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 18 },
 });

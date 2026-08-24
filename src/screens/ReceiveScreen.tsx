@@ -459,7 +459,7 @@ const s = StyleSheet.create({
     backgroundColor: '#000',
   },
   overlay: {
-    backgroundColor: 'rgba(0,0,0,0.82)',
+    backgroundColor: 'transparent',
   },
 
   // ── Header ──────────────────────────────────────────────────────────────────

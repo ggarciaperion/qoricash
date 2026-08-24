@@ -547,34 +547,45 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <View style={s.modalSheet}>
+            {/* Accent strip */}
+            <View style={s.modalAccentStrip} />
             <View style={s.modalHandle} />
 
             {/* Header */}
             <View style={s.modalHeader}>
               <View style={s.modalIconWrap}>
-                <Ionicons name="swap-horizontal" size={22} color={GREEN} />
+                <Ionicons name="receipt-outline" size={24} color={GREEN} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.modalTitle}>Código de transferencia</Text>
-                <Text style={s.modalSub}>Paso final para procesar tu operación</Text>
+                <Text style={s.modalSub}>Ingresa el número de tu voucher bancario</Text>
               </View>
             </View>
 
             {submitAnimPhase === 'idle' ? (
               <>
                 <View style={s.modalBody}>
+                  {/* Operation ID chip */}
                   <View style={s.modalOpIdRow}>
-                    <Text style={s.modalOpIdLabel}>Operación</Text>
-                    <Text style={s.modalOpIdValue}>{operation.operation_id}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="pricetag-outline" size={13} color={DIM} />
+                      <Text style={s.modalOpIdLabel}>Operación</Text>
+                    </View>
+                    <View style={s.modalOpIdChip}>
+                      <Text style={s.modalOpIdValue}>{operation.operation_id}</Text>
+                    </View>
                   </View>
 
+                  {/* Info banner — left-accent style */}
                   <View style={s.modalInfoBanner}>
-                    <Ionicons name="information-circle-outline" size={15} color="#60a5fa" />
+                    <View style={s.modalInfoAccent} />
+                    <Ionicons name="information-circle" size={16} color="#60a5fa" style={{ marginTop: 1 }} />
                     <Text style={s.modalInfoText}>
-                      Ingresa el número de operación de tu voucher o comprobante bancario. Este código valida tu transferencia.
+                      Ingresa el número de operación de tu voucher o comprobante bancario.
                     </Text>
                   </View>
 
+                  {/* Input */}
                   <Text style={s.modalInputLabel}>
                     Número de operación{'  '}
                     <Text style={{ color: '#ef4444' }}>*</Text>
@@ -595,19 +606,22 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
 
                 <View style={s.modalActions}>
                   <TouchableOpacity
-                    style={s.modalBtnGhost}
-                    onPress={() => { setTransferCodeModalVisible(false); setTransferCode(''); }}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={s.modalBtnGhostText}>Cancelar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
                     style={[s.modalBtnGreen, !transferCode.trim() && s.modalBtnGreenDisabled]}
                     onPress={handleSubmitTransferCode}
                     disabled={!transferCode.trim()}
-                    activeOpacity={0.8}
+                    activeOpacity={0.85}
                   >
-                    <Text style={s.modalBtnConfirmText}>ENVIAR</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+                      <Text style={s.modalBtnConfirmText}>ENVIAR CÓDIGO</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={s.modalCancelLink}
+                    onPress={() => { setTransferCodeModalVisible(false); setTransferCode(''); }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={s.modalCancelLinkText}>Cancelar</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -756,7 +770,7 @@ const s = StyleSheet.create({
     backgroundColor: '#000',
   },
   overlay: {
-    backgroundColor: 'rgba(0,0,0,0.82)',
+    backgroundColor: 'transparent',
   },
 
   // ── Header ──────────────────────────────────────────────────────────────────
@@ -1126,76 +1140,100 @@ const s = StyleSheet.create({
   // ── Modales ──────────────────────────────────────────────────────────────────
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.72)',
+    backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: SHEET,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    backgroundColor: '#0c1f30',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     overflow: 'hidden',
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    paddingBottom: Platform.OS === 'ios' ? 38 : 24,
     borderTopWidth: 1,
-    borderColor: BORDER,
+    borderColor: 'rgba(34,197,94,0.2)',
+    shadowColor: GREEN,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 24,
+  },
+  modalAccentStrip: {
+    height: 3,
+    backgroundColor: GREEN,
+    opacity: 0.7,
   },
   modalHandle: {
-    width: 40,
+    width: 48,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     alignSelf: 'center',
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: 14,
+    marginBottom: 6,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 16,
     paddingHorizontal: 24,
-    paddingVertical: 16,
+    paddingVertical: 18,
     borderBottomWidth: 1,
     borderBottomColor: BORDER,
   },
   modalIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(34,197,94,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.25)',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(34,197,94,0.14)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(34,197,94,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: GREEN,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
   modalIconWrapDanger: {
     backgroundColor: 'rgba(239,68,68,0.12)',
     borderColor: 'rgba(239,68,68,0.25)',
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '700',
     color: '#fff',
+    letterSpacing: 0.2,
   },
   modalSub: {
     fontSize: 12,
     color: DIM,
-    marginTop: 2,
+    marginTop: 3,
   },
   modalBody: {
     paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingTop: 22,
     paddingBottom: 8,
   },
   modalOpIdRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: BORDER,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     marginBottom: 16,
+  },
+  modalOpIdChip: {
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.25)',
   },
   modalOpIdLabel: {
     fontSize: 12,
@@ -1203,26 +1241,32 @@ const s = StyleSheet.create({
     fontWeight: '500',
   },
   modalOpIdValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#fff',
+    color: GREEN,
+    letterSpacing: 0.5,
   },
   modalInfoBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: 'rgba(96,165,250,0.08)',
+    gap: 10,
+    backgroundColor: 'rgba(96,165,250,0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(96,165,250,0.2)',
+    borderColor: 'rgba(96,165,250,0.15)',
+    borderLeftWidth: 3,
+    borderLeftColor: '#60a5fa',
     borderRadius: 10,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: 18,
+  },
+  modalInfoAccent: {
+    display: 'none',
   },
   modalInfoText: {
     flex: 1,
     fontSize: 12,
     color: '#93c5fd',
-    lineHeight: 17,
+    lineHeight: 18,
   },
   warningBanner: {
     backgroundColor: 'rgba(239,68,68,0.08)',
@@ -1241,17 +1285,18 @@ const s = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.8)',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   modalInput: {
     backgroundColor: 'rgba(255,255,255,0.07)',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: BORDER,
-    borderRadius: 12,
+    borderRadius: 14,
     color: '#fff',
-    fontSize: 15,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    fontSize: 17,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    letterSpacing: 0.5,
   },
   modalInputMultiline: {
     minHeight: 90,
@@ -1259,6 +1304,11 @@ const s = StyleSheet.create({
   },
   modalInputActive: {
     borderColor: GREEN,
+    shadowColor: GREEN,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 4,
   },
   modalInputActiveDanger: {
     borderColor: '#ef4444',
@@ -1269,10 +1319,10 @@ const s = StyleSheet.create({
     marginTop: 5,
   },
   modalActions: {
-    flexDirection: 'row',
-    gap: 12,
+    flexDirection: 'column',
+    gap: 10,
     paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingTop: 20,
     borderTopWidth: 1,
     borderTopColor: BORDER,
   },
@@ -1290,15 +1340,30 @@ const s = StyleSheet.create({
     fontWeight: '600',
     color: 'rgba(255,255,255,0.65)',
   },
+  modalCancelLink: {
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  modalCancelLinkText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.4)',
+  },
   modalBtnGreen: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 17,
+    borderRadius: 16,
     alignItems: 'center',
     backgroundColor: GREEN,
+    shadowColor: GREEN,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 8,
   },
   modalBtnGreenDisabled: {
-    backgroundColor: 'rgba(34,197,94,0.3)',
+    backgroundColor: 'rgba(34,197,94,0.28)',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   modalBtnRed: {
     flex: 1,

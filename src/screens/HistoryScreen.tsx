@@ -1,905 +1,673 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, TouchableOpacity, Alert, Modal, KeyboardAvoidingView, Platform, ScrollView, AppState, AppStateStatus } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  Text,
-  ActivityIndicator,
-  Card,
-  Chip,
-  Divider,
-  IconButton,
-  Icon,
+  View,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  Alert,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  AppState,
+  AppStateStatus,
+  ImageBackground,
   TextInput,
-  Button,
-} from 'react-native-paper';
+  ActivityIndicator,
+  Animated,
+  Text,
+  Dimensions,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../contexts/AuthContext';
 import { Operation } from '../types';
 import axios from 'axios';
 import { API_CONFIG } from '../constants/config';
 import socketService from '../services/socketService';
-import { Colors } from '../constants/colors';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
 import { useNavigation, CommonActions } from '@react-navigation/native';
-import { GlobalStyles } from '../styles/globalStyles';
-import { CustomModal } from '../components/CustomModal';
-import { KeyboardAwareScrollView } from '../components/KeyboardAwareScrollView';
 
-// Tiempo límite para que el cliente suba comprobante antes de cancelación automática
+const { width: W } = Dimensions.get('window');
+
+const GLASS_BG     = 'rgba(255,255,255,0.08)';
+const GLASS_BORDER = 'rgba(255,255,255,0.15)';
+const GREEN        = '#22c55e';
 const OPERATION_TIMEOUT_MINUTES = 15;
 const LOCAL_OPERATIONS_CACHE_KEY = '@qoricash_local_operations_cache';
 
+// ─── Status config ────────────────────────────────────────────────────────────
+const getStatusConfig = (status: string) => {
+  switch (status) {
+    case 'pendiente':
+      return { color: '#fbbf24', icon: 'time-outline' as const,        label: 'Pendiente' };
+    case 'en_proceso':
+      return { color: '#60a5fa', icon: 'sync-outline' as const,        label: 'En Proceso' };
+    case 'completado':
+      return { color: '#22c55e', icon: 'checkmark-circle-outline' as const, label: 'Completada' };
+    case 'cancelado':
+      return { color: '#f87171', icon: 'close-circle-outline' as const, label: 'Cancelada' };
+    case 'expirado':
+      return { color: '#9ca3af', icon: 'alert-circle-outline' as const, label: 'Expirada' };
+    default:
+      return { color: '#9ca3af', icon: 'help-circle-outline' as const,  label: status };
+  }
+};
+
+// ─── En-Proceso animations ────────────────────────────────────────────────────
+
+/** Rotating sync icon — loops continuously */
+const SpinningSync: React.FC<{ color: string; size: number }> = ({ color, size }) => {
+  const rot = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(rot, { toValue: 1, duration: 1500, useNativeDriver: true })
+    ).start();
+  }, []);
+  const rotate = rot.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  return (
+    <Animated.View style={{ transform: [{ rotate }] }}>
+      <Ionicons name="sync-outline" size={size} color={color} />
+    </Animated.View>
+  );
+};
+
+/** Badge that pulses its background & border glow */
+const PulsingBadge: React.FC<{ color: string; children: React.ReactNode; baseStyle: any }> = ({ color, children, baseStyle }) => {
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: false }),
+        Animated.timing(pulse, { toValue: 0, duration: 900, useNativeDriver: false }),
+      ])
+    ).start();
+  }, []);
+  const bg     = pulse.interpolate({ inputRange: [0, 1], outputRange: [`${color}18`, `${color}35`] });
+  const border = pulse.interpolate({ inputRange: [0, 1], outputRange: [`${color}40`, `${color}90`] });
+  return (
+    <Animated.View style={[baseStyle, { backgroundColor: bg, borderColor: border }]}>
+      {children}
+    </Animated.View>
+  );
+};
+
+/** Traveling shimmer strip — signals activity at the card bottom */
+const ShimmerBar: React.FC<{ color: string }> = ({ color }) => {
+  const pos = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pos, { toValue: 1, duration: 1700, useNativeDriver: true }),
+        Animated.delay(300),
+        Animated.timing(pos, { toValue: 0, duration: 0,    useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  const tx = pos.interpolate({ inputRange: [0, 1], outputRange: [-W, W * 1.2] });
+  return (
+    <View style={{ height: 3, overflow: 'hidden', backgroundColor: `${color}18` }}>
+      <Animated.View
+        style={{
+          position: 'absolute', top: 0, bottom: 0,
+          width: '38%',
+          backgroundColor: `${color}70`,
+          borderRadius: 2,
+          transform: [{ translateX: tx }],
+        }}
+      />
+    </View>
+  );
+};
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
   const { client } = useAuth();
+  const insets     = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const [operations, setOperations] = useState<Operation[]>([]);
+
+  const [operations,         setOperations]         = useState<Operation[]>([]);
   const [filteredOperations, setFilteredOperations] = useState<Operation[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pending' | 'completed'>(route?.params?.initialTab || 'pending');
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [cancelDialogVisible, setCancelDialogVisible] = useState(false);
-  const [cancelReason, setCancelReason] = useState('');
-  const [operationToCancel, setOperationToCancel] = useState<Operation | null>(null);
-  const [canceling, setCanceling] = useState(false);
+  const [loading,            setLoading]            = useState(false);
+  const [refreshing,         setRefreshing]         = useState(false);
+  const [activeTab,          setActiveTab]          = useState<'pending'|'completed'>(
+    route?.params?.initialTab || 'pending'
+  );
+  const [currentTime,           setCurrentTime]           = useState(new Date());
+  const [cancelDialogVisible,   setCancelDialogVisible]   = useState(false);
+  const [cancelReason,          setCancelReason]          = useState('');
+  const [operationToCancel,     setOperationToCancel]     = useState<Operation|null>(null);
+  const [canceling,             setCanceling]             = useState(false);
 
-  // Cargar operaciones al montar
+  // Tab pill animation
+  const pillX = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
-    if (client) {
-      fetchHistory();
-    }
-  }, [client]);
+    Animated.spring(pillX, {
+      toValue: activeTab === 'pending' ? 0 : 1,
+      tension: 200, friction: 15, useNativeDriver: false,
+    }).start();
+  }, [activeTab]);
 
-  // Recargar cuando la pantalla se enfoca
+  // ── Data hooks (unchanged) ────────────────────────────────────────────────
+  useEffect(() => { if (client) fetchHistory(); }, [client]);
+
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      if (client) {
-        console.log('🔄 Historial enfocado - Refrescando...');
-        fetchHistory();
-      }
+      if (client) fetchHistory();
     });
-
     return unsubscribe;
   }, [navigation, client]);
 
-  // Actualizar operaciones cada 30 segundos
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (client) {
-        fetchHistory();
-      }
-    }, 30000);
-
+    const interval = setInterval(() => { if (client) fetchHistory(); }, 30000);
     return () => clearInterval(interval);
   }, [client]);
 
-  // Escuchar eventos de Socket.IO
   useEffect(() => {
-    const handleUpdate = () => {
-      console.log('🔔 Operación actualizada - Refrescando historial');
-      if (client) {
-        fetchHistory();
-      }
-    };
-
-    socketService.on('operacion_completada', handleUpdate);
-    socketService.on('operacion_actualizada', handleUpdate);
-    socketService.on('operacion_cancelada', handleUpdate);
-    socketService.on('nueva_operacion', handleUpdate);
-    socketService.on('operation_expired', handleUpdate); // ← NUEVO
-
+    const handle = () => { if (client) fetchHistory(); };
+    socketService.on('operacion_completada', handle);
+    socketService.on('operacion_actualizada', handle);
+    socketService.on('operacion_cancelada', handle);
+    socketService.on('nueva_operacion', handle);
+    socketService.on('operation_expired', handle);
     return () => {
-      socketService.off('operacion_completada', handleUpdate);
-      socketService.off('operacion_actualizada', handleUpdate);
-      socketService.off('operacion_cancelada', handleUpdate);
-      socketService.off('nueva_operacion', handleUpdate);
-      socketService.off('operation_expired', handleUpdate); // ← NUEVO
+      socketService.off('operacion_completada', handle);
+      socketService.off('operacion_actualizada', handle);
+      socketService.off('operacion_cancelada', handle);
+      socketService.off('nueva_operacion', handle);
+      socketService.off('operation_expired', handle);
     };
   }, [client]);
 
-  // Escuchar evento interno de refresh desde socketService
   useEffect(() => {
-    const handleRefreshRequest = (data: any) => {
-      console.log('🔄 [HISTORY] Evento refresh_operations_list recibido:', data);
-      if (client) {
-        console.log('🔄 [HISTORY] Refrescando historial inmediatamente...');
-        fetchHistory();
-      }
-    };
-
-    socketService.subscribeToEvent('refresh_operations_list', handleRefreshRequest);
-
-    return () => {
-      socketService.unsubscribeFromEvent('refresh_operations_list', handleRefreshRequest);
-    };
+    const handle = () => { if (client) fetchHistory(); };
+    socketService.subscribeToEvent('refresh_operations_list', handle);
+    return () => socketService.unsubscribeFromEvent('refresh_operations_list', handle);
   }, [client]);
 
-  // Re-fetch al volver del background
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      if (nextAppState === 'active' && client) {
-        console.log('📱 App volvió al foreground - Refrescando historial');
-        fetchHistory();
-      }
+    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'active' && client) fetchHistory();
     });
-
-    return () => {
-      subscription.remove();
-    };
+    return () => sub.remove();
   }, [client]);
 
-  // Actualizar contador cada 3 segundos (en lugar de cada segundo)
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 3000);
-
+    const interval = setInterval(() => setCurrentTime(new Date()), 3000);
     return () => clearInterval(interval);
   }, []);
 
-  // Filtrar operaciones cuando cambia el tab activo
   useEffect(() => {
     let filtered = operations;
-
-    // Filtrar por tab
-    // IMPORTANTE: Los estados vienen del backend en minúsculas (pendiente, en_proceso, completado, cancelado, expirado)
     if (activeTab === 'pending') {
-      filtered = operations.filter(
-        (op) => op.status === 'pendiente' || op.status === 'en_proceso'
-      );
+      filtered = operations.filter(op => op.status === 'pendiente' || op.status === 'en_proceso');
     } else {
-      filtered = operations.filter(
-        (op) => op.status === 'completado' || op.status === 'cancelado' || op.status === 'expirado'
-      );
+      filtered = operations.filter(op => op.status === 'completado' || op.status === 'cancelado' || op.status === 'expirado');
     }
-
     setFilteredOperations(filtered);
   }, [operations, activeTab, currentTime]);
 
+  // ── API (unchanged) ───────────────────────────────────────────────────────
   const fetchHistory = async () => {
     if (!client) return;
-
     try {
       setLoading(true);
-      console.log('📋 Cargando historial para DNI:', client.dni);
-
-      // Obtener todas las operaciones del cliente
       const response = await axios.get<{ success: boolean; operations: Operation[] }>(
         `${API_CONFIG.BASE_URL}/api/client/my-operations/${client.dni}`
       );
-
       if (response.data.success) {
-        console.log('✅ Total operaciones:', response.data.operations.length);
-
-        // Los datos del servidor SIEMPRE tienen prioridad
-        const operations = response.data.operations;
-
-        // Limpiar caché local después de sincronizar con el servidor
-        // Esto evita que datos obsoletos locales sobrescriban datos frescos del servidor
-        try {
-          await AsyncStorage.removeItem(LOCAL_OPERATIONS_CACHE_KEY);
-          console.log('🗑️ Caché local limpiado después de sincronizar con servidor');
-        } catch (cacheError) {
-          console.warn('⚠️ Error limpiando caché:', cacheError);
-        }
-
-        setOperations(operations);
+        try { await AsyncStorage.removeItem(LOCAL_OPERATIONS_CACHE_KEY); } catch (_) {}
+        setOperations(response.data.operations);
       }
-    } catch (error: any) {
-      console.error('❌ Error cargando historial:', error);
-      console.error('❌ Error response:', error.response?.data);
+    } catch (e) {
+      console.error('❌ Error cargando historial:', e);
     } finally {
       setLoading(false);
     }
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchHistory();
-    setRefreshing(false);
-  };
+  const onRefresh = async () => { setRefreshing(true); await fetchHistory(); setRefreshing(false); };
 
-  const handleOperationPress = (operation: Operation) => {
-    console.log('📱 handleOperationPress llamado para:', operation.operation_id, 'Estado:', operation.status);
-
+  const handleOperationPress = (op: Operation) => {
     try {
-      // Si está pendiente (recién creada), ir a Transfer
-      if (operation.status === 'pendiente') {
-        console.log('➡️ Navegando a Transfer');
-        navigation.dispatch(
-          CommonActions.navigate({
-            name: 'Transfer',
-            params: { operation },
-          })
-        );
+      if (op.status === 'pendiente') {
+        navigation.dispatch(CommonActions.navigate({ name: 'Transfer', params: { operation: op } }));
+      } else if (op.status === 'en_proceso') {
+        navigation.dispatch(CommonActions.navigate({ name: 'Receive', params: { operation: op } }));
+      } else {
+        navigation.dispatch(CommonActions.navigate({ name: 'OperationDetail', params: { operationId: op.id } }));
       }
-      // Si está en proceso (comprobante enviado), ir a Receive
-      else if (operation.status === 'en_proceso') {
-        console.log('➡️ Navegando a Receive');
-        navigation.dispatch(
-          CommonActions.navigate({
-            name: 'Receive',
-            params: { operation },
-          })
-        );
-      }
-      // Si está completada o cancelada, ir a detalle
-      else {
-        console.log('➡️ Navegando a OperationDetail');
-        navigation.dispatch(
-          CommonActions.navigate({
-            name: 'OperationDetail',
-            params: { operationId: operation.id },
-          })
-        );
-      }
-    } catch (error) {
-      console.error('❌ Error navegando:', error);
-    }
+    } catch (e) { console.error('❌ Error navegando:', e); }
   };
 
-  const handleCancelOperation = (operation: Operation) => {
-    setOperationToCancel(operation);
-    setCancelReason('');
-    setCancelDialogVisible(true);
+  const handleCancelOperation = (op: Operation) => {
+    setOperationToCancel(op); setCancelReason(''); setCancelDialogVisible(true);
   };
 
   const handleConfirmCancel = async () => {
-    if (!cancelReason.trim()) {
-      Alert.alert('Error', 'Debes proporcionar un motivo para cancelar la operación');
-      return;
-    }
-
+    if (!cancelReason.trim()) { Alert.alert('Error', 'Debes proporcionar un motivo'); return; }
     if (!operationToCancel) return;
-
     try {
       setCanceling(true);
-      console.log('Cancelando operación:', operationToCancel.operation_id);
-
       await axios.post(`${API_CONFIG.BASE_URL}/api/client/cancel-operation/${operationToCancel.id}`, {
         cancellation_reason: cancelReason.trim(),
       });
-
-      // Actualizar caché local
       try {
         const cacheStr = await AsyncStorage.getItem(LOCAL_OPERATIONS_CACHE_KEY);
         const cache = cacheStr ? JSON.parse(cacheStr) : {};
-        cache[operationToCancel.id] = {
-          ...operationToCancel,
-          status: 'cancelado',
-          cancellation_reason: cancelReason.trim(),
-        };
+        cache[operationToCancel.id] = { ...operationToCancel, status: 'cancelado', cancellation_reason: cancelReason.trim() };
         await AsyncStorage.setItem(LOCAL_OPERATIONS_CACHE_KEY, JSON.stringify(cache));
-      } catch (cacheError) {
-        console.warn('⚠️ Error actualizando caché:', cacheError);
-      }
-
-      // Cerrar diálogo y refrescar
-      setCancelDialogVisible(false);
-      setCancelReason('');
-      setOperationToCancel(null);
+      } catch (_) {}
+      setCancelDialogVisible(false); setCancelReason(''); setOperationToCancel(null);
       await fetchHistory();
-
-      Alert.alert('Éxito', 'La operación ha sido cancelada correctamente');
-    } catch (error: any) {
-      console.error('❌ Error cancelando operación:', error);
-      Alert.alert('Error', error.response?.data?.message || 'No se pudo cancelar la operación');
-    } finally {
-      setCanceling(false);
-    }
+      Alert.alert('Éxito', 'La operación ha sido cancelada');
+    } catch (e: any) {
+      Alert.alert('Error', e.response?.data?.message || 'No se pudo cancelar la operación');
+    } finally { setCanceling(false); }
   };
 
   const handleCloseCancelDialog = () => {
-    setCancelDialogVisible(false);
-    setCancelReason('');
-    setOperationToCancel(null);
+    setCancelDialogVisible(false); setCancelReason(''); setOperationToCancel(null);
   };
 
   const calculateTimeRemaining = (createdAt: string) => {
-    const createdDate = new Date(createdAt);
-    const expirationDate = new Date(createdDate.getTime() + OPERATION_TIMEOUT_MINUTES * 60000);
-    const now = currentTime;
-    const diffMs = expirationDate.getTime() - now.getTime();
-
-    if (diffMs <= 0) {
-      return { expired: true, minutes: 0, seconds: 0 };
-    }
-
-    const minutes = Math.floor(diffMs / 60000);
-    const seconds = Math.floor((diffMs % 60000) / 1000);
-    return { expired: false, minutes, seconds };
+    const exp = new Date(new Date(createdAt).getTime() + OPERATION_TIMEOUT_MINUTES * 60000);
+    const diff = exp.getTime() - currentTime.getTime();
+    if (diff <= 0) return { expired: true, minutes: 0, seconds: 0 };
+    return { expired: false, minutes: Math.floor(diff / 60000), seconds: Math.floor((diff % 60000) / 1000) };
   };
 
-  const getStatusConfig = (status: string) => {
-    switch (status) {
-      case 'Pendiente':
-        return {
-          color: '#FFC107',
-          icon: 'clock-outline',
-          text: 'Pendiente',
-        };
-      case 'En proceso':
-        return {
-          color: '#2196F3',
-          icon: 'sync',
-          text: 'En Proceso',
-        };
-      case 'Completada':
-        return {
-          color: '#22c55e',
-          icon: 'check-circle',
-          text: 'Completada',
-        };
-      case 'Cancelado':
-        return {
-          color: '#22c55e',
-          icon: 'close-circle',
-          text: 'Cancelada',
-        };
-      case 'Expirada':
-        return {
-          color: '#9E9E9E',
-          icon: 'clock-alert-outline',
-          text: 'Expirada',
-        };
-      default:
-        return {
-          color: '#757575',
-          icon: 'information',
-          text: status,
-        };
-    }
-  };
-
-  const OperationCard: React.FC<{ operation: Operation; onPress: (op: Operation) => void }> = ({ operation, onPress }) => {
-    const statusConfig = getStatusConfig(operation.status);
-    const isPending = operation.status === 'pendiente' || operation.status === 'en_proceso';
-    const timeRemaining = operation.status === 'pendiente' ? calculateTimeRemaining(operation.created_at) : null;
+  // ── Operation Card ────────────────────────────────────────────────────────
+  const OperationCard: React.FC<{ operation: Operation }> = ({ operation }) => {
+    const sc     = getStatusConfig(operation.status);
+    const time   = operation.status === 'pendiente' ? calculateTimeRemaining(operation.created_at) : null;
 
     return (
-      <Card style={styles.operationCard}>
-        <Card.Content>
-          <View style={styles.operationHeader}>
-            <View style={styles.operationInfo}>
-              <Text variant="labelSmall" style={styles.operationLabel}>
-                {operation.operation_id}
-              </Text>
-              <Text variant="titleMedium" style={styles.operationAmount}>
-                {operation.operation_type === 'Compra'
-                  ? formatCurrency(operation.amount_usd, 'USD')
-                  : formatCurrency(operation.amount_pen, 'PEN')}
-              </Text>
-              <Text variant="bodySmall" style={styles.operationType}>
-                {operation.operation_type} • T.C. {operation.exchange_rate.toFixed(3)}
-              </Text>
-              <Text variant="bodySmall" style={styles.operationDate}>
-                {formatDateTime(operation.created_at)}
-              </Text>
-            </View>
-
-            <View style={styles.statusContainer}>
-              <View style={styles.statusChipContainer}>
-                <Chip
-                  mode="flat"
-                  style={[styles.statusChip, { backgroundColor: statusConfig.color }]}
-                  textStyle={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 }}
-                  icon={() => <Icon source={statusConfig.icon} size={18} color="#FFFFFF" />}
-                >
-                  {statusConfig.text}
-                </Chip>
-                {operation.status === 'pendiente' && timeRemaining && !timeRemaining.expired && (
-                  <View style={styles.countdownContainerChip}>
-                    <Icon source="timer-sand" size={14} color="#F44336" />
-                    <Text style={styles.countdownText}>
-                      Expira en {timeRemaining.minutes}:{timeRemaining.seconds.toString().padStart(2, '0')}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
+      <TouchableOpacity
+        style={s.card}
+        onPress={() => handleOperationPress(operation)}
+        activeOpacity={0.82}
+      >
+        {/* Header */}
+        <View style={s.cardTop}>
+          <View style={s.cardLeft}>
+            <Text style={s.cardId}>{operation.operation_id}</Text>
+            <Text style={s.cardAmount}>
+              {operation.operation_type === 'Compra'
+                ? formatCurrency(operation.amount_usd, 'USD')
+                : formatCurrency(operation.amount_pen, 'PEN')}
+            </Text>
+            <Text style={s.cardMeta}>
+              {operation.operation_type} · T.C. {operation.exchange_rate.toFixed(3)}
+            </Text>
+            <Text style={s.cardDate}>{formatDateTime(operation.created_at)}</Text>
           </View>
 
-          {operation.status === 'pendiente' && (
-            <>
-              <Divider style={styles.divider} />
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => handleCancelOperation(operation)}
-                activeOpacity={0.7}
+          <View style={s.cardRight}>
+            {operation.status === 'en_proceso' ? (
+              <PulsingBadge
+                color={sc.color}
+                baseStyle={[s.statusBadge, { borderWidth: 1 }]}
               >
-                <Icon source="close-circle-outline" size={20} color="#F44336" />
-                <Text style={styles.cancelButtonText}>Cancelar operación</Text>
-              </TouchableOpacity>
-            </>
-          )}
-
-          <Divider style={styles.divider} />
-        </Card.Content>
-        <TouchableOpacity
-          onPress={() => {
-            console.log('🔘 Botón presionado:', operation.operation_id, operation.status);
-            onPress(operation);
-          }}
-          style={styles.detailButton}
-          activeOpacity={0.7}
-        >
-          <View style={styles.detailButtonContent}>
-            <Icon source="eye" size={20} color="#FFFFFF" />
-            <Text style={styles.detailButtonText}>Ver detalles</Text>
+                <SpinningSync color={sc.color} size={12} />
+                <Text style={[s.statusText, { color: sc.color }]}>{sc.label}</Text>
+              </PulsingBadge>
+            ) : (
+              <View style={[s.statusBadge, { backgroundColor: `${sc.color}1a`, borderColor: `${sc.color}40` }]}>
+                <Ionicons name={sc.icon} size={12} color={sc.color} />
+                <Text style={[s.statusText, { color: sc.color }]}>{sc.label}</Text>
+              </View>
+            )}
+            {time && !time.expired && (
+              <View style={s.countdown}>
+                <Ionicons name="timer-outline" size={10} color="#f87171" />
+                <Text style={s.countdownText}>{time.minutes}:{time.seconds.toString().padStart(2,'0')}</Text>
+              </View>
+            )}
           </View>
-        </TouchableOpacity>
-      </Card>
+        </View>
+
+        {/* Cancel */}
+        {operation.status === 'pendiente' && (
+          <>
+            <View style={s.cardLine} />
+            <TouchableOpacity
+              style={s.cancelRow}
+              onPress={() => handleCancelOperation(operation)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close-circle-outline" size={14} color="#f87171" />
+              <Text style={s.cancelText}>Cancelar operación</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* Detail */}
+        <View style={s.cardLine} />
+        <View style={s.detailRow}>
+          <Ionicons name="eye-outline" size={14} color={GREEN} />
+          <Text style={s.detailText}>Ver detalles</Text>
+          <Ionicons name="chevron-forward" size={13} color={GREEN} style={{ marginLeft: 'auto' }} />
+        </View>
+
+        {/* Activity shimmer — only for en_proceso */}
+        {operation.status === 'en_proceso' && <ShimmerBar color={sc.color} />}
+      </TouchableOpacity>
     );
   };
 
-  if (loading && operations.length === 0) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={Colors.success} />
-        <Text style={styles.loadingText}>Cargando historial...</Text>
-      </View>
-    );
-  }
-
-  const pendingCount = operations.filter(
-    (op) => op.status === 'pendiente' || op.status === 'en_proceso'
-  ).length;
-  const completedCount = operations.filter(
-    (op) => op.status === 'completado' || op.status === 'cancelado' || op.status === 'expirado'
-  ).length;
+  const pendingCount   = operations.filter(op => op.status === 'pendiente' || op.status === 'en_proceso').length;
+  const completedCount = operations.filter(op => op.status === 'completado' || op.status === 'cancelado' || op.status === 'expirado').length;
 
   return (
-    <View style={styles.container}>
-      {/* Custom Tabs */}
-      <View style={styles.tabsContainer}>
-        <View style={styles.customTabsContainer}>
+    <View style={s.root}>
+      <ImageBackground source={require('../../assets/cd.png')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <View style={[StyleSheet.absoluteFill, s.overlay]} pointerEvents="none" />
+
+      {/* ── Tab switcher ── */}
+      <View style={[s.tabWrap, { paddingTop: insets.top + 14 }]}>
+        <View style={s.tabBar}>
           <TouchableOpacity
-            style={[
-              styles.customTab,
-              styles.customTabLeft,
-              activeTab === 'pending' && styles.customTabActive,
-            ]}
-            onPress={() => setActiveTab('pending')}
-            activeOpacity={0.8}
+            style={[s.tabBtn, activeTab === 'pending' && s.tabBtnActive]}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setActiveTab('pending'); }}
+            activeOpacity={0.82}
           >
-            <Text
-              style={[
-                styles.customTabText,
-                activeTab === 'pending' && styles.customTabTextActive,
-              ]}
-            >
-              En Curso ({pendingCount})
+            <Text style={[s.tabLabel, activeTab === 'pending' && s.tabLabelActive]}>
+              En Curso {pendingCount > 0 ? `(${pendingCount})` : ''}
             </Text>
           </TouchableOpacity>
+
           <TouchableOpacity
-            style={[
-              styles.customTab,
-              styles.customTabRight,
-              activeTab === 'completed' && styles.customTabActive,
-            ]}
-            onPress={() => setActiveTab('completed')}
-            activeOpacity={0.8}
+            style={[s.tabBtn, activeTab === 'completed' && s.tabBtnActive]}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setActiveTab('completed'); }}
+            activeOpacity={0.82}
           >
-            <Text
-              style={[
-                styles.customTabText,
-                activeTab === 'completed' && styles.customTabTextActive,
-              ]}
-            >
-              Finalizadas ({completedCount})
+            <Text style={[s.tabLabel, activeTab === 'completed' && s.tabLabelActive]}>
+              Finalizadas {completedCount > 0 ? `(${completedCount})` : ''}
             </Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* List */}
-      <FlatList
-        data={filteredOperations}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => <OperationCard operation={item} onPress={handleOperationPress} />}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <IconButton
-              icon={activeTab === 'pending' ? 'clock-outline' : 'history'}
-              size={60}
-              iconColor="#BDBDBD"
-            />
-            <Text variant="headlineSmall" style={styles.emptyTitle}>
-              {activeTab === 'pending' ? 'Sin operaciones en curso' : 'Sin historial'}
-            </Text>
-            <Text variant="bodyLarge" style={styles.emptyText}>
-              {activeTab === 'pending'
-                ? 'Inicia una nueva operación desde el inicio'
-                : 'Aquí aparecerán tus operaciones completadas y canceladas'}
-            </Text>
-          </View>
-        }
-        contentContainerStyle={
-          filteredOperations.length === 0 ? styles.emptyList : styles.listContent
-        }
-      />
+      {/* ── Loading ── */}
+      {loading && operations.length === 0 ? (
+        <View style={s.center}>
+          <ActivityIndicator size="large" color={GREEN} />
+          <Text style={s.loadText}>Cargando historial...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredOperations}
+          keyExtractor={item => item.id.toString()}
+          renderItem={({ item }) => <OperationCard operation={item} />}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgba(255,255,255,0.5)" />
+          }
+          contentContainerStyle={[
+            filteredOperations.length === 0 ? s.emptyList : s.listContent,
+            { paddingBottom: insets.bottom + 88 },
+          ]}
+          ListEmptyComponent={
+            <View style={s.emptyWrap}>
+              <Ionicons
+                name={activeTab === 'pending' ? 'time-outline' : 'receipt-outline'}
+                size={56}
+                color="rgba(255,255,255,0.22)"
+              />
+              <Text style={s.emptyTitle}>
+                {activeTab === 'pending' ? 'Sin operaciones en curso' : 'Sin historial'}
+              </Text>
+              <Text style={s.emptySubtitle}>
+                {activeTab === 'pending'
+                  ? 'Inicia una nueva operación desde el inicio'
+                  : 'Aquí aparecerán tus operaciones completadas y canceladas'}
+              </Text>
+            </View>
+          }
+        />
+      )}
 
-      {/* Cancel Operation Modal */}
-      <Modal
-        visible={cancelDialogVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={handleCloseCancelDialog}
-      >
-        <TouchableOpacity
-          activeOpacity={1}
-          style={styles.modalOverlay}
-          onPress={handleCloseCancelDialog}
-        >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.modalKeyboardAvoid}
-          >
-            <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.modalContainer}>
-                {/* Header */}
-                <View style={styles.modalHeader}>
-                  <Icon source="alert-circle-outline" size={48} color="#F44336" />
-                  <Text style={styles.modalTitle}>Cancelar Operación</Text>
-                  <Text style={styles.modalSubtitle}>
-                    Por favor, indica el motivo de la cancelación
-                  </Text>
-                </View>
+      {/* ── Cancel Modal ── */}
+      <Modal visible={cancelDialogVisible} transparent animationType="fade" onRequestClose={handleCloseCancelDialog}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <TouchableOpacity style={s.modalBackdrop} activeOpacity={1} onPress={handleCloseCancelDialog}>
+            <TouchableOpacity activeOpacity={1} style={s.modalBox} onPress={e => e.stopPropagation()}>
+              <BlurView intensity={88} tint="dark" style={StyleSheet.absoluteFill} />
+              <View style={s.modalBorder} />
 
-                {/* Input */}
-                <View style={styles.modalBody}>
-                  <TextInput
-                    mode="outlined"
-                    label="Motivo de cancelación"
-                    value={cancelReason}
-                    onChangeText={setCancelReason}
-                    multiline
-                    numberOfLines={4}
-                    placeholder="Escribe aquí el motivo..."
-                    style={styles.cancelInput}
-                    outlineColor={Colors.border}
-                    activeOutlineColor={Colors.primary}
-                    disabled={canceling}
-                  />
-                </View>
+              <Ionicons name="alert-circle-outline" size={40} color="#f87171" style={{ marginBottom: 14 }} />
+              <Text style={s.modalTitle}>Cancelar Operación</Text>
+              <Text style={s.modalSub}>Indica el motivo de la cancelación</Text>
 
-                {/* Actions - Siempre visibles */}
-                <View style={styles.modalActions}>
-                  <TouchableOpacity
-                    style={styles.modalButtonSecondary}
-                    onPress={handleCloseCancelDialog}
-                    disabled={canceling}
-                  >
-                    <Text style={styles.modalButtonSecondaryText}>Volver</Text>
-                  </TouchableOpacity>
+              <TextInput
+                style={s.modalInput}
+                placeholder="Escribe el motivo aquí..."
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                value={cancelReason}
+                onChangeText={setCancelReason}
+                multiline
+                numberOfLines={4}
+                editable={!canceling}
+              />
 
-                  <TouchableOpacity
-                    style={[
-                      styles.modalButtonPrimary,
-                      (!cancelReason.trim() || canceling) && styles.modalButtonDisabled,
-                    ]}
-                    onPress={handleConfirmCancel}
-                    disabled={canceling || !cancelReason.trim()}
-                  >
-                    {canceling ? (
-                      <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                      <Text
-                        style={[
-                          styles.modalButtonPrimaryText,
-                          (!cancelReason.trim() || canceling) && styles.modalButtonDisabledText,
-                        ]}
-                      >
-                        Cancelar
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
+              <View style={s.modalActions}>
+                <TouchableOpacity style={s.modalBtnSecondary} onPress={handleCloseCancelDialog} disabled={canceling}>
+                  <Text style={s.modalBtnSecondaryText}>Volver</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.modalBtnDanger, (!cancelReason.trim() || canceling) && s.modalBtnDisabled]}
+                  onPress={handleConfirmCancel}
+                  disabled={canceling || !cancelReason.trim()}
+                >
+                  {canceling
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Text style={s.modalBtnDangerText}>Cancelar</Text>
+                  }
+                </TouchableOpacity>
               </View>
             </TouchableOpacity>
-          </KeyboardAvoidingView>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  root: { flex: 1 },
+  overlay: { backgroundColor: 'transparent' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  loadText: { color: 'rgba(255,255,255,0.5)', fontSize: 14 },
+
+  // ── Tabs ──
+  tabWrap: {
+    paddingHorizontal: 20,
+    paddingBottom: 14,
   },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-  },
-  loadingText: {
-    marginTop: 16,
-    color: '#757575',
-  },
-  tabsContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
-    backgroundColor: Colors.surface,
-  },
-  customTabsContainer: {
+  tabBar: {
     flexDirection: 'row',
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#F0F0F0',
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
+    backgroundColor: GLASS_BG,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    borderRadius: 16,
+    padding: 4,
+    gap: 4,
   },
-  customTab: {
+  tabBtn: {
     flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F0F0F0',
   },
-  customTabLeft: {
-    borderTopLeftRadius: 10,
-    borderBottomLeftRadius: 10,
+  tabBtnActive: {
+    backgroundColor: 'rgba(34,197,94,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.3)',
   },
-  customTabRight: {
-    borderTopRightRadius: 10,
-    borderBottomRightRadius: 10,
-  },
-  customTabActive: {
-    backgroundColor: Colors.success,
-  },
-  customTabText: {
-    fontSize: 14,
+  tabLabel: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#757575',
+    color: 'rgba(255,255,255,0.38)',
+    letterSpacing: 0.1,
   },
-  customTabTextActive: {
-    color: '#FFFFFF',
+  tabLabelActive: {
+    color: GREEN,
+    fontWeight: '700',
   },
+
+  // ── List ──
   listContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingTop: 4,
   },
   emptyList: {
     flexGrow: 1,
   },
-  emptyContainer: {
+  emptyWrap: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-    marginTop: 60,
+    gap: 12,
+    paddingTop: 80,
+    paddingHorizontal: 40,
   },
   emptyTitle: {
-    color: '#424242',
-    marginBottom: 8,
-    fontWeight: 'bold',
-    marginTop: 16,
-  },
-  emptyText: {
-    color: '#757575',
+    fontSize: 17,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.6)',
     textAlign: 'center',
   },
-  operationCard: {
-    marginBottom: 12,
-    elevation: 2,
-    backgroundColor: Colors.surface,
-  },
-  operationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  operationInfo: {
-    flex: 1,
-  },
-  operationLabel: {
-    color: Colors.textLight,
-    marginBottom: 4,
-    fontSize: 12,
-  },
-  operationAmount: {
-    fontWeight: 'bold',
-    marginBottom: 4,
-    color: Colors.textDark,
-  },
-  operationType: {
-    color: Colors.textLight,
-    marginBottom: 2,
-  },
-  operationDate: {
-    color: Colors.textLight,
-    fontSize: 11,
-  },
-  statusContainer: {
-    alignItems: 'flex-end',
-    flexDirection: 'row',
-  },
-  statusChipContainer: {
-    alignItems: 'flex-end',
-  },
-  statusChip: {
-    paddingHorizontal: 8,
-  },
-  actionHint: {
-    marginLeft: -8,
-  },
-  divider: {
-    marginVertical: 12,
-    backgroundColor: Colors.divider,
-  },
-  actionInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E3F2FD',
-    padding: 8,
-    borderRadius: 8,
-    marginTop: 4,
-  },
-  actionInfoText: {
-    flex: 1,
-    fontSize: 12,
-    color: '#1976D2',
-    marginLeft: 4,
-  },
-  countdownContainerChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  countdownText: {
-    fontSize: 11,
-    color: '#F44336',
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  detailButton: {
-    backgroundColor: Colors.success,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    margin: 16,
-    marginTop: 0,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detailButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  detailButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  cancelButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFEBEE',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginTop: 4,
-    gap: 8,
-  },
-  cancelButtonText: {
+  emptySubtitle: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#F44336',
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalKeyboardAvoid: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    width: '85%',
-    maxWidth: 400,
-    maxHeight: '80%',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    paddingVertical: 24,
-  },
-  modalHeader: {
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Colors.textDark,
-    marginTop: 12,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: Colors.textLight,
+    color: 'rgba(255,255,255,0.35)',
     textAlign: 'center',
     lineHeight: 20,
   },
-  modalBody: {
-    paddingHorizontal: 24,
-    marginBottom: 20,
-    minHeight: 120,
-  },
-  cancelInput: {
-    backgroundColor: '#fff',
-    maxHeight: 150,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    paddingHorizontal: 24,
-    paddingTop: 8,
-    gap: 12,
-  },
-  modalButtonSecondary: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: '#F5F5F5',
+
+  // ── Card ──
+  card: {
+    backgroundColor: GLASS_BG,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: GLASS_BORDER,
+    borderRadius: 20,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  cardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: 16,
+  },
+  cardLeft: { flex: 1, paddingRight: 12 },
+  cardId: { fontSize: 10.5, color: 'rgba(255,255,255,0.38)', fontWeight: '600', letterSpacing: 0.4, marginBottom: 4 },
+  cardAmount: { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.3, marginBottom: 3 },
+  cardMeta: { fontSize: 11.5, color: 'rgba(255,255,255,0.5)', marginBottom: 2 },
+  cardDate: { fontSize: 10.5, color: 'rgba(255,255,255,0.3)', letterSpacing: 0.1 },
+  cardRight: { alignItems: 'flex-end', gap: 6 },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  statusText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.1 },
+  countdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  countdownText: { fontSize: 10, color: '#f87171', fontWeight: '700' },
+
+  cardLine: { height: StyleSheet.hairlineWidth, backgroundColor: GLASS_BORDER, marginHorizontal: 16 },
+
+  cancelRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
-  modalButtonSecondaryText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#424242',
+  cancelText: { fontSize: 12.5, fontWeight: '600', color: '#f87171' },
+
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
-  modalButtonPrimary: {
+  detailText: { fontSize: 13, fontWeight: '600', color: GREEN },
+
+  // ── Modal ──
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 28,
+  },
+  modalBox: {
+    width: '100%',
+    borderRadius: 24,
+    overflow: 'hidden',
+    alignItems: 'center',
+    paddingTop: 36,
+    paddingBottom: 28,
+    paddingHorizontal: 24,
+  },
+  modalBorder: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#fff', textAlign: 'center', marginBottom: 6 },
+  modalSub: { fontSize: 13, color: 'rgba(255,255,255,0.45)', textAlign: 'center', marginBottom: 20 },
+  modalInput: {
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    borderRadius: 14,
+    padding: 14,
+    color: '#fff',
+    fontSize: 14,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    marginBottom: 20,
+  },
+  modalActions: { flexDirection: 'row', gap: 10, width: '100%' },
+  modalBtnSecondary: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: '#F44336',
+    borderRadius: 14,
+    backgroundColor: GLASS_BG,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    alignItems: 'center',
+  },
+  modalBtnSecondaryText: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.7)' },
+  modalBtnDanger: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: 'rgba(248,113,113,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#F44336',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
   },
-  modalButtonPrimaryText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
-  modalButtonDisabled: {
-    backgroundColor: '#E0E0E0',
-    opacity: 1,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  modalButtonDisabledText: {
-    color: '#9E9E9E',
-  },
+  modalBtnDangerText: { fontSize: 14, fontWeight: '700', color: '#f87171' },
+  modalBtnDisabled: { opacity: 0.4 },
 });
