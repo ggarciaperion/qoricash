@@ -806,16 +806,14 @@ function refreshOperationsTable() {
  * Ordenar operaciones por prioridad: "En proceso" primero
  */
 function sortOperationsByPriority(operations) {
+    // La API retorna status en lowercase via to_dict() ('en_proceso', 'pendiente', etc.)
+    const isInProcess = s => s === 'en_proceso' || s === 'En proceso';
     return operations.sort(function(a, b) {
         // Prioridad 1: "En proceso" siempre primero
-        if (a.status === 'En proceso' && b.status !== 'En proceso') {
-            return -1;
-        }
-        if (a.status !== 'En proceso' && b.status === 'En proceso') {
-            return 1;
-        }
+        if (isInProcess(a.status) && !isInProcess(b.status)) return -1;
+        if (!isInProcess(a.status) && isInProcess(b.status)) return 1;
 
-        // Prioridad 2: Si ambos son "En proceso" o ninguno lo es, ordenar por fecha (más reciente primero)
+        // Prioridad 2: Si ambos o ninguno es "En proceso", ordenar por fecha (más reciente primero)
         const dateA = parseSafeDate(a.created_at) || new Date(0);
         const dateB = parseSafeDate(b.created_at) || new Date(0);
         return dateB - dateA;

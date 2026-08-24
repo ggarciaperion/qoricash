@@ -263,6 +263,9 @@ class NotificationService:
             }
             roles = ['Master', 'Operador']
             _emit_to_roles('operacion_en_proceso', data, roles)
+            # Emitir también a todos los usuarios autenticados (cubre Presidente de Negocios,
+            # Middle Office y cualquier otro rol que esté en la vista de operaciones)
+            socketio.emit('operacion_en_proceso', data, namespace='/', room='authenticated')
             _save_to_db(roles, title, msg, notif_type='warning', category='operation',
                         link=f'/operations/{operation.id}')
             _push_unread_counts_for_roles(roles)

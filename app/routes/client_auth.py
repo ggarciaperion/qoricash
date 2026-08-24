@@ -1300,9 +1300,11 @@ def submit_transfer_code(operation_id):
             flag_modified(operation, 'client_payments_json')
             db.session.commit()
 
-        # Notificar via Socket.IO
+        # Notificar via Socket.IO — operación pasó de Pendiente a En proceso
         try:
-            NotificationService.notify_operation_updated(operation, old_status)
+            # notify_operation_in_process: emite 'operacion_en_proceso' a todos los roles
+            # (Master, Operador, y via room 'authenticated' también Presidente de Negocios, etc.)
+            NotificationService.notify_operation_in_process(operation)
         except Exception as e:
             logger.warning(f"Error en NotificationService: {e}")
 
