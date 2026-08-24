@@ -14,6 +14,7 @@ import {
   Image,
   ActivityIndicator,
   Animated,
+  Easing,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -60,103 +61,140 @@ const Seg: React.FC<{
   </View>
 );
 
-// ─── Creating overlay styles (must come before the components that use them) ───
 // ─── Creating overlay styles ───────────────────────────────────────────────────
 const ov = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logo: { width: 180, height: 180 },
-  checkCircle: {
-    width: 92, height: 92, borderRadius: 46,
-    backgroundColor: GREEN,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: GREEN, shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9, shadowRadius: 32,
+  layer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  labelTxt:   { marginTop: 44, fontSize: 16, fontWeight: '600', color: 'rgba(255,255,255,0.72)', letterSpacing: 0.3 },
-  successTxt: { marginTop: 34, fontSize: 18, fontWeight: '700', color: GREEN, letterSpacing: 0.2 },
+  // Spinner
+  spinnerWrap: {
+    width: 72,
+    height: 72,
+  },
+  ringTrack: {
+    position: 'absolute',
+    width: 72, height: 72, borderRadius: 36,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  ringArc: {
+    width: 72, height: 72, borderRadius: 36,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    borderTopColor: '#ffffff',
+  },
+  loadingLabel: {
+    marginTop: 36,
+    fontSize: 11,
+    fontWeight: '400',
+    color: 'rgba(255,255,255,0.4)',
+    letterSpacing: 2.5,
+    textTransform: 'uppercase',
+  },
+  // Check
+  checkRing: {
+    width: 72, height: 72, borderRadius: 36,
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successLabel: {
+    marginTop: 28,
+    fontSize: 15,
+    fontWeight: '300',
+    color: '#ffffff',
+    letterSpacing: 1.2,
+  },
 });
 
-// ─── Creating overlay — usa Modal para renderizar SOBRE la transición de nav ──
+// ─── Creating overlay ──────────────────────────────────────────────────────────
 const CreatingOverlay: React.FC<{ visible: boolean; success: boolean }> = ({ visible, success }) => {
-  const logoPulse  = useRef(new Animated.Value(1)).current;
-  const logoFloat  = useRef(new Animated.Value(0)).current;
-  const checkScale = useRef(new Animated.Value(0)).current;
-  const pulseLoop  = useRef<Animated.CompositeAnimation>();
-  const floatLoop  = useRef<Animated.CompositeAnimation>();
-  const startTimer = useRef<ReturnType<typeof setTimeout>>();
-  const [phase, setPhase] = useState<'logo' | 'check'>('logo');
+  const spinAnim       = useRef(new Animated.Value(0)).current;
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const loaderOpacity  = useRef(new Animated.Value(0)).current;
+  const checkOpacity   = useRef(new Animated.Value(0)).current;
+  const checkScale     = useRef(new Animated.Value(0.7)).current;
+  const markOpacity    = useRef(new Animated.Value(0)).current;
+  const spinRef        = useRef<Animated.CompositeAnimation>();
 
-  const stopAll = () => {
-    pulseLoop.current?.stop();
-    floatLoop.current?.stop();
-    clearTimeout(startTimer.current);
+  const reset = () => {
+    spinRef.current?.stop();
+    overlayOpacity.setValue(0);
+    loaderOpacity.setValue(0);
+    checkOpacity.setValue(0);
+    checkScale.setValue(0.7);
+    markOpacity.setValue(0);
+    spinAnim.setValue(0);
   };
 
-  // Arrancar animación cuando el modal se abre
   useEffect(() => {
-    if (!visible) {
-      stopAll();
-      logoPulse.setValue(1);
-      logoFloat.setValue(0);
-      checkScale.setValue(0);
-      setPhase('logo');
-      return;
-    }
+    if (!visible) { reset(); return; }
 
-    // Esperar 250ms para que el modal haga fade in antes de pulsar
-    startTimer.current = setTimeout(() => {
-      pulseLoop.current = Animated.loop(
-        Animated.sequence([
-          Animated.timing(logoPulse, { toValue: 1.22, duration: 620, useNativeDriver: true }),
-          Animated.timing(logoPulse, { toValue: 0.78, duration: 620, useNativeDriver: true }),
-        ])
-      );
-      pulseLoop.current.start();
+    // Fade overlay in
+    Animated.timing(overlayOpacity, { toValue: 1, duration: 280, useNativeDriver: true }).start();
 
-      floatLoop.current = Animated.loop(
-        Animated.sequence([
-          Animated.timing(logoFloat, { toValue: -18, duration: 620, useNativeDriver: true }),
-          Animated.timing(logoFloat, { toValue:  18, duration: 620, useNativeDriver: true }),
-        ])
-      );
-      floatLoop.current.start();
-    }, 250);
+    // Fade loader in with slight delay
+    setTimeout(() => {
+      Animated.timing(loaderOpacity, { toValue: 1, duration: 350, useNativeDriver: true }).start();
+    }, 120);
 
-    return stopAll;
+    // Start spinner loop
+    spinRef.current = Animated.loop(
+      Animated.timing(spinAnim, { toValue: 1, duration: 900, easing: Easing.linear, useNativeDriver: true })
+    );
+    spinRef.current.start();
   }, [visible]);
 
-  // Transición a check
   useEffect(() => {
     if (!success || !visible) return;
-    stopAll();
-    logoPulse.setValue(1);
-    logoFloat.setValue(0);
-    setPhase('check');
-    Animated.spring(checkScale, { toValue: 1, friction: 3, tension: 110, useNativeDriver: true }).start();
+    spinRef.current?.stop();
+
+    // Crossfade: loader out → check in
+    Animated.timing(loaderOpacity, { toValue: 0, duration: 220, useNativeDriver: true }).start(() => {
+      Animated.parallel([
+        Animated.timing(checkOpacity,  { toValue: 1, duration: 280,  useNativeDriver: true }),
+        Animated.spring(checkScale,    { toValue: 1, friction: 7, tension: 120, useNativeDriver: true }),
+      ]).start(() => {
+        Animated.timing(markOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+      });
+    });
   }, [success]);
 
-  // Modal renderiza ENCIMA de todo — incluidas transiciones de navegación
+  const rotate = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => {}}>
-      <View style={ov.root}>
-        {phase === 'logo' ? (
-          <Animated.View style={{ transform: [{ scale: logoPulse }, { translateY: logoFloat }] }}>
-            <Image source={require('../../assets/ji.png')} style={ov.logo} resizeMode="contain" />
-          </Animated.View>
-        ) : (
-          <Animated.View style={[ov.checkCircle, { transform: [{ scale: checkScale }] }]}>
-            <Ionicons name="checkmark" size={44} color="#fff" />
-          </Animated.View>
-        )}
-        <Text style={phase === 'check' ? ov.successTxt : ov.labelTxt}>
-          {phase === 'check' ? '¡Operación creada!' : 'Creando tu operación…'}
-        </Text>
-      </View>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={() => {}}>
+      <Animated.View style={[ov.root, { opacity: overlayOpacity }]}>
+
+        {/* ── Loader ── */}
+        <Animated.View style={[ov.layer, { opacity: loaderOpacity }]}>
+          <View style={ov.spinnerWrap}>
+            <View style={ov.ringTrack} />
+            <Animated.View style={[ov.ringArc, { transform: [{ rotate }] }]} />
+          </View>
+          <Text style={ov.loadingLabel}>Procesando</Text>
+        </Animated.View>
+
+        {/* ── Check ── */}
+        <Animated.View style={[ov.layer, { opacity: checkOpacity, transform: [{ scale: checkScale }] }]}>
+          <View style={ov.checkRing}>
+            <Animated.View style={{ opacity: markOpacity }}>
+              <Ionicons name="checkmark" size={30} color="#fff" />
+            </Animated.View>
+          </View>
+          <Text style={ov.successLabel}>Operación creada</Text>
+        </Animated.View>
+
+      </Animated.View>
     </Modal>
   );
 };
