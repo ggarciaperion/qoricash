@@ -303,7 +303,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
 
       {/* ── Header ── */}
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => navigation.replace('Tabs', { screen: 'HistoryTab' })} style={s.backBtn} activeOpacity={0.7}>
           <View style={s.backBtnInner}>
             <Ionicons name="chevron-back" size={20} color="#fff" />
           </View>
