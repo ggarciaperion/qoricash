@@ -63,135 +63,226 @@ const Seg: React.FC<{
 
 // ─── Creating overlay styles ───────────────────────────────────────────────────
 const ov = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  layer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  // Spinner
-  spinnerWrap: {
-    width: 72,
-    height: 72,
-  },
-  ringTrack: {
+  root:  { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
+  layer: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
+
+  // ── Loader
+  orbitWrap: { width: 112, height: 112, justifyContent: 'center', alignItems: 'center' },
+  outerRing: {              // lento, contrarrotante, muy sutil
     position: 'absolute',
-    width: 72, height: 72, borderRadius: 36,
+    width: 112, height: 112, borderRadius: 56,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor:        'rgba(255,255,255,0.07)',
+    borderTopColor:     'rgba(255,255,255,0.28)',
+    borderRightColor:   'rgba(255,255,255,0.12)',
   },
-  ringArc: {
-    width: 72, height: 72, borderRadius: 36,
+  trackRing: {              // pista estática para el arco interior
+    position: 'absolute',
+    width: 74, height: 74, borderRadius: 37,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  innerArc: {               // arco giratorio rápido
+    position: 'absolute',
+    width: 74, height: 74, borderRadius: 37,
     borderWidth: 1.5,
-    borderColor: 'transparent',
-    borderTopColor: '#ffffff',
+    borderColor:       'transparent',
+    borderTopColor:    '#ffffff',
+    borderRightColor:  'rgba(255,255,255,0.3)',
+  },
+  centerDot: {              // punto central que respira
+    width: 5, height: 5, borderRadius: 2.5,
+    backgroundColor: '#fff',
   },
   loadingLabel: {
-    marginTop: 36,
-    fontSize: 11,
-    fontWeight: '400',
-    color: 'rgba(255,255,255,0.4)',
-    letterSpacing: 2.5,
+    marginTop: 44,
+    fontSize: 10,
+    fontWeight: '300',
+    color: 'rgba(255,255,255,0.3)',
+    letterSpacing: 5,
     textTransform: 'uppercase',
   },
-  // Check
+
+  // ── Check
   checkRing: {
-    width: 72, height: 72, borderRadius: 36,
+    width: 76, height: 76, borderRadius: 38,
     borderWidth: 1.5,
     borderColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  ripple: {                 // anillos expansivos (shockwave)
+    position: 'absolute',
+    width: 76, height: 76, borderRadius: 38,
+    borderWidth: 1,
+    borderColor: '#ffffff',
+  },
   successLabel: {
-    marginTop: 28,
-    fontSize: 15,
+    marginTop: 30,
+    fontSize: 11,
     fontWeight: '300',
     color: '#ffffff',
-    letterSpacing: 1.2,
+    letterSpacing: 5,
+    textTransform: 'uppercase',
   },
 });
 
 // ─── Creating overlay ──────────────────────────────────────────────────────────
 const CreatingOverlay: React.FC<{ visible: boolean; success: boolean }> = ({ visible, success }) => {
-  const spinAnim       = useRef(new Animated.Value(0)).current;
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
-  const loaderOpacity  = useRef(new Animated.Value(0)).current;
-  const checkOpacity   = useRef(new Animated.Value(0)).current;
-  const checkScale     = useRef(new Animated.Value(0.7)).current;
-  const markOpacity    = useRef(new Animated.Value(0)).current;
-  const spinRef        = useRef<Animated.CompositeAnimation>();
+  // overlay
+  const overlayOp   = useRef(new Animated.Value(0)).current;
+  // loader
+  const loaderOp    = useRef(new Animated.Value(0)).current;
+  const outerRot    = useRef(new Animated.Value(0)).current;
+  const innerRot    = useRef(new Animated.Value(0)).current;
+  const dotPulse    = useRef(new Animated.Value(1)).current;
+  // check
+  const checkOp     = useRef(new Animated.Value(0)).current;
+  const checkScale  = useRef(new Animated.Value(0.25)).current;
+  const markOp      = useRef(new Animated.Value(0)).current;
+  const markY       = useRef(new Animated.Value(6)).current;
+  const textOp      = useRef(new Animated.Value(0)).current;
+  const textY       = useRef(new Animated.Value(14)).current;
+  // ripples
+  const r1s = useRef(new Animated.Value(1)).current;
+  const r1o = useRef(new Animated.Value(0)).current;
+  const r2s = useRef(new Animated.Value(1)).current;
+  const r2o = useRef(new Animated.Value(0)).current;
+  const r3s = useRef(new Animated.Value(1)).current;
+  const r3o = useRef(new Animated.Value(0)).current;
+
+  const outerRef = useRef<Animated.CompositeAnimation>();
+  const innerRef = useRef<Animated.CompositeAnimation>();
+  const dotRef   = useRef<Animated.CompositeAnimation>();
 
   const reset = () => {
-    spinRef.current?.stop();
-    overlayOpacity.setValue(0);
-    loaderOpacity.setValue(0);
-    checkOpacity.setValue(0);
-    checkScale.setValue(0.7);
-    markOpacity.setValue(0);
-    spinAnim.setValue(0);
+    outerRef.current?.stop();
+    innerRef.current?.stop();
+    dotRef.current?.stop();
+    overlayOp.setValue(0);  loaderOp.setValue(0);
+    outerRot.setValue(0);   innerRot.setValue(0);  dotPulse.setValue(1);
+    checkOp.setValue(0);    checkScale.setValue(0.25);
+    markOp.setValue(0);     markY.setValue(6);
+    textOp.setValue(0);     textY.setValue(14);
+    r1s.setValue(1); r1o.setValue(0);
+    r2s.setValue(1); r2o.setValue(0);
+    r3s.setValue(1); r3o.setValue(0);
   };
 
   useEffect(() => {
     if (!visible) { reset(); return; }
 
-    // Fade overlay in
-    Animated.timing(overlayOpacity, { toValue: 1, duration: 280, useNativeDriver: true }).start();
-
-    // Fade loader in with slight delay
+    // Fade in overlay + loader
+    Animated.timing(overlayOp, { toValue: 1, duration: 320, useNativeDriver: true }).start();
     setTimeout(() => {
-      Animated.timing(loaderOpacity, { toValue: 1, duration: 350, useNativeDriver: true }).start();
-    }, 120);
+      Animated.timing(loaderOp, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+    }, 80);
 
-    // Start spinner loop
-    spinRef.current = Animated.loop(
-      Animated.timing(spinAnim, { toValue: 1, duration: 900, easing: Easing.linear, useNativeDriver: true })
+    // Outer ring — lento, contrarrotante
+    outerRef.current = Animated.loop(
+      Animated.timing(outerRot, { toValue: -1, duration: 3800, easing: Easing.linear, useNativeDriver: true })
     );
-    spinRef.current.start();
+    outerRef.current.start();
+
+    // Inner arc — rápido
+    innerRef.current = Animated.loop(
+      Animated.timing(innerRot, { toValue: 1, duration: 820, easing: Easing.linear, useNativeDriver: true })
+    );
+    innerRef.current.start();
+
+    // Dot pulse — respiración lenta
+    dotRef.current = Animated.loop(
+      Animated.sequence([
+        Animated.timing(dotPulse, { toValue: 2.2, duration: 800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(dotPulse, { toValue: 1,   duration: 800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    );
+    dotRef.current.start();
   }, [visible]);
 
   useEffect(() => {
     if (!success || !visible) return;
-    spinRef.current?.stop();
+    outerRef.current?.stop();
+    innerRef.current?.stop();
+    dotRef.current?.stop();
 
-    // Crossfade: loader out → check in
-    Animated.timing(loaderOpacity, { toValue: 0, duration: 220, useNativeDriver: true }).start(() => {
+    // Loader desaparece
+    Animated.timing(loaderOp, { toValue: 0, duration: 250, easing: Easing.out(Easing.ease), useNativeDriver: true }).start(() => {
+
+      // Check ring entra con spring agresivo (overshoot visible)
       Animated.parallel([
-        Animated.timing(checkOpacity,  { toValue: 1, duration: 280,  useNativeDriver: true }),
-        Animated.spring(checkScale,    { toValue: 1, friction: 7, tension: 120, useNativeDriver: true }),
+        Animated.timing(checkOp,   { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(checkScale, { toValue: 1, tension: 280, friction: 5, useNativeDriver: true }),
       ]).start(() => {
-        Animated.timing(markOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+
+        // Shockwave: 3 ripples con stagger
+        r1o.setValue(0.5); r2o.setValue(0.32); r3o.setValue(0.18);
+        Animated.stagger(90, [
+          Animated.parallel([
+            Animated.timing(r1s, { toValue: 2.6, duration: 650, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+            Animated.timing(r1o, { toValue: 0,   duration: 650, useNativeDriver: true }),
+          ]),
+          Animated.parallel([
+            Animated.timing(r2s, { toValue: 3.2, duration: 750, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+            Animated.timing(r2o, { toValue: 0,   duration: 750, useNativeDriver: true }),
+          ]),
+          Animated.parallel([
+            Animated.timing(r3s, { toValue: 3.9, duration: 860, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+            Animated.timing(r3o, { toValue: 0,   duration: 860, useNativeDriver: true }),
+          ]),
+        ]).start();
+
+        // Checkmark desliza desde abajo
+        Animated.parallel([
+          Animated.timing(markOp, { toValue: 1, duration: 230, useNativeDriver: true }),
+          Animated.spring(markY,  { toValue: 0, tension: 200, friction: 8, useNativeDriver: true }),
+        ]).start();
+
+        // Texto sube con delay
+        setTimeout(() => {
+          Animated.parallel([
+            Animated.timing(textOp, { toValue: 1, duration: 380, useNativeDriver: true }),
+            Animated.timing(textY,  { toValue: 0, duration: 380, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+          ]).start();
+        }, 160);
       });
     });
   }, [success]);
 
-  const rotate = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const outerSpin = outerRot.interpolate({ inputRange: [-1, 0], outputRange: ['-360deg', '0deg'] });
+  const innerSpin = innerRot.interpolate({ inputRange: [0, 1],  outputRange: ['0deg', '360deg'] });
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={() => {}}>
-      <Animated.View style={[ov.root, { opacity: overlayOpacity }]}>
+      <Animated.View style={[ov.root, { opacity: overlayOp }]}>
 
         {/* ── Loader ── */}
-        <Animated.View style={[ov.layer, { opacity: loaderOpacity }]}>
-          <View style={ov.spinnerWrap}>
-            <View style={ov.ringTrack} />
-            <Animated.View style={[ov.ringArc, { transform: [{ rotate }] }]} />
+        <Animated.View style={[ov.layer, { opacity: loaderOp }]}>
+          <View style={ov.orbitWrap}>
+            <Animated.View style={[ov.outerRing, { transform: [{ rotate: outerSpin }] }]} />
+            <View style={ov.trackRing} />
+            <Animated.View style={[ov.innerArc,  { transform: [{ rotate: innerSpin }] }]} />
+            <Animated.View style={[ov.centerDot, { transform: [{ scale: dotPulse }] }]} />
           </View>
           <Text style={ov.loadingLabel}>Procesando</Text>
         </Animated.View>
 
         {/* ── Check ── */}
-        <Animated.View style={[ov.layer, { opacity: checkOpacity, transform: [{ scale: checkScale }] }]}>
-          <View style={ov.checkRing}>
-            <Animated.View style={{ opacity: markOpacity }}>
-              <Ionicons name="checkmark" size={30} color="#fff" />
+        <Animated.View style={[ov.layer, { opacity: checkOp }]}>
+          {/* Ripples */}
+          <Animated.View style={[ov.ripple, { opacity: r1o, transform: [{ scale: r1s }] }]} />
+          <Animated.View style={[ov.ripple, { opacity: r2o, transform: [{ scale: r2s }] }]} />
+          <Animated.View style={[ov.ripple, { opacity: r3o, transform: [{ scale: r3s }] }]} />
+          {/* Círculo check */}
+          <Animated.View style={[ov.checkRing, { transform: [{ scale: checkScale }] }]}>
+            <Animated.View style={{ opacity: markOp, transform: [{ translateY: markY }] }}>
+              <Ionicons name="checkmark" size={32} color="#fff" />
             </Animated.View>
-          </View>
-          <Text style={ov.successLabel}>Operación creada</Text>
+          </Animated.View>
+          {/* Texto */}
+          <Animated.Text style={[ov.successLabel, { opacity: textOp, transform: [{ translateY: textY }] }]}>
+            Operación creada
+          </Animated.Text>
         </Animated.View>
 
       </Animated.View>
