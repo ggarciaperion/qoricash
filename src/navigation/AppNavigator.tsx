@@ -35,6 +35,7 @@ import { HistoryScreen } from '../screens/HistoryScreen';
 import { MarketScreen } from '../screens/MarketScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { LogsScreen } from '../screens/LogsScreen';
+import { WebViewScreen } from '../screens/WebViewScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -143,6 +144,42 @@ const MainNavigator = () => {
         component={NewOperationScreen}
         options={{
           headerShown: false,
+          cardStyleInterpolator: ({ current, next, layouts }) => ({
+            cardStyle: {
+              opacity: current.progress.interpolate({
+                inputRange:  [0, 0.5, 1],
+                outputRange: [0, 0.6, 1],
+                extrapolate: 'clamp',
+              }),
+              transform: [
+                {
+                  translateY: current.progress.interpolate({
+                    inputRange:  [0, 1],
+                    outputRange: [layouts.screen.height * 0.06, 0],
+                    extrapolate: 'clamp',
+                  }),
+                },
+                {
+                  scale: current.progress.interpolate({
+                    inputRange:  [0, 1],
+                    outputRange: [0.97, 1],
+                    extrapolate: 'clamp',
+                  }),
+                },
+              ],
+              ...(next && {
+                opacity: next.progress.interpolate({
+                  inputRange:  [0, 0.3],
+                  outputRange: [1, 0],
+                  extrapolate: 'clamp',
+                }),
+              }),
+            },
+          }),
+          transitionSpec: {
+            open:  { animation: 'spring', config: { stiffness: 280, damping: 36, mass: 1, overshootClamping: false } },
+            close: { animation: 'spring', config: { stiffness: 280, damping: 36, mass: 1, overshootClamping: false } },
+          },
         }}
       />
       <Stack.Screen
@@ -164,6 +201,49 @@ const MainNavigator = () => {
         component={OperationDetailScreen}
         options={{
           headerShown: false,
+          cardStyleInterpolator: ({ current, next, layouts }) => ({
+            cardStyle: {
+              opacity: current.progress.interpolate({
+                inputRange:  [0, 0.5, 1],
+                outputRange: [0, 0.6, 1],
+                extrapolate: 'clamp',
+              }),
+              transform: [
+                {
+                  translateY: current.progress.interpolate({
+                    inputRange:  [0, 1],
+                    outputRange: [layouts.screen.height * 0.06, 0],
+                    extrapolate: 'clamp',
+                  }),
+                },
+                {
+                  scale: current.progress.interpolate({
+                    inputRange:  [0, 1],
+                    outputRange: [0.97, 1],
+                    extrapolate: 'clamp',
+                  }),
+                },
+              ],
+              ...(next && {
+                opacity: next.progress.interpolate({
+                  inputRange:  [0, 0.4],
+                  outputRange: [1, 0],
+                  extrapolate: 'clamp',
+                }),
+              }),
+            },
+            overlayStyle: {
+              opacity: current.progress.interpolate({
+                inputRange:  [0, 1],
+                outputRange: [0, 0.38],
+                extrapolate: 'clamp',
+              }),
+            },
+          }),
+          transitionSpec: {
+            open:  { animation: 'spring', config: { stiffness: 280, damping: 36, mass: 1, overshootClamping: false } },
+            close: { animation: 'spring', config: { stiffness: 280, damping: 36, mass: 1, overshootClamping: false } },
+          },
         }}
       />
       <Stack.Screen
@@ -189,6 +269,11 @@ const MainNavigator = () => {
           title: 'Logs del Sistema',
           headerTintColor: Colors.primary,
         }}
+      />
+      <Stack.Screen
+        name="WebView"
+        component={WebViewScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

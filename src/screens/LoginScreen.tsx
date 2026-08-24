@@ -2,82 +2,52 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   StyleSheet,
-  Image,
   TouchableOpacity,
   Animated,
   StatusBar,
   Modal,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   ScrollView,
+  Keyboard,
 } from 'react-native';
 import { TextInput, Text, IconButton } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../contexts/AuthContext';
 import { useLoginLoading } from '../contexts/LoginLoadingContext';
 import { Colors } from '../constants/colors';
 import { API_CONFIG } from '../constants/config';
-import { KeyboardAwareScrollView } from '../components/KeyboardAwareScrollView';
-import { CustomModal } from '../components/CustomModal';
 import { GlobalStyles } from '../styles/globalStyles';
-import { ForexBackground } from '../components/ForexBackground';
 
 type DocumentType = 'DNI' | 'CE' | 'RUC';
 
 const MAX_ATTEMPTS = 3;
+const REMEMBER_KEY = '@qoricash:remember_doc';
 
-// Solid background color for inputs — must be opaque so react-native-paper
-// can cut a clean gap in the outlined border where the floating label sits.
-const INPUT_BG = '#0C1C2A';
+// Opaque bg so react-native-paper can cut a clean gap in the floating label
+const INPUT_BG = 'rgba(0,8,22,0.35)';
 
-// ─── Document picker options ─────────────────────────────────────────────────
-const DOC_OPTIONS: { type: DocumentType; label: string; full: string; digits: number }[] = [
-  { type: 'DNI', label: 'DNI', full: 'Documento Nacional de Identidad',  digits: 8  },
-  { type: 'CE',  label: 'CE',  full: 'Carnet de Extranjería',             digits: 9  },
-  { type: 'RUC', label: 'RUC', full: 'Registro Único de Contribuyentes',  digits: 11 },
-];
+// Glass constants — matches PublicCalculatorScreen
+const GLASS_BG     = 'rgba(255,255,255,0.08)';
+const GLASS_BORDER = 'rgba(255,255,255,0.17)';
 
-// ─── Pulsing live dot (market pill) ──────────────────────────────────────────
-const PulseDot = () => {
-  const scale = useRef(new Animated.Value(1)).current;
-  const op    = useRef(new Animated.Value(0.9)).current;
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(scale, { toValue: 1.9, duration: 900, useNativeDriver: true }),
-          Animated.timing(op,    { toValue: 0,   duration: 900, useNativeDriver: true }),
-        ]),
-        Animated.delay(600),
-        Animated.parallel([
-          Animated.timing(scale, { toValue: 1,   duration: 0, useNativeDriver: true }),
-          Animated.timing(op,    { toValue: 0.9, duration: 0, useNativeDriver: true }),
-        ]),
-      ])
-    ).start();
-  }, []);
-  return (
-    <View style={{ width: 10, height: 10, justifyContent: 'center', alignItems: 'center' }}>
-      <Animated.View style={{
-        position: 'absolute',
-        width: 10, height: 10, borderRadius: 5,
-        backgroundColor: '#22c55e',
-        opacity: op,
-        transform: [{ scale }],
-      }} />
-      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22c55e' }} />
-    </View>
-  );
+const detectDocType = (num: string): DocumentType | null => {
+  if (num.length === 8)  return 'DNI';
+  if (num.length === 9)  return 'CE';
+  if (num.length === 11) return 'RUC';
+  return null;
 };
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export const LoginScreen = () => {
-  const navigation  = useNavigation();
-  const insets      = useSafeAreaInsets();
+  const navigation = useNavigation();
+  const insets     = useSafeAreaInsets();
   const { login, loading } = useAuth();
   const { setShowLoginLoading } = useLoginLoading();
 
@@ -85,6 +55,7 @@ export const LoginScreen = () => {
   const [dni,          setDni]          = useState('');
   const [password,     setPassword]     = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe,   setRememberMe]   = useState(false);
 
   // Attempt tracking
   const [failedAttempts, setFailedAttempts] = useState(0);
@@ -92,9 +63,6 @@ export const LoginScreen = () => {
   const [errMsg,         setErrMsg]         = useState('');
   const [errIsAuth,      setErrIsAuth]      = useState(false);
   const isLocked = failedAttempts >= MAX_ATTEMPTS;
-
-  // Document picker modal
-  const [showDocPicker, setShowDocPicker] = useState(false);
 
   // Forgot password modal
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -106,17 +74,38 @@ export const LoginScreen = () => {
   const forgotSlide = useRef(new Animated.Value(600)).current;
   const forgotFade  = useRef(new Animated.Value(0)).current;
 
-  // Entry animations
-  const fadeAnim  = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(32)).current;
   const btnScale  = useRef(new Animated.Value(1)).current;
+  const exitFade  = useRef(new Animated.Value(1)).current;
+  const exitSlide = useRef(new Animated.Value(0)).current;
 
+  // Field micro-animation values
+  const dniY = useRef(new Animated.Value(0)).current;
+  const pwY  = useRef(new Animated.Value(0)).current;
+
+  const focusField = (y: Animated.Value, focused: boolean) => {
+    Animated.spring(y, {
+      toValue: focused ? -4 : 0,
+      useNativeDriver: true,
+      tension: 320,
+      friction: 14,
+    }).start();
+  };
+
+  // Load remembered document on mount
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim,  { toValue: 1, duration: 700, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 700, useNativeDriver: true }),
-    ]).start();
+    AsyncStorage.getItem(REMEMBER_KEY).then(raw => {
+      if (!raw) return;
+      try {
+        const saved = JSON.parse(raw) as { number: string };
+        setDni(saved.number);
+        setDocumentType(detectDocType(saved.number));
+        setRememberMe(true);
+      } catch {}
+    });
   }, []);
+
+
+  const handleGoBack = () => navigation.goBack();
 
   const punchBtn = () => {
     Animated.sequence([
@@ -125,19 +114,28 @@ export const LoginScreen = () => {
     ]).start();
   };
 
-  const getDocMax = (): number => {
-    switch (documentType) {
-      case 'DNI': return 8;
-      case 'CE':  return 9;
-      case 'RUC': return 11;
-      default:    return 8;
-    }
-  };
-
   const showError = (msg: string, isAuthFail = false) => {
     setErrMsg(msg);
     setErrIsAuth(isAuthFail);
     setShowErrModal(true);
+  };
+
+  const handleDniChange = (text: string) => {
+    const cleaned = text.replace(/\D/g, '').slice(0, 11);
+    setDni(cleaned);
+    setDocumentType(detectDocType(cleaned));
+    if (rememberMe) {
+      AsyncStorage.setItem(REMEMBER_KEY, JSON.stringify({ number: cleaned }));
+    }
+  };
+
+  const handleRememberToggle = async (val: boolean) => {
+    setRememberMe(val);
+    if (val) {
+      await AsyncStorage.setItem(REMEMBER_KEY, JSON.stringify({ number: dni }));
+    } else {
+      await AsyncStorage.removeItem(REMEMBER_KEY);
+    }
   };
 
   const handleLogin = async () => {
@@ -146,15 +144,12 @@ export const LoginScreen = () => {
       return;
     }
     if (!documentType) {
-      showError('Selecciona un tipo de documento antes de continuar.');
-      return;
-    }
-    if (!dni || dni.length !== getDocMax()) {
-      showError(`El ${documentType} debe tener exactamente ${getDocMax()} dígitos.`);
+      showError('Ingresa un número de documento válido.\nDNI: 8 dígitos · CE: 9 dígitos · RUC: 11 dígitos');
       return;
     }
     try {
       punchBtn();
+      Keyboard.dismiss();
       setShowLoginLoading(true);
       await login({ username: dni, password }, dni);
     } catch (err: any) {
@@ -216,141 +211,109 @@ export const LoginScreen = () => {
     }
   };
 
-  const selectedDoc = DOC_OPTIONS.find(o => o.type === documentType);
-
   return (
     <>
-      {/* Translucent on Android; iOS ignores backgroundColor — both get light icons */}
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      <View style={styles.root}>
-
-        {/* ── Forex animated background ── */}
-        <ForexBackground showTickers={true} />
-
-        {/* ── Scrollable content — starts below status bar via dynamic paddingTop ── */}
-        <KeyboardAwareScrollView
+      <View style={styles.bg}>
+        <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 16 }]}
+          contentContainerStyle={[styles.scroll, { paddingTop: insets.top }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          keyboardDismissMode="none"
         >
+          <View style={{ width: '100%', flex: 1, justifyContent: 'center' }}>
 
-          {/* ── Unified card: logo + form ── */}
-          <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            {/* ── Back button ── */}
+            <TouchableOpacity style={[styles.backBtn, { top: insets.top + 16 }]} onPress={handleGoBack} activeOpacity={0.8}>
+              <Ionicons name="chevron-back" size={22} color="#ffffff" />
+            </TouchableOpacity>
 
-            {/* Logo section */}
-            <View style={styles.cardLogoSection}>
-              <Image
-                source={require('../../assets/logo-principal.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-              <Text style={styles.brandName}>QoriCash</Text>
-              <Text style={styles.brandTag}>CASA DE CAMBIO DIGITAL</Text>
-              <View style={styles.marketPill}>
-                <PulseDot />
-                <Text style={styles.marketText}>USD/PEN · En línea</Text>
-              </View>
-            </View>
+            {/* ── Form ── */}
+            <View style={styles.formContainer}>
 
-            {/* Divider */}
-            <View style={styles.cardDivider} />
 
-            {/* Form section */}
-            <View style={styles.cardForm}>
-
-              <Text style={styles.cardTitle}>Iniciar Sesión</Text>
-              <Text style={styles.cardSub}>Accede con tu documento de identidad</Text>
-
-              {/* Document type dropdown */}
-              <Text style={styles.fieldLabel}>Tipo de documento</Text>
-              <TouchableOpacity
-                style={[styles.docBtn, documentType && styles.docBtnSelected]}
-                onPress={() => setShowDocPicker(true)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.docBtnLeft}>
-                  <View style={[styles.docBtnIconWrap, documentType && styles.docBtnIconWrapActive]}>
-                    <IconButton
-                      icon="card-account-details-outline"
-                      size={17}
-                      iconColor={documentType ? Colors.primary : '#7B8FA8'}
-                      style={{ margin: 0 }}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    {documentType ? (
-                      <>
-                        <Text style={styles.docBtnValue}>{selectedDoc?.label}</Text>
-                        <Text style={styles.docBtnHint}>{selectedDoc?.full} · {selectedDoc?.digits} dígitos</Text>
-                      </>
-                    ) : (
-                      <Text style={styles.docBtnPlaceholder}>Seleccionar tipo de documento</Text>
-                    )}
-                  </View>
-                </View>
-                <IconButton icon="chevron-down" size={18} iconColor="#7B8FA8" style={{ margin: 0 }} />
-              </TouchableOpacity>
+              <Text style={styles.screenTitle}>Inicia <Text style={{ color: '#22c55e', fontWeight: '800' }}>sesión</Text></Text>
+              <Text style={styles.formTitle}>Accede a tu cuenta Qoricash</Text>
 
               {/* Document number */}
-              <TextInput
-                label={documentType ? `Número de ${documentType}` : 'Número de documento'}
-                value={dni}
-                onChangeText={t => setDni(t.replace(/\D/g, '').slice(0, getDocMax()))}
-                mode="outlined"
-                keyboardType="numeric"
-                disabled={!documentType}
-                maxLength={getDocMax()}
-                left={<TextInput.Icon icon="pound" iconColor={Colors.primary} />}
-                style={styles.input}
-                outlineStyle={styles.inputOutline}
-                outlineColor="rgba(255,255,255,0.15)"
-                activeOutlineColor={Colors.primary}
-                textColor="#E2E8F0"
-                theme={{ colors: { onSurfaceVariant: '#6B7280', background: INPUT_BG } }}
-              />
+              <Animated.View style={[styles.inputWrap, { transform: [{ translateY: dniY }] }]}>
+                <TextInput
+                  label={documentType ? `Número de ${documentType}` : 'Número de documento'}
+                  value={dni}
+                  onChangeText={handleDniChange}
+                  onFocus={() => focusField(dniY, true)}
+                  onBlur={() => focusField(dniY, false)}
+                  mode="outlined"
+                  keyboardType="numeric"
+                  maxLength={11}
+                  left={<TextInput.Icon icon="card-account-details-outline" iconColor="rgba(255,255,255,0.6)" />}
+                  style={styles.input}
+                  outlineStyle={styles.inputOutline}
+                  outlineColor={GLASS_BORDER}
+                  activeOutlineColor="rgba(255,255,255,0.9)"
+                  textColor="#fff"
+                  theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: INPUT_BG } }}
+                />
+              </Animated.View>
 
               {/* Password */}
-              <TextInput
-                label="Contraseña"
-                value={password}
-                onChangeText={t => setPassword(t)}
-                mode="outlined"
-                secureTextEntry={!showPassword}
-                left={<TextInput.Icon icon="lock-outline" iconColor={Colors.primary} />}
-                right={
-                  <TextInput.Icon
-                    icon={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    iconColor="#8A9BB5"
-                    onPress={() => setShowPassword(v => !v)}
-                  />
-                }
-                style={styles.input}
-                outlineStyle={styles.inputOutline}
-                outlineColor="rgba(255,255,255,0.15)"
-                activeOutlineColor={Colors.primary}
-                textColor="#E2E8F0"
-                theme={{ colors: { onSurfaceVariant: '#6B7280', background: INPUT_BG } }}
-              />
+              <Animated.View style={[styles.inputWrap, { transform: [{ translateY: pwY }] }]}>
+                <TextInput
+                  label="Contraseña"
+                  value={password}
+                  onChangeText={t => setPassword(t)}
+                  onFocus={() => focusField(pwY, true)}
+                  onBlur={() => focusField(pwY, false)}
+                  mode="outlined"
+                  secureTextEntry={!showPassword}
+                  left={<TextInput.Icon icon="lock-outline" iconColor="rgba(255,255,255,0.6)" />}
+                  right={
+                    <TextInput.Icon
+                      icon={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      iconColor="rgba(255,255,255,0.5)"
+                      onPress={() => setShowPassword(v => !v)}
+                    />
+                  }
+                  style={styles.input}
+                  outlineStyle={styles.inputOutline}
+                  outlineColor={GLASS_BORDER}
+                  activeOutlineColor="rgba(255,255,255,0.9)"
+                  textColor="#fff"
+                  theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: INPUT_BG } }}
+                />
+              </Animated.View>
+
+              {/* Remember me */}
+              <TouchableOpacity
+                style={styles.rememberRow}
+                onPress={() => handleRememberToggle(!rememberMe)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.checkbox, rememberMe && styles.checkboxActive]}>
+                  {rememberMe && (
+                    <IconButton icon="check" size={12} iconColor="#0a1a2e" style={{ margin: 0 }} />
+                  )}
+                </View>
+                <Text style={styles.rememberText}>Recuérdame</Text>
+              </TouchableOpacity>
 
               {/* Login button */}
               <Animated.View style={[styles.btnWrap, { transform: [{ scale: btnScale }] }]}>
                 <TouchableOpacity
+                  style={[styles.btn, isLocked && styles.btnLocked]}
                   onPress={handleLogin}
                   disabled={loading}
-                  activeOpacity={0.9}
+                  activeOpacity={0.88}
                 >
-                  <LinearGradient
-                    colors={isLocked
-                      ? ['#1e2d3d', '#1e2d3d']
-                      : [Colors.primary, '#00c99a', Colors.primaryDark]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.btn}
-                  >
+                  {loading ? (
+                    <ActivityIndicator color={isLocked ? '#6B7280' : '#0a1a2e'} size={20} />
+                  ) : (
                     <Text style={[styles.btnText, isLocked && styles.btnTextLocked]}>
-                      {loading ? 'Ingresando...' : isLocked ? '🔒  Cuenta Bloqueada' : 'Ingresar'}
+                      {isLocked ? 'Cuenta Bloqueada' : 'Ingresar'}
                     </Text>
-                  </LinearGradient>
+                  )}
                 </TouchableOpacity>
               </Animated.View>
 
@@ -364,79 +327,23 @@ export const LoginScreen = () => {
                 <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
               </TouchableOpacity>
 
-              {/* Info hint */}
-              <View style={styles.hint}>
-                <IconButton icon="information-outline" size={14} iconColor={Colors.primary} style={{ margin: 0 }} />
-                <Text style={styles.hintText}>
-                  ¿Te registró un asesor? Usa "¿Olvidaste tu contraseña?" para obtener acceso.
-                </Text>
-              </View>
+            </View>
 
-            </View>{/* end cardForm */}
-          </Animated.View>
-
-          {/* Footer */}
-          <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
-            <Text style={styles.footerTxt}>¿No tienes cuenta?</Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('ClientTypeSelection' as never)}
-              disabled={loading}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.footerLink}> Regístrate aquí</Text>
-            </TouchableOpacity>
-          </Animated.View>
-
-        </KeyboardAwareScrollView>
-      </View>
-
-      {/* ── Document type picker modal ─────────────────────────────────────── */}
-      <Modal
-        visible={showDocPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowDocPicker(false)}
-      >
-        <TouchableOpacity
-          style={styles.pickerOverlay}
-          activeOpacity={1}
-          onPress={() => setShowDocPicker(false)}
-        >
-          <TouchableOpacity activeOpacity={1} style={styles.pickerCard}>
-
-            <Text style={styles.pickerHeader}>Tipo de documento</Text>
-
-            {DOC_OPTIONS.map(opt => (
+            {/* ── Register button ── */}
+            <View style={styles.registerSection}>
+              <Text style={styles.registerPrompt}>¿Aún no eres cliente?</Text>
               <TouchableOpacity
-                key={opt.type}
-                style={[styles.pickerRow, documentType === opt.type && styles.pickerRowActive]}
-                onPress={() => { setDocumentType(opt.type); setDni(''); setShowDocPicker(false); }}
-                activeOpacity={0.75}
+                style={styles.registerBtn}
+                onPress={() => navigation.navigate('ClientTypeSelection' as never)}
+                disabled={loading}
+                activeOpacity={0.8}
               >
-                <View style={[styles.pickerBadge, documentType === opt.type && styles.pickerBadgeActive]}>
-                  <Text style={[styles.pickerBadgeLabel, documentType === opt.type && styles.pickerBadgeLabelActive]}>
-                    {opt.label}
-                  </Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.pickerOptName, documentType === opt.type && styles.pickerOptNameActive]}>
-                    {opt.full}
-                  </Text>
-                  <Text style={styles.pickerOptSub}>{opt.digits} dígitos</Text>
-                </View>
-                {documentType === opt.type && (
-                  <IconButton icon="check-circle" size={20} iconColor={Colors.primary} style={{ margin: 0 }} />
-                )}
+                <Text style={styles.registerBtnText}>Crear cuenta gratis</Text>
               </TouchableOpacity>
-            ))}
-
-            <TouchableOpacity style={styles.pickerCancelRow} onPress={() => setShowDocPicker(false)}>
-              <Text style={styles.pickerCancelText}>Cancelar</Text>
-            </TouchableOpacity>
-
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
 
       {/* ── Error / auth failure modal ─────────────────────────────────────── */}
       <Modal
@@ -446,7 +353,7 @@ export const LoginScreen = () => {
         onRequestClose={() => setShowErrModal(false)}
       >
         <View style={styles.errOverlay}>
-          <View style={[styles.errCard, isLocked && styles.errCardLocked]}>
+          <BlurView intensity={80} tint="dark" style={[styles.errCard, isLocked && styles.errCardLocked]}>
 
             <View style={styles.errIconRow}>
               <Text style={styles.errEmoji}>{isLocked ? '🔒' : '⚠️'}</Text>
@@ -490,76 +397,51 @@ export const LoginScreen = () => {
               </TouchableOpacity>
             </View>
 
-          </View>
+          </BlurView>
         </View>
       </Modal>
 
       {/* ── Forgot password modal ──────────────────────────────────────────── */}
-      <Modal visible={showForgotModal} transparent animationType="none" onRequestClose={closeForgotModal}>
+      <Modal visible={showForgotModal} transparent animationType="fade" onRequestClose={closeForgotModal}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          <Animated.View style={[forgotStyles.overlay, { opacity: forgotFade }]}>
+          <View style={styles.errOverlay}>
             <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeForgotModal} />
-            <Animated.View style={[forgotStyles.sheet, { transform: [{ translateY: forgotSlide }] }]}>
-
-              {/* Handle bar */}
-              <View style={forgotStyles.handle} />
+            <BlurView intensity={80} tint="dark" style={[styles.errCard, { width: '100%' }]}>
 
               {resetSuccess ? (
-                /* ── Estado éxito ── */
-                <ScrollView contentContainerStyle={forgotStyles.body} showsVerticalScrollIndicator={false}>
-                  <View style={forgotStyles.successCircle}>
-                    <IconButton icon="email-check-outline" size={44} iconColor="#fff" style={{ margin: 0 }} />
-                  </View>
-                  <Text style={forgotStyles.successTitle}>¡Correo enviado!</Text>
-                  <Text style={forgotStyles.successSub}>
-                    Enviamos una contraseña temporal a{'\n'}
-                    <Text style={{ fontWeight: '700', color: Colors.textDark }}>{resetEmail}</Text>
+                <>
+                  <Text style={[styles.errEmoji, { textAlign: 'center' }]}>✅</Text>
+                  <Text style={[styles.errTitle, { marginTop: 8 }]}>¡Correo enviado!</Text>
+                  <Text style={styles.errMsg}>
+                    {'Enviamos una contraseña temporal a\n'}
+                    <Text style={{ fontWeight: '700', color: '#22c55e' }}>{resetEmail}</Text>
                   </Text>
-                  <View style={forgotStyles.successSteps}>
-                    {[
-                      { icon: 'email-open-outline', text: 'Revisa tu bandeja de entrada (y spam)' },
-                      { icon: 'login',              text: 'Inicia sesión con la contraseña temporal' },
-                      { icon: 'lock-reset',         text: 'Cámbiala en tu perfil cuando ingreses' },
-                    ].map((s, i) => (
-                      <View key={i} style={forgotStyles.stepRow}>
-                        <View style={forgotStyles.stepNumBox}>
-                          <Text style={forgotStyles.stepNum}>{i + 1}</Text>
-                        </View>
-                        <IconButton icon={s.icon} size={20} iconColor={Colors.primary} style={{ margin: 0 }} />
-                        <Text style={forgotStyles.stepText}>{s.text}</Text>
-                      </View>
-                    ))}
-                  </View>
-                  <TouchableOpacity style={forgotStyles.primaryBtn} onPress={closeForgotModal} activeOpacity={0.85}>
-                    <LinearGradient colors={['#16a34a', '#15803d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={forgotStyles.primaryBtnGrad}>
-                      <Text style={forgotStyles.primaryBtnTxt}>Entendido</Text>
-                    </LinearGradient>
+                  <TouchableOpacity style={styles.errBtnPrimary} onPress={closeForgotModal} activeOpacity={0.85}>
+                    <Text style={styles.errBtnPrimaryTxt}>Entendido</Text>
                   </TouchableOpacity>
-                </ScrollView>
+                </>
               ) : (
-                /* ── Formulario ── */
-                <ScrollView contentContainerStyle={forgotStyles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                  {/* Header */}
-                  <LinearGradient colors={['#0D1B2A', '#16a34a']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={forgotStyles.headerGrad}>
-                    <View style={forgotStyles.headerIcon}>
-                      <IconButton icon="lock-reset" size={32} iconColor="#fff" style={{ margin: 0 }} />
-                    </View>
-                    <Text style={forgotStyles.headerTitle}>Recuperar contraseña</Text>
-                    <Text style={forgotStyles.headerSub}>Te enviaremos acceso temporal a tu correo</Text>
-                  </LinearGradient>
+                <>
+                  <Text style={[styles.errEmoji, { textAlign: 'center' }]}>🔑</Text>
+                  <Text style={styles.errTitle}>Recuperar contraseña</Text>
+                  <Text style={styles.errMsg}>Te enviaremos acceso temporal a tu correo</Text>
 
-                  {/* Inputs */}
-                  <View style={forgotStyles.inputs}>
+                  <View style={{ gap: 14, marginBottom: 12 }}>
                     <TextInput
-                      label="DNI / CE / RUC"
+                      label="Número de documento"
                       value={resetDni}
-                      onChangeText={t => { setResetDni(t); setResetError(''); }}
+                      onChangeText={t => { setResetDni(t.replace(/\D/g, '').slice(0, 11)); setResetError(''); }}
                       mode="outlined"
                       keyboardType="numeric"
-                      style={GlobalStyles.input}
-                      left={<TextInput.Icon icon="card-account-details-outline" />}
+                      maxLength={11}
+                      left={<TextInput.Icon icon="card-account-details-outline" iconColor="rgba(255,255,255,0.6)" />}
                       disabled={resetLoading}
-                      outlineStyle={{ borderRadius: 12 }}
+                      style={styles.input}
+                      outlineStyle={styles.inputOutline}
+                      outlineColor={GLASS_BORDER}
+                      activeOutlineColor="rgba(255,255,255,0.9)"
+                      textColor="#fff"
+                      theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: INPUT_BG } }}
                     />
                     <TextInput
                       label="Correo electrónico"
@@ -568,52 +450,42 @@ export const LoginScreen = () => {
                       mode="outlined"
                       keyboardType="email-address"
                       autoCapitalize="none"
-                      style={GlobalStyles.input}
-                      left={<TextInput.Icon icon="email-outline" />}
+                      left={<TextInput.Icon icon="email-outline" iconColor="rgba(255,255,255,0.6)" />}
                       disabled={resetLoading}
-                      outlineStyle={{ borderRadius: 12 }}
+                      style={styles.input}
+                      outlineStyle={styles.inputOutline}
+                      outlineColor={GLASS_BORDER}
+                      activeOutlineColor="rgba(255,255,255,0.9)"
+                      textColor="#fff"
+                      theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: INPUT_BG } }}
                     />
                   </View>
 
-                  {/* Error */}
-                  {resetError ? (
-                    <View style={forgotStyles.errorBox}>
-                      <IconButton icon="alert-circle-outline" size={18} iconColor={Colors.danger} style={{ margin: 0 }} />
-                      <Text style={forgotStyles.errorTxt}>{resetError}</Text>
-                    </View>
-                  ) : null}
+                  {!!resetError && (
+                    <Text style={{ color: '#f87171', fontSize: 12, textAlign: 'center', marginBottom: 8 }}>{resetError}</Text>
+                  )}
 
-                  {/* Info */}
-                  <View style={forgotStyles.infoBox}>
-                    <IconButton icon="shield-check-outline" size={18} iconColor={Colors.primary} style={{ margin: 0 }} />
-                    <Text style={forgotStyles.infoTxt}>
-                      Recibirás una contraseña temporal. Cámbiala al ingresar por seguridad.
-                    </Text>
-                  </View>
-
-                  {/* Botón enviar */}
-                  <TouchableOpacity
-                    style={[forgotStyles.primaryBtn, resetLoading && { opacity: 0.7 }]}
-                    onPress={handleForgotPassword}
-                    disabled={resetLoading}
-                    activeOpacity={0.85}
-                  >
-                    <LinearGradient colors={['#16a34a', '#15803d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={forgotStyles.primaryBtnGrad}>
+                  <View style={styles.errActions}>
+                    <TouchableOpacity
+                      style={[styles.errBtnPrimary, resetLoading && { opacity: 0.7 }]}
+                      onPress={handleForgotPassword}
+                      disabled={resetLoading}
+                      activeOpacity={0.85}
+                    >
                       {resetLoading
                         ? <ActivityIndicator color="#fff" size={20} />
-                        : <Text style={forgotStyles.primaryBtnTxt}>Enviar instrucciones</Text>
+                        : <Text style={styles.errBtnPrimaryTxt}>Enviar instrucciones</Text>
                       }
-                    </LinearGradient>
-                  </TouchableOpacity>
-
-                  {/* Cancelar */}
-                  <TouchableOpacity onPress={closeForgotModal} style={forgotStyles.cancelLink} activeOpacity={0.7}>
-                    <Text style={forgotStyles.cancelTxt}>Volver al inicio de sesión</Text>
-                  </TouchableOpacity>
-                </ScrollView>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.errBtnSecondary} onPress={closeForgotModal} activeOpacity={0.7}>
+                      <Text style={styles.errBtnSecondaryTxt}>Cancelar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
               )}
-            </Animated.View>
-          </Animated.View>
+
+            </BlurView>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
     </>
@@ -621,17 +493,9 @@ export const LoginScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  // position:absolute fills the entire screen (y=0) including behind the iOS status bar,
-  // preventing the white mobileContainer bleed-through that causes the "cut" effect.
-  root: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#0B1620',
+  bg: {
+    flex: 1,
   },
-  // Transparent so the ForexBackground gradient shows through
   scrollView: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -639,334 +503,148 @@ const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     paddingHorizontal: 20,
-    // paddingTop is set dynamically via insets.top + 16
-    paddingBottom: 36,
-  },
-
-  // ── Unified card ──────────────────────────────────────────────────────────
-  card: {
-    backgroundColor: 'rgba(11,22,32,0.92)',
-    borderWidth: 1,
-    borderColor: 'rgba(0,222,168,0.18)',
-    borderRadius: 28,
-    overflow: 'hidden',
-    marginBottom: 20,
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 28,
-    elevation: 10,
-  },
-
-  // ── Logo section ──────────────────────────────────────────────────────────
-  cardLogoSection: {
-    alignItems: 'center',
-    paddingTop: 32,
-    paddingBottom: 24,
-    paddingHorizontal: 24,
-    backgroundColor: 'rgba(0,222,168,0.04)',
-  },
-  logo: {
-    width: 100,
-    height: 66,
-    marginBottom: 10,
-  },
-  brandName: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: '#F1F5F9',
-    letterSpacing: 0.4,
-    marginBottom: 2,
-  },
-  brandTag: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.primary,
-    letterSpacing: 3,
-    textTransform: 'uppercase',
-    marginBottom: 16,
-    opacity: 0.85,
-  },
-  marketPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(0,222,168,0.20)',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  marketText: {
-    fontSize: 12,
-    color: '#B0BBC9',
-    fontWeight: '600',
-    letterSpacing: 0.4,
-  },
-
-  // ── Divider ───────────────────────────────────────────────────────────────
-  cardDivider: {
-    height: 1,
-    backgroundColor: 'rgba(0,222,168,0.12)',
-  },
-
-  // ── Form section ──────────────────────────────────────────────────────────
-  cardForm: {
-    paddingHorizontal: 24,
-    paddingTop: 22,
-    paddingBottom: 24,
-  },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#F1F5F9',
-    textAlign: 'center',
-    marginBottom: 4,
-    letterSpacing: 0.2,
-  },
-  cardSub: {
-    fontSize: 13,
-    color: '#94A3B8',
-    textAlign: 'center',
-    marginBottom: 22,
-  },
-
-  // ── Field label ───────────────────────────────────────────────────────────
-  fieldLabel: {
-    fontSize: 11,
-    color: '#7B8FA8',
-    fontWeight: '700',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: 8,
-  },
-
-  // ── Document picker button ────────────────────────────────────────────────
-  docBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: INPUT_BG,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 14,
-    paddingVertical: 8,
-    paddingLeft: 4,
-    paddingRight: 0,
-    marginBottom: 16,
-    minHeight: 56,
-  },
-  docBtnSelected: {
-    borderColor: 'rgba(0,222,168,0.40)',
-    backgroundColor: '#0C1F2E',
-  },
-  docBtnLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  docBtnIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingBottom: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
-    marginRight: 10,
-  },
-  docBtnIconWrapActive: {
-    backgroundColor: 'rgba(0,222,168,0.12)',
-  },
-  docBtnValue: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.primary,
-    marginBottom: 1,
-  },
-  docBtnHint: {
-    fontSize: 11,
-    color: '#7B8FA8',
-  },
-  docBtnPlaceholder: {
-    fontSize: 14,
-    color: '#8A9BB5',
   },
 
-  // ── Inputs (opaque bg so the floating label gap renders correctly) ─────────
+  // ── Títulos ───────────────────────────────────────────────────────────────
+  screenTitle: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 6,
+    letterSpacing: 0.2,
+    textAlign: 'center',
+  },
+  formTitle: {
+    fontSize: 15,
+    fontWeight: '400',
+    color: 'rgba(255,255,255,0.6)',
+    marginBottom: 28,
+    letterSpacing: 0.1,
+    textAlign: 'center',
+  },
+
+  // ── Form container (sin fondo ni borde) ──────────────────────────────────
+  backBtn: {
+    position: 'absolute',
+    left: 20,
+    zIndex: 10,
+    padding: 4,
+  },
+  formContainer: {
+    paddingHorizontal: 4,
+    marginBottom: 14,
+  },
+  // ── Inputs ────────────────────────────────────────────────────────────────
+  inputWrap: {
+    marginBottom: 14,
+  },
   input: {
     backgroundColor: INPUT_BG,
-    marginBottom: 14,
   },
   inputOutline: {
     borderRadius: 14,
+  },
+
+  // ── Remember me ───────────────────────────────────────────────────────────
+  rememberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 18,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: GLASS_BORDER,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxActive: {
+    backgroundColor: '#fff',
+    borderColor: '#fff',
+  },
+  rememberText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.65)',
+    fontWeight: '500',
   },
 
   // ── Login button ──────────────────────────────────────────────────────────
   btnWrap: {
     borderRadius: 14,
     overflow: 'hidden',
-    marginTop: 4,
     marginBottom: 14,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.28,
-    shadowRadius: 14,
-    elevation: 10,
+    shadowColor: '#fff',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   btn: {
-    paddingVertical: 16,
-    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    paddingVertical: 15,
     borderRadius: 14,
+    alignItems: 'center',
+  },
+  btnLocked: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   btnText: {
-    color: '#0B1620',
+    color: '#0a1a2e',
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.3,
   },
   btnTextLocked: {
-    color: '#6B7280',
+    color: 'rgba(255,255,255,0.35)',
   },
 
-  // ── Forgot / hint ─────────────────────────────────────────────────────────
+  // ── Forgot ────────────────────────────────────────────────────────────────
   forgotBtn: {
     alignItems: 'center',
-    paddingVertical: 6,
-    marginBottom: 16,
+    paddingVertical: 4,
   },
   forgotText: {
-    color: Colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  hint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,222,168,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(0,222,168,0.12)',
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-  },
-  hintText: {
-    flex: 1,
-    fontSize: 11.5,
-    color: '#8A9BB5',
-    lineHeight: 17,
-  },
-
-  // ── Footer ────────────────────────────────────────────────────────────────
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 8,
-  },
-  footerTxt: {
-    fontSize: 14,
-    color: '#94A3B8',
-  },
-  footerLink: {
-    fontSize: 14,
-    color: Colors.primary,
-    fontWeight: '700',
-  },
-
-  // ── Document picker modal ─────────────────────────────────────────────────
-  pickerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.72)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  pickerCard: {
-    backgroundColor: '#0F1E2B',
-    borderRadius: 22,
-    width: '100%',
-    borderWidth: 1,
-    borderColor: 'rgba(0,222,168,0.16)',
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 12,
-    overflow: 'hidden',
-  },
-  pickerHeader: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#7B8FA8',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-  },
-  pickerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    gap: 14,
-    borderRadius: 14,
-    marginHorizontal: 6,
-    marginTop: 4,
-  },
-  pickerRowActive: {
-    backgroundColor: 'rgba(0,222,168,0.08)',
-  },
-  pickerBadge: {
-    width: 46,
-    height: 46,
-    borderRadius: 13,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pickerBadgeActive: {
-    backgroundColor: 'rgba(0,222,168,0.12)',
-    borderColor: Colors.primary,
-  },
-  pickerBadgeLabel: {
+    color: 'rgba(255,255,255,0.65)',
     fontSize: 13,
-    fontWeight: '800',
-    color: '#8A9BB5',
-  },
-  pickerBadgeLabelActive: {
-    color: Colors.primary,
-  },
-  pickerOptName: {
-    fontSize: 14,
     fontWeight: '600',
-    color: '#B0BBC9',
-    marginBottom: 2,
   },
-  pickerOptNameActive: {
-    color: '#F1F5F9',
+
+  registerSection: {
+    width: '100%',
+    marginTop: 60,
   },
-  pickerOptSub: {
-    fontSize: 11,
-    color: '#7B8FA8',
+  // ── Register button ───────────────────────────────────────────────────────
+  registerPrompt: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 12,
+    fontWeight: '400',
+    textAlign: 'center',
+    marginTop: 0,
+    marginBottom: 8,
+    letterSpacing: 0.3,
   },
-  pickerCancelRow: {
+  registerBtn: {
+    backgroundColor: GLASS_BG,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    borderRadius: 14,
+    paddingVertical: 14,
     alignItems: 'center',
-    paddingVertical: 16,
-    marginTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 28,
   },
-  pickerCancelText: {
+  registerBtnText: {
+    color: '#fff',
     fontSize: 15,
-    color: '#8A9BB5',
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    textAlign: 'center',
   },
 
   // ── Error modal ───────────────────────────────────────────────────────────
@@ -978,20 +656,15 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   errCard: {
-    backgroundColor: '#0F1E2B',
-    borderRadius: 22,
+    borderRadius: 14,
+    overflow: 'hidden',
     padding: 26,
     width: '100%',
-    borderWidth: 1.5,
-    borderColor: 'rgba(251,113,133,0.35)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.45,
-    shadowRadius: 24,
-    elevation: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
   },
   errCardLocked: {
-    borderColor: 'rgba(239,68,68,0.50)',
+    borderColor: GLASS_BORDER,
   },
   errIconRow: {
     alignItems: 'center',
@@ -1003,7 +676,7 @@ const styles = StyleSheet.create({
   errTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#F1F5F9',
+    color: '#ffffff',
     textAlign: 'center',
     marginBottom: 14,
   },
@@ -1037,7 +710,7 @@ const styles = StyleSheet.create({
   },
   errMsg: {
     fontSize: 14,
-    color: '#B0BBC9',
+    color: '#ffffff',
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 22,
@@ -1046,28 +719,34 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   errBtnPrimary: {
-    backgroundColor: Colors.primary,
-    borderRadius: 13,
+    backgroundColor: GLASS_BG,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
   },
   errBtnPrimaryTxt: {
-    color: '#0B1620',
+    color: '#fff',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    textAlign: 'center',
   },
   errBtnSecondary: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 13,
+    backgroundColor: GLASS_BG,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
   },
   errBtnSecondaryTxt: {
-    color: '#B0BBC9',
+    color: '#fff',
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    textAlign: 'center',
   },
 });
 
@@ -1101,7 +780,6 @@ const forgotStyles = StyleSheet.create({
   body: {
     paddingBottom: 36,
   },
-  /* Header gradiente */
   headerGrad: {
     paddingHorizontal: 24,
     paddingTop: 24,
@@ -1129,13 +807,11 @@ const forgotStyles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
     textAlign: 'center',
   },
-  /* Inputs */
   inputs: {
     paddingHorizontal: 20,
     paddingTop: 20,
     gap: 4,
   },
-  /* Error */
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1153,7 +829,6 @@ const forgotStyles = StyleSheet.create({
     color: Colors.danger,
     lineHeight: 18,
   },
-  /* Info */
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1171,7 +846,6 @@ const forgotStyles = StyleSheet.create({
     color: '#166534',
     lineHeight: 18,
   },
-  /* Botón */
   primaryBtn: {
     marginHorizontal: 20,
     marginTop: 20,
@@ -1189,7 +863,6 @@ const forgotStyles = StyleSheet.create({
     color: '#fff',
     letterSpacing: 0.3,
   },
-  /* Cancelar */
   cancelLink: {
     alignItems: 'center',
     marginTop: 16,
@@ -1200,7 +873,6 @@ const forgotStyles = StyleSheet.create({
     color: Colors.textLight,
     textDecorationLine: 'underline',
   },
-  /* Éxito */
   successCircle: {
     width: 90,
     height: 90,

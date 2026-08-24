@@ -5,397 +5,450 @@ import {
   Animated,
   Easing,
   Image,
+  ImageBackground,
   Dimensions,
+  Text,
 } from 'react-native';
-import { Text } from 'react-native-paper';
-import { Colors } from '../constants/colors';
-import { LinearGradient } from 'expo-linear-gradient';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
+const GREEN      = '#22c55e';
+const GREEN_GLOW = 'rgba(34,197,94,0.18)';
 
-interface LoginLoadingScreenProps {
-  visible: boolean;
-  onComplete?: () => void;
-}
+interface Props { visible: boolean; onComplete?: () => void }
 
-export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
-  visible,
-  onComplete,
-}) => {
-  // Estado interno para controlar el renderizado
+// ── Dot animado ───────────────────────────────────────────────────────────────
+const Dot: React.FC<{ anim: Animated.Value }> = ({ anim }) => {
+  const scale = anim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.5, 1.15, 0.5] });
+  const op    = anim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.22, 1, 0.22] });
+  return <Animated.View style={[st.dot, { transform: [{ scale }], opacity: op }]} />;
+};
+
+// ── Anillo con arco luminoso ──────────────────────────────────────────────────
+const Arc: React.FC<{
+  size: number;
+  stroke: number;
+  colorActive: string;
+  colorDim: string;
+  spin: Animated.AnimatedInterpolation<string>;
+  reverse?: boolean;
+}> = ({ size, stroke, colorActive, colorDim, spin }) => (
+  <Animated.View style={[{
+    position: 'absolute',
+    width: size, height: size,
+    borderRadius: size / 2,
+    borderWidth: stroke,
+    borderColor: colorDim,
+    borderTopColor: colorActive,
+    borderRightColor: colorActive,
+  }, { transform: [{ rotate: spin }] }]} />
+);
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+export const LoginLoadingScreen: React.FC<Props> = ({ visible, onComplete }) => {
   const [shouldRender, setShouldRender] = useState(false);
+  const [phase, setPhase]               = useState<'loading' | 'success'>('loading');
 
-  // Animaciones
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.3)).current;
-  const slideInAnim = useRef(new Animated.Value(50)).current; // Slide desde abajo
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-  const checkmarkScale = useRef(new Animated.Value(0)).current;
-  const checkmarkOpacity = useRef(new Animated.Value(0)).current;
+  // Entrada
+  const overlayFade = useRef(new Animated.Value(0)).current;
+  const cardScale   = useRef(new Animated.Value(0.86)).current;
+  const cardFade    = useRef(new Animated.Value(0)).current;
+  const logoFade    = useRef(new Animated.Value(0)).current;
+  const logoY       = useRef(new Animated.Value(-20)).current;
+  const textFade    = useRef(new Animated.Value(0)).current;
 
-  const animationInProgressRef = useRef(false);
-  const startTimeRef = useRef<number>(0);
-  const activeAnimRef = useRef<Animated.CompositeAnimation | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Spinners — 3 anillos con velocidades y sentidos distintos
+  const spin1 = useRef(new Animated.Value(0)).current;
+  const spin2 = useRef(new Animated.Value(0)).current;
+  const spin3 = useRef(new Animated.Value(0)).current;
+
+  // Glow pulsante
+  const glowOp = useRef(new Animated.Value(0.3)).current;
+  const glowSc = useRef(new Animated.Value(0.85)).current;
+
+  // Dots
+  const d0 = useRef(new Animated.Value(0)).current;
+  const d1 = useRef(new Animated.Value(0)).current;
+  const d2 = useRef(new Animated.Value(0)).current;
+
+  // Éxito
+  const ringsFade   = useRef(new Animated.Value(1)).current;
+  const dotsFade    = useRef(new Animated.Value(1)).current;
+  const checkScale  = useRef(new Animated.Value(0)).current;
+  const checkFade   = useRef(new Animated.Value(0)).current;
+  const checkGlow   = useRef(new Animated.Value(0)).current;
+  const rippleScale = useRef(new Animated.Value(0.3)).current;
+  const rippleFade  = useRef(new Animated.Value(0)).current;
+  const successText = useRef(new Animated.Value(0)).current;
+
+  // Salida
+  const exitFade  = useRef(new Animated.Value(1)).current;
+  const exitScale = useRef(new Animated.Value(1)).current;
+
+  const loopsRef   = useRef<Animated.CompositeAnimation | null>(null);
+  const timerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const runningRef = useRef(false);
+
+  const resetAll = () => {
+    overlayFade.setValue(0); cardScale.setValue(0.86); cardFade.setValue(0);
+    logoFade.setValue(0); logoY.setValue(-20); textFade.setValue(0);
+    spin1.setValue(0); spin2.setValue(0); spin3.setValue(0);
+    glowOp.setValue(0.3); glowSc.setValue(0.85);
+    d0.setValue(0); d1.setValue(0); d2.setValue(0);
+    ringsFade.setValue(1); dotsFade.setValue(1);
+    checkScale.setValue(0); checkFade.setValue(0); checkGlow.setValue(0);
+    rippleScale.setValue(0.3); rippleFade.setValue(0); successText.setValue(0);
+    exitFade.setValue(1); exitScale.setValue(1);
+    setPhase('loading');
+  };
+
+  const startLoops = () => {
+    const loop = (v: Animated.Value, dur: number, toVal = 1) =>
+      Animated.loop(Animated.timing(v, { toValue: toVal, duration: dur, useNativeDriver: true, easing: Easing.linear }));
+
+    const glowLoop = Animated.loop(Animated.sequence([
+      Animated.parallel([
+        Animated.timing(glowOp, { toValue: 0.95, duration: 900, useNativeDriver: true, easing: Easing.inOut(Easing.quad) }),
+        Animated.timing(glowSc, { toValue: 1.15, duration: 900, useNativeDriver: true, easing: Easing.inOut(Easing.quad) }),
+      ]),
+      Animated.parallel([
+        Animated.timing(glowOp, { toValue: 0.25, duration: 900, useNativeDriver: true, easing: Easing.inOut(Easing.quad) }),
+        Animated.timing(glowSc, { toValue: 0.85, duration: 900, useNativeDriver: true, easing: Easing.inOut(Easing.quad) }),
+      ]),
+    ]));
+
+    const dot = (a: Animated.Value, delay: number) =>
+      Animated.loop(Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(a, { toValue: 1, duration: 420, useNativeDriver: true, easing: Easing.out(Easing.quad) }),
+        Animated.timing(a, { toValue: 0, duration: 420, useNativeDriver: true, easing: Easing.in(Easing.quad) }),
+        Animated.delay(840 - delay),
+      ]));
+
+    loopsRef.current = Animated.parallel([
+      loop(spin1, 1100),
+      loop(spin2, 1700),
+      loop(spin3, 2300),
+      glowLoop,
+      dot(d0, 0), dot(d1, 200), dot(d2, 400),
+    ]);
+    loopsRef.current.start();
+  };
+
+  const stopLoops = () => { loopsRef.current?.stop(); loopsRef.current = null; };
+
+  const playSuccess = (onDone: () => void) => {
+    setPhase('success');
+    Animated.parallel([
+      // Rings + dots desaparecen
+      Animated.timing(ringsFade, { toValue: 0, duration: 220, useNativeDriver: true }),
+      Animated.timing(dotsFade,  { toValue: 0, duration: 180, useNativeDriver: true }),
+      // Ripple expansivo
+      Animated.sequence([
+        Animated.timing(rippleFade,  { toValue: 0.7, duration: 100, useNativeDriver: true }),
+        Animated.parallel([
+          Animated.timing(rippleScale, { toValue: 3.2, duration: 600, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
+          Animated.timing(rippleFade,  { toValue: 0,   duration: 600, useNativeDriver: true, easing: Easing.in(Easing.quad) }),
+        ]),
+      ]),
+      // Checkmark con spring + glow
+      Animated.sequence([
+        Animated.delay(120),
+        Animated.parallel([
+          Animated.spring(checkScale, { toValue: 1, tension: 160, friction: 5, useNativeDriver: true }),
+          Animated.timing(checkFade,  { toValue: 1, duration: 200, useNativeDriver: true }),
+          Animated.timing(checkGlow,  { toValue: 1, duration: 400, useNativeDriver: true }),
+        ]),
+      ]),
+      // Texto de éxito
+      Animated.sequence([
+        Animated.delay(280),
+        Animated.timing(successText, { toValue: 1, duration: 320, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
+      ]),
+    ]).start(() => onDone());
+  };
 
   useEffect(() => {
-    // Si el login falló (visible → false) mientras la animación corría, abortar inmediatamente
-    if (!visible && animationInProgressRef.current) {
-      if (activeAnimRef.current) {
-        activeAnimRef.current.stop();
-        activeAnimRef.current = null;
-      }
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-      animationInProgressRef.current = false;
+    if (!visible && runningRef.current) {
+      loopsRef.current?.stop();
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+      runningRef.current = false;
       setShouldRender(false);
-      fadeAnim.setValue(0);
-      scaleAnim.setValue(0.3);
-      slideInAnim.setValue(50);
+      resetAll();
       return;
     }
+    if (!visible || runningRef.current) return;
 
-    // Solo iniciar animación si visible es true y no hay animación en progreso
-    if (visible && !animationInProgressRef.current) {
-      console.log('🎬 [LoginLoading] Iniciando animación');
+    runningRef.current = true;
+    resetAll();
 
-      // Marcar que la animación está en progreso
-      animationInProgressRef.current = true;
-      startTimeRef.current = Date.now();
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      if (!runningRef.current) return;
+      setShouldRender(true);
 
-      // Reset animations ANTES de mostrar el componente
-      fadeAnim.setValue(0);
-      scaleAnim.setValue(0.3);
-      slideInAnim.setValue(50); // Comienza 50px abajo
-      rotateAnim.setValue(0);
-      checkmarkScale.setValue(0);
-      checkmarkOpacity.setValue(0);
+      // ── ENTRADA (0–480ms) ────────────────────────────────────────────────────
+      Animated.parallel([
+        Animated.timing(overlayFade, { toValue: 1, duration: 380, useNativeDriver: true, easing: Easing.out(Easing.quad) }),
+        Animated.spring(cardScale,   { toValue: 1, tension: 60, friction: 9, useNativeDriver: true }),
+        Animated.timing(cardFade,    { toValue: 1, duration: 380, useNativeDriver: true }),
+        Animated.timing(logoY,       { toValue: 0, duration: 520, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
+        Animated.timing(logoFade,    { toValue: 1, duration: 520, useNativeDriver: true }),
+        Animated.sequence([
+          Animated.delay(280),
+          Animated.timing(textFade, { toValue: 1, duration: 380, useNativeDriver: true, easing: Easing.out(Easing.quad) }),
+        ]),
+      ]).start(() => {
+        if (!runningRef.current) return;
+        startLoops();
 
-      // Pequeño delay para evitar flash inicial antes de que las animaciones inicien
-      timerRef.current = setTimeout(() => {
-        timerRef.current = null;
-        if (!animationInProgressRef.current) return; // fue abortado
+        // ── ESPERA girando 2.4s ──────────────────────────────────────────────
+        timerRef.current = setTimeout(() => {
+          timerRef.current = null;
+          if (!runningRef.current) return;
+          stopLoops();
 
-        // Mostrar el componente
-        setShouldRender(true);
+          // ── ÉXITO ────────────────────────────────────────────────────────────
+          playSuccess(() => {
+            if (!runningRef.current) return;
 
-        // Secuencia de animaciones
-        activeAnimRef.current = Animated.sequence([
-          // 1. Entrada elegante: fade in + slide up + scale (500ms)
-          Animated.parallel([
-            Animated.timing(fadeAnim, {
-              toValue: 1,
-              duration: 500,
-              useNativeDriver: true,
-              easing: Easing.out(Easing.cubic),
-            }),
-            Animated.timing(slideInAnim, {
-              toValue: 0,
-              duration: 500,
-              useNativeDriver: true,
-              easing: Easing.out(Easing.cubic),
-            }),
-            Animated.spring(scaleAnim, {
-              toValue: 1,
-              tension: 50,
-              friction: 7,
-              useNativeDriver: true,
-            }),
-          ]),
-
-          // 2. Rotación del ícono de validación (2000ms - 2 rotaciones completas)
-          // Rotación 1
-          Animated.timing(rotateAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-            easing: Easing.linear,
-          }),
-          // Reset para rotación 2
-          Animated.timing(rotateAnim, {
-            toValue: 0,
-            duration: 0,
-            useNativeDriver: true,
-          }),
-          // Rotación 2
-          Animated.timing(rotateAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-            easing: Easing.linear,
-          }),
-
-          // 3. Mostrar checkmark de éxito (300ms)
-          Animated.parallel([
-            Animated.spring(checkmarkScale, {
-              toValue: 1,
-              tension: 100,
-              friction: 5,
-              useNativeDriver: true,
-            }),
-            Animated.timing(checkmarkOpacity, {
-              toValue: 1,
-              duration: 300,
-              useNativeDriver: true,
-            }),
-          ]),
-
-          // 4. Pausa antes de completar (500ms)
-          Animated.delay(500),
-        ]).start(({ finished }) => {
-          activeAnimRef.current = null;
-          if (!finished || !animationInProgressRef.current) return; // abortado
-
-          console.log('✅ [LoginLoading] Animación completada, iniciando salida elegante');
-
-          // Salida elegante: fade out + slide up (400ms)
-          Animated.parallel([
-            Animated.timing(fadeAnim, {
-              toValue: 0,
-              duration: 400,
-              useNativeDriver: true,
-              easing: Easing.in(Easing.cubic),
-            }),
-            Animated.timing(slideInAnim, {
-              toValue: -50, // Slide hacia arriba al salir
-              duration: 400,
-              useNativeDriver: true,
-              easing: Easing.in(Easing.cubic),
-            }),
-            Animated.timing(scaleAnim, {
-              toValue: 0.85,
-              duration: 400,
-              useNativeDriver: true,
-              easing: Easing.in(Easing.ease),
-            }),
-          ]).start(({ finished: exitFinished }) => {
-            if (!exitFinished || !animationInProgressRef.current) return;
-
-            // Calcular tiempo transcurrido
-            const elapsed = Date.now() - startTimeRef.current;
-            const minDuration = 3500; // 3.5 segundos mínimo
-            const remainingTime = Math.max(0, minDuration - elapsed);
-
-            // Garantizar duración mínima (especialmente importante para iOS)
+            // ── SALIDA (600ms de pausa después de éxito) ─────────────────────
             timerRef.current = setTimeout(() => {
               timerRef.current = null;
-              if (!animationInProgressRef.current) return;
-
-              console.log('🏁 [LoginLoading] Finalizando y llamando onComplete');
-
-              // Marcar que la animación terminó
-              animationInProgressRef.current = false;
-
-              // Ocultar el componente
-              setShouldRender(false);
-
-              // Llamar onComplete
-              if (onComplete) {
-                onComplete();
-              }
-            }, remainingTime);
+              Animated.parallel([
+                Animated.timing(exitFade,  { toValue: 0, duration: 420, useNativeDriver: true, easing: Easing.in(Easing.cubic) }),
+                Animated.timing(exitScale, { toValue: 0.93, duration: 420, useNativeDriver: true, easing: Easing.in(Easing.quad) }),
+              ]).start(() => {
+                runningRef.current = false;
+                resetAll();
+                onComplete?.();
+                setShouldRender(false);
+              });
+            }, 620);
           });
-        });
-      }, 50); // Delay de 50ms para evitar flash inicial
-    }
+        }, 2400);
+      });
+    }, 40);
   }, [visible]);
 
   if (!shouldRender) return null;
 
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+  const r1 = spin1.interpolate({ inputRange: [0,1], outputRange: ['0deg','360deg'] });
+  const r2 = spin2.interpolate({ inputRange: [0,1], outputRange: ['360deg','0deg'] });
+  const r3 = spin3.interpolate({ inputRange: [0,1], outputRange: ['0deg','360deg'] });
 
   return (
     <Animated.View
-      style={[
-        styles.container,
-        {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideInAnim }],
-        },
-      ]}
+      style={[st.container, { opacity: exitFade, transform: [{ scale: exitScale }] }]}
       pointerEvents={visible ? 'auto' : 'none'}
     >
-      <LinearGradient
-        colors={[Colors.secondary, Colors.secondaryLight]}
-        style={styles.gradient}
-      >
-        <View style={styles.content}>
+      <ImageBackground source={require('../../assets/cd.png')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <Animated.View style={[StyleSheet.absoluteFill, st.overlay, { opacity: overlayFade }]} />
+
+      <Animated.View style={{ opacity: cardFade, transform: [{ scale: cardScale }], width: '100%', paddingHorizontal: 28 }}>
+        <BlurView intensity={88} tint="dark" style={st.card}>
+
           {/* Logo */}
-          <Animated.View
-            style={[
-              styles.logoContainer,
-              {
-                transform: [{ scale: scaleAnim }],
-              },
-            ]}
-          >
-            <Image
-              source={require('../../assets/logo-principal.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
+          <Animated.View style={{ opacity: logoFade, transform: [{ translateY: logoY }], marginBottom: 36 }}>
+            <Image source={require('../../assets/vv.png')} style={st.logo} resizeMode="contain" />
           </Animated.View>
 
-          {/* Contenedor de íconos (candado y checkmark superpuestos) */}
-          <View style={styles.iconsContainer}>
-            {/* Ícono de validación con rotación */}
-            <Animated.View
-              style={[
-                styles.iconContainer,
-                {
-                  transform: [{ rotate: spin }],
-                  opacity: checkmarkOpacity.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [1, 0],
-                  }),
-                },
-              ]}
-            >
-              <Icon name="lock-check" size={64} color={Colors.primary} />
+          {/* Spinner / Checkmark */}
+          <View style={st.spinWrap}>
+
+            {/* Glow central pulsante */}
+            <Animated.View style={[st.glow, {
+              opacity: glowOp,
+              transform: [{ scale: glowSc }],
+            }]} />
+
+            {/* 3 arcos giratorios */}
+            <Animated.View style={{ opacity: ringsFade, alignItems: 'center', justifyContent: 'center' }}>
+              <Arc size={108} stroke={2.5}
+                colorActive={GREEN}
+                colorDim="rgba(34,197,94,0.1)"
+                spin={r1}
+              />
+              <Arc size={82} stroke={2}
+                colorActive="rgba(34,197,94,0.65)"
+                colorDim="rgba(34,197,94,0.07)"
+                spin={r2}
+              />
+              <Arc size={58} stroke={1.5}
+                colorActive="rgba(34,197,94,0.4)"
+                colorDim="transparent"
+                spin={r3}
+              />
             </Animated.View>
 
-            {/* Checkmark de éxito */}
-            <Animated.View
-              style={[
-                styles.checkmarkContainer,
-                {
-                  opacity: checkmarkOpacity,
-                  transform: [{ scale: checkmarkScale }],
-                },
-              ]}
-            >
-              <View style={styles.checkmarkCircle}>
-                <Icon name="check" size={48} color={Colors.secondary} />
+            {/* Ripple */}
+            <Animated.View style={[st.ripple, {
+              opacity: rippleFade,
+              transform: [{ scale: rippleScale }],
+            }]} />
+
+            {/* Checkmark */}
+            <Animated.View style={[st.checkWrap, {
+              opacity: checkFade,
+              transform: [{ scale: checkScale }],
+            }]}>
+              <Animated.View style={[st.checkGlowRing, { opacity: checkGlow }]} />
+              <View style={st.checkCircle}>
+                <Ionicons name="checkmark" size={36} color="#fff" />
               </View>
             </Animated.View>
+
           </View>
 
-          {/* Texto */}
-          <Animated.View style={{ opacity: fadeAnim }}>
-            <Text style={styles.title}>Validando acceso</Text>
-            <Text style={styles.subtitle}>Por favor espera un momento...</Text>
+          {/* Textos superpuestos */}
+          <View style={st.textBlock}>
+            <Animated.View style={[StyleSheet.absoluteFill, {
+              opacity: Animated.subtract(textFade, successText),
+              alignItems: 'center',
+              justifyContent: 'center',
+            }]}>
+              <Text style={st.title}>Validando <Text style={st.accent}>acceso</Text></Text>
+              <Text style={st.sub}>Por favor espera un momento...</Text>
+            </Animated.View>
+            <Animated.View style={[StyleSheet.absoluteFill, {
+              opacity: successText,
+              alignItems: 'center',
+              justifyContent: 'center',
+              transform: [{ translateY: successText.interpolate({ inputRange:[0,1], outputRange:[10,0] }) }],
+            }]}>
+              <Text style={st.title}>¡Acceso <Text style={st.accent}>confirmado!</Text></Text>
+              <Text style={st.sub}>Bienvenido a QoriCash</Text>
+            </Animated.View>
+          </View>
+
+          {/* Dots */}
+          <Animated.View style={[st.dotsRow, { opacity: dotsFade }]}>
+            <Dot anim={d0} />
+            <Dot anim={d1} />
+            <Dot anim={d2} />
           </Animated.View>
 
-          {/* Indicador de progreso con puntos animados */}
-          <View style={styles.dotsContainer}>
-            {[0, 1, 2].map((index) => (
-              <Animated.View
-                key={index}
-                style={[
-                  styles.dot,
-                  {
-                    opacity: fadeAnim,
-                    transform: [
-                      {
-                        translateY: rotateAnim.interpolate({
-                          inputRange: [0, 0.5, 1],
-                          outputRange: [0, -10, 0],
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              />
-            ))}
-          </View>
-        </View>
-      </LinearGradient>
+        </BlurView>
+      </Animated.View>
     </Animated.View>
   );
 };
 
-const styles = StyleSheet.create({
+const st = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: 0, left: 0, right: 0, bottom: 0,
     zIndex: 9999,
-  },
-  gradient: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  content: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  overlay: {
+    backgroundColor: 'rgba(0,0,0,0.52)',
   },
-  logoContainer: {
-    marginBottom: 40,
-    width: width * 0.5,
-    height: width * 0.3,
+  card: {
+    borderRadius: 30,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.13)',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingTop: 44,
+    paddingBottom: 38,
+    paddingHorizontal: 32,
   },
   logo: {
-    width: '100%',
-    height: '100%',
+    width: width * 0.44,
+    height: 30,
   },
-  iconsContainer: {
-    marginVertical: 30,
-    position: 'relative',
+  spinWrap: {
+    width: 120,
+    height: 120,
     alignItems: 'center',
     justifyContent: 'center',
-    height: 80,
+    marginBottom: 32,
   },
-  iconContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkmarkContainer: {
+  glow: {
     position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkmarkCircle: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.primary,
+    backgroundColor: GREEN_GLOW,
+    shadowColor: GREEN,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 30,
+  },
+  ripple: {
+    position: 'absolute',
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 2,
+    borderColor: GREEN,
+  },
+  checkWrap: {
+    position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.primary,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 8,
+  },
+  checkGlowRing: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(34,197,94,0.14)',
+    shadowColor: GREEN,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 22,
+  },
+  checkCircle: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    backgroundColor: GREEN,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: GREEN,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.55,
+    shadowRadius: 18,
+    elevation: 12,
+  },
+  textBlock: {
+    height: 52,
+    width: '100%',
+    position: 'relative',
+    marginBottom: 6,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: Colors.textOnSecondary,
-    marginTop: 20,
-    marginBottom: 8,
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#fff',
     textAlign: 'center',
+    marginBottom: 5,
+    letterSpacing: 0.1,
   },
-  subtitle: {
-    fontSize: 16,
-    color: Colors.textMuted,
+  accent: {
+    color: GREEN,
+    fontWeight: '800',
+  },
+  sub: {
+    fontSize: 12.5,
+    color: 'rgba(255,255,255,0.45)',
     textAlign: 'center',
-    marginBottom: 30,
+    letterSpacing: 0.2,
   },
-  dotsContainer: {
+  dotsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     gap: 8,
+    alignItems: 'center',
     marginTop: 20,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.primary,
+    width: 6.5,
+    height: 6.5,
+    borderRadius: 3.25,
+    backgroundColor: GREEN,
   },
 });

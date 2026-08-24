@@ -124,8 +124,8 @@ export const notificationService = {
 
     // Retornar función de limpieza
     return () => {
-      Notifications.removeNotificationSubscription(receivedListener);
-      Notifications.removeNotificationSubscription(responseListener);
+      receivedListener.remove();
+      responseListener.remove();
     };
   },
 

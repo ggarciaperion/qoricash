@@ -136,6 +136,47 @@ export interface LoginResponse {
   requires_password_change?: boolean;
 }
 
+// Register Types
+export interface RegisterNaturalRequest {
+  tipo_persona: 'Natural';
+  tipo_documento: 'DNI' | 'CE';
+  dni: string;
+  nombres: string;
+  apellido_paterno: string;
+  apellido_materno?: string;
+  email: string;
+  telefono: string;
+  password: string;
+  accept_promotions?: boolean;
+}
+
+export interface RegisterJuridicaRequest {
+  tipo_persona: 'Jurídica';
+  tipo_documento: 'RUC';
+  dni: string;
+  razon_social: string;
+  persona_contacto: string;
+  relacion_empresa: string;
+  email: string;
+  telefono: string;
+  password: string;
+  accept_promotions?: boolean;
+}
+
+export type RegisterRequest = RegisterNaturalRequest | RegisterJuridicaRequest;
+
+export interface RegisterResponse {
+  success: boolean;
+  message: string;
+  client?: {
+    id: number;
+    dni: string;
+    email: string;
+    tipo_persona: string;
+    tipo_documento: string;
+  };
+}
+
 // Form Types
 export interface CreateOperationForm {
   operation_type: 'Compra' | 'Venta';
