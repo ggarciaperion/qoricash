@@ -17,8 +17,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotiView } from 'moti';
 import { Ionicons } from '@expo/vector-icons';
 import { CommonActions } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Operation, BankAccount } from '../types';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
+import { STORAGE_KEYS } from '../constants/config';
 import socketService from '../services/socket';
 
 const BANK_LOGOS: Record<string, any> = {
@@ -93,6 +95,20 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
   // ── Socket.IO ─────────────────────────────────────────────────────────────
   useEffect(() => {
     socketService.connect();
+
+    // Unirse al room del cliente para recibir eventos en tiempo real
+    AsyncStorage.getItem(STORAGE_KEYS.CLIENT_DATA).then(raw => {
+      if (raw) {
+        try {
+          const client = JSON.parse(raw);
+          const dni = client.dni || client.ruc;
+          if (dni) {
+            socketService.emit('join_client_room', { dni });
+            console.log(`✅ [ReceiveScreen] join_client_room emitido para DNI: ${dni}`);
+          }
+        } catch {}
+      }
+    });
 
     const redirectToHistory = () => {
       navigation.dispatch(
