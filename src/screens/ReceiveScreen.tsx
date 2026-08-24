@@ -96,19 +96,28 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
   useEffect(() => {
     socketService.connect();
 
-    // Unirse al room del cliente para recibir eventos en tiempo real
-    AsyncStorage.getItem(STORAGE_KEYS.CLIENT_DATA).then(raw => {
-      if (raw) {
-        try {
-          const client = JSON.parse(raw);
-          const dni = client.dni || client.ruc;
-          if (dni) {
-            socketService.emit('join_client_room', { dni });
-            console.log(`✅ [ReceiveScreen] join_client_room emitido para DNI: ${dni}`);
-          }
-        } catch {}
+    // Unirse al room del cliente para recibir notificaciones en tiempo real.
+    // Se emite también en el evento 'connect' para cubrir reconexiones.
+    let clientDni: string | null = null;
+
+    const joinRoom = () => {
+      if (clientDni) {
+        socketService.emit('join_client_room', { dni: clientDni });
+        console.log(`✅ [ReceiveScreen] join_client_room → DNI: ${clientDni}`);
       }
+    };
+
+    AsyncStorage.getItem(STORAGE_KEYS.CLIENT_DATA).then(raw => {
+      if (!raw) return;
+      try {
+        const c = JSON.parse(raw);
+        clientDni = c.dni || c.ruc || null;
+        joinRoom();
+      } catch {}
     });
+
+    // También cuando el socket (re)conecte, volver a unirse al room
+    socketService.on('connect', joinRoom);
 
     const redirectToHistory = () => {
       navigation.dispatch(
@@ -167,8 +176,9 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
     socketService.on('operacion_cancelada_admin', handleCanceledByAdmin);
 
     return () => {
-      socketService.off('operacion_actualizada',   handleOperationUpdated);
-      socketService.off('operacion_completada',    handleOperationCompleted);
+      socketService.off('connect',                  joinRoom);
+      socketService.off('operacion_actualizada',    handleOperationUpdated);
+      socketService.off('operacion_completada',     handleOperationCompleted);
       socketService.off('operacion_cancelada_admin', handleCanceledByAdmin);
     };
   }, [operation.id, operation.operation_id, navigation]);

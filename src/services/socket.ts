@@ -5,7 +5,8 @@ class SocketService {
   private socket: Socket | null = null;
 
   connect() {
-    if (this.socket?.connected) {
+    // Si ya existe un socket (conectado o conectando), reutilizarlo
+    if (this.socket) {
       return this.socket;
     }
 
@@ -52,10 +53,10 @@ class SocketService {
   }
 
   emit(event: string, data: any) {
-    if (!this.socket?.connected) {
-      console.warn('⚠️ Socket no conectado, intentando conectar...');
+    if (!this.socket) {
       this.connect();
     }
+    // socket.io-client buffers events automáticamente hasta que conecte
     this.socket?.emit(event, data);
   }
 }

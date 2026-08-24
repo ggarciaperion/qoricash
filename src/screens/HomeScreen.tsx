@@ -102,7 +102,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       if (res.data.success) {
         setActiveOps(
           res.data.operations.filter(
-            op => op.status === 'pendiente' || op.status === 'En proceso'
+            op => op.status === 'pendiente' || op.status === 'en_proceso'
           )
         );
       }
@@ -422,7 +422,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             </View>
 
             {activeOps.map(op => {
-              const isEnProceso = op.status === 'En proceso';
+              const isEnProceso = op.status === 'en_proceso';
               const accentColor = isEnProceso ? GREEN : '#f59e0b';
               const bgColor     = isEnProceso ? 'rgba(34,197,94,0.07)' : 'rgba(245,158,11,0.07)';
               const borderColor = isEnProceso ? 'rgba(34,197,94,0.22)' : 'rgba(245,158,11,0.22)';
