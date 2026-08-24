@@ -24,8 +24,11 @@ import Reanimated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { Calculator } from '../components/Calculator';
+import { API_CONFIG } from '../constants/config';
+import { Operation } from '../types';
 
 const { width: W } = Dimensions.get('window');
 const GLASS_BG     = 'rgba(255,255,255,0.09)';
@@ -88,6 +91,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { client, refreshClient } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
+  const [activeOps, setActiveOps] = useState<Operation[]>([]);
+
+  const fetchActiveOps = async () => {
+    if (!client?.dni) return;
+    try {
+      const res = await axios.get<{ success: boolean; operations: Operation[] }>(
+        `${API_CONFIG.BASE_URL}/api/client/my-operations/${client.dni}`
+      );
+      if (res.data.success) {
+        setActiveOps(
+          res.data.operations.filter(
+            op => op.status === 'pendiente' || op.status === 'En proceso'
+          )
+        );
+      }
+    } catch {}
+  };
+
+  useEffect(() => { fetchActiveOps(); }, [client?.dni]);
+
   const [pendingOp, setPendingOp] = useState<{
     ready: boolean;
     operationType: 'Compra' | 'Venta';
@@ -121,7 +144,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await refreshClient();
+    await Promise.all([refreshClient(), fetchActiveOps()]);
     setRefreshing(false);
   };
 
@@ -382,6 +405,66 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Ionicons name="arrow-forward" size={16} color={pendingOp.ready ? '#fff' : 'rgba(255,255,255,0.3)'} />
           </TouchableOpacity>
         </MotiView>
+
+        {/* ══ Operaciones activas ══ */}
+        {activeOps.length > 0 && (
+          <MotiView
+            from={{ opacity: 0, translateY: 10 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', delay: 360, damping: 22, stiffness: 160 }}
+            style={s.activeOpsWrap}
+          >
+            <View style={s.activeOpsHeader}>
+              <View style={s.activeOpsDot} />
+              <Text style={s.activeOpsLabel}>
+                {activeOps.length === 1 ? 'Operación en curso' : `${activeOps.length} operaciones en curso`}
+              </Text>
+            </View>
+
+            {activeOps.map(op => {
+              const isEnProceso = op.status === 'En proceso';
+              const accentColor = isEnProceso ? GREEN : '#f59e0b';
+              const bgColor     = isEnProceso ? 'rgba(34,197,94,0.07)' : 'rgba(245,158,11,0.07)';
+              const borderColor = isEnProceso ? 'rgba(34,197,94,0.22)' : 'rgba(245,158,11,0.22)';
+              const iconName    = isEnProceso ? 'swap-horizontal' : 'time-outline';
+
+              return (
+                <TouchableOpacity
+                  key={op.id}
+                  style={[s.activeOpCard, { backgroundColor: bgColor, borderColor }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigation.navigate('History');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  {/* Left icon */}
+                  <View style={[s.activeOpIcon, { backgroundColor: `${accentColor}18` }]}>
+                    <Ionicons name={iconName as any} size={16} color={accentColor} />
+                  </View>
+
+                  {/* Content */}
+                  <View style={s.activeOpContent}>
+                    <Text style={s.activeOpId}>{op.operation_id}</Text>
+                    <Text style={s.activeOpDetail}>
+                      {op.operation_type} · ${op.amount_usd.toFixed(2)} · S/ {op.amount_pen.toFixed(2)}
+                    </Text>
+                  </View>
+
+                  {/* Status pill + chevron */}
+                  <View style={s.activeOpRight}>
+                    <View style={[s.activeOpPill, { backgroundColor: `${accentColor}18`, borderColor: `${accentColor}33` }]}>
+                      <Text style={[s.activeOpPillText, { color: accentColor }]}>
+                        {isEnProceso ? 'En proceso' : 'Pendiente'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={13} color="rgba(255,255,255,0.25)" style={{ marginTop: 2 }} />
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </MotiView>
+        )}
 
       </Animated.ScrollView>
     </View>
@@ -692,5 +775,80 @@ const s = StyleSheet.create({
   },
   initiateBtnTextDisabled: {
     color: 'rgba(255,255,255,0.30)',
+  },
+
+  // ── Active ops widget ──
+  activeOpsWrap: {
+    marginTop: 16,
+    gap: 8,
+  },
+  activeOpsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 4,
+    paddingHorizontal: 2,
+  },
+  activeOpsDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: GREEN,
+    opacity: 0.7,
+  },
+  activeOpsLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.38)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  activeOpCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 11,
+    paddingHorizontal: 13,
+    gap: 11,
+  },
+  activeOpIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  activeOpContent: {
+    flex: 1,
+    gap: 3,
+  },
+  activeOpId: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.88)',
+    letterSpacing: 0.2,
+  },
+  activeOpDetail: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.4)',
+    fontWeight: '400',
+  },
+  activeOpRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+    flexShrink: 0,
+  },
+  activeOpPill: {
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  activeOpPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
 });
