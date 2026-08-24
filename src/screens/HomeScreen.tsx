@@ -24,7 +24,9 @@ import Reanimated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import { CommonActions } from '@react-navigation/native';
 import axios from 'axios';
+import socketService from '../services/socket';
 import { useAuth } from '../contexts/AuthContext';
 import { Calculator } from '../components/Calculator';
 import { API_CONFIG } from '../constants/config';
@@ -110,6 +112,34 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   };
 
   useEffect(() => { fetchActiveOps(); }, [client?.dni]);
+
+  // Socket: actualizar widget en tiempo real cuando cambia el estado de una operación
+  useEffect(() => {
+    if (!client?.dni) return;
+    socketService.connect();
+    socketService.emit('join_client_room', { dni: client.dni });
+
+    const removeOp = (data: any) => {
+      const opId = data?.operation_id || data?.id;
+      if (opId) setActiveOps(prev => prev.filter(o => o.operation_id !== opId && o.id !== opId));
+    };
+    const updateToInProcess = (data: any) => {
+      const opId = data?.operation_id || data?.id;
+      if (opId) setActiveOps(prev => prev.map(o =>
+        (o.operation_id === opId || o.id === opId) ? { ...o, status: 'en_proceso' } : o
+      ));
+    };
+
+    socketService.on('operacion_completada',     removeOp);
+    socketService.on('operacion_cancelada_admin', removeOp);
+    socketService.on('operacion_en_proceso',     updateToInProcess);
+
+    return () => {
+      socketService.off('operacion_completada',     removeOp);
+      socketService.off('operacion_cancelada_admin', removeOp);
+      socketService.off('operacion_en_proceso',     updateToInProcess);
+    };
+  }, [client?.dni]);
 
   const [pendingOp, setPendingOp] = useState<{
     ready: boolean;
@@ -434,7 +464,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   style={[s.activeOpCard, { backgroundColor: bgColor, borderColor }]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    navigation.navigate('History');
+                    navigation.dispatch(CommonActions.navigate({ name: 'OperationDetail', params: { operationId: op.id } }));
                   }}
                   activeOpacity={0.8}
                 >
