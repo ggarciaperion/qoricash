@@ -254,7 +254,7 @@ export const LoginScreen = () => {
                   outlineColor={GLASS_BORDER}
                   activeOutlineColor="rgba(255,255,255,0.9)"
                   textColor="#fff"
-                  theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: INPUT_BG } }}
+                  theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: '#000000' } }}
                 />
               </Animated.View>
 
@@ -281,7 +281,7 @@ export const LoginScreen = () => {
                   outlineColor={GLASS_BORDER}
                   activeOutlineColor="rgba(255,255,255,0.9)"
                   textColor="#fff"
-                  theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: INPUT_BG } }}
+                  theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: '#000000' } }}
                 />
               </Animated.View>
 
@@ -441,7 +441,7 @@ export const LoginScreen = () => {
                       outlineColor={GLASS_BORDER}
                       activeOutlineColor="rgba(255,255,255,0.9)"
                       textColor="#fff"
-                      theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: INPUT_BG } }}
+                      theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: '#000000' } }}
                     />
                     <TextInput
                       label="Correo electrónico"
@@ -457,7 +457,7 @@ export const LoginScreen = () => {
                       outlineColor={GLASS_BORDER}
                       activeOutlineColor="rgba(255,255,255,0.9)"
                       textColor="#fff"
-                      theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: INPUT_BG } }}
+                      theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: '#000000' } }}
                     />
                   </View>
 
