@@ -501,7 +501,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             animate={{ opacity: 1, translateY: 0 }}
             transition={{ type: 'spring', delay: 160, damping: 22, stiffness: 180 }}
           >
-            <View style={s.card}>
+            <View style={[s.card, { backgroundColor: 'transparent', borderWidth: 0 }]}>
               <Text style={s.cardLabel}>Tipo de operación</Text>
               <View style={s.opTypeRow}>
                 <View style={s.opTypeBadge}>
