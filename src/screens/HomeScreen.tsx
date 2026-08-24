@@ -308,7 +308,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           from={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: 'spring', delay: 210, damping: 22, stiffness: 160 }}
-          style={s.ratesCard}
+          style={s.ratesRow}
         >
           <TouchableOpacity
             onPress={() => setCalcOperationType('Compra')}
@@ -323,8 +323,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               <Text style={s.rateTabPillText}>USD → PEN</Text>
             </View>
           </TouchableOpacity>
-
-          <View style={s.rateTabDivider} />
 
           <TouchableOpacity
             onPress={() => setCalcOperationType('Venta')}
@@ -609,23 +607,24 @@ const s = StyleSheet.create({
   },
 
   // ── Rate cards (independientes) ──
-  ratesCard: {
+  ratesRow: {
     flexDirection: 'row',
-    backgroundColor: GLASS_BG,
-    borderWidth: 1,
-    borderColor: GLASS_BORDER,
-    borderRadius: 22,
+    gap: 10,
     marginBottom: 14,
-    overflow: 'hidden',
   },
   rateTab: {
     flex: 1,
     paddingVertical: 20,
     paddingHorizontal: 18,
     gap: 6,
+    backgroundColor: GLASS_BG,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    borderRadius: 22,
   },
   rateTabActive: {
     backgroundColor: 'rgba(34,197,94,0.13)',
+    borderColor: GREEN,
   },
   rateTabLabel: {
     fontSize: 11,
@@ -657,19 +656,8 @@ const s = StyleSheet.create({
     color: 'rgba(255,255,255,0.55)',
     letterSpacing: 0.3,
   },
-  rateTabDivider: {
-    width: 1,
-    backgroundColor: GLASS_BORDER,
-    marginVertical: 16,
-  },
-
   // ── Calculator card ──
   calcCard: {
-    backgroundColor: GLASS_BG,
-    borderWidth: 1,
-    borderColor: GLASS_BORDER,
-    borderRadius: 24,
-    overflow: 'hidden',
     paddingTop: 20,
   },
 

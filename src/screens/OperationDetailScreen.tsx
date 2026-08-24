@@ -11,20 +11,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
-  SafeAreaView,
-} from 'react-native';
-import {
-  Text,
-  Card,
-  Chip,
-  Divider,
-  Button,
-  List,
-  IconButton,
+  ImageBackground,
   ActivityIndicator,
   TextInput,
-  HelperText,
-} from 'react-native-paper';
+} from 'react-native';
+import { Text } from 'react-native-paper';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MotiView } from 'moti';
+import * as ImagePicker from 'expo-image-picker';
+
 import { operationsApi } from '../api/operations';
 import { Operation } from '../types';
 import {
@@ -33,81 +29,85 @@ import {
   formatExchangeRate,
   formatBankAccount,
 } from '../utils/formatters';
-import { STATUS_COLORS, STATUS_ICONS } from '../constants/config';
-import * as ImagePicker from 'expo-image-picker';
-import { GlobalStyles } from '../styles/globalStyles';
-import { CustomModal } from '../components/CustomModal';
-import { KeyboardAwareScrollView } from '../components/KeyboardAwareScrollView';
 
+// ─── Paleta ───────────────────────────────────────────────────────────────────
+const GLASS_BG     = 'rgba(255,255,255,0.09)';
+const GLASS_BORDER = 'rgba(255,255,255,0.15)';
+const GREEN        = '#22c55e';
+const RED          = '#ef4444';
+const AMBER        = '#f59e0b';
+const BLUE         = '#3b82f6';
+
+// ─── Helpers de estado ────────────────────────────────────────────────────────
+const STATUS_CFG: Record<string, { color: string; label: string }> = {
+  completada:  { color: GREEN,  label: 'Completada'  },
+  completado:  { color: GREEN,  label: 'Completada'  },
+  pendiente:   { color: AMBER,  label: 'Pendiente'   },
+  procesando:  { color: BLUE,   label: 'Procesando'  },
+  en_proceso:  { color: BLUE,   label: 'En Proceso'  },
+  cancelada:   { color: RED,    label: 'Cancelada'   },
+  cancelado:   { color: RED,    label: 'Cancelada'   },
+  expirado:    { color: RED,    label: 'Expirado'    },
+};
+
+const getStatusCfg = (status: string) =>
+  STATUS_CFG[status.toLowerCase()] ?? { color: 'rgba(255,255,255,0.4)', label: status };
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface DepositForm {
   imageUri: string;
   importe: string;
   codigoOperacion: string;
 }
+interface Props { route: any; navigation: any }
 
-interface OperationDetailScreenProps {
-  route: any;
-  navigation: any;
-}
-
-export const OperationDetailScreen: React.FC<OperationDetailScreenProps> = ({
-  route,
-  navigation,
-}) => {
+// ─── Component ────────────────────────────────────────────────────────────────
+export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) => {
+  const insets = useSafeAreaInsets();
   const { operationId } = route.params;
-  const [operation, setOperation] = useState<Operation | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [uploading, setUploading] = useState(false);
 
-  // Modal states
+  const [operation, setOperation]   = useState<Operation | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [uploading, setUploading]   = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [deposits, setDeposits] = useState<DepositForm[]>([]);
+  const [deposits, setDeposits]         = useState<DepositForm[]>([]);
   const [currentDeposit, setCurrentDeposit] = useState<DepositForm>({
-    imageUri: '',
-    importe: '',
-    codigoOperacion: '',
+    imageUri: '', importe: '', codigoOperacion: '',
   });
   const [errors, setErrors] = useState<any>({});
 
-  const isOperationExpired = (createdAt: string): boolean => {
+  // ── Logic helpers ───────────────────────────────────────────────────────────
+  const isExpired = (createdAt: string) => {
     if (!createdAt) return false;
-    const created = new Date(createdAt);
-    const now = new Date();
-    const elapsed = Math.floor((now.getTime() - created.getTime()) / 1000); // segundos
-    const timeLimit = 30 * 60; // 30 minutos en segundos
-    return elapsed >= timeLimit;
+    return (Date.now() - new Date(createdAt).getTime()) / 1000 >= 30 * 60;
   };
 
-  const getDisplayStatus = (op: Operation): string => {
-    if (!op) return 'N/A';
-    if (op.status === 'pendiente' && isOperationExpired(op.created_at || '')) {
-      return 'Expirado';
-    }
+  const getDisplayStatus = (op: Operation) => {
+    if (op.status === 'pendiente' && isExpired(op.created_at || '')) return 'Expirado';
     return op.status || 'N/A';
   };
 
-  const getSourceAccountCurrency = (op: Operation): string => {
-    // Venta: QoriCash vende USD al cliente → Cliente paga S/, recibe $
-    // Compra: QoriCash compra USD del cliente → Cliente paga $, recibe S/
-    return op?.operation_type === 'Venta' ? 'S/' : '$';
+  const getSourceCurrency  = (op: Operation) => op.operation_type === 'Venta' ? 'S/' : '$';
+  const getDestCurrency    = (op: Operation) => op.operation_type === 'Venta' ? '$' : 'S/';
+  const getOperationTotal  = () => {
+    if (!operation) return 0;
+    return operation.operation_type === 'Venta'
+      ? operation.amount_pen || 0
+      : operation.amount_usd || 0;
   };
+  const getTotalDeposits = () =>
+    deposits.reduce((s, d) => s + parseFloat(d.importe || '0'), 0);
 
-  const getDestinationAccountCurrency = (op: Operation): string => {
-    return op?.operation_type === 'Venta' ? '$' : 'S/';
-  };
-
-  useEffect(() => {
-    loadOperation();
-  }, [operationId]);
+  // ── Data loading ────────────────────────────────────────────────────────────
+  useEffect(() => { loadOperation(); }, [operationId]);
 
   const loadOperation = async () => {
     try {
       setLoading(true);
-      const data = await operationsApi.getOperationById(operationId);
-      setOperation(data);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Error al cargar operación');
+      setOperation(await operationsApi.getOperationById(operationId));
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Error al cargar operación');
       navigation.goBack();
     } finally {
       setLoading(false);
@@ -120,655 +120,533 @@ export const OperationDetailScreen: React.FC<OperationDetailScreenProps> = ({
     setRefreshing(false);
   };
 
-  const handleOpenModal = () => {
+  // ── Modal ───────────────────────────────────────────────────────────────────
+  const openModal = () => {
     setModalVisible(true);
     setDeposits([]);
-    setCurrentDeposit({
-      imageUri: '',
-      importe: '',
-      codigoOperacion: '',
-    });
+    setCurrentDeposit({ imageUri: '', importe: '', codigoOperacion: '' });
     setErrors({});
   };
 
   const handleSelectImage = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permiso Denegado', 'Se necesita permiso para acceder a la galería');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setCurrentDeposit({ ...currentDeposit, imageUri: result.assets[0].uri });
-        setErrors({ ...errors, imageUri: '' });
-      }
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Error al seleccionar imagen');
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permiso Denegado', 'Se necesita permiso para acceder a la galería');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], allowsEditing: true, aspect: [4, 3], quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setCurrentDeposit(d => ({ ...d, imageUri: result.assets[0].uri }));
+      setErrors((e: any) => ({ ...e, imageUri: '' }));
     }
   };
 
-  const validateDeposit = (): boolean => {
-    const newErrors: any = {};
-
-    if (!currentDeposit.imageUri) {
-      newErrors.imageUri = 'Seleccione una imagen';
-    }
-
-    if (!currentDeposit.importe || parseFloat(currentDeposit.importe) <= 0) {
-      newErrors.importe = 'Ingrese un importe válido';
-    }
-
-    if (!currentDeposit.codigoOperacion.trim()) {
-      newErrors.codigoOperacion = 'Ingrese el código de operación';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const validateDeposit = () => {
+    const e: any = {};
+    if (!currentDeposit.imageUri) e.imageUri = 'Seleccione una imagen';
+    if (!currentDeposit.importe || parseFloat(currentDeposit.importe) <= 0) e.importe = 'Ingrese un importe válido';
+    if (!currentDeposit.codigoOperacion.trim()) e.codigoOperacion = 'Ingrese el código de operación';
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
   const handleAddDeposit = () => {
     if (!validateDeposit()) return;
-
-    setDeposits([...deposits, currentDeposit]);
-    setCurrentDeposit({
-      imageUri: '',
-      importe: '',
-      codigoOperacion: '',
-    });
+    setDeposits(ds => [...ds, currentDeposit]);
+    setCurrentDeposit({ imageUri: '', importe: '', codigoOperacion: '' });
     setErrors({});
   };
 
-  const handleRemoveDeposit = (index: number) => {
-    setDeposits(deposits.filter((_, i) => i !== index));
-  };
-
-  const getTotalDeposits = (): number => {
-    return deposits.reduce((sum, dep) => sum + parseFloat(dep.importe || '0'), 0);
-  };
-
-  const getOperationTotal = (): number => {
-    if (!operation) return 0;
-    // Para "Compra": el cliente paga $ (amount_usd)
-    // Para "Venta": el cliente paga S/ (amount_pen)
-    return operation.operation_type === 'Venta'
-      ? operation.amount_pen || 0
-      : operation.amount_usd || 0;
-  };
-
   const handleSubmitDeposits = async () => {
-    if (deposits.length === 0) {
-      Alert.alert('Error', 'Debe agregar al menos un comprobante');
-      return;
-    }
-
+    if (deposits.length === 0) { Alert.alert('Error', 'Debe agregar al menos un comprobante'); return; }
     const total = getTotalDeposits();
-    const operationTotal = getOperationTotal();
-
-    if (Math.abs(total - operationTotal) > 0.01) {
-      Alert.alert(
-        'Error de Validación',
-        `La suma de los importes (${formatCurrency(total, operation?.operation_type === 'Venta' ? 'PEN' : 'USD')}) debe coincidir con el monto de la operación (${formatCurrency(operationTotal, operation?.operation_type === 'Venta' ? 'PEN' : 'USD')})`
-      );
+    const opTotal = getOperationTotal();
+    const currency = operation?.operation_type === 'Venta' ? 'PEN' : 'USD';
+    if (Math.abs(total - opTotal) > 0.01) {
+      Alert.alert('Validación', `La suma (${formatCurrency(total, currency)}) debe coincidir con el monto (${formatCurrency(opTotal, currency)})`);
       return;
     }
-
     try {
       setUploading(true);
-
       for (let i = 0; i < deposits.length; i++) {
-        const deposit = deposits[i];
-        const depositIndex = (operation?.client_deposits?.length || 0) + i;
-
-        console.log(`📤 [UPLOAD] Subiendo deposit ${i + 1}/${deposits.length}:`, {
-          depositIndex,
-          importe: deposit.importe,
-          codigo: deposit.codigoOperacion,
-          hasImage: !!deposit.imageUri,
-        });
-
-        const formData = new FormData();
-
-        // Agregar primero los datos del formulario
-        formData.append('deposit_index', depositIndex.toString());
-        formData.append('importe', deposit.importe.toString());
-        formData.append('codigo_operacion', deposit.codigoOperacion.toString());
-
-        console.log(`📤 [UPLOAD] FormData construido:`, {
-          deposit_index: depositIndex,
-          importe: deposit.importe,
-          codigo_operacion: deposit.codigoOperacion,
-        });
-
-        // Luego agregar el archivo
-        formData.append('file', {
-          uri: deposit.imageUri,
-          type: 'image/jpeg',
-          name: `comprobante_${depositIndex}.jpg`,
-        } as any);
-
-        console.log(`📤 [UPLOAD] Enviando a API...`);
-        await operationsApi.uploadDepositProof(operationId, depositIndex, formData);
-        console.log(`✅ [UPLOAD] Deposit ${i + 1} subido exitosamente`);
+        const dep = deposits[i];
+        const idx = (operation?.client_deposits?.length || 0) + i;
+        const fd  = new FormData();
+        fd.append('deposit_index', idx.toString());
+        fd.append('importe', dep.importe);
+        fd.append('codigo_operacion', dep.codigoOperacion);
+        fd.append('file', { uri: dep.imageUri, type: 'image/jpeg', name: `comprobante_${idx}.jpg` } as any);
+        await operationsApi.uploadDepositProof(operationId, idx, fd);
       }
-
-      console.log(`✅ [UPLOAD] Todos los comprobantes subidos exitosamente`);
-
-      Alert.alert('Éxito', 'Comprobantes subidos exitosamente', [
-        {
-          text: 'OK',
-          onPress: () => {
-            setModalVisible(false);
-            setDeposits([]);
-            // Redirigir al Home (HomeTab dentro de Tabs)
-            navigation.navigate('Tabs', { screen: 'HomeTab' });
-          },
+      Alert.alert('Éxito', 'Comprobantes subidos exitosamente', [{
+        text: 'OK', onPress: () => {
+          setModalVisible(false);
+          setDeposits([]);
+          navigation.navigate('Tabs', { screen: 'HomeTab' });
         },
-      ]);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Error al subir comprobantes');
+      }]);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Error al subir comprobantes');
     } finally {
       setUploading(false);
     }
   };
 
-  const openPDF = (url: string) => {
-    Linking.openURL(url).catch(() => {
-      Alert.alert('Error', 'No se pudo abrir el enlace');
-    });
-  };
+  const openPDF = (url: string) =>
+    Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir el enlace'));
 
-  const getStatusColor = (status: string) => {
-    if (status === 'Expirado') {
-      return '#D32F2F'; // Rojo para expirado
-    }
-    return STATUS_COLORS[status as keyof typeof STATUS_COLORS] || '#757575';
-  };
-
+  // ── Loading / error states ──────────────────────────────────────────────────
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1976D2" />
+      <View style={s.fullCenter}>
+        <ImageBackground source={require('../../assets/cd.png')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <View style={[StyleSheet.absoluteFill, s.overlay]} />
+        <ActivityIndicator size="large" color={GREEN} />
+        <Text style={s.loadText}>Cargando operación...</Text>
       </View>
     );
   }
 
   if (!operation) {
     return (
-      <View style={styles.errorContainer}>
-        <Text>Operación no encontrada</Text>
+      <View style={s.fullCenter}>
+        <ImageBackground source={require('../../assets/cd.png')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <View style={[StyleSheet.absoluteFill, s.overlay]} />
+        <Ionicons name="alert-circle-outline" size={40} color="rgba(255,255,255,0.3)" />
+        <Text style={s.loadText}>Operación no encontrada</Text>
       </View>
     );
   }
 
-  const inputCurrency = operation?.operation_type === 'Compra' ? 'USD' : 'PEN';
-  const outputCurrency = operation?.operation_type === 'Compra' ? 'PEN' : 'USD';
+  const displayStatus = getDisplayStatus(operation);
+  const statusCfg     = getStatusCfg(displayStatus);
+  const inputCurrency = operation.operation_type === 'Compra' ? 'USD' : 'PEN';
+  const outputCurrency = operation.operation_type === 'Compra' ? 'PEN' : 'USD';
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={{ flex: 1, paddingTop: 20 }}>
+    <View style={s.root}>
+      <ImageBackground
+        source={require('../../assets/cd.png')}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+      />
+      <View style={[StyleSheet.absoluteFill, s.overlay]} pointerEvents="none" />
+
       <ScrollView
-        style={styles.container}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        style={s.scroll}
+        contentContainerStyle={[s.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 32 }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgba(255,255,255,0.5)" />
+        }
       >
-      {/* Unified Operation Details Card */}
-      <Card style={styles.unifiedCard}>
-        <Card.Content>
-          {/* Operation ID and Status */}
-          <View style={styles.unifiedHeader}>
-            <View style={styles.headerLeft}>
-              <Text variant="bodySmall" style={styles.idLabel}>
-                ID de Operación
-              </Text>
-              <Text variant="titleLarge" style={styles.operationIdText}>
-                {operation?.operation_id || 'N/A'}
-              </Text>
-              <Text variant="bodySmall" style={styles.dateText}>
-                {operation?.created_at ? formatDateTime(operation.created_at) : 'N/A'}
+        {/* ── Header ── */}
+        <View style={s.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} activeOpacity={0.75}>
+            <Ionicons name="chevron-back" size={22} color="#fff" />
+          </TouchableOpacity>
+          <Text style={s.headerTitle}>Detalle de Operación</Text>
+          <View style={s.headerSpacer} />
+        </View>
+
+        {/* ── ID + Fecha + Estado ── */}
+        <MotiView
+          from={{ opacity: 0, translateY: -12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'spring', delay: 380, damping: 22, stiffness: 200 }}
+          style={s.card}
+        >
+          <View style={s.idRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.labelXs}>ID de Operación</Text>
+              <Text style={s.operationId}>{operation.operation_id || 'N/A'}</Text>
+              <Text style={s.dateText}>
+                {operation.created_at ? formatDateTime(operation.created_at) : 'N/A'}
               </Text>
             </View>
-            <View style={styles.headerRight}>
-              <View
-                style={[
-                  styles.statusBadge,
-                  { backgroundColor: getStatusColor(getDisplayStatus(operation)) },
-                ]}
-              >
-                <Text style={styles.statusBadgeText}>{getDisplayStatus(operation)}</Text>
+            <View style={[s.statusBadge, { backgroundColor: statusCfg.color + '22', borderColor: statusCfg.color + '55' }]}>
+              <View style={[s.statusDot, { backgroundColor: statusCfg.color }]} />
+              <Text style={[s.statusText, { color: statusCfg.color }]}>{displayStatus}</Text>
+            </View>
+          </View>
+        </MotiView>
+
+        {/* ── Tipo + Montos ── */}
+        <MotiView
+          from={{ opacity: 0, translateY: 16, scale: 0.97 }}
+          animate={{ opacity: 1, translateY: 0, scale: 1 }}
+          transition={{ type: 'spring', delay: 440, damping: 22, stiffness: 180 }}
+          style={s.card}
+        >
+          {/* Badge compra/venta */}
+          <View style={s.typePillRow}>
+            <View style={[s.typePill, operation.operation_type === 'Compra' ? s.typePillCompra : s.typePillVenta]}>
+              <Ionicons
+                name={operation.operation_type === 'Compra' ? 'arrow-down-circle' : 'arrow-up-circle'}
+                size={14}
+                color={operation.operation_type === 'Compra' ? GREEN : AMBER}
+              />
+              <Text style={[s.typeText, { color: operation.operation_type === 'Compra' ? GREEN : AMBER }]}>
+                {operation.operation_type}
+              </Text>
+            </View>
+          </View>
+
+          {/* Enviando */}
+          <View style={s.amountBlock}>
+            <Text style={s.amountBlockLabel}>
+              {operation.operation_type === 'Compra' ? 'Enviaste' : 'Pagaste'}
+            </Text>
+            <View style={s.amountBlockInner}>
+              <Text style={s.amountValue}>
+                {operation.operation_type === 'Compra'
+                  ? formatCurrency(operation.amount_usd || 0, 'USD')
+                  : formatCurrency(operation.amount_pen || 0, 'PEN')}
+              </Text>
+              <View style={s.currencyTag}>
+                <Text style={s.currencyTagText}>{inputCurrency === 'USD' ? 'Dólares' : 'Soles'}</Text>
               </View>
             </View>
           </View>
 
-          <Divider style={styles.unifiedDivider} />
-
-          {/* Operation Type */}
-          <View style={styles.operationTypeRow}>
-            <View style={styles.operationTypeBadge}>
-              <Text style={styles.operationTypeText}>
-                {operation?.operation_type || 'N/A'}
-              </Text>
+          {/* Tipo de cambio */}
+          <View style={s.tcRow}>
+            <View style={s.tcDash} />
+            <View style={s.tcPill}>
+              <Ionicons name="swap-vertical" size={12} color={GREEN} />
+              <Text style={s.tcLabel}>TC</Text>
+              <Text style={s.tcValue}>{formatExchangeRate(operation.exchange_rate || 0)}</Text>
             </View>
+            <View style={s.tcDash} />
           </View>
 
-          {/* Unified Amounts Card */}
-          <Card style={styles.amountsInnerCard}>
-            <Card.Content style={styles.amountsInnerContent}>
-              {/* Amount Sending */}
-              <View style={styles.compactRow}>
-                <View style={styles.compactBox}>
-                  <Text style={styles.compactLabel}>
-                    {operation?.operation_type === 'Compra' ? 'Enviando' : 'Pagando'}
-                  </Text>
-                  <Text style={styles.compactAmount}>
-                    {operation?.operation_type === 'Compra'
-                      ? formatCurrency(operation?.amount_usd || 0, 'USD')
-                      : formatCurrency(operation?.amount_pen || 0, 'PEN')}
-                  </Text>
+          {/* Recibiendo */}
+          <View style={s.amountBlock}>
+            <Text style={s.amountBlockLabel}>Recibiste</Text>
+            <View style={s.amountBlockInner}>
+              <Text style={[s.amountValue, { color: GREEN }]}>
+                {operation.operation_type === 'Compra'
+                  ? formatCurrency(operation.amount_pen || 0, 'PEN')
+                  : formatCurrency(operation.amount_usd || 0, 'USD')}
+              </Text>
+              <View style={[s.currencyTag, { backgroundColor: GREEN + '20', borderColor: GREEN + '40' }]}>
+                <Text style={[s.currencyTagText, { color: GREEN }]}>{outputCurrency === 'USD' ? 'Dólares' : 'Soles'}</Text>
+              </View>
+            </View>
+          </View>
+        </MotiView>
+
+        {/* ── Cuentas Bancarias ── */}
+        {(operation.source_account || operation.destination_account) && (
+          <MotiView
+            from={{ opacity: 0, translateY: 16 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', delay: 500, damping: 22, stiffness: 180 }}
+            style={s.card}
+          >
+            <Text style={s.sectionTitle}>Cuentas Bancarias</Text>
+
+            {operation.source_account && (
+              <View style={s.bankRow}>
+                <View style={s.bankIconWrap}>
+                  <Ionicons name="business-outline" size={18} color="rgba(255,255,255,0.6)" />
                 </View>
-                <View style={styles.compactCurrencyBox}>
-                  <Text style={styles.compactCurrencyText}>
-                    {inputCurrency === 'USD' ? 'Dólares' : 'Soles'}
-                  </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.bankLabel}>Cuenta Origen ({getSourceCurrency(operation)})</Text>
+                  <Text style={s.bankName}>{operation.source_bank_name || ''}</Text>
+                  <Text style={s.bankAccount}>{formatBankAccount(operation.source_account)}</Text>
                 </View>
               </View>
-
-              {/* Exchange Rate - Centered */}
-              <View style={styles.centerExchangeRow}>
-                <Text style={styles.centerExchangeLabel}>Tipo de cambio</Text>
-                <Text style={styles.centerExchangeValue}>
-                  {formatExchangeRate(operation?.exchange_rate || 0)}
-                </Text>
-              </View>
-
-              {/* Amount Receiving */}
-              <View style={styles.compactRow}>
-                <View style={styles.compactBox}>
-                  <Text style={styles.compactLabel}>Recibiendo</Text>
-                  <Text style={styles.compactAmount}>
-                    {operation?.operation_type === 'Compra'
-                      ? formatCurrency(operation?.amount_pen || 0, 'PEN')
-                      : formatCurrency(operation?.amount_usd || 0, 'USD')}
-                  </Text>
-                </View>
-                <View style={styles.compactCurrencyBox}>
-                  <Text style={styles.compactCurrencyText}>
-                    {outputCurrency === 'USD' ? 'Dólares' : 'Soles'}
-                  </Text>
-                </View>
-              </View>
-            </Card.Content>
-          </Card>
-        </Card.Content>
-      </Card>
-
-      {/* Bank Accounts Card */}
-      <Card style={GlobalStyles.card}>
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.cardTitle}>
-            Cuentas Bancarias
-          </Text>
-          {operation?.source_account && (
-            <List.Item
-              title={`Cuenta Origen (${getSourceAccountCurrency(operation)})`}
-              description={`${operation?.source_bank_name || ''}\n${formatBankAccount(operation.source_account)}`}
-              left={(props) => <List.Icon {...props} icon="bank" />}
-            />
-          )}
-          {operation?.destination_account && (
-            <List.Item
-              title={`Cuenta Destino (${getDestinationAccountCurrency(operation)})`}
-              description={`${operation?.destination_bank_name || ''}\n${formatBankAccount(operation.destination_account)}`}
-              left={(props) => <List.Icon {...props} icon="bank-transfer" />}
-            />
-          )}
-        </Card.Content>
-      </Card>
-
-      {/* Client Deposits */}
-      {operation.client_deposits && Array.isArray(operation.client_deposits) && operation.client_deposits.length > 0 && (
-        <Card style={GlobalStyles.card}>
-          <Card.Content>
-            <Text variant="titleMedium" style={styles.cardTitle}>
-              Comprobantes del Cliente
-            </Text>
-            {operation.client_deposits.map((deposit, index) => (
-              <List.Item
-                key={index}
-                title={`Abono ${index + 1}`}
-                description={`${formatCurrency(deposit?.importe || 0, 'PEN')}\nCódigo: ${deposit?.codigo_operacion || 'N/A'}`}
-                left={(props) => <List.Icon {...props} icon="file-document" />}
-                right={(props) =>
-                  deposit?.comprobante_url ? (
-                    <IconButton
-                      {...props}
-                      icon="download"
-                      onPress={() => openPDF(deposit.comprobante_url!)}
-                    />
-                  ) : null
-                }
-              />
-            ))}
-          </Card.Content>
-        </Card>
-      )}
-
-      {/* Operator Proofs */}
-      {operation.operator_proofs && Array.isArray(operation.operator_proofs) && operation.operator_proofs.length > 0 && (
-        <Card style={GlobalStyles.card}>
-          <Card.Content>
-            <Text variant="titleMedium" style={styles.cardTitle}>
-              Comprobantes del Operador
-            </Text>
-            {operation.operator_proofs.map((proof, index) => (
-              <List.Item
-                key={index}
-                title={`Comprobante ${index + 1}`}
-                description={proof?.comentario || 'Sin comentarios'}
-                left={(props) => <List.Icon {...props} icon="check-circle" />}
-                right={(props) =>
-                  proof?.comprobante_url ? (
-                    <IconButton
-                      {...props}
-                      icon="download"
-                      onPress={() => openPDF(proof.comprobante_url)}
-                    />
-                  ) : null
-                }
-              />
-            ))}
-            {operation.operator_comments && (
-              <>
-                <Divider style={styles.divider} />
-                <Text variant="bodyMedium" style={styles.commentsLabel}>
-                  Comentarios:
-                </Text>
-                <Text variant="bodyMedium">{operation.operator_comments}</Text>
-              </>
             )}
-          </Card.Content>
-        </Card>
-      )}
 
-      {/* Invoices */}
-      {operation.invoices && Array.isArray(operation.invoices) && operation.invoices.length > 0 && (
-        <Card style={GlobalStyles.card}>
-          <Card.Content>
-            <Text variant="titleMedium" style={styles.cardTitle}>
-              Factura Electrónica
-            </Text>
-            {operation.invoices.map((invoice, index) => (
-              <View key={index}>
-                <List.Item
-                  title={invoice?.invoice_number || 'N/A'}
-                  description={`${invoice?.invoice_type || 'N/A'} - ${formatCurrency(invoice?.monto_total || 0, 'PEN')}`}
-                  left={(props) => <List.Icon {...props} icon="file-pdf-box" />}
-                />
-                {invoice?.nubefact_enlace_pdf && (
-                  <Button
-                    mode="outlined"
-                    icon="download"
-                    onPress={() => openPDF(invoice.nubefact_enlace_pdf!)}
-                    style={styles.downloadButton}
-                  >
-                    Descargar PDF
-                  </Button>
+            {operation.source_account && operation.destination_account && (
+              <View style={s.bankDivider} />
+            )}
+
+            {operation.destination_account && (
+              <View style={s.bankRow}>
+                <View style={[s.bankIconWrap, { backgroundColor: GREEN + '18' }]}>
+                  <Ionicons name="card-outline" size={18} color={GREEN} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.bankLabel}>Cuenta Destino ({getDestCurrency(operation)})</Text>
+                  <Text style={s.bankName}>{operation.destination_bank_name || ''}</Text>
+                  <Text style={s.bankAccount}>{formatBankAccount(operation.destination_account)}</Text>
+                </View>
+              </View>
+            )}
+          </MotiView>
+        )}
+
+        {/* ── Comprobantes del Cliente ── */}
+        {operation.client_deposits && Array.isArray(operation.client_deposits) && operation.client_deposits.length > 0 && (
+          <MotiView
+            from={{ opacity: 0, translateY: 16 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', delay: 560, damping: 22, stiffness: 180 }}
+            style={s.card}
+          >
+            <Text style={s.sectionTitle}>Comprobantes del Cliente</Text>
+            {operation.client_deposits.map((dep: any, i: number) => (
+              <View key={i} style={[s.proofRow, i < operation.client_deposits!.length - 1 && s.proofRowBorder]}>
+                <View style={s.proofIconWrap}>
+                  <Ionicons name="document-text-outline" size={18} color="rgba(255,255,255,0.55)" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.proofLabel}>Abono {i + 1}</Text>
+                  <Text style={s.proofValue}>{formatCurrency(dep?.importe || 0, 'PEN')}</Text>
+                  <Text style={s.proofCode}>Código: {dep?.codigo_operacion || 'N/A'}</Text>
+                </View>
+                {dep?.comprobante_url && (
+                  <TouchableOpacity onPress={() => openPDF(dep.comprobante_url)} style={s.downloadBtn} activeOpacity={0.75}>
+                    <Ionicons name="download-outline" size={18} color={GREEN} />
+                  </TouchableOpacity>
                 )}
               </View>
             ))}
-          </Card.Content>
-        </Card>
-      )}
+          </MotiView>
+        )}
 
-      {/* Notes */}
-      {operation.notes && (
-        <Card style={GlobalStyles.card}>
-          <Card.Content>
-            <Text variant="titleMedium" style={styles.cardTitle}>
-              Notas
-            </Text>
-            <Text variant="bodyMedium">{operation.notes}</Text>
-          </Card.Content>
-        </Card>
-      )}
+        {/* ── Comprobantes del Operador ── */}
+        {operation.operator_proofs && Array.isArray(operation.operator_proofs) && operation.operator_proofs.length > 0 && (
+          <MotiView
+            from={{ opacity: 0, translateY: 16 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', delay: 620, damping: 22, stiffness: 180 }}
+            style={s.card}
+          >
+            <Text style={s.sectionTitle}>Comprobantes del Operador</Text>
+            {operation.operator_proofs.map((proof: any, i: number) => (
+              <View key={i} style={[s.proofRow, i < operation.operator_proofs!.length - 1 && s.proofRowBorder]}>
+                <View style={[s.proofIconWrap, { backgroundColor: GREEN + '18' }]}>
+                  <Ionicons name="checkmark-circle-outline" size={18} color={GREEN} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.proofLabel}>Comprobante {i + 1}</Text>
+                  <Text style={s.proofCode}>{proof?.comentario || 'Sin comentarios'}</Text>
+                </View>
+                {proof?.comprobante_url && (
+                  <TouchableOpacity onPress={() => openPDF(proof.comprobante_url)} style={s.downloadBtn} activeOpacity={0.75}>
+                    <Ionicons name="download-outline" size={18} color={GREEN} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+            {operation.operator_comments && (
+              <View style={s.commentsWrap}>
+                <Text style={s.commentsLabel}>Comentarios del operador</Text>
+                <Text style={s.commentsText}>{operation.operator_comments}</Text>
+              </View>
+            )}
+          </MotiView>
+        )}
 
-      {/* Actions */}
-      {operation?.status === 'pendiente' && (
-        <View style={styles.actionsContainer}>
-          {isOperationExpired(operation?.created_at || '') ? (
-            <View style={styles.expiredNotice}>
-              <Text variant="bodyMedium" style={styles.expiredText}>
-                ⏱️ Esta operación ha expirado. No se pueden subir comprobantes después de 30 minutos.
-              </Text>
-            </View>
-          ) : (
-            <TouchableOpacity
-              onPress={handleOpenModal}
-              disabled={uploading}
-              style={[styles.uploadButton, uploading && styles.uploadButtonDisabled]}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.uploadButtonText, uploading && styles.uploadButtonTextDisabled]}>
-                {uploading ? 'SUBIENDO...' : 'SUBIR COMPROBANTE'}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
+        {/* ── Factura Electrónica ── */}
+        {operation.invoices && Array.isArray(operation.invoices) && operation.invoices.length > 0 && (
+          <MotiView
+            from={{ opacity: 0, translateY: 16 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', delay: 680, damping: 22, stiffness: 180 }}
+            style={s.card}
+          >
+            <Text style={s.sectionTitle}>Factura Electrónica</Text>
+            {operation.invoices.map((inv: any, i: number) => (
+              <View key={i}>
+                <View style={s.invoiceRow}>
+                  <View style={s.proofIconWrap}>
+                    <Ionicons name="receipt-outline" size={18} color="rgba(255,255,255,0.55)" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.proofValue}>{inv?.invoice_number || 'N/A'}</Text>
+                    <Text style={s.proofCode}>
+                      {inv?.invoice_type || ''} · {formatCurrency(inv?.monto_total || 0, 'PEN')}
+                    </Text>
+                  </View>
+                </View>
+                {inv?.nubefact_enlace_pdf && (
+                  <TouchableOpacity onPress={() => openPDF(inv.nubefact_enlace_pdf)} style={s.pdfBtn} activeOpacity={0.8}>
+                    <Ionicons name="download-outline" size={15} color={GREEN} />
+                    <Text style={s.pdfBtnText}>Descargar PDF</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+          </MotiView>
+        )}
 
-      {/* Modal para agregar comprobantes */}
+        {/* ── Notas ── */}
+        {operation.notes && (
+          <MotiView
+            from={{ opacity: 0, translateY: 16 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', delay: 280, damping: 22, stiffness: 180 }}
+            style={s.card}
+          >
+            <Text style={s.sectionTitle}>Notas</Text>
+            <Text style={s.notesText}>{operation.notes}</Text>
+          </MotiView>
+        )}
+
+        {/* ── Acción: Subir comprobante / Expirado ── */}
+        {operation.status === 'pendiente' && (
+          <MotiView
+            from={{ opacity: 0, translateY: 10 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', delay: 300, damping: 22, stiffness: 180 }}
+            style={{ marginBottom: 12 }}
+          >
+            {isExpired(operation.created_at || '') ? (
+              <View style={s.expiredBanner}>
+                <Ionicons name="time-outline" size={20} color={RED} style={{ marginBottom: 6 }} />
+                <Text style={s.expiredText}>
+                  Esta operación ha expirado. No se pueden subir comprobantes después de 30 minutos.
+                </Text>
+              </View>
+            ) : (
+              <TouchableOpacity onPress={openModal} disabled={uploading} style={s.uploadBtn} activeOpacity={0.82}>
+                <Ionicons name="cloud-upload-outline" size={18} color="#fff" />
+                <Text style={s.uploadBtnText}>{uploading ? 'SUBIENDO...' : 'SUBIR COMPROBANTE'}</Text>
+              </TouchableOpacity>
+            )}
+          </MotiView>
+        )}
+
+        {/* ── Volver ── */}
+        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtnBottom} activeOpacity={0.82}>
+          <Text style={s.backBtnBottomText}>VOLVER</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      {/* ── Modal comprobantes ── */}
       <Modal
         visible={modalVisible}
         animationType="slide"
-        transparent={true}
+        transparent
         onRequestClose={() => setModalVisible(false)}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalContainer}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text variant="headlineSmall" style={styles.modalTitle}>
-                  Agregar Comprobantes
-                </Text>
-                <IconButton
-                  icon="close"
-                  size={24}
-                  onPress={() => setModalVisible(false)}
-                />
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <View style={s.modalOverlay}>
+            <View style={s.modalSheet}>
+              {/* Modal header */}
+              <View style={s.modalHeader}>
+                <Text style={s.modalTitle}>Agregar Comprobantes</Text>
+                <TouchableOpacity onPress={() => setModalVisible(false)} style={s.modalCloseBtn} activeOpacity={0.75}>
+                  <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
+                </TouchableOpacity>
               </View>
 
               <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
+                style={{ maxHeight: '75%' }}
+                contentContainerStyle={s.modalBody}
                 keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={true}
+                showsVerticalScrollIndicator={false}
               >
-                <View style={styles.dialogContent}>
-                {/* Información de monto total */}
-                <Card style={styles.infoCard}>
-                  <Card.Content>
-                    <Text variant="bodyMedium" style={styles.infoLabel}>
-                      Monto Total de la Operación:
-                    </Text>
-                    <Text variant="titleLarge" style={styles.infoValue}>
-                      {formatCurrency(
-                        getOperationTotal(),
-                        operation?.operation_type === 'Venta' ? 'PEN' : 'USD'
-                      )}
-                    </Text>
-                    {deposits.length > 0 && (
-                      <>
-                        <Divider style={styles.divider} />
-                        <Text variant="bodyMedium" style={styles.infoLabel}>
-                          Total Ingresado:
-                        </Text>
-                        <Text
-                          variant="titleMedium"
-                          style={[
-                            styles.infoValue,
-                            {
-                              color:
-                                Math.abs(getTotalDeposits() - getOperationTotal()) < 0.01
-                                  ? '#22c55e'
-                                  : '#F57C00',
-                            },
-                          ]}
-                        >
-                          {formatCurrency(
-                            getTotalDeposits(),
-                            operation?.operation_type === 'Venta' ? 'PEN' : 'USD'
-                          )}
-                        </Text>
-                        <Text variant="bodySmall" style={styles.infoLabel}>
-                          Faltante:{' '}
-                          {formatCurrency(
-                            getOperationTotal() - getTotalDeposits(),
-                            operation?.operation_type === 'Venta' ? 'PEN' : 'USD'
-                          )}
-                        </Text>
-                      </>
-                    )}
-                  </Card.Content>
-                </Card>
+                {/* Info monto */}
+                <View style={s.modalInfoCard}>
+                  <Text style={s.modalInfoLabel}>Monto total de la operación</Text>
+                  <Text style={s.modalInfoValue}>
+                    {formatCurrency(getOperationTotal(), operation.operation_type === 'Venta' ? 'PEN' : 'USD')}
+                  </Text>
+                  {deposits.length > 0 && (
+                    <>
+                      <View style={s.modalDivider} />
+                      <Text style={s.modalInfoLabel}>Total ingresado</Text>
+                      <Text style={[s.modalInfoValue, {
+                        color: Math.abs(getTotalDeposits() - getOperationTotal()) < 0.01 ? GREEN : AMBER,
+                      }]}>
+                        {formatCurrency(getTotalDeposits(), operation.operation_type === 'Venta' ? 'PEN' : 'USD')}
+                      </Text>
+                      <Text style={s.modalFaltante}>
+                        Faltante: {formatCurrency(
+                          getOperationTotal() - getTotalDeposits(),
+                          operation.operation_type === 'Venta' ? 'PEN' : 'USD'
+                        )}
+                      </Text>
+                    </>
+                  )}
+                </View>
 
-                {/* Lista de comprobantes agregados */}
+                {/* Lista comprobantes agregados */}
                 {deposits.length > 0 && (
-                  <View style={styles.depositsList}>
-                    <Text variant="titleMedium" style={styles.depositsTitle}>
-                      Comprobantes Agregados ({deposits.length})
-                    </Text>
-                    {deposits.map((deposit, index) => (
-                      <Card key={index} style={styles.depositCard}>
-                        <Card.Content>
-                          <View style={styles.depositRow}>
-                            <Image source={{ uri: deposit.imageUri }} style={styles.thumbnail} />
-                            <View style={styles.depositInfo}>
-                              <Text variant="bodyMedium">
-                                Importe:{' '}
-                                {formatCurrency(
-                                  parseFloat(deposit.importe),
-                                  operation?.operation_type === 'Venta' ? 'PEN' : 'USD'
-                                )}
-                              </Text>
-                              <Text variant="bodySmall">Código: {deposit.codigoOperacion}</Text>
-                            </View>
-                            <IconButton
-                              icon="delete"
-                              iconColor="#D32F2F"
-                              size={20}
-                              onPress={() => handleRemoveDeposit(index)}
-                            />
-                          </View>
-                        </Card.Content>
-                      </Card>
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={s.modalSectionTitle}>Comprobantes ({deposits.length})</Text>
+                    {deposits.map((dep, i) => (
+                      <View key={i} style={s.modalDepositCard}>
+                        <Image source={{ uri: dep.imageUri }} style={s.thumbnail} />
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text style={s.proofValue}>
+                            {formatCurrency(parseFloat(dep.importe), operation.operation_type === 'Venta' ? 'PEN' : 'USD')}
+                          </Text>
+                          <Text style={s.proofCode}>Código: {dep.codigoOperacion}</Text>
+                        </View>
+                        <TouchableOpacity onPress={() => setDeposits(ds => ds.filter((_, j) => j !== i))} activeOpacity={0.75}>
+                          <Ionicons name="trash-outline" size={20} color={RED} />
+                        </TouchableOpacity>
+                      </View>
                     ))}
                   </View>
                 )}
 
-                {/* Formulario para nuevo comprobante */}
-                <Divider style={styles.divider} />
-                <Text variant="titleMedium" style={styles.sectionTitle}>
-                  {deposits.length === 0 ? 'Agregar Comprobante' : 'Agregar Otro Comprobante'}
+                {/* Formulario */}
+                <View style={s.modalDivider} />
+                <Text style={s.modalSectionTitle}>
+                  {deposits.length === 0 ? 'Agregar comprobante' : 'Agregar otro comprobante'}
                 </Text>
 
-                {/* Seleccionar imagen */}
-                <TouchableOpacity
-                  onPress={handleSelectImage}
-                  style={styles.selectImageButton}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.selectImageButtonText}>
-                    {currentDeposit.imageUri ? 'Cambiar Imagen' : 'Seleccionar Imagen'}
+                {/* Imagen */}
+                <TouchableOpacity onPress={handleSelectImage} style={s.imagePickerBtn} activeOpacity={0.8}>
+                  <Ionicons name="image-outline" size={18} color="rgba(255,255,255,0.6)" />
+                  <Text style={s.imagePickerText}>
+                    {currentDeposit.imageUri ? 'Cambiar imagen' : 'Seleccionar imagen'}
                   </Text>
                 </TouchableOpacity>
                 {currentDeposit.imageUri && (
-                  <Image source={{ uri: currentDeposit.imageUri }} style={styles.previewImage} />
+                  <Image source={{ uri: currentDeposit.imageUri }} style={s.previewImage} />
                 )}
-                {errors.imageUri && (
-                  <HelperText type="error" visible={!!errors.imageUri}>
-                    {errors.imageUri}
-                  </HelperText>
-                )}
+                {errors.imageUri && <Text style={s.errorText}>{errors.imageUri}</Text>}
 
                 {/* Importe */}
                 <TextInput
-                  label={`Importe (${operation?.operation_type === 'Venta' ? 'S/' : '$'})`}
+                  placeholder={`Importe (${operation.operation_type === 'Venta' ? 'S/' : '$'})`}
+                  placeholderTextColor="rgba(255,255,255,0.35)"
                   value={currentDeposit.importe}
-                  onChangeText={(text) => {
-                    setCurrentDeposit({ ...currentDeposit, importe: text });
-                    setErrors({ ...errors, importe: '' });
-                  }}
+                  onChangeText={t => { setCurrentDeposit(d => ({ ...d, importe: t })); setErrors((e: any) => ({ ...e, importe: '' })); }}
                   keyboardType="decimal-pad"
-                  mode="outlined"
-                  style={styles.input}
-                  error={!!errors.importe}
+                  style={[s.modalInput, errors.importe && s.modalInputError]}
                 />
-                {errors.importe && (
-                  <HelperText type="error" visible={!!errors.importe}>
-                    {errors.importe}
-                  </HelperText>
-                )}
+                {errors.importe && <Text style={s.errorText}>{errors.importe}</Text>}
 
-                {/* Código de operación */}
+                {/* Código */}
                 <TextInput
-                  label="Código de Operación"
+                  placeholder="Código de operación"
+                  placeholderTextColor="rgba(255,255,255,0.35)"
                   value={currentDeposit.codigoOperacion}
-                  onChangeText={(text) => {
-                    setCurrentDeposit({ ...currentDeposit, codigoOperacion: text });
-                    setErrors({ ...errors, codigoOperacion: '' });
-                  }}
-                  mode="outlined"
-                  style={styles.input}
-                  error={!!errors.codigoOperacion}
+                  onChangeText={t => { setCurrentDeposit(d => ({ ...d, codigoOperacion: t })); setErrors((e: any) => ({ ...e, codigoOperacion: '' })); }}
+                  style={[s.modalInput, errors.codigoOperacion && s.modalInputError]}
                 />
-                {errors.codigoOperacion && (
-                  <HelperText type="error" visible={!!errors.codigoOperacion}>
-                    {errors.codigoOperacion}
-                  </HelperText>
-                )}
+                {errors.codigoOperacion && <Text style={s.errorText}>{errors.codigoOperacion}</Text>}
 
-                {/* Botón agregar a la lista */}
-                <TouchableOpacity
-                  onPress={handleAddDeposit}
-                  style={styles.addToListButton}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.addToListButtonText}>Agregar a la Lista</Text>
+                <TouchableOpacity onPress={handleAddDeposit} style={s.addBtn} activeOpacity={0.8}>
+                  <Ionicons name="add-circle-outline" size={16} color="#fff" />
+                  <Text style={s.addBtnText}>Agregar a la lista</Text>
                 </TouchableOpacity>
-              </View>
               </ScrollView>
 
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  onPress={() => setModalVisible(false)}
-                  style={styles.modalCancelButton}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.modalCancelButtonText}>Cancelar</Text>
+              {/* Modal actions */}
+              <View style={s.modalActions}>
+                <TouchableOpacity onPress={() => setModalVisible(false)} style={s.modalCancelBtn} activeOpacity={0.8}>
+                  <Text style={s.modalCancelText}>Cancelar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleSubmitDeposits}
                   disabled={uploading || deposits.length === 0}
-                  style={[
-                    styles.modalSubmitButton,
-                    (uploading || deposits.length === 0) && styles.modalSubmitButtonDisabled,
-                  ]}
-                  activeOpacity={0.8}
+                  style={[s.modalSubmitBtn, (uploading || deposits.length === 0) && s.modalSubmitBtnDisabled]}
+                  activeOpacity={0.82}
                 >
-                  <Text
-                    style={[
-                      styles.modalSubmitButtonText,
-                      (uploading || deposits.length === 0) && styles.modalSubmitButtonTextDisabled,
-                    ]}
-                  >
+                  <Text style={[s.modalSubmitText, (uploading || deposits.length === 0) && { color: 'rgba(255,255,255,0.35)' }]}>
                     {uploading ? 'Enviando...' : 'Enviar Comprobantes'}
                   </Text>
                 </TouchableOpacity>
@@ -777,401 +655,608 @@ export const OperationDetailScreen: React.FC<OperationDetailScreenProps> = ({
           </View>
         </KeyboardAvoidingView>
       </Modal>
-
-      {/* Boton Aceptar */}
-      <TouchableOpacity
-        style={styles.acceptButton}
-        onPress={() => navigation.goBack()}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.acceptButtonText}>ACEPTAR</Text>
-      </TouchableOpacity>
-    </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+// ─── Estilos ──────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  root:    { flex: 1 },
+  overlay: { backgroundColor: 'rgba(0,0,0,0.52)' },
+  scroll:  { flex: 1 },
+  content: { flexGrow: 1, paddingHorizontal: 18 },
+
+  // Loading / error
+  fullCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
+  loadText:   { color: 'rgba(255,255,255,0.5)', fontSize: 14 },
+
+  // Header
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 20,
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: GLASS_BG,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  headerSpacer: { width: 36 },
+
+  // Card base
+  card: {
+    backgroundColor: GLASS_BG,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    borderRadius: 22,
+    padding: 18,
+    marginBottom: 14,
   },
 
-  // Unified Card Styles
-  unifiedCard: {
-    margin: 16,
-    marginBottom: 12,
-    elevation: 3,
-    backgroundColor: '#FFFFFF',
-  },
-  unifiedHeader: {
+  // ID + status row
+  idRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    gap: 12,
   },
-  headerLeft: {
-    flex: 1,
-  },
-  idLabel: {
-    color: '#757575',
-    fontSize: 12,
+  labelXs: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.38)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
     marginBottom: 4,
   },
-  operationIdText: {
-    fontWeight: 'bold',
-    color: '#0D1B2A',
-    fontSize: 22,
+  operationId: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
     marginBottom: 4,
   },
   dateText: {
-    color: '#757575',
     fontSize: 12,
-  },
-  headerRight: {
-    marginLeft: 12,
+    color: 'rgba(255,255,255,0.42)',
   },
   statusBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-  },
-  statusBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  unifiedDivider: {
-    marginVertical: 16,
-    backgroundColor: '#E0E0E0',
-  },
-  operationTypeRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  operationTypeBadge: {
-    backgroundColor: '#22c55e',
-    paddingHorizontal: 24,
-    paddingVertical: 10,
+    gap: 5,
+    borderWidth: 1,
     borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignSelf: 'flex-start',
+    marginTop: 4,
   },
-  operationTypeText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
 
-  // Unified Amounts Inner Card
-  amountsInnerCard: {
-    backgroundColor: '#F9F9F9',
-    elevation: 0,
-    marginTop: 0,
-  },
-  amountsInnerContent: {
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-  },
-  compactRow: {
+  // Tipo + montos
+  typePillRow: { alignItems: 'center', marginBottom: 18 },
+  typePill: {
     flexDirection: 'row',
-    marginBottom: 12,
-  },
-  compactBox: {
-    flex: 1,
-    backgroundColor: '#E8E8E8',
-    borderRadius: 10,
-    padding: 12,
-    marginRight: 8,
-  },
-  compactLabel: {
-    fontSize: 11,
-    color: '#424242',
-    marginBottom: 4,
-  },
-  compactAmount: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#0D1B2A',
-  },
-  compactCurrencyBox: {
-    width: 80,
-    backgroundColor: '#0D1B2A',
-    borderRadius: 10,
-    padding: 12,
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
   },
-  compactCurrencyText: {
-    fontSize: 12,
+  typePillCompra: {
+    backgroundColor: GREEN + '15',
+    borderColor: GREEN + '40',
+  },
+  typePillVenta: {
+    backgroundColor: AMBER + '15',
+    borderColor: AMBER + '40',
+  },
+  typeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+
+  amountBlock: { marginBottom: 8 },
+  amountBlockLabel: {
+    fontSize: 10,
     fontWeight: '600',
-    color: '#FFFFFF',
-    textAlign: 'center',
+    color: 'rgba(255,255,255,0.38)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 6,
   },
-  centerExchangeRow: {
+  amountBlockInner: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    marginBottom: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+  },
+  amountValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  currencyTag: {
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  currencyTagText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: 0.2,
+  },
+
+  tcRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 10,
     gap: 8,
   },
-  centerExchangeLabel: {
-    fontSize: 13,
-    color: '#424242',
-    fontWeight: '500',
+  tcDash: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth * 2,
+    backgroundColor: GLASS_BORDER,
   },
-  centerExchangeValue: {
-    fontSize: 16,
-    color: '#0D1B2A',
-    fontWeight: 'bold',
+  tcPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: GREEN + '15',
+    borderWidth: 1,
+    borderColor: GREEN + '35',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
   },
-  card: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    elevation: 2,
-  },
-  cardTitle: {
+  tcLabel: {
+    fontSize: 10,
     fontWeight: '600',
-    marginBottom: 12,
+    color: 'rgba(255,255,255,0.5)',
+    letterSpacing: 0.5,
   },
-  divider: {
-    marginVertical: 12,
+  tcValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: GREEN,
+  },
+
+  // Section title
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.55)',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 14,
+  },
+
+  // Cuentas bancarias
+  bankRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 4,
+  },
+  bankIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  bankLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.38)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  bankName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  bankAccount: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.52)',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  bankDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: GLASS_BORDER,
+    marginVertical: 14,
+  },
+
+  // Proof rows
+  proofRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+  },
+  proofRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: GLASS_BORDER,
+  },
+  proofIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  proofLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.38)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  proofValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  proofCode: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.45)',
+    marginTop: 2,
+  },
+  downloadBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: GREEN + '18',
+    borderWidth: 1,
+    borderColor: GREEN + '35',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Operador comments
+  commentsWrap: {
+    marginTop: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12,
+    padding: 12,
   },
   commentsLabel: {
+    fontSize: 10,
     fontWeight: '600',
-    marginBottom: 8,
+    color: 'rgba(255,255,255,0.38)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
   },
-  downloadButton: {
-    marginTop: 8,
-    marginBottom: 8,
+  commentsText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.72)',
+    lineHeight: 19,
   },
-  actionsContainer: {
-    padding: 16,
+
+  // Invoice
+  invoiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 10,
   },
-  uploadButton: {
-    backgroundColor: '#22c55e',
-    borderRadius: 12,
+  pdfBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: GREEN + '40',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: GREEN + '12',
+    marginTop: 4,
+  },
+  pdfBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: GREEN,
+  },
+
+  // Notes
+  notesText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.72)',
+    lineHeight: 21,
+  },
+
+  // Actions
+  expiredBanner: {
+    backgroundColor: RED + '15',
+    borderWidth: 1,
+    borderColor: RED + '35',
+    borderRadius: 16,
+    padding: 18,
+    alignItems: 'center',
+  },
+  expiredText: {
+    fontSize: 13,
+    color: RED,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  uploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: GREEN,
+    borderRadius: 18,
+    paddingVertical: 17,
+    shadowColor: GREEN,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  uploadBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 1.2,
+  },
+  backBtnBottom: {
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    backgroundColor: GLASS_BG,
+    marginTop: 4,
   },
-  uploadButtonDisabled: {
-    backgroundColor: '#BDBDBD',
-    shadowColor: '#BDBDBD',
-  },
-  uploadButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+  backBtnBottomText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.65)',
     letterSpacing: 1,
   },
-  uploadButtonTextDisabled: {
-    color: '#757575',
-  },
-  expiredNotice: {
-    backgroundColor: '#FFEBEE',
-    padding: 16,
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#D32F2F',
-  },
-  expiredText: {
-    color: '#C62828',
-    textAlign: 'center',
-  },
-  // Modal styles
-  modalContainer: {
-    flex: 1,
-  },
+
+  // ── Modal ──────────────────────────────────────────────────────────────────
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.72)',
     justifyContent: 'flex-end',
   },
-  modalContent: {
-    backgroundColor: '#FFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
-    paddingBottom: Platform.OS === 'ios' ? 20 : 0,
+  modalSheet: {
+    backgroundColor: '#0f1f30',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: GLASS_BORDER,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+    maxHeight: '92%',
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    justifyContent: 'space-between',
+    paddingHorizontal: 22,
     paddingTop: 20,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: GLASS_BORDER,
   },
   modalTitle: {
-    fontWeight: 'bold',
-  },
-  scrollView: {
-    maxHeight: '70%',
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  dialogContent: {
-    paddingVertical: 8,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    gap: 12,
-  },
-  modalCancelButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 8,
-    backgroundColor: '#F0F0F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCancelButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#424242',
-  },
-  modalSubmitButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 8,
-    backgroundColor: '#22c55e',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalSubmitButtonDisabled: {
-    backgroundColor: '#BDBDBD',
-  },
-  modalSubmitButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
-  modalSubmitButtonTextDisabled: {
-    color: '#757575',
+  modalCloseBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  infoCard: {
-    backgroundColor: '#E3F2FD',
-    marginBottom: 16,
+  modalBody: {
+    paddingHorizontal: 22,
+    paddingTop: 18,
+    paddingBottom: 12,
   },
-  infoLabel: {
-    color: '#1976D2',
+  modalInfoCard: {
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 18,
+  },
+  modalInfoLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.45)',
     marginBottom: 4,
+    fontWeight: '500',
   },
-  infoValue: {
-    color: '#1976D2',
-    fontWeight: 'bold',
+  modalInfoValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
-  depositsList: {
-    marginTop: 16,
+  modalFaltante: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.4)',
+    marginTop: 4,
   },
-  depositsTitle: {
-    fontWeight: '600',
-    marginBottom: 8,
+  modalDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: GLASS_BORDER,
+    marginVertical: 14,
   },
-  depositCard: {
-    marginBottom: 8,
-    elevation: 1,
+  modalSectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.5)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 12,
   },
-  depositRow: {
+  modalDepositCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 8,
   },
   thumbnail: {
-    width: 60,
-    height: 60,
+    width: 52,
+    height: 52,
     borderRadius: 8,
-    marginRight: 12,
-  },
-  depositInfo: {
-    flex: 1,
-  },
-  sectionTitle: {
-    fontWeight: '600',
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  selectImageButton: {
-    backgroundColor: '#F0F0F0',
-    borderRadius: 8,
-    paddingVertical: 14,
-    marginBottom: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  selectImageButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#424242',
   },
   previewImage: {
     width: '100%',
-    height: 200,
-    borderRadius: 8,
+    height: 180,
+    borderRadius: 12,
     marginBottom: 12,
   },
-  input: {
+  imagePickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    borderRadius: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 10,
+  },
+  imagePickerText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.62)',
+  },
+  modalInput: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#FFFFFF',
     marginBottom: 8,
   },
-  addToListButton: {
-    backgroundColor: '#22c55e',
-    borderRadius: 8,
-    paddingVertical: 14,
-    marginTop: 16,
+  modalInputError: {
+    borderColor: RED + '80',
+  },
+  errorText: {
+    fontSize: 11,
+    color: RED,
+    marginBottom: 6,
+    marginLeft: 4,
+  },
+  addBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  addToListButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  acceptButton: {
-    backgroundColor: '#22c55e',
+    gap: 8,
+    backgroundColor: 'rgba(34,197,94,0.18)',
+    borderWidth: 1,
+    borderColor: GREEN + '50',
     borderRadius: 12,
-    paddingVertical: 16,
-    marginHorizontal: 16,
-    marginTop: 20,
-    marginBottom: 20,
+    paddingVertical: 13,
+    marginTop: 12,
+  },
+  addBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: GREEN,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 22,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: GLASS_BORDER,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
     alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#22c55e',
+  },
+  modalCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.6)',
+  },
+  modalSubmitBtn: {
+    flex: 2,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: GREEN,
+    alignItems: 'center',
+    shadowColor: GREEN,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  acceptButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  modalSubmitBtnDisabled: {
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  modalSubmitText: {
+    fontSize: 14,
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 1,
+    letterSpacing: 0.3,
   },
 });

@@ -18,7 +18,7 @@ const TAB_W     = SCREEN_W / TAB_COUNT;
 const PILL_W    = 62;
 const PILL_H    = 50;
 const GREEN     = '#22c55e';
-const DIM       = 'rgba(255,255,255,0.32)';
+const DIM       = 'rgba(255,255,255,0.62)';
 
 const TABS = [
   { key: 'HomeTab',    label: 'Inicio',    icon: 'home-outline'         as const, iconFocused: 'home'          as const },
@@ -47,10 +47,10 @@ export const CustomTabBar: React.FC<Props> = ({ state, navigation }) => {
 
   // Per-tab icon opacity (active = 1, inactive = 0.35)
   const ops = [
-    useRef(new Animated.Value(state.index === 0 ? 1 : 0.35)).current,
-    useRef(new Animated.Value(state.index === 1 ? 1 : 0.35)).current,
-    useRef(new Animated.Value(state.index === 2 ? 1 : 0.35)).current,
-    useRef(new Animated.Value(state.index === 3 ? 1 : 0.35)).current,
+    useRef(new Animated.Value(state.index === 0 ? 1 : 0.65)).current,
+    useRef(new Animated.Value(state.index === 1 ? 1 : 0.65)).current,
+    useRef(new Animated.Value(state.index === 2 ? 1 : 0.65)).current,
+    useRef(new Animated.Value(state.index === 3 ? 1 : 0.65)).current,
   ];
 
   useEffect(() => {
@@ -65,7 +65,7 @@ export const CustomTabBar: React.FC<Props> = ({ state, navigation }) => {
     // Fade icons
     ops.forEach((op, i) => {
       Animated.timing(op, {
-        toValue: state.index === i ? 1 : 0.35,
+        toValue: state.index === i ? 1 : 0.65,
         duration: 180,
         useNativeDriver: true,
       }).start();

@@ -554,15 +554,17 @@ class OperationService:
         return True, 'Comprobantes actualizados exitosamente', operation
     
     @staticmethod
-    def cancel_operation(current_user, operation_id, reason):
+    def cancel_operation(current_user, operation_id, reason, force_app_override=False):
         """
         Cancelar operación
-        
+
         Args:
-            current_user: Usuario que cancela
-            operation_id: ID de la operación
-            reason: Razón de cancelación
-        
+            current_user:       Usuario que cancela
+            operation_id:       ID de la operación
+            reason:             Razón de cancelación
+            force_app_override: Si True, permite cancelar ops 'En proceso' con origen 'app'
+                                (excepción para cancelación desde el panel web)
+
         Returns:
             tuple: (success: bool, message: str, operation: Operation|None)
         """
@@ -570,9 +572,14 @@ class OperationService:
         operation = db.session.get(Operation, operation_id)
         if not operation:
             return False, 'Operación no encontrada', None
-        
+
         # Validar que se puede cancelar
-        if not operation.can_be_canceled():
+        app_in_process = (
+            force_app_override
+            and operation.origen == 'app'
+            and operation.status == 'En proceso'
+        )
+        if not app_in_process and not operation.can_be_canceled():
             return False, f'No se puede cancelar una operación en estado {operation.status}', None
         
         # Cancelar

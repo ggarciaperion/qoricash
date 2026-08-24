@@ -1,9 +1,34 @@
-import React, { useEffect, useState } from 'react';
-import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { StatusBar } from 'react-native';
 import { Provider as PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import * as Notifications from 'expo-notifications';
-import { Platform, View, StyleSheet, Alert } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Platform, View, StyleSheet, Alert, Animated } from 'react-native';
+import { Asset } from 'expo-asset';
+import { useFonts } from 'expo-font';
+
+// Montserrat
+import {
+  Montserrat_600SemiBold,
+  Montserrat_700Bold,
+  Montserrat_800ExtraBold,
+} from '@expo-google-fonts/montserrat';
+
+// Inter
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from '@expo-google-fonts/inter';
+
+// Poppins
+import {
+  Poppins_400Regular,
+  Poppins_500Medium,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+} from '@expo-google-fonts/poppins';
 
 import { AuthProvider } from './src/contexts/AuthContext';
 import { LoginLoadingProvider } from './src/contexts/LoginLoadingContext';
@@ -12,7 +37,9 @@ import { SplashScreen } from './src/components/SplashScreen';
 import { Colors } from './src/constants/colors';
 import { notificationService } from './src/services/notificationService';
 
-// Custom Theme - QoriCash
+// Precarga de assets
+Asset.loadAsync([require('./assets/ddd_bg.jpg')]).catch(() => {});
+
 const theme = {
   ...MD3LightTheme,
   colors: {
@@ -30,18 +57,47 @@ const theme = {
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+  const contentOp = useRef(new Animated.Value(0)).current;
+
+  const handleSplashFinish = useCallback(() => {
+    setShowSplash(false);
+    Animated.timing(contentOp, {
+      toValue: 1,
+      duration: 480,
+      delay: 60,
+      useNativeDriver: true,
+    }).start();
+  }, [contentOp]);
+
+  const [fontsLoaded] = useFonts({
+    // Montserrat — wordmark institucional
+    Montserrat_600SemiBold,
+    Montserrat_700Bold,
+    Montserrat_800ExtraBold,
+    // Inter — UI principal (Stripe, Wise, Revolut)
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    // Poppins — alternativa moderna redondeada
+    Poppins_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+  });
 
   useEffect(() => {
-    // Configurar canal de notificaciones para Android
+    // Forzar barra de estado visible con iconos claros en todas las pantallas
+    StatusBar.setBarStyle('light-content', true);
+    if (Platform.OS === 'android') {
+      StatusBar.setBackgroundColor('transparent', true);
+      StatusBar.setTranslucent(true);
+    }
+
     notificationService.setupAndroidNotificationChannel();
 
-    // Configurar listeners de notificaciones
     const cleanup = notificationService.setupNotificationListeners(
-      // Cuando se recibe notificación (app abierta)
       (notification) => {
-        console.log('🔔 [APP] Notificación recibida:', notification);
-
-        // Mostrar alerta si es operación expirada
         if (notification.request.content.data?.type === 'operation_expired') {
           Alert.alert(
             '⏱️ Operación Expirada',
@@ -50,12 +106,8 @@ export default function App() {
           );
         }
       },
-      // Cuando se toca la notificación
       (response) => {
-        console.log('👆 [APP] Notificación tocada:', response);
         const data = response.notification.request.content.data;
-
-        // Si es notificación de operación expirada, mostrar info adicional
         if (data?.type === 'operation_expired') {
           Alert.alert(
             '⏱️ Operación Expirada',
@@ -66,30 +118,34 @@ export default function App() {
       }
     );
 
-    // Limpiar listeners al desmontar
     return cleanup;
   }, []);
 
-  // Mostrar SplashScreen primero
-  if (showSplash) {
-    return <SplashScreen onFinish={() => setShowSplash(false)} />;
-  }
-
   return (
-    <SafeAreaProvider>
-      <PaperProvider theme={theme}>
-        <View style={styles.container}>
-          <View style={styles.mobileContainer}>
-            <AuthProvider>
-              <LoginLoadingProvider>
-                <AppNavigator />
-                <StatusBar style="auto" />
-              </LoginLoadingProvider>
-            </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <PaperProvider theme={theme}>
+          <View style={styles.container}>
+            <Animated.View style={[styles.mobileContainer, { opacity: contentOp }]}>
+              <AuthProvider>
+                <LoginLoadingProvider>
+                  <AppNavigator />
+                  <StatusBar
+                    barStyle="light-content"
+                    backgroundColor="transparent"
+                    translucent
+                  />
+                </LoginLoadingProvider>
+              </AuthProvider>
+            </Animated.View>
           </View>
-        </View>
-      </PaperProvider>
-    </SafeAreaProvider>
+
+          {showSplash && (
+            <SplashScreen onFinish={handleSplashFinish} />
+          )}
+        </PaperProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

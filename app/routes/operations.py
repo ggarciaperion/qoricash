@@ -758,6 +758,67 @@ def cancel_operation(operation_id):
         }), 400
 
 
+@operations_bp.route('/api/cancel-app-override/<int:operation_id>', methods=['POST'])
+@login_required
+@require_role('Master', 'Trader', 'App', 'Web')
+def cancel_app_operation_override(operation_id):
+    """
+    Cancelar desde el panel web una operación de canal 'app' que está 'En proceso'.
+    Excepción especial: normalmente solo se pueden cancelar operaciones 'Pendiente'.
+    El motivo se envía al cliente en tiempo real vía Socket.IO.
+    """
+    data   = request.get_json()
+    reason = (data.get('reason') or '').strip()
+
+    if not reason:
+        return jsonify({'success': False, 'message': 'La razón de cancelación es requerida'}), 400
+
+    success, message, operation = OperationService.cancel_operation(
+        current_user=current_user,
+        operation_id=operation_id,
+        reason=reason,
+        force_app_override=True,
+    )
+
+    if not success:
+        return jsonify({'success': False, 'message': message}), 400
+
+    # Notificar al cliente móvil en tiempo real
+    NotificationService.notify_operation_canceled_to_mobile_client(operation, reason)
+
+    # Notificaciones estándar al equipo
+    NotificationService.notify_operation_canceled(operation, reason)
+    NotificationService.notify_dashboard_update()
+    NotificationService.notify_position_update()
+
+    # Correo de cancelación
+    try:
+        from app.services.email_service import EmailService
+        EmailService.send_canceled_operation_email(operation, reason)
+    except Exception as e:
+        logger.warning(f'Error al enviar email de cancelación app-override: {e}')
+
+    # WhatsApp
+    try:
+        from app.services.wa_bot import wa_notify_client_buttons
+        titular = operation.client.full_name if operation.client else operation.operation_id
+        wa_notify_client_buttons(
+            operation.client,
+            f'❌ Tu operación *{operation.operation_id}* a nombre de *{titular}* ha sido cancelada.\n\n'
+            f'*Motivo:* {reason}\n\n'
+            f'Si tienes alguna consulta puedes hablar con un asesor.',
+            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+        )
+    except Exception as e_wa:
+        logger.warning(f'Error WA cancel app-override {operation.operation_id}: {e_wa}')
+
+    return jsonify({
+        'success': True,
+        'message': message,
+        'operation': operation.to_dict(include_relations=True),
+    })
+
+
 @operations_bp.route('/api/<string:operation_id>')
 @login_required
 def get_operation(operation_id):

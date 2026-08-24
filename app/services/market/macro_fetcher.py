@@ -296,7 +296,7 @@ def fetch_macro_data() -> list[dict]:
     # ── 3. BCRP — TC oficial ─────────────────────────────────────────────────
     bcrp = _fetch_bcrp()
     _add('bcrp_tc_sell', 'TC Oficial BCRP (Venta)',
-         bcrp.get('tc_sell'), bcrp.get('tc_sell_prev'), 'S/',
+         bcrp.get('tc_sell'), bcrp.get('tc_sell_prev'), '',
          bcrp.get('tc_sell_period', ''), 'BCRP',
          'TC interbancario venta — dato diario BCRP')
 

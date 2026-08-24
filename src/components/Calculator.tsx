@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
+import { Ionicons } from '@expo/vector-icons';
 import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
@@ -356,8 +357,8 @@ export const Calculator: React.FC<CalculatorProps> = ({
       {Platform.OS === 'ios' && (
         <InputAccessoryView nativeID={INPUT_ACCESSORY_ID}>
           <View style={styles.keyboardAccessory}>
-            <TouchableOpacity onPress={() => Keyboard.dismiss()} style={styles.keyboardKey} activeOpacity={0.6}>
-              <Text style={styles.keyboardKeyIcon}>⌄</Text>
+            <TouchableOpacity onPress={() => Keyboard.dismiss()} style={styles.keyboardKey} activeOpacity={0.5}>
+              <Ionicons name="chevron-down" size={20} color="#000000" />
             </TouchableOpacity>
           </View>
         </InputAccessoryView>
@@ -572,26 +573,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#CDD0D6',
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    paddingHorizontal: 6,
-    paddingVertical: 8,
+    alignItems: 'center',
+    paddingHorizontal: 3,
+    paddingVertical: 5,
+    // Sin borde superior — el separador lo pone el OS y no se puede quitar,
+    // pero eliminando padding extra se reduce el "gap" visual
   },
   keyboardKey: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#ADB5BD',   // color de teclas modificadoras iOS (shift/delete)
     borderRadius: 5,
-    width: 42,
+    paddingHorizontal: 18,
     height: 42,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.32,
     shadowRadius: 0,
     elevation: 2,
   },
   keyboardKeyIcon: {
-    fontSize: 22,
+    fontSize: 19,
     color: '#000000',
-    lineHeight: 26,
+    lineHeight: 22,
+    fontWeight: '600',
   },
 
   /* ── Light mode overrides ── */

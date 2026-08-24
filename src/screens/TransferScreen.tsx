@@ -1,53 +1,52 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   Alert,
   Linking,
-  ActivityIndicator,
-  SafeAreaView,
   Image,
-  StatusBar,
   Modal,
   KeyboardAvoidingView,
   Platform,
   Animated,
   Easing,
-} from 'react-native';
-import {
-  Text,
-  Card,
-  Divider,
+  ImageBackground,
   TextInput,
-  Button,
-  IconButton,
-} from 'react-native-paper';
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MotiView } from 'moti';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { Operation } from '../types';
-import { Colors } from '../constants/colors';
-import { QORICASH_ACCOUNTS } from '../constants/config';
+import { QORICASH_ACCOUNTS, API_CONFIG } from '../constants/config';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
 import apiClient from '../api/client';
-import { GlobalStyles } from '../styles/globalStyles';
 import socketService from '../services/socketService';
 import { logger } from '../utils/logger';
 
 const LOCAL_OPERATIONS_CACHE_KEY = '@qoricash_local_operations_cache';
 
 const BANK_LOGOS: Record<string, any> = {
-  'BCP': require('../../assets/banks/bcp.png'),
-  'INTERBANK': require('../../assets/banks/interbank.png'),
-  'BANBIF': require('../../assets/banks/banbif.png'),
-  'BBVA': require('../../assets/banks/bbva.png'),
+  'BCP':        require('../../assets/banks/bcp.png'),
+  'INTERBANK':  require('../../assets/banks/interbank.png'),
+  'BANBIF':     require('../../assets/banks/banbif.png'),
+  'BBVA':       require('../../assets/banks/bbva.png'),
   'Scotiabank': require('../../assets/banks/scotiabank.png'),
   'SCOTIABANK': require('../../assets/banks/scotiabank.png'),
-  'PICHINCHA': require('../../assets/banks/pichincha.png'),
+  'PICHINCHA':  require('../../assets/banks/pichincha.png'),
 };
-// Tiempo de expiración: 15 minutos
+
 const OPERATION_TIMEOUT_MINUTES = 15;
+
+const GREEN  = '#22c55e';
+const GLASS  = 'rgba(255,255,255,0.08)';
+const BORDER = 'rgba(255,255,255,0.14)';
+const DIM    = 'rgba(255,255,255,0.5)';
+const SHEET  = '#0b1929';
 
 interface TransferScreenProps {
   navigation: any;
@@ -60,75 +59,68 @@ interface TransferScreenProps {
 
 export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, route }) => {
   const { operation } = route.params;
-  const [timeRemaining, setTimeRemaining] = useState('');
-  const [isExpired, setIsExpired] = useState(false);
+  const insets = useSafeAreaInsets();
+
+  const [timeRemaining, setTimeRemaining]   = useState('');
+  const [isExpired, setIsExpired]           = useState(false);
+
   const [transferCodeModalVisible, setTransferCodeModalVisible] = useState(false);
-  const [transferCode, setTransferCode] = useState('');
+  const [transferCode, setTransferCode]     = useState('');
   const [submitAnimPhase, setSubmitAnimPhase] = useState<'idle' | 'loading' | 'done'>('idle');
-  const submitSpinAnim = useRef(new Animated.Value(0)).current;
-  const submitCheckScale = useRef(new Animated.Value(0)).current;
+  const submitSpinAnim    = useRef(new Animated.Value(0)).current;
+  const submitCheckScale  = useRef(new Animated.Value(0)).current;
   const submitCheckOpacity = useRef(new Animated.Value(0)).current;
+
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
-  const [cancelReason, setCancelReason] = useState('');
-  const [canceling, setCanceling] = useState(false);
+  const [cancelReason, setCancelReason]     = useState('');
+  const [canceling, setCanceling]           = useState(false);
   const [cancelAnimPhase, setCancelAnimPhase] = useState<'idle' | 'loading' | 'done'>('idle');
-  const cancelSpinAnim = useRef(new Animated.Value(0)).current;
-  const cancelCheckScale = useRef(new Animated.Value(0)).current;
+  const cancelSpinAnim    = useRef(new Animated.Value(0)).current;
+  const cancelCheckScale  = useRef(new Animated.Value(0)).current;
   const cancelCheckOpacity = useRef(new Animated.Value(0)).current;
 
+  // ── Timer countdown ──────────────────────────────────────────────────────────
   useEffect(() => {
     const timer = setInterval(() => {
-      const createdDate = new Date(operation.created_at);
+      const createdDate    = new Date(operation.created_at);
       const expirationDate = new Date(createdDate.getTime() + OPERATION_TIMEOUT_MINUTES * 60000);
-      const now = new Date();
-      const diffMs = expirationDate.getTime() - now.getTime();
+      const now            = new Date();
+      const diffMs         = expirationDate.getTime() - now.getTime();
 
       if (diffMs <= 0) {
         setTimeRemaining('0:00');
-
-        // Marcar como expirada solo una vez
         if (!isExpired) {
           setIsExpired(true);
           clearInterval(timer);
-
-          // Mostrar alerta y redirigir
           Alert.alert(
             '⏱️ Tiempo Expirado',
             `La operación ${operation.operation_id} ha sido cancelada porque se agotó el tiempo para subir el comprobante.\n\nPuedes crear una nueva operación desde el inicio.`,
-            [
-              {
-                text: 'Entendido',
-                onPress: async () => {
-                  // Cancelar operación en backend inmediatamente
-                  logger.info('TransferScreen', '⏱️ Timer expirado - Cancelando operación en backend');
-                  try {
-                    const response = await axios.post(
-                      `${API_CONFIG.BASE_URL}/api/client/cancel-expired-operation/${operation.id}`,
-                      {},
-                      { timeout: 5000 }
-                    );
-
-                    if (response.data.success) {
-                      logger.info('TransferScreen', '✅ Operación cancelada exitosamente en backend');
-                    } else {
-                      logger.warn('TransferScreen', `⚠️ Respuesta del backend: ${response.data.message}`);
-                    }
-                  } catch (error) {
-                    logger.error('TransferScreen', '❌ Error cancelando operación en backend', error);
+            [{
+              text: 'Entendido',
+              onPress: async () => {
+                logger.info('TransferScreen', '⏱️ Timer expirado - Cancelando operación en backend');
+                try {
+                  const response = await axios.post(
+                    `${API_CONFIG.BASE_URL}/api/client/cancel-expired-operation/${operation.id}`,
+                    {},
+                    { timeout: 5000 }
+                  );
+                  if (response.data.success) {
+                    logger.info('TransferScreen', '✅ Operación cancelada exitosamente en backend');
+                  } else {
+                    logger.warn('TransferScreen', `⚠️ Respuesta del backend: ${response.data.message}`);
                   }
-
-                  logger.info('TransferScreen', '🗑️ Limpiando caché local antes de redirigir');
-                  try {
-                    await AsyncStorage.removeItem(LOCAL_OPERATIONS_CACHE_KEY);
-                    logger.info('TransferScreen', '✅ Caché limpiado exitosamente');
-                  } catch (error) {
-                    logger.error('TransferScreen', '❌ Error limpiando caché', error);
-                  }
-                  logger.info('TransferScreen', '🔄 Redirigiendo a HistoryTab por expiración local');
-                  navigation.replace('Tabs', { screen: 'HistoryTab', params: { initialTab: 'completed' } });
+                } catch (error) {
+                  logger.error('TransferScreen', '❌ Error cancelando operación en backend', error);
                 }
-              }
-            ],
+                try {
+                  await AsyncStorage.removeItem(LOCAL_OPERATIONS_CACHE_KEY);
+                } catch (error) {
+                  logger.error('TransferScreen', '❌ Error limpiando caché', error);
+                }
+                navigation.replace('Tabs', { screen: 'HistoryTab', params: { initialTab: 'completed' } });
+              },
+            }],
             { cancelable: false }
           );
         }
@@ -137,124 +129,66 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
 
       const minutes = Math.floor(diffMs / 60000);
       const seconds = Math.floor((diffMs % 60000) / 1000);
-
       setTimeRemaining(`${minutes}:${seconds.toString().padStart(2, '0')}`);
     }, 1000);
 
     return () => clearInterval(timer);
   }, [operation.created_at, isExpired, navigation]);
 
-  // Escuchar evento de operación expirada vía Socket.IO
+  // ── Socket.IO — operation_expired ─────────────────────────────────────────
   useEffect(() => {
-    logger.info('TransferScreen', '🎬 Iniciando useEffect de operation_expired', {
-      operation_id: operation.operation_id,
-      operation_status: operation.status,
-    });
-
     const handleOperationExpired = (data: any) => {
-      logger.info('TransferScreen', '📡 Evento operation_expired recibido', data);
-
       if (data.operation_id === operation.operation_id) {
-        logger.warn('TransferScreen', '⏱️ La operación actual ha expirado, mostrando alerta', {
-          operation_id: operation.operation_id,
-        });
-
         Alert.alert(
           '⏱️ Tiempo Expirado',
           `La operación ${data.operation_id} ha sido cancelada porque se agotó el tiempo para subir el comprobante.\n\nPuedes crear una nueva operación desde el inicio.`,
-          [
-            {
-              text: 'Entendido',
-              onPress: async () => {
-                logger.info('TransferScreen', '🗑️ Limpiando caché local antes de redirigir');
-                try {
-                  await AsyncStorage.removeItem(LOCAL_OPERATIONS_CACHE_KEY);
-                  logger.info('TransferScreen', '✅ Caché limpiado exitosamente');
-                } catch (error) {
-                  logger.error('TransferScreen', '❌ Error limpiando caché', error);
-                }
-                logger.info('TransferScreen', '🔄 Redirigiendo a HistoryTab');
-                navigation.replace('Tabs', { screen: 'HistoryTab', params: { initialTab: 'completed' } });
-              }
-            }
-          ],
+          [{
+            text: 'Entendido',
+            onPress: async () => {
+              try { await AsyncStorage.removeItem(LOCAL_OPERATIONS_CACHE_KEY); } catch {}
+              navigation.replace('Tabs', { screen: 'HistoryTab', params: { initialTab: 'completed' } });
+            },
+          }],
           { cancelable: false }
         );
-      } else {
-        logger.debug('TransferScreen', '⏭️ Operación expirada no es la actual, ignorando', {
-          received_operation_id: data.operation_id,
-          current_operation_id: operation.operation_id,
-        });
       }
     };
 
-    // Verificar conexión Socket.IO
-    const isConnected = socketService.isConnected();
-    logger.info('TransferScreen', `📡 Estado Socket.IO: ${isConnected ? 'Conectado' : 'Desconectado'}`);
-
-    if (!isConnected) {
-      logger.warn('TransferScreen', '⚠️ Socket.IO no está conectado, los eventos pueden no llegar');
-    }
-
-    // Registrar listener
-    logger.info('TransferScreen', '📝 Registrando listener para operation_expired');
     socketService.on('operation_expired', handleOperationExpired);
-
-    // Cleanup al desmontar componente
-    return () => {
-      logger.info('TransferScreen', '🧹 Removiendo listener para operation_expired');
-      socketService.off('operation_expired', handleOperationExpired);
-    };
+    return () => socketService.off('operation_expired', handleOperationExpired);
   }, [operation.operation_id, navigation]);
 
+  // ── Account helper ────────────────────────────────────────────────────────
   const getQoriCashAccount = () => {
-    // Determinar moneda según tipo de operación
-    const currency = operation.operation_type === 'Compra' ? 'USD' : 'PEN';
-
-    // Extraer banco de la cuenta del cliente
+    const currency   = operation.operation_type === 'Compra' ? 'USD' : 'PEN';
     const sourceBank = operation.source_bank_name?.toUpperCase() || '';
 
-    // Mapeo de bancos
     const bankMapping: { [key: string]: keyof typeof QORICASH_ACCOUNTS.USD } = {
-      'BCP': 'BCP',
-      'BANCO DE CREDITO': 'BCP',
-      'BANCO DE CREDITO DEL PERU': 'BCP',
-      'INTERBANK': 'INTERBANK',
-      'PICHINCHA': 'PICHINCHA',
-      'BANCO PICHINCHA': 'PICHINCHA',
-      'BANBIF': 'BANBIF',
-      'BANCO BANBIF': 'BANBIF',
+      'BCP':                          'BCP',
+      'BANCO DE CREDITO':             'BCP',
+      'BANCO DE CREDITO DEL PERU':    'BCP',
+      'INTERBANK':                    'INTERBANK',
+      'PICHINCHA':                    'PICHINCHA',
+      'BANCO PICHINCHA':              'PICHINCHA',
+      'BANBIF':                       'BANBIF',
+      'BANCO BANBIF':                 'BANBIF',
     };
 
-    // Buscar si el banco del cliente está en nuestra lista de bancos preferidos
     let qoriBank: keyof typeof QORICASH_ACCOUNTS.USD | null = null;
-
     for (const [key, value] of Object.entries(bankMapping)) {
-      if (sourceBank.includes(key)) {
-        qoriBank = value;
-        break;
-      }
+      if (sourceBank.includes(key)) { qoriBank = value; break; }
     }
 
-    // Si el banco está en la lista, usar cuenta del mismo banco
-    // Si no, usar CCI de Interbank
     const accounts = QORICASH_ACCOUNTS[currency as keyof typeof QORICASH_ACCOUNTS];
-
     if (qoriBank && accounts[qoriBank]) {
-      return {
-        ...accounts[qoriBank],
-        use_cci: false,
-      };
-    } else {
-      return {
-        ...accounts.INTERBANK,
-        use_cci: true,
-      };
+      return { ...accounts[qoriBank], use_cci: false };
     }
+    return { ...accounts.INTERBANK, use_cci: true };
   };
 
   const qoriAccount = getQoriCashAccount();
 
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleYaTransferi = () => {
     if (isExpired) {
       Alert.alert(
@@ -270,33 +204,25 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
   const handleSubmitTransferCode = async () => {
     if (!transferCode.trim()) return;
 
-    // Fase 1: spinner
     setSubmitAnimPhase('loading');
     submitSpinAnim.setValue(0);
     submitCheckScale.setValue(0);
     submitCheckOpacity.setValue(0);
+
     Animated.loop(
-      Animated.timing(submitSpinAnim, {
-        toValue: 1,
-        duration: 800,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
+      Animated.timing(submitSpinAnim, { toValue: 1, duration: 800, easing: Easing.linear, useNativeDriver: true })
     ).start();
 
     try {
       await Promise.all([
-        apiClient.post(`/api/client/submit-transfer-code/${operation.id}`, {
-          codigo_operacion: transferCode.trim(),
-        }),
+        apiClient.post(`/api/client/submit-transfer-code/${operation.id}`, { codigo_operacion: transferCode.trim() }),
         new Promise(resolve => setTimeout(resolve, 1600)),
       ]);
 
-      // Fase 2: check verde
       submitSpinAnim.stopAnimation();
       setSubmitAnimPhase('done');
       Animated.parallel([
-        Animated.spring(submitCheckScale, { toValue: 1, useNativeDriver: true }),
+        Animated.spring(submitCheckScale,   { toValue: 1, useNativeDriver: true }),
         Animated.timing(submitCheckOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
       ]).start();
 
@@ -317,36 +243,28 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
   const handleCancelOperation = async () => {
     if (!cancelReason.trim()) return;
 
-    // Fase 1: spinner girando
     setCancelAnimPhase('loading');
     setCanceling(true);
     cancelSpinAnim.setValue(0);
     cancelCheckScale.setValue(0);
     cancelCheckOpacity.setValue(0);
+
     Animated.loop(
-      Animated.timing(cancelSpinAnim, {
-        toValue: 1,
-        duration: 800,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
+      Animated.timing(cancelSpinAnim, { toValue: 1, duration: 800, easing: Easing.linear, useNativeDriver: true })
     ).start();
 
     try {
-      const [response] = await Promise.all([
-        apiClient.post(`/api/client/cancel-operation/${operation.id}`, {
-          cancellation_reason: cancelReason.trim(),
-        }),
+      await Promise.all([
+        apiClient.post(`/api/client/cancel-operation/${operation.id}`, { cancellation_reason: cancelReason.trim() }),
         new Promise(resolve => setTimeout(resolve, 1500)),
       ]);
 
       await AsyncStorage.removeItem(LOCAL_OPERATIONS_CACHE_KEY);
 
-      // Fase 2: check verde
       cancelSpinAnim.stopAnimation();
       setCancelAnimPhase('done');
       Animated.parallel([
-        Animated.spring(cancelCheckScale, { toValue: 1, useNativeDriver: true }),
+        Animated.spring(cancelCheckScale,   { toValue: 1, useNativeDriver: true }),
         Animated.timing(cancelCheckOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
       ]).start();
 
@@ -368,312 +286,355 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
 
   const handleOpenWhatsApp = () => {
     const phoneNumber = '51910624404';
-    const message = `Hola, quiero enviar mi comprobante para la operación ${operation.operation_id}`;
-    const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
-
-    Linking.openURL(url).catch(() => {
-      Alert.alert('Error', 'No se pudo abrir WhatsApp');
-    });
+    const message     = `Hola, quiero enviar mi comprobante para la operación ${operation.operation_id}`;
+    const url         = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+    Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir WhatsApp'));
   };
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#22c55e" />
+    <View style={s.root}>
+      <ImageBackground
+        source={require('../../assets/cd.png')}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+      />
+      <View style={[StyleSheet.absoluteFill, s.overlay]} />
 
-      {/* Header — idéntico al paso 1 */}
-      <View style={styles.transferHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.transferBackBtn} activeOpacity={0.7}>
-          <Text style={styles.transferBackArrow}>‹</Text>
+      {/* ── Header ── */}
+      <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} activeOpacity={0.7}>
+          <View style={s.backBtnInner}>
+            <Ionicons name="chevron-back" size={20} color="#fff" />
+          </View>
         </TouchableOpacity>
-        <View style={styles.transferHeaderCenter}>
+        <View style={s.headerCenter}>
           <Image
-            source={require('../../assets/logo-principal.png')}
-            style={styles.transferHeaderLogo}
+            source={require('../../assets/vv.png')}
+            style={s.headerLogo}
             resizeMode="contain"
-            tintColor="#fff"
           />
-          <Text style={styles.transferHeaderBrand}>Qoricash</Text>
         </View>
-        <View style={styles.transferBackBtn} />
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.container}>
-      {/* Timeline Stepper */}
-      <View style={styles.timelineContainer}>
-        <View style={styles.timelineStep}>
-          <View style={[styles.timelineCircle, styles.timelineCircleCompleted]}>
-            <IconButton icon="check" size={16} iconColor="#FFFFFF" />
+      <ScrollView
+        style={s.scroll}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 90 }}
+        showsVerticalScrollIndicator={false}
+      >
+
+        {/* ── Timeline Stepper ── */}
+        <MotiView
+          from={{ opacity: 0, translateY: -10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 400, delay: 0 }}
+        >
+          <View style={s.timeline}>
+            {/* Paso 1 — completado */}
+            <View style={s.step}>
+              <View style={[s.stepDot, s.stepDotDone]}>
+                <Ionicons name="checkmark" size={13} color="#fff" />
+              </View>
+              <Text style={[s.stepLabel, s.stepLabelDone]}>Cuentas</Text>
+            </View>
+
+            <View style={[s.stepLine, s.stepLineDone]} />
+
+            {/* Paso 2 — activo */}
+            <View style={s.step}>
+              <View style={[s.stepDot, s.stepDotActive]}>
+                <Ionicons name="swap-horizontal" size={13} color="#fff" />
+              </View>
+              <Text style={[s.stepLabel, s.stepLabelActive]}>Transfiere</Text>
+            </View>
+
+            <View style={s.stepLine} />
+
+            {/* Paso 3 — pendiente */}
+            <View style={s.step}>
+              <View style={s.stepDot}>
+                <Ionicons name="checkmark-circle-outline" size={13} color={DIM} />
+              </View>
+              <Text style={s.stepLabel}>Recibe</Text>
+            </View>
           </View>
-          <Text style={styles.timelineText}>Cuentas</Text>
-        </View>
+        </MotiView>
 
-        <View style={[styles.timelineLine, styles.timelineLineCompleted]} />
-
-        <View style={styles.timelineStep}>
-          <View style={[styles.timelineCircle, styles.timelineCircleActive]}>
-            <IconButton icon="bank-transfer" size={16} iconColor="#FFFFFF" />
-          </View>
-          <Text style={[styles.timelineText, styles.timelineTextActive]}>Transfiere</Text>
-        </View>
-
-        <View style={styles.timelineLine} />
-
-        <View style={styles.timelineStep}>
-          <View style={styles.timelineCircle}>
-            <IconButton icon="check-circle-outline" size={16} iconColor="#999999" />
-          </View>
-          <Text style={styles.timelineText}>Recibe</Text>
-        </View>
-      </View>
-
-      {/* Operation Summary Card */}
-      <Card style={styles.summaryCard}>
-        <Card.Content>
-          <View style={styles.summaryHeader}>
+        {/* ── Resumen de operación ── */}
+        <MotiView
+          from={{ opacity: 0, translateY: 22 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 400, delay: 80 }}
+          style={s.card}
+        >
+          {/* ID + timer */}
+          <View style={s.cardTopRow}>
             <View>
-              <Text variant="labelSmall" style={styles.summaryLabel}>
-                ID de Operación
-              </Text>
-              <Text variant="titleMedium" style={styles.summaryValue}>
-                {operation.operation_id}
-              </Text>
+              <Text style={s.cardMeta}>ID de Operación</Text>
+              <Text style={s.cardOpId}>{operation.operation_id}</Text>
             </View>
-            <View style={styles.timerContainer}>
-              <IconButton icon="clock-outline" size={20} iconColor="#F44336" />
-              <Text style={styles.timerText}>{timeRemaining}</Text>
+            <View style={[s.timerPill, isExpired && s.timerPillExpired]}>
+              <Ionicons name="time-outline" size={13} color={isExpired ? '#ef4444' : '#fbbf24'} />
+              <Text style={[s.timerText, isExpired && s.timerTextExpired]}>
+                {isExpired ? 'Expirado' : timeRemaining}
+              </Text>
             </View>
           </View>
 
-          <Divider style={styles.summaryDivider} />
+          <View style={s.hairline} />
 
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Tipo de operación</Text>
-              <Text style={styles.summaryValue}>{operation.operation_type}</Text>
+          {/* Meta */}
+          <View style={s.metaRow}>
+            <View style={s.metaItem}>
+              <Text style={s.metaLabel}>Tipo</Text>
+              <Text style={s.metaValue}>{operation.operation_type}</Text>
             </View>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Fecha y hora</Text>
-              <Text style={styles.summaryValue}>{formatDateTime(operation.created_at)}</Text>
+            <View style={s.metaItem}>
+              <Text style={s.metaLabel}>Fecha</Text>
+              <Text style={s.metaValue}>{formatDateTime(operation.created_at)}</Text>
             </View>
           </View>
 
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryBox}>
-              <Text style={styles.summaryLabel}>Envías</Text>
-              <Text style={styles.summaryAmount}>
+          <View style={s.hairline} />
+
+          {/* Montos */}
+          <View style={s.amountsRow}>
+            <View style={s.amountBlock}>
+              <Text style={s.amountLabel}>Envías</Text>
+              <Text style={s.amountValue}>
                 {operation.operation_type === 'Compra'
                   ? formatCurrency(operation.amount_usd, 'USD')
-                  : formatCurrency(operation.amount_pen, 'PEN')
-                }
+                  : formatCurrency(operation.amount_pen, 'PEN')}
               </Text>
             </View>
-            <View style={styles.summaryBox}>
-              <Text style={styles.summaryLabel}>Tipo de cambio</Text>
-              <Text style={styles.summaryAmount}>{operation.exchange_rate.toFixed(3)}</Text>
+
+            <View style={s.tcPill}>
+              <Ionicons name="swap-horizontal" size={11} color={DIM} />
+              <Text style={s.tcPillText}>{operation.exchange_rate.toFixed(3)}</Text>
             </View>
-            <View style={styles.summaryBox}>
-              <Text style={styles.summaryLabel}>Recibes</Text>
-              <Text style={styles.summaryAmount}>
+
+            <View style={s.amountBlock}>
+              <Text style={s.amountLabel}>Recibes</Text>
+              <Text style={[s.amountValue, { color: GREEN }]}>
                 {operation.operation_type === 'Compra'
                   ? formatCurrency(operation.amount_pen, 'PEN')
-                  : formatCurrency(operation.amount_usd, 'USD')
-                }
+                  : formatCurrency(operation.amount_usd, 'USD')}
               </Text>
             </View>
           </View>
-        </Card.Content>
-      </Card>
+        </MotiView>
 
-      {/* Transfer Details Card */}
-      <Card style={styles.transferCard}>
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.transferTitle}>
-            Transfiere a:
-          </Text>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Titular:</Text>
-            <Text style={styles.detailValue}>Qoricash SAC</Text>
+        {/* ── Datos de transferencia ── */}
+        <MotiView
+          from={{ opacity: 0, translateY: 22 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 400, delay: 160 }}
+          style={s.card}
+        >
+          {/* Cabecera */}
+          <View style={s.transferToHeader}>
+            <View style={s.transferToIcon}>
+              <Ionicons name="business-outline" size={18} color={GREEN} />
+            </View>
+            <View>
+              <Text style={s.cardMeta}>Transferir a</Text>
+              <Text style={s.transferToName}>Qoricash SAC</Text>
+            </View>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Banco:</Text>
+          <View style={s.hairline} />
+
+          {/* Banco */}
+          <View style={s.detailRow}>
+            <Text style={s.detailLabel}>Banco</Text>
             {BANK_LOGOS[qoriAccount.bank_name] ? (
-              <View style={styles.bankLogoDetailWrapper}>
-                <Image
-                  source={BANK_LOGOS[qoriAccount.bank_name]}
-                  style={styles.bankLogoDetail}
-                  resizeMode="contain"
-                />
-              </View>
+              <Image
+                source={BANK_LOGOS[qoriAccount.bank_name]}
+                style={s.bankLogo}
+                resizeMode="contain"
+              />
             ) : (
-              <Text style={styles.detailValue}>{qoriAccount.bank_name}</Text>
+              <Text style={s.detailValue}>{qoriAccount.bank_name}</Text>
             )}
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Tipo de cuenta:</Text>
-            <Text style={styles.detailValue}>{qoriAccount.account_type}</Text>
+          <View style={s.detailRow}>
+            <Text style={s.detailLabel}>Tipo de cuenta</Text>
+            <Text style={s.detailValue}>{qoriAccount.account_type}</Text>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>
-              {qoriAccount.use_cci ? 'CCI:' : 'Número de cuenta:'}
-            </Text>
-            <View style={styles.accountNumberContainer}>
-              <Text style={styles.accountNumber}>
+          <View style={s.detailRow}>
+            <Text style={s.detailLabel}>{qoriAccount.use_cci ? 'CCI' : 'N° cuenta'}</Text>
+            <View style={s.accountRow}>
+              <Text style={s.accountNumber}>
                 {qoriAccount.use_cci ? qoriAccount.cci : qoriAccount.account_number}
               </Text>
-              <IconButton
-                icon="content-copy"
-                size={20}
-                onPress={() => {
-                  // Aquí iría lógica para copiar al portapapeles
-                  Alert.alert('Copiado', 'Número de cuenta copiado al portapapeles');
-                }}
-              />
+              <TouchableOpacity
+                style={s.copyBtn}
+                activeOpacity={0.7}
+                onPress={() => Alert.alert('Copiado', 'Número de cuenta copiado al portapapeles')}
+              >
+                <Ionicons name="copy-outline" size={15} color={DIM} />
+              </TouchableOpacity>
             </View>
           </View>
 
           {qoriAccount.use_cci && (
-            <View style={styles.infoBox}>
-              <IconButton icon="information-outline" size={20} iconColor="#2196F3" />
-              <Text style={styles.infoText}>
+            <View style={s.infoBanner}>
+              <Ionicons name="information-circle-outline" size={15} color="#60a5fa" />
+              <Text style={s.infoBannerText}>
                 Para transferencias desde otros bancos, usa el CCI de Interbank
               </Text>
             </View>
           )}
 
-          <View style={styles.importantNote}>
-            <IconButton icon="information" size={20} iconColor="#2196F3" />
-            <Text style={styles.importantNoteText}>
-              Guarda el número de tu operación, lo usaremos en el siguiente paso
+          <View style={s.noteBanner}>
+            <Ionicons name="bookmark-outline" size={15} color="#fbbf24" />
+            <Text style={s.noteBannerText}>
+              Guarda el número de tu operación, lo necesitarás en el siguiente paso
             </Text>
           </View>
-        </Card.Content>
-      </Card>
+        </MotiView>
 
-      {/* Upload Button */}
-      <TouchableOpacity
-        style={[styles.uploadButton, isExpired && styles.uploadButtonDisabled]}
-        onPress={handleYaTransferi}
-        activeOpacity={0.8}
-        disabled={isExpired}
-      >
-        <Text style={styles.uploadButtonText}>
-          {isExpired ? 'OPERACIÓN EXPIRADA' : 'YA TRANSFERÍ'}
-        </Text>
-      </TouchableOpacity>
+        {/* ── Botones de acción ── */}
+        <MotiView
+          from={{ opacity: 0, translateY: 22 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 400, delay: 240 }}
+          style={s.actionsWrap}
+        >
+          <TouchableOpacity
+            style={[s.primaryBtn, isExpired && s.primaryBtnDisabled]}
+            onPress={handleYaTransferi}
+            activeOpacity={0.8}
+            disabled={isExpired}
+          >
+            <Ionicons
+              name={isExpired ? 'time-outline' : 'checkmark-circle-outline'}
+              size={20}
+              color="#fff"
+            />
+            <Text style={s.primaryBtnText}>
+              {isExpired ? 'OPERACIÓN EXPIRADA' : 'YA TRANSFERÍ'}
+            </Text>
+          </TouchableOpacity>
 
-      {/* Transfer Code Modal */}
+          <TouchableOpacity
+            style={s.dangerBtn}
+            onPress={() => setCancelModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={s.dangerBtnText}>CANCELAR OPERACIÓN</Text>
+          </TouchableOpacity>
+        </MotiView>
+
+      </ScrollView>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          MODAL — Código de transferencia
+      ═══════════════════════════════════════════════════════════════════════ */}
       <Modal
         visible={transferCodeModalVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => { if (submitAnimPhase === 'idle') { setTransferCodeModalVisible(false); setTransferCode(''); } }}
+        onRequestClose={() => {
+          if (submitAnimPhase === 'idle') { setTransferCodeModalVisible(false); setTransferCode(''); }
+        }}
       >
         <KeyboardAvoidingView
-          style={styles.cancelModalOverlay}
+          style={s.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.cancelModalBox}>
-            {/* Header verde */}
-            <View style={[styles.cancelModalHeader, { backgroundColor: '#22c55e' }]}>
-              <View style={styles.cancelModalIconCircle}>
-                <IconButton icon="bank-transfer" size={26} iconColor="#fff" style={{ margin: 0 }} />
+          <View style={s.modalSheet}>
+            <View style={s.modalHandle} />
+
+            {/* Header */}
+            <View style={s.modalHeader}>
+              <View style={s.modalIconWrap}>
+                <Ionicons name="swap-horizontal" size={22} color={GREEN} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.cancelModalTitle}>Código de transferencia</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 }}>
-                  Paso final para procesar tu operación
-                </Text>
+                <Text style={s.modalTitle}>Código de transferencia</Text>
+                <Text style={s.modalSub}>Paso final para procesar tu operación</Text>
               </View>
             </View>
 
             {submitAnimPhase === 'idle' ? (
               <>
-                <View style={styles.cancelModalBody}>
-                  {/* Op ID */}
-                  <View style={styles.cancelModalOpIdRow}>
-                    <Text style={styles.cancelModalOpIdLabel}>Operación</Text>
-                    <Text style={styles.cancelModalOpIdValue}>{operation.operation_id}</Text>
+                <View style={s.modalBody}>
+                  <View style={s.modalOpIdRow}>
+                    <Text style={s.modalOpIdLabel}>Operación</Text>
+                    <Text style={s.modalOpIdValue}>{operation.operation_id}</Text>
                   </View>
 
-                  {/* Instrucción */}
-                  <View style={styles.transferCodeInfo}>
-                    <IconButton icon="information-outline" size={20} iconColor="#1d4ed8" style={{ margin: 0 }} />
-                    <Text style={styles.transferCodeInfoText}>
-                      Ingresa el número de operación que aparece en tu voucher o comprobante bancario. Este código es necesario para validar tu transferencia.
+                  <View style={s.modalInfoBanner}>
+                    <Ionicons name="information-circle-outline" size={15} color="#60a5fa" />
+                    <Text style={s.modalInfoText}>
+                      Ingresa el número de operación de tu voucher o comprobante bancario. Este código valida tu transferencia.
                     </Text>
                   </View>
 
-                  <Text style={styles.cancelModalInputLabel}>
-                    Número de operación <Text style={{ color: '#F44336' }}>*</Text>
+                  <Text style={s.modalInputLabel}>
+                    Número de operación{'  '}
+                    <Text style={{ color: '#ef4444' }}>*</Text>
                   </Text>
                   <TextInput
-                    mode="outlined"
-                    style={styles.cancelReasonInput}
+                    style={[s.modalInput, transferCode.trim() ? s.modalInputActive : undefined]}
                     value={transferCode}
                     onChangeText={setTransferCode}
                     placeholder="Ej: 00123456789"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
                     keyboardType="default"
                     autoCapitalize="characters"
-                    outlineColor={transferCode.trim() ? '#22c55e' : '#d1d5db'}
-                    activeOutlineColor="#22c55e"
                   />
                   {!transferCode.trim() && (
-                    <Text style={styles.cancelReasonRequired}>Campo obligatorio para continuar</Text>
+                    <Text style={s.fieldRequired}>Campo obligatorio para continuar</Text>
                   )}
                 </View>
 
-                <View style={styles.cancelModalActions}>
+                <View style={s.modalActions}>
                   <TouchableOpacity
-                    style={styles.cancelModalBtnVolver}
+                    style={s.modalBtnGhost}
                     onPress={() => { setTransferCodeModalVisible(false); setTransferCode(''); }}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.cancelModalBtnVolverText}>Cancelar</Text>
+                    <Text style={s.modalBtnGhostText}>Cancelar</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.cancelModalBtnConfirm, { backgroundColor: '#22c55e' }, !transferCode.trim() && { backgroundColor: '#86efac' }]}
+                    style={[s.modalBtnGreen, !transferCode.trim() && s.modalBtnGreenDisabled]}
                     onPress={handleSubmitTransferCode}
                     disabled={!transferCode.trim()}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.cancelModalBtnConfirmText}>ENVIAR</Text>
+                    <Text style={s.modalBtnConfirmText}>ENVIAR</Text>
                   </TouchableOpacity>
                 </View>
               </>
             ) : (
-              <View style={styles.cancelAnimContainer}>
+              <View style={s.animContainer}>
                 {submitAnimPhase === 'loading' ? (
                   <>
                     <Animated.View style={{
-                      transform: [{ rotate: submitSpinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
                       width: 64, height: 64, borderRadius: 32,
-                      borderWidth: 5, borderColor: '#22c55e',
-                      borderTopColor: 'transparent',
+                      borderWidth: 4, borderColor: GREEN, borderTopColor: 'transparent',
+                      transform: [{ rotate: submitSpinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
                     }} />
-                    <Text style={styles.cancelAnimText}>Enviando código...</Text>
-                    <Text style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center' }}>
-                      Notificando al operador
-                    </Text>
+                    <Text style={s.animText}>Enviando código...</Text>
+                    <Text style={s.animSub}>Notificando al operador</Text>
                   </>
                 ) : (
                   <>
                     <Animated.View style={{
+                      width: 72, height: 72, borderRadius: 36,
+                      backgroundColor: GREEN, alignItems: 'center', justifyContent: 'center',
                       transform: [{ scale: submitCheckScale }],
                       opacity: submitCheckOpacity,
-                      width: 72, height: 72, borderRadius: 36,
-                      backgroundColor: '#22c55e',
-                      alignItems: 'center', justifyContent: 'center',
                     }}>
-                      <IconButton icon="check" size={40} iconColor="#fff" style={{ margin: 0 }} />
+                      <Ionicons name="checkmark" size={38} color="#fff" />
                     </Animated.View>
-                    <Text style={[styles.cancelAnimText, { color: '#22c55e' }]}>¡Código enviado!</Text>
-                    <Text style={{ fontSize: 13, color: '#6b7280', textAlign: 'center' }}>
-                      Un operador está procesando tu transferencia
-                    </Text>
+                    <Text style={[s.animText, { color: GREEN }]}>¡Código enviado!</Text>
+                    <Text style={s.animSub}>Un operador está procesando tu transferencia</Text>
                   </>
                 )}
               </View>
@@ -682,16 +643,9 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Cancel Button */}
-      <TouchableOpacity
-        style={styles.cancelOperationButton}
-        onPress={() => setCancelModalVisible(true)}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.cancelOperationButtonText}>CANCELAR OPERACIÓN</Text>
-      </TouchableOpacity>
-
-      {/* Cancel Modal */}
+      {/* ═══════════════════════════════════════════════════════════════════════
+          MODAL — Cancelar operación
+      ═══════════════════════════════════════════════════════════════════════ */}
       <Modal
         visible={cancelModalVisible}
         transparent
@@ -699,94 +653,91 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
         onRequestClose={() => { if (!canceling) { setCancelModalVisible(false); setCancelReason(''); } }}
       >
         <KeyboardAvoidingView
-          style={styles.cancelModalOverlay}
+          style={s.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.cancelModalBox}>
-            {/* Header rojo */}
-            <View style={styles.cancelModalHeader}>
-              <View style={styles.cancelModalIconCircle}>
-                <IconButton icon="alert" size={28} iconColor="#fff" style={{ margin: 0 }} />
+          <View style={s.modalSheet}>
+            <View style={s.modalHandle} />
+
+            <View style={s.modalHeader}>
+              <View style={[s.modalIconWrap, s.modalIconWrapDanger]}>
+                <Ionicons name="alert" size={22} color="#ef4444" />
               </View>
-              <Text style={styles.cancelModalTitle}>Cancelar operación</Text>
+              <Text style={s.modalTitle}>Cancelar operación</Text>
             </View>
 
-            {/* Body */}
             {cancelAnimPhase === 'idle' ? (
               <>
-                <View style={styles.cancelModalBody}>
-                  <View style={styles.cancelModalOpIdRow}>
-                    <Text style={styles.cancelModalOpIdLabel}>Operación</Text>
-                    <Text style={styles.cancelModalOpIdValue}>{operation.operation_id}</Text>
+                <View style={s.modalBody}>
+                  <View style={s.modalOpIdRow}>
+                    <Text style={s.modalOpIdLabel}>Operación</Text>
+                    <Text style={s.modalOpIdValue}>{operation.operation_id}</Text>
                   </View>
 
-                  <Text style={styles.cancelModalWarning}>
-                    Esta acción no se puede deshacer. Una vez cancelada, deberás crear una nueva operación si deseas continuar.
-                  </Text>
+                  <View style={s.warningBanner}>
+                    <Text style={s.warningBannerText}>
+                      Esta acción no se puede deshacer. Deberás crear una nueva operación si deseas continuar.
+                    </Text>
+                  </View>
 
-                  <Text style={styles.cancelModalInputLabel}>
-                    Motivo de cancelación <Text style={{ color: '#F44336' }}>*</Text>
+                  <Text style={s.modalInputLabel}>
+                    Motivo de cancelación{'  '}
+                    <Text style={{ color: '#ef4444' }}>*</Text>
                   </Text>
                   <TextInput
-                    mode="outlined"
-                    style={styles.cancelReasonInput}
+                    style={[s.modalInput, s.modalInputMultiline, cancelReason.trim() ? s.modalInputActiveDanger : undefined]}
                     value={cancelReason}
                     onChangeText={setCancelReason}
                     placeholder="Ej: Cambié de opinión, error en el monto..."
+                    placeholderTextColor="rgba(255,255,255,0.3)"
                     multiline
-                    numberOfLines={4}
-                    outlineColor={cancelReason.trim() ? '#d1d5db' : '#F44336'}
-                    activeOutlineColor="#1d4ed8"
+                    numberOfLines={3}
                   />
                   {!cancelReason.trim() && (
-                    <Text style={styles.cancelReasonRequired}>Campo obligatorio para continuar</Text>
+                    <Text style={s.fieldRequired}>Campo obligatorio para continuar</Text>
                   )}
                 </View>
 
-                <View style={styles.cancelModalActions}>
+                <View style={s.modalActions}>
                   <TouchableOpacity
-                    style={styles.cancelModalBtnVolver}
+                    style={s.modalBtnGhost}
                     onPress={() => { setCancelModalVisible(false); setCancelReason(''); }}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.cancelModalBtnVolverText}>Volver</Text>
+                    <Text style={s.modalBtnGhostText}>Volver</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.cancelModalBtnConfirm, !cancelReason.trim() && styles.cancelModalBtnDisabled]}
+                    style={[s.modalBtnRed, !cancelReason.trim() && s.modalBtnRedDisabled]}
                     onPress={handleCancelOperation}
                     disabled={!cancelReason.trim()}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.cancelModalBtnConfirmText}>Confirmar cancelación</Text>
+                    <Text style={s.modalBtnConfirmText}>Confirmar</Text>
                   </TouchableOpacity>
                 </View>
               </>
             ) : (
-              <View style={styles.cancelAnimContainer}>
+              <View style={s.animContainer}>
                 {cancelAnimPhase === 'loading' ? (
                   <>
                     <Animated.View style={{
-                      transform: [{
-                        rotate: cancelSpinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] })
-                      }],
                       width: 64, height: 64, borderRadius: 32,
-                      borderWidth: 5, borderColor: '#F44336',
-                      borderTopColor: 'transparent',
+                      borderWidth: 4, borderColor: '#ef4444', borderTopColor: 'transparent',
+                      transform: [{ rotate: cancelSpinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
                     }} />
-                    <Text style={styles.cancelAnimText}>Cancelando operación...</Text>
+                    <Text style={s.animText}>Cancelando operación...</Text>
                   </>
                 ) : (
                   <>
                     <Animated.View style={{
+                      width: 72, height: 72, borderRadius: 36,
+                      backgroundColor: GREEN, alignItems: 'center', justifyContent: 'center',
                       transform: [{ scale: cancelCheckScale }],
                       opacity: cancelCheckOpacity,
-                      width: 64, height: 64, borderRadius: 32,
-                      backgroundColor: '#22c55e',
-                      alignItems: 'center', justifyContent: 'center',
                     }}>
-                      <IconButton icon="check" size={36} iconColor="#fff" style={{ margin: 0 }} />
+                      <Ionicons name="checkmark" size={38} color="#fff" />
                     </Animated.View>
-                    <Text style={[styles.cancelAnimText, { color: '#22c55e' }]}>Operación cancelada</Text>
+                    <Text style={[s.animText, { color: GREEN }]}>Operación cancelada</Text>
                   </>
                 )}
               </View>
@@ -794,544 +745,593 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           </View>
         </KeyboardAvoidingView>
       </Modal>
-
-    </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
+// ─────────────────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  root: {
     flex: 1,
-    backgroundColor: Colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    overflow: 'hidden',
+    backgroundColor: '#000',
+  },
+  overlay: {
+    backgroundColor: 'rgba(0,0,0,0.82)',
   },
 
-  // Timeline Styles
-  timelineContainer: {
+  // ── Header ──────────────────────────────────────────────────────────────────
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
     paddingHorizontal: 16,
-    backgroundColor: Colors.surface,
-    marginBottom: 8,
+    paddingBottom: 14,
   },
-  timelineStep: {
-    alignItems: 'center',
-  },
-  timelineCircle: {
+  backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#E0E0E0',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
   },
-  timelineCircleCompleted: {
-    backgroundColor: '#22c55e',
+  backBtnInner: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: GLASS,
+    borderWidth: 1,
+    borderColor: BORDER,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  timelineCircleActive: {
-    backgroundColor: '#2196F3',
+  headerCenter: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  timelineLine: {
+  headerLogo: {
+    width: 110,
+    height: 22,
+  },
+
+  scroll: { flex: 1 },
+
+  // ── Timeline ─────────────────────────────────────────────────────────────────
+  timeline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: GLASS,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  step: {
+    alignItems: 'center',
+    gap: 5,
+  },
+  stepDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: BORDER,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepDotDone: {
+    backgroundColor: GREEN,
+    borderColor: GREEN,
+  },
+  stepDotActive: {
+    backgroundColor: 'rgba(34,197,94,0.18)',
+    borderColor: GREEN,
+    borderWidth: 1.5,
+  },
+  stepLine: {
     flex: 1,
     height: 2,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     marginHorizontal: 8,
+    marginBottom: 20,
   },
-  timelineLineCompleted: {
-    backgroundColor: '#22c55e',
+  stepLineDone: {
+    backgroundColor: GREEN,
   },
-  timelineText: {
-    fontSize: 12,
-    color: '#999999',
+  stepLabel: {
+    fontSize: 10,
+    color: DIM,
     fontWeight: '500',
   },
-  timelineTextActive: {
-    color: '#2196F3',
+  stepLabelDone: {
+    color: GREEN,
     fontWeight: '600',
   },
+  stepLabelActive: {
+    color: '#fff',
+    fontWeight: '700',
+  },
 
-  // Summary Card Styles
-  summaryCard: {
+  // ── Cards ────────────────────────────────────────────────────────────────────
+  card: {
+    backgroundColor: GLASS,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 22,
     marginHorizontal: 16,
-    marginBottom: 8,
-    backgroundColor: '#22c55e',
+    marginBottom: 14,
+    padding: 18,
   },
-  summaryHeader: {
+  hairline: {
+    height: 1,
+    backgroundColor: BORDER,
+    marginVertical: 14,
+  },
+
+  // Resumen — cabecera
+  cardTopRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
   },
-  timerContainer: {
+  cardMeta: {
+    fontSize: 10,
+    color: DIM,
+    fontWeight: '500',
+    marginBottom: 3,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  cardOpId: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.3,
+  },
+  timerPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFEBEE',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 16,
+    gap: 5,
+    backgroundColor: 'rgba(251,191,36,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(251,191,36,0.25)',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  timerPillExpired: {
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    borderColor: 'rgba(239,68,68,0.25)',
   },
   timerText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#F44336',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fbbf24',
   },
-  summaryDivider: {
-    marginVertical: 6,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginTop: 4,
-  },
-  summaryItem: {
-    flex: 1,
-  },
-  summaryBox: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.15)',
-    padding: 8,
-    borderRadius: 8,
-  },
-  summaryLabel: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.75)',
-    marginBottom: 4,
-  },
-  summaryValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  summaryAmount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#ffffff',
-  },
-  importantNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E3F2FD',
-    padding: 8,
-    borderRadius: 8,
-    marginTop: 6,
-  },
-  importantNoteText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#1976D2',
-    fontWeight: '500',
-    marginLeft: 4,
+  timerTextExpired: {
+    color: '#ef4444',
   },
 
-  // Transfer Card Styles
-  transferCard: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-    backgroundColor: Colors.surface,
+  // Resumen — meta
+  metaRow: {
+    flexDirection: 'row',
+    gap: 16,
   },
-  transferTitle: {
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: Colors.textDark,
+  metaItem: { flex: 1 },
+  metaLabel: {
+    fontSize: 10,
+    color: DIM,
+    fontWeight: '500',
+    marginBottom: 3,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
+  metaValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+  },
+
+  // Resumen — montos
+  amountsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  amountBlock: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+  },
+  amountLabel: {
+    fontSize: 10,
+    color: DIM,
+    fontWeight: '500',
+    marginBottom: 5,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  amountValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  tcPill: {
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+  },
+  tcPillText: {
+    fontSize: 10,
+    color: DIM,
+    fontWeight: '600',
+  },
+
+  // Detalles — cabecera
+  transferToHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  transferToIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  transferToName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+  },
+
+  // Detalles — filas
   detailRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 5,
+    justifyContent: 'space-between',
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   detailLabel: {
     fontSize: 13,
-    color: '#666666',
+    color: DIM,
     flex: 1,
   },
   detailValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.textDark,
+    color: '#fff',
     flex: 2,
     textAlign: 'right',
   },
-  bankLogoDetailWrapper: {
-    flex: 2,
-    alignItems: 'flex-end',
-  },
-  bankLogoDetail: {
+  bankLogo: {
     width: 80,
     height: 28,
   },
-  accountNumberContainer: {
+  accountRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     flex: 2,
     justifyContent: 'flex-end',
   },
   accountNumber: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#2196F3',
+    fontWeight: '700',
+    color: GREEN,
+    letterSpacing: 0.5,
   },
-  infoBox: {
-    flexDirection: 'row',
+  copyBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: GLASS,
+    borderWidth: 1,
+    borderColor: BORDER,
     alignItems: 'center',
-    backgroundColor: '#E3F2FD',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 12,
-    color: '#1976D2',
-    marginLeft: 8,
+    justifyContent: 'center',
   },
 
-  // Upload Button Styles
-  uploadButton: {
-    backgroundColor: '#22c55e',
-    marginHorizontal: 16,
-    marginBottom: 12,
-    paddingVertical: 14,
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: 'rgba(96,165,250,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(96,165,250,0.2)',
     borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
+  },
+  infoBannerText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#93c5fd',
+    lineHeight: 17,
+  },
+  noteBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: 'rgba(251,191,36,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(251,191,36,0.2)',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 10,
+  },
+  noteBannerText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#fde68a',
+    lineHeight: 17,
+  },
+
+  // ── Botones ──────────────────────────────────────────────────────────────────
+  actionsWrap: {
+    marginHorizontal: 16,
+    gap: 10,
+  },
+  primaryBtn: {
+    backgroundColor: GREEN,
+    borderRadius: 16,
+    paddingVertical: 16,
+    flexDirection: 'row',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    justifyContent: 'center',
+    gap: 10,
+    shadowColor: GREEN,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  uploadButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-  uploadButtonDisabled: {
-    backgroundColor: '#BDBDBD',
-    elevation: 0,
+  primaryBtnDisabled: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
     shadowOpacity: 0,
+    elevation: 0,
   },
-  cancelOperationButton: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    paddingVertical: 13,
-    borderRadius: 12,
+  primaryBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  dangerBtn: {
+    borderRadius: 16,
+    paddingVertical: 14,
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#F44336',
-    backgroundColor: 'transparent',
+    borderColor: 'rgba(239,68,68,0.45)',
+    backgroundColor: 'rgba(239,68,68,0.07)',
   },
-  cancelOperationButtonText: {
-    color: '#F44336',
+  dangerBtnText: {
+    color: '#f87171',
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
 
-  // Cancel Modal
-  cancelModalOverlay: {
+  // ── Modales ──────────────────────────────────────────────────────────────────
+  modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    justifyContent: 'flex-end',
   },
-  cancelModalBox: {
-    width: '100%',
-    maxWidth: 400,
-    backgroundColor: '#fff',
-    borderRadius: 20,
+  modalSheet: {
+    backgroundColor: SHEET,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    elevation: 12,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    borderTopWidth: 1,
+    borderColor: BORDER,
   },
-  cancelModalHeader: {
-    backgroundColor: '#F44336',
-    paddingVertical: 20,
-    paddingHorizontal: 24,
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
   },
-  cancelModalIconCircle: {
+  modalIconWrap: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelModalTitle: {
-    fontSize: 20,
+  modalIconWrapDanger: {
+    backgroundColor: 'rgba(239,68,68,0.12)',
+    borderColor: 'rgba(239,68,68,0.25)',
+  },
+  modalTitle: {
+    fontSize: 18,
     fontWeight: '700',
     color: '#fff',
   },
-  cancelModalBody: {
+  modalSub: {
+    fontSize: 12,
+    color: DIM,
+    marginTop: 2,
+  },
+  modalBody: {
     paddingHorizontal: 24,
     paddingTop: 20,
     paddingBottom: 8,
   },
-  cancelModalOpIdRow: {
+  modalOpIdRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#f8f9fa',
-    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: BORDER,
     paddingVertical: 10,
     paddingHorizontal: 14,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
   },
-  cancelModalOpIdLabel: {
-    fontSize: 13,
-    color: '#6b7280',
+  modalOpIdLabel: {
+    fontSize: 12,
+    color: DIM,
     fontWeight: '500',
   },
-  cancelModalOpIdValue: {
+  modalOpIdValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0D1B2A',
+    color: '#fff',
   },
-  cancelModalWarning: {
-    fontSize: 13,
-    color: '#4b5563',
-    lineHeight: 20,
-    marginBottom: 20,
-    backgroundColor: '#fff7ed',
-    borderLeftWidth: 3,
-    borderLeftColor: '#f97316',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-  },
-  cancelModalInputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 6,
-  },
-  transferCodeInfo: {
+  modalInfoBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#eff6ff',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingRight: 12,
-    marginBottom: 16,
+    gap: 8,
+    backgroundColor: 'rgba(96,165,250,0.08)',
     borderWidth: 1,
-    borderColor: '#bfdbfe',
+    borderColor: 'rgba(96,165,250,0.2)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
   },
-  transferCodeInfoText: {
+  modalInfoText: {
     flex: 1,
-    fontSize: 13,
-    color: '#1e40af',
-    lineHeight: 18,
-    paddingTop: 2,
-  },
-  cancelReasonInput: {
-    backgroundColor: '#fff',
-    fontSize: 14,
-  },
-  cancelReasonRequired: {
     fontSize: 12,
-    color: '#F44336',
-    marginTop: 4,
+    color: '#93c5fd',
+    lineHeight: 17,
   },
-  cancelModalActions: {
+  warningBanner: {
+    backgroundColor: 'rgba(239,68,68,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.2)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+  },
+  warningBannerText: {
+    fontSize: 13,
+    color: '#fca5a5',
+    lineHeight: 18,
+  },
+  modalInputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.8)',
+    marginBottom: 8,
+  },
+  modalInput: {
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 12,
+    color: '#fff',
+    fontSize: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  modalInputMultiline: {
+    minHeight: 90,
+    textAlignVertical: 'top',
+  },
+  modalInputActive: {
+    borderColor: GREEN,
+  },
+  modalInputActiveDanger: {
+    borderColor: '#ef4444',
+  },
+  fieldRequired: {
+    fontSize: 11,
+    color: '#ef4444',
+    marginTop: 5,
+  },
+  modalActions: {
     flexDirection: 'row',
     gap: 12,
     paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: BORDER,
   },
-  cancelModalBtnVolver: {
+  modalBtnGhost: {
     flex: 1,
-    paddingVertical: 13,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#d1d5db',
-    backgroundColor: '#fff',
+    borderColor: BORDER,
+    backgroundColor: GLASS,
   },
-  cancelModalBtnVolverText: {
-    fontSize: 15,
+  modalBtnGhostText: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: 'rgba(255,255,255,0.65)',
   },
-  cancelModalBtnConfirm: {
+  modalBtnGreen: {
     flex: 1,
-    paddingVertical: 13,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
     alignItems: 'center',
-    backgroundColor: '#F44336',
+    backgroundColor: GREEN,
   },
-  cancelModalBtnDisabled: {
-    backgroundColor: '#fca5a5',
+  modalBtnGreenDisabled: {
+    backgroundColor: 'rgba(34,197,94,0.3)',
   },
-  cancelModalBtnConfirmText: {
+  modalBtnRed: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    backgroundColor: '#ef4444',
+  },
+  modalBtnRedDisabled: {
+    backgroundColor: 'rgba(239,68,68,0.35)',
+  },
+  modalBtnConfirmText: {
     fontSize: 14,
     fontWeight: '700',
     color: '#fff',
   },
-  cancelAnimContainer: {
-    paddingVertical: 40,
+
+  // Animaciones dentro de modal
+  animContainer: {
+    paddingVertical: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 20,
+    gap: 18,
   },
-  cancelAnimText: {
-    fontSize: 16,
+  animText: {
+    fontSize: 17,
     fontWeight: '600',
-    color: '#374151',
+    color: '#fff',
     textAlign: 'center',
   },
-
-  // Dialog Styles
-  dialog: {
-    backgroundColor: Colors.surface,
-  },
-  dialogText: {
-    marginBottom: 16,
-    color: Colors.textDark,
-  },
-  imagePreviewContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F0F8F0',
-    padding: 8,
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#22c55e',
-  },
-  imagePreviewInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  imagePreviewText: {
-    fontSize: 14,
-    color: Colors.textDark,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  addImageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#22c55e',
-    borderStyle: 'dashed',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-  addImageButtonText: {
-    color: '#22c55e',
-    fontWeight: '600',
-    fontSize: 14,
-    marginLeft: 4,
-  },
-  maxImagesNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF3E0',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  maxImagesNoticeText: {
-    flex: 1,
-    fontSize: 12,
-    color: '#F57C00',
-    marginLeft: 4,
-  },
-  input: {
-    marginBottom: 12,
-  },
-  alternativeContact: {
-    backgroundColor: '#F5F5F5',
-    padding: 16,
-    borderRadius: 8,
-    marginTop: 16,
-  },
-  alternativeContactTitle: {
+  animSub: {
     fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textDark,
-    marginBottom: 8,
-  },
-  contactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  contactIcon: {
-    margin: 0,
-    marginRight: -8,
-  },
-  alternativeContactText: {
-    fontSize: 13,
-    color: Colors.textDark,
-  },
-  whatsappLink: {
-    fontSize: 13,
-    color: '#25D366',
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-  },
-
-  // ── Header ──
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#22c55e',
-  },
-  transferHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#22c55e',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  transferBackBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  transferBackArrow: {
-    fontSize: 38,
-    color: '#fff',
-    lineHeight: 42,
-    fontWeight: '300',
-  },
-  transferHeaderCenter: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  transferHeaderLogo: {
-    width: 32,
-    height: 32,
-    marginRight: 8,
-  },
-  transferHeaderBrand: {
-    fontSize: 26,
-    fontFamily: 'Sansation-Bold',
-    color: '#fff',
-    letterSpacing: -0.5,
+    color: DIM,
+    textAlign: 'center',
   },
 });

@@ -231,6 +231,12 @@
                                                 <i class="bi bi-x-circle"></i>
                                             </button>
                                             {% endif %}
+                                            {# EXCEPCIÓN: App móvil en proceso → puede cancelarse desde web #}
+                                            {% if op.status == 'En proceso' and op.origen == 'app' %}
+                                            <button class="btn btn-outline-danger" onclick="cancelAppOverride({{ op.id }}, '{{ op.operation_id }}')" title="Cancelar op. app (excepción)">
+                                                <i class="bi bi-phone-fill me-1"></i><i class="bi bi-x-circle"></i>
+                                            </button>
+                                            {% endif %}
 
                                         {# TRADER: Editar solo en Pendiente, ver en otros estados #}
                                         {% elif user.role == 'Trader' %}
@@ -491,6 +497,55 @@
                 <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Mantener</button>
                 <button type="button" class="btn btn-sm btn-danger px-3" onclick="confirmCancelOperation()">
                     <i class="bi bi-x-circle me-1"></i>Confirmar Cancelación
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Cancelar Op. App (En Proceso) — Excepción Canal Móvil -->
+<div class="modal fade" id="cancelAppOverrideModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
+            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#fff7ed;">
+                <div class="w-100">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="d-flex align-items-center justify-content-center rounded-circle bg-warning bg-opacity-20" style="width:36px;height:36px;">
+                                <i class="bi bi-phone-fill text-warning"></i>
+                            </span>
+                            <div>
+                                <div class="fw-semibold" style="font-size:15px;">Cancelar Operación App (Excepción)</div>
+                                <div class="text-muted small" id="cancel_app_operation_code"></div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-body px-4 pb-4" style="background:#fff7ed;">
+                <input type="hidden" id="cancel_app_operation_id">
+                <div class="rounded p-3 mb-3" style="background:#fef3c7;border:1px solid #fde68a;">
+                    <div class="d-flex align-items-start gap-2">
+                        <i class="bi bi-exclamation-triangle-fill text-warning mt-1 flex-shrink-0"></i>
+                        <div class="small text-warning-emphasis">
+                            Esta operación proviene del <strong>canal App Móvil</strong> y está <strong>En Proceso</strong>.
+                            La cancelación se notificará al cliente <strong>en tiempo real</strong> dentro de la app.
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-1">
+                    <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">
+                        Motivo de Cancelación <span class="text-danger">*</span>
+                    </label>
+                    <textarea class="form-control" id="cancel_app_reason" required rows="3"
+                        placeholder="Describe el motivo — el cliente lo verá en la app..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-top px-4 py-3" style="background:#fff7ed;">
+                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Mantener</button>
+                <button type="button" class="btn btn-sm btn-warning px-3 text-white" onclick="confirmCancelAppOverride()">
+                    <i class="bi bi-phone-fill me-1"></i><i class="bi bi-x-circle me-1"></i>Confirmar Cancelación
                 </button>
             </div>
         </div>
@@ -2251,6 +2306,31 @@ function cancelOperation(operationId) {
         $('#cancel_operation_code').text(response.operation.operation_id);
         $('#cancel_reason').val('');
         $('#cancelOperationModal').modal('show');
+    });
+}
+
+function cancelAppOverride(operationId, operationCode) {
+    $('#cancel_app_operation_id').val(operationId);
+    $('#cancel_app_operation_code').text(operationCode);
+    $('#cancel_app_reason').val('');
+    $('#cancelAppOverrideModal').modal('show');
+}
+
+function confirmCancelAppOverride() {
+    const operationId = $('#cancel_app_operation_id').val();
+    const reason      = $('#cancel_app_reason').val().trim();
+
+    if (!reason) {
+        showNotification('Ingresa un motivo para cancelar', 'warning');
+        return;
+    }
+
+    ajaxRequest(`/operations/api/cancel-app-override/${operationId}`, 'POST', {reason: reason}, function(response) {
+        $('#cancelAppOverrideModal').modal('hide');
+        showNotification('Operación cancelada y cliente notificado en tiempo real', 'success');
+        setTimeout(() => location.reload(), 1200);
+    }, function(err) {
+        showNotification(err.message || 'Error al cancelar', 'danger');
     });
 }
 

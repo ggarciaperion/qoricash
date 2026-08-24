@@ -10,6 +10,14 @@ import {
   Linking,
   ActivityIndicator,
 } from 'react-native';
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  Easing as REasing,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotiView } from 'moti';
@@ -125,7 +133,68 @@ const DIRECTION_COLOR: Record<string, string> = {
 
 const IMPACT_COLOR = ['', 'rgba(255,255,255,0.25)', AMBER, RED];
 
+// ─── Clasificación Nacional / Internacional ────────────────────────────────────
+const FUENTES_NACIONALES = [
+  'gestión', 'gestion', 'el comercio', 'elcomercio', 'rpp',
+  'andina', 'semana económica', 'semanaeconomica', 'el peruano', 'elperuano',
+  'la república', 'larepublica', 'peru21', 'expreso', 'correo', 'trome',
+  'exitosa', 'ojo financiero', 'capital', 'bcrp', 'mef.gob', 'sbs.gob',
+  'energiminas', 'minería perú', 'mineria peru', 'diario financiero perú',
+  'rumbo minero', 'stakeholders', 'mercados & regiones',
+];
+
+type NewsOrigin = 'all' | 'nacional' | 'internacional';
+
+const classifyNews = (source: string): 'nacional' | 'internacional' => {
+  const lower = source.toLowerCase();
+  return FUENTES_NACIONALES.some(k => lower.includes(k))
+    ? 'nacional'
+    : 'internacional';
+};
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
+
+const LivePulse: React.FC<{ color?: string }> = ({ color = GREEN }) => {
+  const scale  = useSharedValue(1);
+  const ringOp = useSharedValue(0);
+  const ringSc = useSharedValue(1);
+
+  useEffect(() => {
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.26, { duration: 750, easing: REasing.inOut(REasing.quad) }),
+        withTiming(1,    { duration: 750, easing: REasing.inOut(REasing.quad) }),
+      ), -1, false,
+    );
+    ringOp.value = withRepeat(
+      withSequence(
+        withTiming(0.55, { duration: 200,  easing: REasing.out(REasing.quad) }),
+        withTiming(0,    { duration: 1100, easing: REasing.out(REasing.cubic) }),
+        withTiming(0,    { duration: 200 }),
+      ), -1, false,
+    );
+    ringSc.value = withRepeat(
+      withSequence(
+        withTiming(1,   { duration: 0 }),
+        withTiming(2.8, { duration: 1300, easing: REasing.out(REasing.cubic) }),
+        withTiming(1,   { duration: 0 }),
+      ), -1, false,
+    );
+  }, []);
+
+  const dotStyle  = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity:   ringOp.value,
+    transform: [{ scale: ringSc.value }],
+  }));
+
+  return (
+    <View style={s.livePulseWrap}>
+      <Reanimated.View pointerEvents="none" style={[s.livePulseRing, { backgroundColor: color }, ringStyle]} />
+      <Reanimated.View style={[s.livePulseDot, { backgroundColor: color }, dotStyle]} />
+    </View>
+  );
+};
 
 const SectionHeader: React.FC<{ title: string; subtitle?: string }> = ({ title, subtitle }) => (
   <View style={s.sectionHeader}>
@@ -145,7 +214,7 @@ const IndicatorCard: React.FC<{ item: MarketIndicator; delay: number }> = ({ ite
       style={s.indicatorCard}
     >
       <View style={s.indicatorTop}>
-        <Ionicons name={icon} size={14} color="rgba(255,255,255,0.5)" />
+        <Ionicons name={icon} size={11} color="rgba(255,255,255,0.5)" />
         <Text style={s.indicatorLabel} numberOfLines={1}>{item.label}</Text>
       </View>
       <Text style={s.indicatorValue} numberOfLines={1}>
@@ -236,6 +305,7 @@ export const MarketScreen: React.FC = () => {
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError]         = useState('');
+  const [newsFilter, setNewsFilter] = useState<NewsOrigin>('all');
 
   const fetchData = useCallback(async () => {
     try {
@@ -348,6 +418,7 @@ export const MarketScreen: React.FC = () => {
                     <Text style={s.signalTitle}>{signal.title}</Text>
                   ) : null}
                 </View>
+                <LivePulse color={sigCfg.color} />
               </MotiView>
             )}
 
@@ -379,16 +450,50 @@ export const MarketScreen: React.FC = () => {
             )}
 
             {/* ── News ── */}
-            {data.news.length > 0 && (
-              <>
-                <SectionHeader title="Noticias Financieras" subtitle="Últimas 48 horas" />
-                <View style={s.newsList}>
-                  {data.news.map((item, i) => (
-                    <NewsCard key={`${item.title}-${i}`} item={item} delay={i * 30} />
-                  ))}
-                </View>
-              </>
-            )}
+            {data.news.length > 0 && (() => {
+              const filtered = newsFilter === 'all'
+                ? data.news
+                : data.news.filter(n => classifyNews(n.source) === newsFilter);
+              return (
+                <>
+                  {/* Header + filtros */}
+                  <View style={s.newsHeaderRow}>
+                    <View>
+                      <Text style={s.sectionTitle}>Noticias Financieras</Text>
+                      <Text style={s.sectionSub}>Últimas 48 horas</Text>
+                    </View>
+                    <View style={s.newsFilters}>
+                      {(['all', 'nacional', 'internacional'] as NewsOrigin[]).map(f => (
+                        <TouchableOpacity
+                          key={f}
+                          onPress={() => setNewsFilter(f)}
+                          style={[s.filterChip, newsFilter === f && s.filterChipActive]}
+                          activeOpacity={0.75}
+                        >
+                          <Text style={[s.filterChipText, newsFilter === f && s.filterChipTextActive]}>
+                            {f === 'all' ? 'Todo' : f === 'nacional' ? 'Nacional' : 'Internacional'}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  {filtered.length > 0 ? (
+                    <View style={s.newsList}>
+                      {filtered.map((item, i) => (
+                        <NewsCard key={`${item.title}-${i}`} item={item} delay={i * 30} />
+                      ))}
+                    </View>
+                  ) : (
+                    <View style={s.filterEmptyWrap}>
+                      <Text style={s.filterEmptyText}>
+                        No hay noticias {newsFilter === 'nacional' ? 'nacionales' : 'internacionales'} disponibles.
+                      </Text>
+                    </View>
+                  )}
+                </>
+              );
+            })()}
 
             {data.indicators.length === 0 && data.macro.length === 0 && data.news.length === 0 && (
               <View style={s.emptyWrap}>
@@ -423,6 +528,26 @@ const s = StyleSheet.create({
     color: 'rgba(255,255,255,0.42)',
     marginTop: 4,
     letterSpacing: 0.2,
+  },
+
+  // Live pulse
+  livePulseWrap: {
+    width: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  livePulseRing: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  livePulseDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
   },
 
   // Loading / error
@@ -527,41 +652,41 @@ const s = StyleSheet.create({
   indicatorsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
     marginBottom: 28,
   },
   indicatorCard: {
-    width: '48%',
+    width: '31%',
     backgroundColor: GLASS_BG,
     borderWidth: 1,
     borderColor: GLASS_BORDER,
-    borderRadius: 16,
-    padding: 14,
-    gap: 4,
+    borderRadius: 14,
+    padding: 10,
+    gap: 3,
   },
   indicatorTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     marginBottom: 2,
   },
   indicatorLabel: {
-    fontSize: 10.5,
+    fontSize: 9,
     color: 'rgba(255,255,255,0.48)',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
     textTransform: 'uppercase',
     flex: 1,
   },
   indicatorValue: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
   indicatorChg: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
 
   // Macro
@@ -689,5 +814,49 @@ const s = StyleSheet.create({
     color: 'rgba(255,255,255,0.35)',
     textAlign: 'center',
     lineHeight: 20,
+  },
+
+  // News header + filtros
+  newsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  newsFilters: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  filterChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  filterChipActive: {
+    borderColor: GREEN,
+    backgroundColor: 'rgba(34,197,94,0.14)',
+  },
+  filterChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.45)',
+    letterSpacing: 0.2,
+  },
+  filterChipTextActive: {
+    color: GREEN,
+  },
+  filterEmptyWrap: {
+    paddingVertical: 32,
+    alignItems: 'center',
+  },
+  filterEmptyText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.35)',
+    textAlign: 'center',
   },
 });

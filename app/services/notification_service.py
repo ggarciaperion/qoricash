@@ -279,6 +279,34 @@ class NotificationService:
             logger.error(f'[NOTIF] notify_operation_in_process error: {e}')
 
     @staticmethod
+    def notify_operation_canceled_to_mobile_client(operation, reason):
+        """
+        Emite 'operacion_cancelada_admin' al cliente móvil en tiempo real.
+        Se usa cuando un operador cancela desde el panel web una operación
+        de canal 'app' que ya estaba en estado 'En proceso'.
+        """
+        try:
+            if not operation.client:
+                return
+            data = {
+                'operation_id':  operation.operation_id,
+                'reason':        reason,
+                'status':        'Cancelado',
+            }
+            socketio.emit(
+                'operacion_cancelada_admin',
+                data,
+                namespace='/',
+                room=f'client_{operation.client.dni}',
+            )
+            logger.info(
+                f'[NOTIF] operacion_cancelada_admin → client_{operation.client.dni}: '
+                f'{operation.operation_id}'
+            )
+        except Exception as e:
+            logger.error(f'[NOTIF] notify_operation_canceled_to_mobile_client error: {e}')
+
+    @staticmethod
     def notify_operation_canceled(operation, reason=None):
         try:
             title = '❌ Operación Cancelada'
