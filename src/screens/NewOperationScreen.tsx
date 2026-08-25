@@ -324,6 +324,76 @@ const GlassModal: React.FC<{
   </Modal>
 );
 
+
+// ─── LivePairBadge — latido con ondas expansivas ──────────────────────────────
+const LivePairBadge: React.FC = () => {
+  const ring1Scale = useRef(new Animated.Value(1)).current;
+  const ring1Op    = useRef(new Animated.Value(0)).current;
+  const ring2Scale = useRef(new Animated.Value(1)).current;
+  const ring2Op    = useRef(new Animated.Value(0)).current;
+  const dotScale   = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = () =>
+      Animated.sequence([
+        Animated.timing(dotScale, { toValue: 1.35, duration: 180, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+        Animated.timing(dotScale, { toValue: 1,    duration: 300, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ]);
+
+    const wave = (scale: Animated.Value, op: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.parallel([
+            Animated.timing(scale, { toValue: 3.2, duration: 1400, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+            Animated.timing(op,    { toValue: 0,   duration: 1400, useNativeDriver: true }),
+          ]),
+          Animated.parallel([
+            Animated.timing(scale, { toValue: 1, duration: 0, useNativeDriver: true }),
+            Animated.timing(op,    { toValue: 0.55, duration: 0, useNativeDriver: true }),
+          ]),
+        ])
+      );
+
+    // Heartbeat loop: pulse dot + launch waves every ~2s
+    const heartbeat = Animated.loop(
+      Animated.sequence([
+        pulse(),
+        Animated.delay(1520),
+      ])
+    );
+
+    ring1Op.setValue(0.55);
+    ring2Op.setValue(0.55);
+
+    heartbeat.start();
+    wave(ring1Scale, ring1Op, 0).start();
+    wave(ring2Scale, ring2Op, 520).start();
+
+    return () => { heartbeat.stop(); };
+  }, []);
+
+  return (
+    <View style={lpb.wrap}>
+      {/* Ondas expansivas */}
+      <Animated.View style={[lpb.ring, { opacity: ring1Op, transform: [{ scale: ring1Scale }] }]} />
+      <Animated.View style={[lpb.ring, { opacity: ring2Op, transform: [{ scale: ring2Scale }] }]} />
+      {/* Punto central */}
+      <Animated.View style={[lpb.dot, { transform: [{ scale: dotScale }] }]} />
+    </View>
+  );
+};
+
+const lpb = StyleSheet.create({
+  wrap: { width: 10, height: 10, alignItems: 'center', justifyContent: 'center' },
+  dot:  { width: 6, height: 6, borderRadius: 3, backgroundColor: '#22c55e', position: 'absolute' },
+  ring: {
+    position: 'absolute',
+    width: 6, height: 6, borderRadius: 3,
+    borderWidth: 1, borderColor: '#22c55e',
+  },
+});
+
 // ─── Screen ────────────────────────────────────────────────────────────────────
 export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
   const { client, refreshClient } = useAuth();
@@ -596,13 +666,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
               <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.75}>
                 <Ionicons name="chevron-back" size={20} color="#fff" />
               </TouchableOpacity>
-              <View style={{ alignItems: 'center' }}>
-                <Text style={s.pageTitle}>Nueva operación</Text>
-                <View style={s.pairBadge}>
-                  <View style={s.liveDot} />
-                  <Text style={s.pairTxt}>USD / PEN</Text>
-                </View>
-              </View>
+              <Text style={s.pageTitle}>Nueva operación</Text>
               <View style={{ width: 38 }} />
             </View>
           </MotiView>
@@ -683,7 +747,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
               {/* ── BID / ASK reference ── */}
               <View style={s.tcRefRow}>
                 <View style={s.tcRefPair}>
-                  <View style={s.tickerDot} />
+                  <LivePairBadge />
                   <Text style={s.tickerPairTxt}>USD/PEN</Text>
                 </View>
                 <View style={s.tcRefRates}>
@@ -1099,9 +1163,6 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   pageTitle: { fontSize: 14, fontWeight: '700', color: '#fff', letterSpacing: 0.3 },
-  pairBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 },
-  liveDot:   { width: 5, height: 5, borderRadius: 2.5, backgroundColor: GREEN },
-  pairTxt:   { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.38)', letterSpacing: 2 },
 
   // ── Trading card (toggle + TC hero) ──
   tradingCard: {
