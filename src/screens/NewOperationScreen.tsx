@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotiView } from 'moti';
 import * as Haptics from 'expo-haptics';
+import { Audio } from 'expo-av';
 import { useAuth } from '../contexts/AuthContext';
 import { operationsApi } from '../api/operations';
 import { CreateOperationForm, BankAccount } from '../types';
@@ -207,47 +208,64 @@ const CreatingOverlay: React.FC<{ visible: boolean; success: boolean }> = ({ vis
     innerRef.current?.stop();
     dotRef.current?.stop();
 
+    // Reproducir sonido de confirmación
+    (async () => {
+      try {
+        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+        const { sound } = await Audio.Sound.createAsync(
+          require('../../assets/sounds/payment_success.mp3'),
+          { shouldPlay: true, volume: 0.75 }
+        );
+        sound.setOnPlaybackStatusUpdate(status => {
+          if (status.isLoaded && status.didJustFinish) sound.unloadAsync();
+        });
+      } catch {}
+    })();
+
     // Loader desaparece
-    Animated.timing(loaderOp, { toValue: 0, duration: 250, easing: Easing.out(Easing.ease), useNativeDriver: true }).start(() => {
+    Animated.timing(loaderOp, { toValue: 0, duration: 220, easing: Easing.out(Easing.ease), useNativeDriver: true }).start();
 
-      // Check ring entra con spring agresivo (overshoot visible)
-      Animated.parallel([
-        Animated.timing(checkOp,   { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.spring(checkScale, { toValue: 1, tension: 280, friction: 5, useNativeDriver: true }),
-      ]).start(() => {
+    // Check ring entra después del fade-out del loader
+    setTimeout(() => {
+      // Fade in capa check
+      Animated.timing(checkOp, { toValue: 1, duration: 180, useNativeDriver: true }).start();
 
-        // Shockwave: 3 ripples con stagger
-        r1o.setValue(0.5); r2o.setValue(0.32); r3o.setValue(0.18);
-        Animated.stagger(90, [
-          Animated.parallel([
-            Animated.timing(r1s, { toValue: 2.6, duration: 650, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-            Animated.timing(r1o, { toValue: 0,   duration: 650, useNativeDriver: true }),
-          ]),
-          Animated.parallel([
-            Animated.timing(r2s, { toValue: 3.2, duration: 750, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-            Animated.timing(r2o, { toValue: 0,   duration: 750, useNativeDriver: true }),
-          ]),
-          Animated.parallel([
-            Animated.timing(r3s, { toValue: 3.9, duration: 860, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-            Animated.timing(r3o, { toValue: 0,   duration: 860, useNativeDriver: true }),
-          ]),
-        ]).start();
+      // Check ring pop — spring controlado (sin oscilación infinita)
+      Animated.spring(checkScale, { toValue: 1, tension: 160, friction: 11, useNativeDriver: true }).start();
 
-        // Checkmark desliza desde abajo
+      // Shockwave: 3 ripples con stagger
+      r1o.setValue(0.45); r2o.setValue(0.28); r3o.setValue(0.15);
+      Animated.stagger(100, [
         Animated.parallel([
-          Animated.timing(markOp, { toValue: 1, duration: 230, useNativeDriver: true }),
-          Animated.spring(markY,  { toValue: 0, tension: 200, friction: 8, useNativeDriver: true }),
-        ]).start();
+          Animated.timing(r1s, { toValue: 2.5, duration: 600, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+          Animated.timing(r1o, { toValue: 0,   duration: 600, useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(r2s, { toValue: 3.1, duration: 720, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+          Animated.timing(r2o, { toValue: 0,   duration: 720, useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(r3s, { toValue: 3.8, duration: 860, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+          Animated.timing(r3o, { toValue: 0,   duration: 860, useNativeDriver: true }),
+        ]),
+      ]).start();
 
-        // Texto sube con delay
-        setTimeout(() => {
-          Animated.parallel([
-            Animated.timing(textOp, { toValue: 1, duration: 380, useNativeDriver: true }),
-            Animated.timing(textY,  { toValue: 0, duration: 380, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-          ]).start();
-        }, 160);
-      });
-    });
+      // Checkmark aparece
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(markOp, { toValue: 1, duration: 200, useNativeDriver: true }),
+          Animated.timing(markY,  { toValue: 0, duration: 280, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+        ]).start();
+      }, 120);
+
+      // Texto sube
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(textOp, { toValue: 1, duration: 320, useNativeDriver: true }),
+          Animated.timing(textY,  { toValue: 0, duration: 320, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+        ]).start();
+      }, 300);
+    }, 230);
   }, [success]);
 
   const outerSpin = outerRot.interpolate({ inputRange: [-1, 0], outputRange: ['-360deg', '0deg'] });
@@ -629,8 +647,8 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
     // Logo fue visible exactamente ≥1700ms — ahora mostrar check
     setCreatingSuccess(true);
 
-    // Check visible exactamente 900ms antes de navegar
-    await delay(900);
+    // Check visible mínimo 1600ms antes de navegar
+    await delay(1600);
     navigation.replace('Transfer', { operation: result.op });
   };
 
