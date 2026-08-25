@@ -394,50 +394,109 @@ const lpb = StyleSheet.create({
   },
 });
 
-// ─── BsDividerAnim — partícula viajera entre las opciones ────────────────────
+// ─── BsDividerAnim — dos partículas opuestas representando el intercambio ──────
 const BsDividerAnim: React.FC = () => {
-  const travel = useRef(new Animated.Value(0)).current;
-  const glowOp = useRef(new Animated.Value(0.3)).current;
+  // Partícula verde: de arriba hacia abajo
+  const g = useRef(new Animated.Value(0)).current;
+  const go = useRef(new Animated.Value(0)).current;
+  // Partícula azul: de abajo hacia arriba (desfase medio ciclo)
+  const b = useRef(new Animated.Value(0)).current;
+  const bo = useRef(new Animated.Value(0)).current;
+  // Destello de cruce en el centro
+  const flash = useRef(new Animated.Value(0)).current;
+  // Pulso de la línea
+  const lineOp = useRef(new Animated.Value(0.07)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const CYCLE = 1100;
+    const HALF  = CYCLE / 2;
+
+    const animDot = (pos: Animated.Value, op: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.parallel([
+            Animated.timing(pos, { toValue: 1, duration: CYCLE, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+            Animated.sequence([
+              Animated.timing(op, { toValue: 0,    duration: 0,         useNativeDriver: true }),
+              Animated.timing(op, { toValue: 1,    duration: CYCLE * 0.2, useNativeDriver: true }),
+              Animated.timing(op, { toValue: 1,    duration: CYCLE * 0.6, useNativeDriver: true }),
+              Animated.timing(op, { toValue: 0,    duration: CYCLE * 0.2, useNativeDriver: true }),
+            ]),
+          ]),
+          Animated.timing(pos, { toValue: 0, duration: 0, useNativeDriver: true }),
+        ])
+      );
+
+    const flashAnim = Animated.loop(
       Animated.sequence([
-        Animated.parallel([
-          Animated.timing(travel, { toValue: 1, duration: 820, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-          Animated.sequence([
-            Animated.timing(glowOp, { toValue: 0.85, duration: 410, useNativeDriver: true }),
-            Animated.timing(glowOp, { toValue: 0.3,  duration: 410, useNativeDriver: true }),
-          ]),
-        ]),
-        Animated.parallel([
-          Animated.timing(travel, { toValue: 0, duration: 820, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-          Animated.sequence([
-            Animated.timing(glowOp, { toValue: 0.85, duration: 410, useNativeDriver: true }),
-            Animated.timing(glowOp, { toValue: 0.3,  duration: 410, useNativeDriver: true }),
-          ]),
-        ]),
+        Animated.delay(HALF - 80),
+        Animated.timing(flash, { toValue: 1, duration: 80,  useNativeDriver: true }),
+        Animated.timing(flash, { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.delay(HALF - 200),
       ])
-    ).start();
+    );
+
+    const linePulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(lineOp, { toValue: 0.18, duration: HALF, useNativeDriver: true }),
+        Animated.timing(lineOp, { toValue: 0.07, duration: HALF, useNativeDriver: true }),
+      ])
+    );
+
+    animDot(g, go, 0).start();
+    animDot(b, bo, HALF).start();
+    flashAnim.start();
+    linePulse.start();
   }, []);
 
-  const translateY = travel.interpolate({ inputRange: [0, 1], outputRange: [-14, 14] });
+  const RANGE = 20;
+  // Verde: top→bottom  (-RANGE → +RANGE)
+  const yGreen = g.interpolate({ inputRange: [0, 1], outputRange: [-RANGE, RANGE] });
+  // Azul:  bottom→top  (+RANGE → -RANGE)
+  const yBlue  = b.interpolate({ inputRange: [0, 1], outputRange: [RANGE, -RANGE] });
 
   return (
     <View style={bsd.wrap}>
-      <View style={bsd.line} />
-      <Animated.View style={[bsd.particle, { opacity: glowOp, transform: [{ translateY }] }]} />
+      {/* Línea base */}
+      <Animated.View style={[bsd.line, { opacity: lineOp }]} />
+
+      {/* Destello en el cruce */}
+      <Animated.View style={[bsd.flash, { opacity: flash }]} />
+
+      {/* Partícula verde — compra */}
+      <Animated.View style={[bsd.dot, {
+        backgroundColor: '#22c55e',
+        shadowColor: '#22c55e',
+        opacity: go,
+        transform: [{ translateY: yGreen }],
+      }]} />
+
+      {/* Partícula azul — venta */}
+      <Animated.View style={[bsd.dot, {
+        backgroundColor: '#3b82f6',
+        shadowColor: '#3b82f6',
+        opacity: bo,
+        transform: [{ translateY: yBlue }],
+      }]} />
     </View>
   );
 };
 
 const bsd = StyleSheet.create({
-  wrap:     { width: 22, alignItems: 'center', justifyContent: 'center' },
-  line:     { position: 'absolute', width: 1, top: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.09)' },
-  particle: {
-    width: 4, height: 4, borderRadius: 2,
+  wrap:  { width: 24, alignItems: 'center', justifyContent: 'center' },
+  line:  { position: 'absolute', width: 1, top: 0, bottom: 0, backgroundColor: '#fff' },
+  dot:   {
+    position: 'absolute',
+    width: 5, height: 5, borderRadius: 2.5,
+    shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 5,
+  },
+  flash: {
+    position: 'absolute',
+    width: 6, height: 6, borderRadius: 3,
     backgroundColor: '#fff',
     shadowColor: '#fff', shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9, shadowRadius: 4,
+    shadowOpacity: 1, shadowRadius: 8,
   },
 });
 
