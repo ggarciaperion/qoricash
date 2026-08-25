@@ -713,14 +713,13 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
 
               {/* Envías */}
               <View style={s.orderRow}>
-                <View style={s.orderLeftCol}>
-                  <View style={s.orderCurrTag}>
-                    <Text style={s.orderCurrTxt}>{inputCurrency}</Text>
-                  </View>
-                  <Text style={s.orderFlag}>{inputCurrency === 'USD' ? '🇺🇸' : '🇵🇪'}</Text>
+                <View style={s.orderCurrTag}>
+                  <Text style={s.orderCurrTxt}>{inputCurrency}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.orderRowLabel}>ENVIÁS</Text>
+                  <Text style={s.orderRowLabel}>
+                    {operationType === 'Compra' ? 'Usted envía dólares' : 'Usted envía soles'}
+                  </Text>
                   <Text style={s.orderAmount}>
                     {formatCurrency(amountToSend, inputCurrency === 'USD' ? 'USD' : 'PEN')}
                   </Text>
@@ -738,17 +737,16 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
 
               {/* Recibes */}
               <View style={s.orderRow}>
-                <View style={s.orderLeftCol}>
-                  <View style={[s.orderCurrTag, {
-                    borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.35)' : 'rgba(59,130,246,0.35)',
-                    backgroundColor: operationType === 'Compra' ? 'rgba(34,197,94,0.1)' : 'rgba(59,130,246,0.1)',
-                  }]}>
-                    <Text style={[s.orderCurrTxt, { color: operationType === 'Compra' ? GREEN : RED }]}>{outputCurrency}</Text>
-                  </View>
-                  <Text style={s.orderFlag}>{outputCurrency === 'USD' ? '🇺🇸' : '🇵🇪'}</Text>
+                <View style={[s.orderCurrTag, {
+                  borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.35)' : 'rgba(59,130,246,0.35)',
+                  backgroundColor: operationType === 'Compra' ? 'rgba(34,197,94,0.1)' : 'rgba(59,130,246,0.1)',
+                }]}>
+                  <Text style={[s.orderCurrTxt, { color: operationType === 'Compra' ? GREEN : RED }]}>{outputCurrency}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.orderRowLabel}>RECIBES</Text>
+                  <Text style={s.orderRowLabel}>
+                    {operationType === 'Compra' ? 'Usted recibe soles' : 'Usted recibe dólares'}
+                  </Text>
                   <Text style={[s.orderAmount, { color: operationType === 'Compra' ? GREEN : RED }]}>
                     {formatCurrency(amountToReceive, outputCurrency === 'USD' ? 'USD' : 'PEN')}
                   </Text>
@@ -1176,8 +1174,6 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   orderCurrTxt:  { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.55)', letterSpacing: 0.5 },
-  orderLeftCol:  { alignItems: 'center', gap: 5 },
-  orderFlag:     { fontSize: 20 },
   orderRowLabel: { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.28)', letterSpacing: 2, marginBottom: 4 },
   orderAmount:   { fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
   orderSepRow:   { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
