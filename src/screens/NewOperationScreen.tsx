@@ -920,17 +920,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             >
               {loading
                 ? <ActivityIndicator color="#fff" size="small" />
-                : <>
-                    <Ionicons
-                      name={operationType === 'Compra' ? 'trending-up' : 'trending-down'}
-                      size={20}
-                      color="#fff"
-                      style={{ marginRight: 10 }}
-                    />
-                    <Text style={s.execTxt}>
-                      {operationType === 'Compra' ? 'EJECUTAR COMPRA' : 'EJECUTAR VENTA'}
-                    </Text>
-                  </>
+                : <Text style={s.execTxt}>CREAR OPERACIÓN</Text>
               }
             </TouchableOpacity>
           </MotiView>
