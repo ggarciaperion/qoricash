@@ -34,6 +34,7 @@ const GREEN_DIM    = 'rgba(34,197,94,0.14)';
 const GREEN_BORDER = 'rgba(34,197,94,0.3)';
 const GLASS_BG     = 'rgba(255,255,255,0.08)';
 const GLASS_BORDER = 'rgba(255,255,255,0.15)';
+const RED          = '#ef4444';
 
 // ─── Banks ─────────────────────────────────────────────────────────────────────
 const BANKS_LIMA      = ['BCP', 'INTERBANK', 'PICHINCHA', 'BANBIF', 'BBVA', 'Scotiabank', 'Otros'];
@@ -585,7 +586,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
           keyboardShouldPersistTaps="handled"
         >
 
-          {/* ── Header / back ── */}
+          {/* ── Header ── */}
           <MotiView
             from={{ opacity: 0, translateY: -8 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -595,202 +596,224 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
               <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.75}>
                 <Ionicons name="chevron-back" size={20} color="#fff" />
               </TouchableOpacity>
-              <Text style={s.pageTitle}>Nueva operación</Text>
+              <View style={{ alignItems: 'center' }}>
+                <Text style={s.pageTitle}>Nueva operación</Text>
+                <View style={s.pairBadge}>
+                  <View style={s.liveDot} />
+                  <Text style={s.pairTxt}>USD / PEN</Text>
+                </View>
+              </View>
               <View style={{ width: 38 }} />
             </View>
           </MotiView>
 
-          {/* ── Timeline stepper ── */}
+          {/* ── BUY / SELL toggle ── */}
           <MotiView
-            from={{ opacity: 0, translateY: -10 }}
+            from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', delay: 80, damping: 22, stiffness: 200 }}
+            transition={{ type: 'spring', delay: 90, damping: 22, stiffness: 200 }}
           >
-            <View style={s.stepperWrap}>
-              {(['Cotiza','Transfiere','Recibe'] as const).map((label, i) => (
-                <React.Fragment key={label}>
-                  <View style={s.step}>
-                    <View style={[s.stepDot, i === 0 && s.stepDotActive]}>
-                      {i === 0
-                        ? <Ionicons name="checkmark" size={14} color="#fff" />
-                        : <Text style={s.stepNum}>{i + 1}</Text>
-                      }
-                    </View>
-                    <Text style={[s.stepLabel, i === 0 && s.stepLabelActive]}>{label}</Text>
-                  </View>
-                  {i < 2 && <View style={s.stepLine} />}
-                </React.Fragment>
-              ))}
+            <View style={s.bsWrap}>
+              <TouchableOpacity
+                style={[s.bsBtn, operationType === 'Compra' && s.bsBtnBuy]}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setOperationType('Compra'); }}
+                activeOpacity={0.82}
+              >
+                <Ionicons name="trending-up" size={20} color={operationType === 'Compra' ? GREEN : 'rgba(255,255,255,0.18)'} />
+                <Text style={[s.bsBtnLabel, { color: operationType === 'Compra' ? GREEN : 'rgba(255,255,255,0.2)' }]}>COMPRAR</Text>
+                <Text style={[s.bsBtnSub, { color: operationType === 'Compra' ? 'rgba(34,197,94,0.7)' : 'rgba(255,255,255,0.14)' }]}>Recibo dólares</Text>
+              </TouchableOpacity>
+              <View style={s.bsDivider}>
+                <Ionicons name="swap-horizontal" size={13} color="rgba(255,255,255,0.13)" />
+              </View>
+              <TouchableOpacity
+                style={[s.bsBtn, operationType === 'Venta' && s.bsBtnSell]}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setOperationType('Venta'); }}
+                activeOpacity={0.82}
+              >
+                <Ionicons name="trending-down" size={20} color={operationType === 'Venta' ? RED : 'rgba(255,255,255,0.18)'} />
+                <Text style={[s.bsBtnLabel, { color: operationType === 'Venta' ? RED : 'rgba(255,255,255,0.2)' }]}>VENDER</Text>
+                <Text style={[s.bsBtnSub, { color: operationType === 'Venta' ? 'rgba(239,68,68,0.65)' : 'rgba(255,255,255,0.14)' }]}>Entrego dólares</Text>
+              </TouchableOpacity>
             </View>
           </MotiView>
 
-          {/* ── Operation type (read-only) ── */}
+          {/* ── Rate ticker ── */}
           <MotiView
-            from={{ opacity: 0, translateY: 16 }}
+            from={{ opacity: 0, translateY: 10 }}
             animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', delay: 160, damping: 22, stiffness: 180 }}
+            transition={{ type: 'spring', delay: 150, damping: 22, stiffness: 200 }}
           >
-            <View style={[s.card, { backgroundColor: 'transparent', borderWidth: 0 }]}>
-              <Text style={s.cardLabel}>Tipo de operación</Text>
-              <View style={s.opTypeRow}>
-                <View style={s.opTypeBadge}>
-                  <Ionicons
-                    name={operationType === 'Compra' ? 'arrow-down-circle' : 'arrow-up-circle'}
-                    size={18}
-                    color={GREEN}
-                  />
-                  <Text style={s.opTypeText}>
-                    {operationType === 'Compra' ? 'Qoricash compra' : 'Qoricash vende'}
-                  </Text>
+            <View style={s.tickerRow}>
+              <View style={s.tickerPair}>
+                <View style={s.tickerDot} />
+                <Text style={s.tickerPairTxt}>USD/PEN</Text>
+              </View>
+              <View style={s.tickerRates}>
+                <View style={s.tickerRateItem}>
+                  <Text style={s.tickerRateLabel}>BID</Text>
+                  <Text style={s.tickerRateValue}>{realExchangeRates.compra.toFixed(3)}</Text>
                 </View>
-                <View style={s.opTcBadge}>
-                  <Text style={s.opTcLabel}>T.C.</Text>
-                  <Text style={s.opTcValue}>{parseFloat(exchangeRate).toFixed(3)}</Text>
+                <View style={s.tickerSep} />
+                <View style={s.tickerRateItem}>
+                  <Text style={s.tickerRateLabel}>ASK</Text>
+                  <Text style={s.tickerRateValue}>{realExchangeRates.venta.toFixed(3)}</Text>
                 </View>
               </View>
-              <Text style={s.cardHint}>
-                {operationType === 'Compra'
-                  ? 'Envías dólares · Recibes soles'
-                  : 'Envías soles · Recibes dólares'}
-              </Text>
+              <View style={s.tickerApplied}>
+                <Text style={s.tickerAppliedLabel}>APLICADO</Text>
+                <Text style={[s.tickerAppliedValue, { color: operationType === 'Compra' ? GREEN : RED }]}>
+                  {parseFloat(exchangeRate).toFixed(3)}
+                </Text>
+              </View>
             </View>
           </MotiView>
 
-          {/* ── Summary ── */}
+          {/* ── Order flow card ── */}
           <MotiView
             from={{ opacity: 0, translateY: 16, scale: 0.97 }}
             animate={{ opacity: 1, translateY: 0, scale: 1 }}
-            transition={{ type: 'spring', delay: 230, damping: 22, stiffness: 180 }}
+            transition={{ type: 'spring', delay: 210, damping: 22, stiffness: 180 }}
           >
-            <View style={s.summaryCard}>
-              {/* Capas efecto espejo */}
-              <View style={[StyleSheet.absoluteFill, s.mirrorBase]} />
-              <View style={[StyleSheet.absoluteFill, s.mirrorSheen]} />
-              <View style={s.summaryBorder} />
+            <View style={s.orderCard}>
+              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.055)' }]} />
+              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, borderWidth: 1, borderColor: GLASS_BORDER }]} />
 
               {/* Envías */}
-              <View style={s.summaryRow}>
+              <View style={s.orderRow}>
+                <View style={s.orderCurrTag}>
+                  <Text style={s.orderCurrTxt}>{inputCurrency}</Text>
+                </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.summaryRowLabel}>¿Cuánto envías?</Text>
-                  <Text style={s.summaryAmount}>
+                  <Text style={s.orderRowLabel}>ENVIÁS</Text>
+                  <Text style={s.orderAmount}>
                     {formatCurrency(amountToSend, inputCurrency === 'USD' ? 'USD' : 'PEN')}
                   </Text>
                 </View>
-                <View style={s.currencyTag}>
-                  <Text style={s.currencyTagTxt}>{inputCurrency === 'USD' ? 'Dólares' : 'Soles'}</Text>
+              </View>
+
+              {/* Separador */}
+              <View style={s.orderSepRow}>
+                <View style={s.orderSepLine} />
+                <View style={[s.orderSepIcon, { borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)' }]}>
+                  <Ionicons name="swap-vertical" size={14} color={operationType === 'Compra' ? GREEN : RED} />
                 </View>
+                <View style={s.orderSepLine} />
               </View>
 
               {/* Recibes */}
-              <View style={[s.summaryRow, { marginBottom: 0 }]}>
+              <View style={s.orderRow}>
+                <View style={[s.orderCurrTag, {
+                  borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.35)',
+                  backgroundColor: operationType === 'Compra' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                }]}>
+                  <Text style={[s.orderCurrTxt, { color: operationType === 'Compra' ? GREEN : RED }]}>{outputCurrency}</Text>
+                </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.summaryRowLabel}>Entonces recibes</Text>
-                  <Text style={[s.summaryAmount, { color: GREEN }]}>
+                  <Text style={s.orderRowLabel}>RECIBES</Text>
+                  <Text style={[s.orderAmount, { color: operationType === 'Compra' ? GREEN : RED }]}>
                     {formatCurrency(amountToReceive, outputCurrency === 'USD' ? 'USD' : 'PEN')}
                   </Text>
                 </View>
-                <View style={[s.currencyTag, s.currencyTagGreen]}>
-                  <Text style={[s.currencyTagTxt, { color: GREEN }]}>{outputCurrency === 'USD' ? 'Dólares' : 'Soles'}</Text>
-                </View>
               </View>
             </View>
           </MotiView>
 
-          {/* ── Cuenta origen ── */}
+          {/* ── Cuentas ── */}
           <MotiView
             from={{ opacity: 0, translateY: 16 }}
             animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', delay: 300, damping: 22, stiffness: 180 }}
+            transition={{ type: 'spring', delay: 280, damping: 22, stiffness: 180 }}
           >
-            <View style={s.card}>
-              <View style={s.accHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.cardLabel}>Cuenta de cargo</Text>
-                  <Text style={s.cardHint}>{operationType === 'Venta' ? 'Soles (S/)' : 'Dólares (USD)'}</Text>
+            <View style={s.accountsCard}>
+              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.055)' }]} />
+              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, borderWidth: 1, borderColor: GLASS_BORDER }]} />
+
+              {/* Cuenta cargo */}
+              <View style={s.accountBlock}>
+                <View style={s.accountMeta}>
+                  <Text style={s.accountRoleLabel}>CARGO</Text>
+                  <Text style={s.accountRoleSub}>{operationType === 'Venta' ? 'S/ Soles' : '$ Dólares'}</Text>
                 </View>
-                <TouchableOpacity style={s.addAccBtn} onPress={() => openAddAccount('source')} activeOpacity={0.75}>
+                <TouchableOpacity
+                  style={[s.accountSelector, errors.sourceAccount && s.accountSelectorErr]}
+                  onPress={() => setSourceDialogVisible(true)}
+                  activeOpacity={0.78}
+                >
+                  <Ionicons name="card-outline" size={14} color={getSourceText() ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.2)'} />
+                  {getSourceText()
+                    ? <Text style={s.accountSelectorTxt} numberOfLines={1}>{getSourceText()}</Text>
+                    : <Text style={s.accountSelectorPh}>Seleccionar cuenta...</Text>
+                  }
+                  <Ionicons name="chevron-down" size={13} color="rgba(255,255,255,0.25)" />
+                </TouchableOpacity>
+                <TouchableOpacity style={s.addMicroBtn} onPress={() => openAddAccount('source')} activeOpacity={0.75}>
                   <Ionicons name="add" size={14} color={GREEN} />
-                  <Text style={s.addAccTxt}>Agregar</Text>
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={[s.accSelect, errors.sourceAccount && s.accSelectError]}
-                onPress={() => setSourceDialogVisible(true)}
-                activeOpacity={0.78}
-              >
-                <Ionicons name="business-outline" size={16} color={getSourceText() ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)'} />
-                <Text style={[s.accSelectTxt, !getSourceText() && s.accSelectPlaceholder]} numberOfLines={1}>
-                  {getSourceText() || 'Seleccionar cuenta...'}
-                </Text>
-                <Ionicons name="chevron-down" size={16} color="rgba(255,255,255,0.3)" />
-              </TouchableOpacity>
               {errors.sourceAccount && <Text style={s.errorTxt}>{errors.sourceAccount}</Text>}
-            </View>
-          </MotiView>
 
-          {/* ── Cuenta destino ── */}
-          <MotiView
-            from={{ opacity: 0, translateY: 16 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', delay: 360, damping: 22, stiffness: 180 }}
-          >
-            <View style={s.card}>
-              <View style={s.accHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.cardLabel}>Cuenta de destino</Text>
-                  <Text style={s.cardHint}>{operationType === 'Venta' ? 'Dólares (USD)' : 'Soles (S/)'}</Text>
+              <View style={s.accountDivider} />
+
+              {/* Cuenta abono */}
+              <View style={s.accountBlock}>
+                <View style={s.accountMeta}>
+                  <Text style={s.accountRoleLabel}>ABONO</Text>
+                  <Text style={s.accountRoleSub}>{operationType === 'Venta' ? '$ Dólares' : 'S/ Soles'}</Text>
                 </View>
-                <TouchableOpacity style={s.addAccBtn} onPress={() => openAddAccount('destination')} activeOpacity={0.75}>
+                <TouchableOpacity
+                  style={[s.accountSelector, errors.destinationAccount && s.accountSelectorErr]}
+                  onPress={() => setDestDialogVisible(true)}
+                  activeOpacity={0.78}
+                >
+                  <Ionicons name="card-outline" size={14} color={getDestText() ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.2)'} />
+                  {getDestText()
+                    ? <Text style={s.accountSelectorTxt} numberOfLines={1}>{getDestText()}</Text>
+                    : <Text style={s.accountSelectorPh}>Seleccionar cuenta...</Text>
+                  }
+                  <Ionicons name="chevron-down" size={13} color="rgba(255,255,255,0.25)" />
+                </TouchableOpacity>
+                <TouchableOpacity style={s.addMicroBtn} onPress={() => openAddAccount('destination')} activeOpacity={0.75}>
                   <Ionicons name="add" size={14} color={GREEN} />
-                  <Text style={s.addAccTxt}>Agregar</Text>
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={[s.accSelect, errors.destinationAccount && s.accSelectError]}
-                onPress={() => setDestDialogVisible(true)}
-                activeOpacity={0.78}
-              >
-                <Ionicons name="business-outline" size={16} color={getDestText() ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)'} />
-                <Text style={[s.accSelectTxt, !getDestText() && s.accSelectPlaceholder]} numberOfLines={1}>
-                  {getDestText() || 'Seleccionar cuenta...'}
-                </Text>
-                <Ionicons name="chevron-down" size={16} color="rgba(255,255,255,0.3)" />
-              </TouchableOpacity>
               {errors.destinationAccount && <Text style={s.errorTxt}>{errors.destinationAccount}</Text>}
             </View>
           </MotiView>
 
           {/* ── Declaración ── */}
           <MotiView
-            from={{ opacity: 0, translateY: 16 }}
+            from={{ opacity: 0, translateY: 14 }}
             animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', delay: 420, damping: 22, stiffness: 180 }}
+            transition={{ type: 'spring', delay: 340, damping: 22, stiffness: 180 }}
           >
             <TouchableOpacity
-              style={s.card}
+              style={s.declarationRow}
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTermsAccepted(!termsAccepted); setErrors({ ...errors, termsAccepted: '' }); }}
               activeOpacity={0.82}
             >
-              <View style={s.checkRow}>
-                <View style={[s.checkbox, termsAccepted && s.checkboxOn]}>
-                  {termsAccepted && <Ionicons name="checkmark" size={13} color="#fff" />}
-                </View>
-                <Text style={s.checkLabel}>
-                  Declaro como verdad que los fondos provienen de actividades lícitas y que soy el titular de las cuentas bancarias registradas.
-                </Text>
+              <View style={[s.checkbox, termsAccepted && s.checkboxOn]}>
+                {termsAccepted && <Ionicons name="checkmark" size={12} color="#fff" />}
               </View>
-              {errors.termsAccepted && <Text style={[s.errorTxt, { marginTop: 8 }]}>{errors.termsAccepted}</Text>}
+              <Text style={s.declarationTxt}>
+                Declaro que los fondos provienen de actividades lícitas y que soy titular de las cuentas bancarias registradas.
+              </Text>
             </TouchableOpacity>
+            {errors.termsAccepted && <Text style={[s.errorTxt, { marginTop: 6, marginLeft: 34 }]}>{errors.termsAccepted}</Text>}
           </MotiView>
 
-          {/* ── Botón submit ── */}
+          {/* ── Ejecutar orden ── */}
           <MotiView
             from={{ opacity: 0, translateY: 20, scale: 0.95 }}
             animate={{ opacity: 1, translateY: 0, scale: 1 }}
-            transition={{ type: 'spring', delay: 480, damping: 20, stiffness: 180 }}
+            transition={{ type: 'spring', delay: 400, damping: 20, stiffness: 180 }}
           >
             <TouchableOpacity
-              style={[s.submitBtn, (!termsAccepted || loading) && s.submitBtnDim]}
+              style={[
+                s.execBtn,
+                { backgroundColor: operationType === 'Compra' ? GREEN : RED, shadowColor: operationType === 'Compra' ? GREEN : RED },
+                (!termsAccepted || loading) && s.execBtnDim,
+              ]}
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); handleSubmit(); }}
               disabled={loading || !termsAccepted}
               activeOpacity={0.82}
@@ -798,13 +821,19 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
               {loading
                 ? <ActivityIndicator color="#fff" size="small" />
                 : <>
-                    <Ionicons name="arrow-forward-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-                    <Text style={s.submitTxt}>CREAR OPERACIÓN</Text>
+                    <Ionicons
+                      name={operationType === 'Compra' ? 'trending-up' : 'trending-down'}
+                      size={20}
+                      color="#fff"
+                      style={{ marginRight: 10 }}
+                    />
+                    <Text style={s.execTxt}>
+                      {operationType === 'Compra' ? 'EJECUTAR COMPRA' : 'EJECUTAR VENTA'}
+                    </Text>
                   </>
               }
             </TouchableOpacity>
           </MotiView>
-
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -996,179 +1025,150 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
 const s = StyleSheet.create({
   root:    { flex: 1 },
   overlay: { backgroundColor: 'transparent' },
-  scroll:  { paddingHorizontal: 20 },
+  scroll:  { paddingHorizontal: 18 },
 
   // ── Page header ──
   pageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 22,
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginBottom: 18,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: GLASS_BG,
-    borderWidth: 1, borderColor: GLASS_BORDER,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  pageTitle: {
-    fontSize: 15, fontWeight: '700', color: '#fff', letterSpacing: 0.1,
-  },
-
-  // ── Summary glass card ──
-  summaryCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    padding: 18,
-    marginBottom: 14,
-  },
-  mirrorBase: {
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderRadius: 20,
-  },
-  mirrorSheen: {
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderTopWidth: 1.5,
-    borderTopColor: 'rgba(255,255,255,0.55)',
-    borderLeftWidth: 1,
-    borderLeftColor: 'rgba(255,255,255,0.3)',
-    borderRightWidth: 1,
-    borderRightColor: 'rgba(255,255,255,0.08)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-  },
-  summaryBorder: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    borderRadius: 20,
-  },
-
-  // ── Stepper ──
-  stepperWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
-  step: { alignItems: 'center', gap: 6 },
-  stepDot: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: GLASS_BG,
-    borderWidth: 1, borderColor: GLASS_BORDER,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  stepDotActive: {
-    backgroundColor: GREEN,
-    borderColor: GREEN,
-    shadowColor: GREEN,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.55,
-    shadowRadius: 10,
-  },
-  stepNum:        { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.35)' },
-  stepLabel:      { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.3)', letterSpacing: 0.3 },
-  stepLabelActive:{ color: GREEN, fontWeight: '700' },
-  stepLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: GLASS_BORDER,
-    marginHorizontal: 8,
-    marginBottom: 20,
-  },
-
-  // ── Cards ──
-  card: {
-    backgroundColor: GLASS_BG,
-    borderWidth: 1, borderColor: GLASS_BORDER,
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 14,
-  },
-  cardLabel: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 12 },
-  cardHint:  { fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 8 },
-
-  // ── Op type read-only ──
-  opTypeRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  opTypeBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: GREEN_DIM, borderWidth: 1, borderColor: GREEN_BORDER,
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, flex: 1, marginRight: 10,
-  },
-  opTypeText: { fontSize: 14, fontWeight: '700', color: GREEN },
-  opTcBadge: {
-    alignItems: 'center', justifyContent: 'center',
     backgroundColor: GLASS_BG, borderWidth: 1, borderColor: GLASS_BORDER,
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+    alignItems: 'center', justifyContent: 'center',
   },
-  opTcLabel: { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.38)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 },
-  opTcValue: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  pageTitle: { fontSize: 14, fontWeight: '700', color: '#fff', letterSpacing: 0.3 },
+  pairBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 },
+  liveDot:   { width: 5, height: 5, borderRadius: 2.5, backgroundColor: GREEN },
+  pairTxt:   { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.38)', letterSpacing: 2 },
 
-  // ── Segmented ──
-  seg:           { flexDirection: 'row', gap: 6 },
-  segBtn:        { flex: 1, paddingVertical: 11, borderRadius: 12, alignItems: 'center', backgroundColor: GLASS_BG, borderWidth: 1, borderColor: GLASS_BORDER },
-  segBtnActive:  { backgroundColor: GREEN_DIM, borderColor: GREEN_BORDER },
-  segBtnTxt:     { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.38)' },
-  segBtnTxtActive: { color: GREEN, fontWeight: '700' },
-
-  // ── Summary ──
-  summaryRow:       { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  summaryRowLabel:  { fontSize: 10.5, color: 'rgba(255,255,255,0.38)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 },
-  summaryAmount:    { fontSize: 24, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
-  currencyTag: {
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+  // ── BUY / SELL toggle ──
+  bsWrap: {
+    flexDirection: 'row', marginBottom: 10,
+    borderRadius: 18, overflow: 'hidden',
     borderWidth: 1, borderColor: GLASS_BORDER,
-    alignItems: 'center', justifyContent: 'center', marginLeft: 12,
+    backgroundColor: 'rgba(0,0,0,0.28)',
   },
-  currencyTagGreen: { backgroundColor: GREEN_DIM, borderColor: GREEN_BORDER },
-  currencyTagTxt:   { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.55)' },
-  tcRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, marginBottom: 16, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: GLASS_BORDER },
-  tcDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: GREEN },
-  tcLabel: { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: '500' },
-  tcValue: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  bsBtn: {
+    flex: 1, alignItems: 'center', paddingVertical: 15, paddingHorizontal: 10, gap: 4,
+  },
+  bsBtnBuy: {
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    shadowColor: GREEN, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.25, shadowRadius: 12,
+  },
+  bsBtnSell: {
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    shadowColor: RED, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.2, shadowRadius: 12,
+  },
+  bsBtnLabel: { fontSize: 13, fontWeight: '800', letterSpacing: 1.8 },
+  bsBtnSub:   { fontSize: 10, fontWeight: '500', letterSpacing: 0.2 },
+  bsDivider: {
+    width: 1, backgroundColor: GLASS_BORDER,
+    alignItems: 'center', justifyContent: 'center',
+  },
 
-  // ── Account ──
-  accHeader:   { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  addAccBtn:   { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, backgroundColor: GREEN_DIM, borderWidth: 1, borderColor: GREEN_BORDER },
-  addAccTxt:   { fontSize: 12, fontWeight: '600', color: GREEN },
-  accSelect:   { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: GLASS_BORDER, borderRadius: 13, paddingHorizontal: 14, paddingVertical: 13 },
-  accSelectError: { borderColor: 'rgba(248,113,113,0.5)' },
-  accSelectTxt:   { flex: 1, fontSize: 13, color: 'rgba(255,255,255,0.82)', fontWeight: '500' },
-  accSelectPlaceholder: { color: 'rgba(255,255,255,0.25)' },
-  errorTxt: { fontSize: 11, color: '#f87171', marginTop: 6, marginLeft: 2 },
+  // ── Rate ticker ──
+  tickerRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.32)',
+    borderWidth: 1, borderColor: GLASS_BORDER,
+    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 11,
+    marginBottom: 10, gap: 10,
+  },
+  tickerPair:    { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  tickerDot:     { width: 5, height: 5, borderRadius: 2.5, backgroundColor: GREEN },
+  tickerPairTxt: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.38)', letterSpacing: 1 },
+  tickerRates:   { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14 },
+  tickerRateItem:{ alignItems: 'center' },
+  tickerRateLabel:{ fontSize: 8, fontWeight: '700', color: 'rgba(255,255,255,0.28)', letterSpacing: 1.5, marginBottom: 2 },
+  tickerRateValue:{ fontSize: 14, fontWeight: '700', color: '#fff' },
+  tickerSep:     { width: 1, height: 22, backgroundColor: GLASS_BORDER },
+  tickerApplied: { alignItems: 'flex-end' },
+  tickerAppliedLabel: { fontSize: 8, fontWeight: '700', color: 'rgba(255,255,255,0.28)', letterSpacing: 1.5, marginBottom: 2 },
+  tickerAppliedValue: { fontSize: 17, fontWeight: '800' },
 
-  // ── Checkbox ──
-  checkRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  checkbox:  { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: GLASS_BORDER, backgroundColor: GLASS_BG, alignItems: 'center', justifyContent: 'center', marginTop: 1, flexShrink: 0 },
-  checkboxOn: { backgroundColor: GREEN, borderColor: GREEN },
-  checkLabel: { flex: 1, fontSize: 12.5, color: 'rgba(255,255,255,0.55)', lineHeight: 19 },
+  // ── Order card ──
+  orderCard: {
+    borderRadius: 20, overflow: 'hidden',
+    padding: 20, marginBottom: 10,
+  },
+  orderRow:    { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  orderCurrTag: {
+    width: 46, height: 46, borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1, borderColor: GLASS_BORDER,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  orderCurrTxt:  { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.55)', letterSpacing: 0.5 },
+  orderRowLabel: { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.28)', letterSpacing: 2, marginBottom: 4 },
+  orderAmount:   { fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
+  orderSepRow:   { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
+  orderSepLine:  { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.07)' },
+  orderSepIcon:  {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
+    marginHorizontal: 12,
+  },
 
-  // ── Submit ──
-  submitBtn: {
+  // ── Accounts card ──
+  accountsCard: {
+    borderRadius: 20, overflow: 'hidden',
+    paddingHorizontal: 18, paddingVertical: 16,
+    marginBottom: 10,
+  },
+  accountBlock:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  accountMeta:      { width: 48 },
+  accountRoleLabel: { fontSize: 8, fontWeight: '800', color: 'rgba(255,255,255,0.35)', letterSpacing: 1.8 },
+  accountRoleSub:   { fontSize: 9, color: 'rgba(255,255,255,0.22)', marginTop: 2, fontWeight: '500' },
+  accountSelector: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)',
+    borderRadius: 12, paddingHorizontal: 11, paddingVertical: 10,
+  },
+  accountSelectorErr: { borderColor: 'rgba(248,113,113,0.45)' },
+  accountSelectorTxt: { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
+  accountSelectorPh:  { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.2)', fontStyle: 'italic' },
+  addMicroBtn: {
+    width: 30, height: 30, borderRadius: 10,
+    backgroundColor: GREEN_DIM, borderWidth: 1, borderColor: GREEN_BORDER,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  accountDivider: { height: StyleSheet.hairlineWidth, backgroundColor: GLASS_BORDER, marginVertical: 14 },
+  errorTxt:       { fontSize: 11, color: '#f87171', marginTop: 5 },
+
+  // ── Declaration ──
+  declarationRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1, borderColor: GLASS_BORDER,
+    borderRadius: 14, padding: 14, marginBottom: 12,
+  },
+  checkbox: {
+    width: 20, height: 20, borderRadius: 10,
+    borderWidth: 1.5, borderColor: GLASS_BORDER,
+    backgroundColor: GLASS_BG, alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0, marginTop: 1,
+  },
+  checkboxOn:    { backgroundColor: GREEN, borderColor: GREEN },
+  declarationTxt:{ flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.42)', lineHeight: 18 },
+
+  // ── Execute button ──
+  execBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: GREEN, borderRadius: 18,
-    paddingVertical: 17,
-    shadowColor: GREEN,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 16,
+    borderRadius: 18, paddingVertical: 17,
+    shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 16,
   },
-  submitBtnDim: { backgroundColor: 'rgba(34,197,94,0.35)', shadowOpacity: 0 },
-  submitTxt: { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: 1.2 },
+  execBtnDim: { opacity: 0.32 },
+  execTxt:    { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: 1.4 },
 
   // ── Modals ──
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  modalOuter: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
+  modalOuter: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalBox: {
-    width: '100%', maxHeight: '85%',
-    borderRadius: 28, overflow: 'hidden',
-    alignItems: 'center',
-    paddingTop: 28, paddingBottom: 24, paddingHorizontal: 24,
+    width: '100%', maxHeight: '85%', borderRadius: 28, overflow: 'hidden',
+    alignItems: 'center', paddingTop: 28, paddingBottom: 24, paddingHorizontal: 24,
   },
   modalBorder:  { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 28, borderWidth: 1, borderColor: GLASS_BORDER },
   modalTitle:   { fontSize: 17, fontWeight: '800', color: '#fff', marginBottom: 16, letterSpacing: 0.1 },
@@ -1185,28 +1185,14 @@ const s = StyleSheet.create({
   inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: GLASS_BG, borderWidth: 1, borderColor: GLASS_BORDER, borderRadius: 13, paddingHorizontal: 14, paddingVertical: 12 },
   inputField: { flex: 1, color: '#fff', fontSize: 14 },
   textInputStandalone: {
-    backgroundColor: GLASS_BG,
-    borderWidth: 1,
-    borderColor: GLASS_BORDER,
-    borderRadius: 13,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    color: '#fff',
-    fontSize: 14,
-    width: '100%',
+    backgroundColor: GLASS_BG, borderWidth: 1, borderColor: GLASS_BORDER,
+    borderRadius: 13, paddingHorizontal: 14, paddingVertical: 13,
+    color: '#fff', fontSize: 14, width: '100%',
   },
 
   // ── Inline dropdown ──
-  inlineMenu: {
-    backgroundColor: 'rgba(8,18,32,0.97)',
-    borderWidth: 1, borderColor: GLASS_BORDER,
-    borderRadius: 14, marginTop: 4, overflow: 'hidden',
-  },
-  inlineMenuItem: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 13,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: GLASS_BORDER,
-  },
+  inlineMenu: { backgroundColor: 'rgba(8,18,32,0.97)', borderWidth: 1, borderColor: GLASS_BORDER, borderRadius: 14, marginTop: 4, overflow: 'hidden' },
+  inlineMenuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: GLASS_BORDER },
   inlineMenuTxt: { fontSize: 14, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
 
   // ── Bank items ──
@@ -1219,5 +1205,11 @@ const s = StyleSheet.create({
   infoBoxTxt: { flex: 1, fontSize: 12, color: '#fbbf24', lineHeight: 17 },
 
   emptyTxt: { fontSize: 13, color: 'rgba(255,255,255,0.35)', textAlign: 'center', paddingVertical: 24 },
-});
 
+  // ── Segmented (used in modals) ──
+  seg:           { flexDirection: 'row', gap: 6 },
+  segBtn:        { flex: 1, paddingVertical: 11, borderRadius: 12, alignItems: 'center', backgroundColor: GLASS_BG, borderWidth: 1, borderColor: GLASS_BORDER },
+  segBtnActive:  { backgroundColor: GREEN_DIM, borderColor: GREEN_BORDER },
+  segBtnTxt:     { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.38)' },
+  segBtnTxtActive: { color: GREEN, fontWeight: '700' },
+});
