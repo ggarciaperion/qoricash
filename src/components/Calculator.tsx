@@ -6,7 +6,6 @@ import {
   TextInput as RNTextInput,
   Animated,
   Alert,
-  InputAccessoryView,
   Keyboard,
   Platform,
 } from 'react-native';
@@ -138,7 +137,7 @@ export const Calculator: React.FC<CalculatorProps> = ({
 
   useEffect(() => {
     calculateAmount();
-  }, [amountUSD, activeOperationType, exchangeRates]);
+  }, [activeOperationType, exchangeRates]);
 
   const fetchExchangeRates = async () => {
     try {
@@ -175,6 +174,48 @@ export const Calculator: React.FC<CalculatorProps> = ({
       const usd = (amount / exchangeRates.venta).toFixed(2);
       setAmountPEN(usd);
       onAmountChange?.(true, activeOperationType, amountUSD, exchangeRates.venta);
+    }
+  };
+
+  const handleInputChange = (text: string) => {
+    const val = text.replace(/,/g, '');
+    setAmountUSD(val);
+    const amount = parseFloat(val);
+    if (!exchangeRates || isNaN(amount) || amount <= 0) {
+      setAmountPEN('');
+      onAmountChange?.(false, activeOperationType, '', 0);
+      return;
+    }
+    if (activeOperationType === 'Compra') {
+      const out = (amount * exchangeRates.compra).toFixed(2);
+      setAmountPEN(out);
+      onAmountChange?.(true, activeOperationType, val, exchangeRates.compra);
+    } else {
+      const out = (amount / exchangeRates.venta).toFixed(2);
+      setAmountPEN(out);
+      onAmountChange?.(true, activeOperationType, val, exchangeRates.venta);
+    }
+  };
+
+  const handleOutputChange = (text: string) => {
+    const val = text.replace(/,/g, '');
+    setAmountPEN(val);
+    const amount = parseFloat(val);
+    if (!exchangeRates || isNaN(amount) || amount <= 0) {
+      setAmountUSD('');
+      onAmountChange?.(false, activeOperationType, '', 0);
+      return;
+    }
+    if (activeOperationType === 'Compra') {
+      // output = PEN → input = USD = PEN / compra
+      const inp = (amount / exchangeRates.compra).toFixed(2);
+      setAmountUSD(inp);
+      onAmountChange?.(true, activeOperationType, inp, exchangeRates.compra);
+    } else {
+      // output = USD → input = PEN = USD * venta
+      const inp = (amount * exchangeRates.venta).toFixed(2);
+      setAmountUSD(inp);
+      onAmountChange?.(true, activeOperationType, inp, exchangeRates.venta);
     }
   };
 
@@ -229,8 +270,6 @@ export const Calculator: React.FC<CalculatorProps> = ({
     const rate = activeOperationType === 'Venta' ? 0.063 : 0.021;
     return (amount * rate).toFixed(2);
   };
-
-  const INPUT_ACCESSORY_ID = 'calculator-amount-input';
 
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
@@ -294,12 +333,11 @@ export const Calculator: React.FC<CalculatorProps> = ({
             <Text style={[styles.inputLabel, lightMode && styles.inputLabelLight]}>¿Cuánto envías?</Text>
             <RNTextInput
               value={formatInputAmount(amountUSD)}
-              onChangeText={(text) => setAmountUSD(text.replace(/,/g, ''))}
+              onChangeText={handleInputChange}
               keyboardType="decimal-pad"
               placeholder="0"
               placeholderTextColor={Colors.textMuted}
               style={[styles.inputAmount, lightMode && styles.amountLight]}
-              inputAccessoryViewID={Platform.OS === 'ios' ? INPUT_ACCESSORY_ID : undefined}
               returnKeyType="done"
               onSubmitEditing={() => Keyboard.dismiss()}
             />
@@ -327,9 +365,16 @@ export const Calculator: React.FC<CalculatorProps> = ({
         <View style={styles.calculatorRow}>
           <View style={[styles.inputBox, lightMode && styles.inputBoxLight]}>
             <Text style={[styles.inputLabel, lightMode && styles.inputLabelLight]}>Entonces recibes</Text>
-            <Text style={[styles.outputAmount, lightMode && styles.amountLight]}>
-              {formatInputAmount(amountPEN) || '0.00'}
-            </Text>
+            <RNTextInput
+              value={formatInputAmount(amountPEN)}
+              onChangeText={handleOutputChange}
+              keyboardType="decimal-pad"
+              placeholder="0.00"
+              placeholderTextColor={Colors.textMuted}
+              style={[styles.outputAmount, lightMode && styles.amountLight]}
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
+            />
           </View>
           <View style={styles.currencyBox}>
             <Text style={styles.currencySymbol}>
@@ -340,6 +385,9 @@ export const Calculator: React.FC<CalculatorProps> = ({
             </Text>
           </View>
         </View>
+
+        {/* Tip mejora TC */}
+        <Text style={styles.tcTip}>✦ Mejora tu tipo de cambio para importes mayores a $3,000</Text>
 
         {/* Información adicional */}
         {amountPEN && (
@@ -354,16 +402,6 @@ export const Calculator: React.FC<CalculatorProps> = ({
         )}
       </View>
 
-      {/* Tecla "ocultar teclado" (solo iOS) */}
-      {Platform.OS === 'ios' && (
-        <InputAccessoryView nativeID={INPUT_ACCESSORY_ID}>
-          <View style={styles.keyboardAccessory}>
-            <TouchableOpacity onPress={() => Keyboard.dismiss()} style={styles.keyboardKey} activeOpacity={0.5}>
-              <Ionicons name="chevron-down" size={20} color="#000000" />
-            </TouchableOpacity>
-          </View>
-        </InputAccessoryView>
-      )}
 
       {/* Botón Continuar o Iniciar Operación (opcional) */}
       {(showContinueButton || showInitiateButton) && (
@@ -493,7 +531,9 @@ const styles = StyleSheet.create({
   },
   currencyBox: {
     width: 95,
-    backgroundColor: Colors.secondary,
+    backgroundColor: 'rgba(255,255,255,0.09)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.17)',
     borderRadius: 14,
     padding: 16,
     alignItems: 'center',
@@ -528,6 +568,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
+  },
+  tcTip: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.32)',
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginTop: 10,
+    marginBottom: 2,
   },
   infoRow: {
     flexDirection: 'row',

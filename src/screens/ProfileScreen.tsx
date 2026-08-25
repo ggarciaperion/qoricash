@@ -299,23 +299,25 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
       <ImageBackground source={require('../../assets/cd.png')} style={StyleSheet.absoluteFill} resizeMode="cover" />
       <View style={[StyleSheet.absoluteFill, s.overlay]} pointerEvents="none" />
 
+      {/* ══ Header fijo (no scrollea) ════════════════════════════════════ */}
+      <View style={[s.fixedHeader, { paddingTop: insets.top + 12 }]}>
+        <Text style={s.headerLabel}>Mi perfil</Text>
+        <View style={s.headerRow}>
+          <Text style={s.headerName}>
+            {[client?.nombres?.split(' ')[0], client?.apellido_paterno].filter(Boolean).join(' ') || client?.full_name}
+          </Text>
+          <Image source={require('../../assets/ju.png')} style={s.headerLogo} resizeMode="contain" />
+        </View>
+      </View>
+
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={[s.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 88 }]}
+        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 88 }]}
         showsVerticalScrollIndicator={false}
       >
 
-        {/* ══ Header ═══════════════════════════════════════════════════════ */}
-        <View style={s.header}>
-          <Text style={s.headerLabel}>Mi perfil</Text>
-          <View style={s.headerRow}>
-            <Text style={s.headerName}>
-              {[client?.nombres?.split(' ')[0], client?.apellido_paterno].filter(Boolean).join(' ') || client?.full_name}
-            </Text>
-            <Image source={require('../../assets/ju.png')} style={s.headerLogo} resizeMode="contain" />
-          </View>
-
-          {/* Info strip */}
+        {/* ══ Info strip ═══════════════════════════════════════════════════ */}
+        <View style={s.stripWrap}>
           <View style={s.strip}>
             <View style={s.stripItem}>
               <Text style={s.stripLabel}>Documento</Text>
@@ -334,23 +336,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
               </Text>
             </View>
           </View>
-        </View>
-
-        {/* ══ Información Personal ════════════════════════════════════════ */}
-        <View style={s.card}>
-          <View style={s.cardHeader}>
-            <Ionicons name="person-outline" size={15} color={GREEN} />
-            <Text style={s.cardTitle}>Información Personal</Text>
-            <TouchableOpacity
-              style={s.editBtn}
-              onPress={() => { setPhone(client?.phone || ''); setEmail(client?.email || ''); setEditInfoVisible(true); }}
-            >
-              <Ionicons name="pencil-outline" size={14} color={GREEN} />
-            </TouchableOpacity>
-          </View>
-          <SectionRow icon="call-outline"  title="Teléfono" subtitle={client?.phone || 'No registrado'} onPress={undefined} chevron={false} />
-          <View style={s.rowLine} />
-          <SectionRow icon="mail-outline"  title="Email"    subtitle={client?.email || 'No registrado'} onPress={undefined} chevron={false} />
         </View>
 
         {/* ══ Código de Referido ══════════════════════════════════════════ */}
@@ -398,6 +383,23 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             </Text>
           </View>
         )}
+
+        {/* ══ Información Personal ════════════════════════════════════════ */}
+        <View style={s.card}>
+          <View style={s.cardHeader}>
+            <Ionicons name="person-outline" size={15} color={GREEN} />
+            <Text style={s.cardTitle}>Información Personal</Text>
+            <TouchableOpacity
+              style={s.editBtn}
+              onPress={() => { setPhone(client?.phone || ''); setEmail(client?.email || ''); setEditInfoVisible(true); }}
+            >
+              <Ionicons name="pencil-outline" size={14} color={GREEN} />
+            </TouchableOpacity>
+          </View>
+          <SectionRow icon="call-outline"  title="Teléfono" subtitle={client?.phone || 'No registrado'} onPress={undefined} chevron={false} />
+          <View style={s.rowLine} />
+          <SectionRow icon="mail-outline"  title="Email"    subtitle={client?.email || 'No registrado'} onPress={undefined} chevron={false} />
+        </View>
 
         {/* ══ Configuración ════════════════════════════════════════════════ */}
         <View style={s.card}>
@@ -717,16 +719,18 @@ const s = StyleSheet.create({
   scroll:  { flex: 1 },
   content: { paddingHorizontal: 20 },
 
-  // ── Header ──
-  header: {
-    alignItems: 'flex-start',
-    marginBottom: 24,
-    paddingTop: 8,
+  // ── Header fijo ──
+  fixedHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 14,
   },
   headerLabel: { fontSize: 12, fontWeight: '400', color: 'rgba(255,255,255,0.38)', letterSpacing: 0.2, marginBottom: 5 },
-  headerRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 18 },
+  headerRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' },
   headerName:  { fontSize: 26, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
   headerLogo:  { width: 36, height: 36 },
+
+  // ── Strip wrapper ──
+  stripWrap: { marginBottom: 24 },
 
   // Info strip
   strip: {

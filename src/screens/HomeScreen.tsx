@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
+  ScrollView,
   Animated,
   RefreshControl,
   Image,
@@ -13,9 +14,11 @@ import {
   TextInput,
   Dimensions,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
 } from 'react-native';
 import { MotiView } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Reanimated, {
   useSharedValue,
@@ -203,6 +206,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   useEffect(() => { fetchActiveOps(); }, [client?.dni]);
 
+  // Teclado: auto-scroll para revelar calculadora cuando el teclado aparece
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  useEffect(() => {
+    const showEv = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEv = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEv, e => {
+      setKeyboardHeight(e.endCoordinates.height);
+      scrollViewRef.current?.scrollTo({ y: ratesTopY.current, animated: true });
+    });
+    const hideSub = Keyboard.addListener(hideEv, () => {
+      setKeyboardHeight(0);
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    });
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
+
   // Socket: actualizar widget en tiempo real cuando cambia el estado de una operación
   useEffect(() => {
     if (!client?.dni) return;
@@ -231,9 +250,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     };
   }, [client?.dni]);
 
-  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [showBlockModal,   setShowBlockModal]   = useState(false);
   const blockScale   = useSharedValue(0.86);
   const blockOpacity = useSharedValue(0);
+
+  const [showMinAmountModal, setShowMinAmountModal] = useState(false);
+  const minScale   = useSharedValue(0.86);
+  const minOpacity = useSharedValue(0);
 
   useEffect(() => {
     if (showBlockModal) {
@@ -259,6 +282,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [referralInput,        setReferralInput]        = useState('');
   const [referralValidating,   setReferralValidating]   = useState(false);
   const [referralApplied,      setReferralApplied]      = useState<string | null>(null); // código validado
+
+  // ── Volume-based pip improvement (mirrors wa_bot.py) ──────────────────────
+  const getVolumePips = (usdAmount: number): number => {
+    if (usdAmount >= 10000) return 0.0020;
+    if (usdAmount >= 5000)  return 0.0015;
+    if (usdAmount >= 3000)  return 0.0010;
+    return 0;
+  };
+  const pendingUSD = (() => {
+    if (!pendingOp.ready || !pendingOp.amountUSD || !pendingOp.rate) return 0;
+    const val = parseFloat(pendingOp.amountUSD) || 0;
+    return pendingOp.operationType === 'Compra' ? val : (pendingOp.rate > 0 ? val / pendingOp.rate : 0);
+  })();
+  const volumePips    = getVolumePips(pendingUSD);
+  const effectivePips = Math.max(referralApplied ? REFERRAL_IMPROVEMENT : 0, volumePips);
+  const displayRates  = effectivePips > 0 && calcRates
+    ? { compra: calcRates.compra + effectivePips, venta: calcRates.venta - effectivePips }
+    : null;
+  const pipLabel = effectivePips > 0 ? `+${Math.round(effectivePips * 10000)} pips` : null;
 
   const improvedRates = referralApplied && calcRates
     ? { compra: calcRates.compra + REFERRAL_IMPROVEMENT, venta: calcRates.venta - REFERRAL_IMPROVEMENT }
@@ -291,26 +333,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   };
 
   // Scroll Y para sticky header
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
+  const ratesTopY     = useRef(0);
 
-  // Sticky header opacity & translateY
-  const stickyOp = scrollY.interpolate({
-    inputRange:  [STICKY_THRESHOLD, STICKY_THRESHOLD + 32],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-  const stickyTY = scrollY.interpolate({
-    inputRange:  [STICKY_THRESHOLD, STICKY_THRESHOLD + 32],
-    outputRange: [-12, 0],
-    extrapolate: 'clamp',
-  });
-
-  // Parallax leve en el fondo
-  const bgTY = scrollY.interpolate({
-    inputRange:  [0, 300],
-    outputRange: [0, -40],
-    extrapolate: 'clamp',
-  });
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -323,6 +348,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     amountUSD: string,
     exchangeRate: number,
   ) => {
+    // Validar monto mínimo en USD
+    const inputVal  = parseFloat(amountUSD) || 0;
+    const usdAmount = operationType === 'Compra' ? inputVal : inputVal / exchangeRate;
+    if (usdAmount < 50) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      minScale.value   = 0.86;
+      minOpacity.value = 0;
+      minScale.value   = withSpring(1, { damping: 16, stiffness: 260 });
+      minOpacity.value = withTiming(1, { duration: 180 });
+      setShowMinAmountModal(true);
+      return;
+    }
     if (activeOps.length > 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       setShowBlockModal(true);
@@ -352,6 +389,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     transform: [{ scale: blockScale.value }],
   }));
 
+  const minModalStyle = useAnimatedStyle(() => ({
+    opacity:   minOpacity.value,
+    transform: [{ scale: minScale.value }],
+  }));
+
   const firstName = (() => {
     if (client.nombres)   return capitalize(client.nombres.split(' ')[0]);
     if (client.full_name) return capitalize(client.full_name.split(' ')[0]);
@@ -361,17 +403,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   return (
     <View style={s.root}>
 
-      {/* ── Fondo con parallax ── */}
-      <Animated.View
-        style={[StyleSheet.absoluteFill, { transform: [{ translateY: bgTY }] }]}
+      {/* ── Fondo ── */}
+      <ImageBackground
+        source={require('../../assets/cd.png')}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
         pointerEvents="none"
-      >
-        <ImageBackground
-          source={require('../../assets/cd.png')}
-          style={[StyleSheet.absoluteFill, { top: -60, bottom: -60 }]}
-          resizeMode="cover"
-        />
-      </Animated.View>
+      />
       <View style={[StyleSheet.absoluteFill, s.overlay]} pointerEvents="none" />
 
       {/* ── Encabezado fijo: saludo + logo ── */}
@@ -387,17 +425,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       </View>
 
       {/* ── Scroll ── */}
-      <Animated.ScrollView
+      <ScrollView
+        ref={scrollViewRef}
         style={s.scroll}
         contentContainerStyle={[
           s.content,
-          { paddingTop: 8, paddingBottom: insets.bottom + TAB_BAR_H + 16 },
+          { paddingTop: 8, paddingBottom: insets.bottom + TAB_BAR_H + 16 + keyboardHeight },
         ]}
+        scrollEnabled={true}
         showsVerticalScrollIndicator={false}
-        scrollEventThrottle={16}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-          useNativeDriver: true,
-        })}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -483,6 +520,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           animate={{ opacity: 1 }}
           transition={{ type: 'timing', delay: 200, duration: 420 }}
           style={s.liveRow}
+          onLayout={e => { ratesTopY.current = e.nativeEvent.layout.y; }}
         >
           <LiveDot />
           <Text style={s.liveLabel}>Tipo de cambio en vivo</Text>
@@ -500,19 +538,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             activeOpacity={0.82}
             style={[s.rateTab, calcOperationType === 'Compra' && s.rateTabActiveCompra]}
           >
+            <LinearGradient
+              colors={calcOperationType === 'Compra'
+                ? ['rgba(34,197,94,0.14)', 'rgba(10,40,22,0.55)']
+                : ['rgba(255,255,255,0.07)', 'rgba(8,16,30,0.70)']}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
             <Text style={s.rateTabLabel}>Qoricash compra</Text>
-            {improvedRates ? (
+            {displayRates ? (
               <View style={s.rateImprovedWrap}>
-                <Text style={s.rateTabValueStrike}>S/ {calcRates?.compra.toFixed(3)}</Text>
-                <Text style={[s.rateTabValue, s.rateImprovedValue]}>S/ {improvedRates.compra.toFixed(3)}</Text>
+                <Text style={s.rateTabValueStrike}>S/ {calcRates?.compra.toFixed(4)}</Text>
+                <Text style={[s.rateTabValue, s.rateImprovedValue]}>S/ {displayRates.compra.toFixed(4)}</Text>
               </View>
             ) : (
               <Text style={[s.rateTabValue, calcOperationType !== 'Compra' && s.rateTabValueDim]}>
-                S/ {calcRates?.compra.toFixed(3) ?? '—'}
+                S/ {calcRates?.compra.toFixed(4) ?? '—'}
               </Text>
             )}
             <View style={s.rateTabPill}>
-              {improvedRates && <Text style={s.ratePipBadge}>+20 pips</Text>}
+              {pipLabel && <Text style={s.ratePipBadge}>{pipLabel}</Text>}
               <Text style={s.rateTabPillText}>USD → PEN</Text>
             </View>
           </TouchableOpacity>
@@ -522,19 +567,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             activeOpacity={0.82}
             style={[s.rateTab, calcOperationType === 'Venta' && s.rateTabActiveVenta]}
           >
+            <LinearGradient
+              colors={calcOperationType === 'Venta'
+                ? ['rgba(59,130,246,0.14)', 'rgba(8,20,50,0.55)']
+                : ['rgba(255,255,255,0.07)', 'rgba(8,16,30,0.70)']}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
             <Text style={s.rateTabLabel}>Qoricash vende</Text>
-            {improvedRates ? (
+            {displayRates ? (
               <View style={s.rateImprovedWrap}>
-                <Text style={s.rateTabValueStrike}>S/ {calcRates?.venta.toFixed(3)}</Text>
-                <Text style={[s.rateTabValue, s.rateImprovedValue]}>S/ {improvedRates.venta.toFixed(3)}</Text>
+                <Text style={s.rateTabValueStrike}>S/ {calcRates?.venta.toFixed(4)}</Text>
+                <Text style={[s.rateTabValue, s.rateImprovedValue]}>S/ {displayRates.venta.toFixed(4)}</Text>
               </View>
             ) : (
               <Text style={[s.rateTabValue, calcOperationType !== 'Venta' && s.rateTabValueDim]}>
-                S/ {calcRates?.venta.toFixed(3) ?? '—'}
+                S/ {calcRates?.venta.toFixed(4) ?? '—'}
               </Text>
             )}
             <View style={s.rateTabPill}>
-              {improvedRates && <Text style={s.ratePipBadge}>+20 pips</Text>}
+              {pipLabel && <Text style={s.ratePipBadge}>{pipLabel}</Text>}
               <Text style={s.rateTabPillText}>PEN → USD</Text>
             </View>
           </TouchableOpacity>
@@ -557,6 +609,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             externalOperationType={calcOperationType}
             hideTabs
           />
+
+          {/* Badge de mejora por volumen */}
+          {volumePips > 0 && (
+            <View style={s.volumeBadge}>
+              <Ionicons name="flash" size={11} color="#fbbf24" />
+              <Text style={s.volumeBadgeText}>
+                TC preferencial activo · +{Math.round(volumePips * 10000)} pips por monto especial
+              </Text>
+            </View>
+          )}
         </MotiView>
 
         {/* ══ Botón iniciar operación (fuera de la card) ══ */}
@@ -652,7 +714,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </MotiView>
         )}
 
-      </Animated.ScrollView>
+      </ScrollView>
 
       {/* ── Modal: operación activa bloqueante ── */}
       <Modal
@@ -697,6 +759,40 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               style={s.blockModalBtnSecondary}
               activeOpacity={0.7}
               onPress={() => setShowBlockModal(false)}
+            >
+              <Text style={s.blockModalBtnSecondaryText}>Entendido</Text>
+            </TouchableOpacity>
+
+          </Reanimated.View>
+        </BlurView>
+      </Modal>
+
+      {/* ── Modal: monto mínimo ── */}
+      <Modal
+        visible={showMinAmountModal}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setShowMinAmountModal(false)}
+      >
+        <BlurView intensity={55} tint="dark" style={s.blockModalBackdrop}>
+          <Reanimated.View style={[s.blockModalCard, s.minModalCard, minModalStyle]}>
+
+            <View style={s.minModalIconWrap}>
+              <Ionicons name="alert-circle-outline" size={32} color="#f59e0b" />
+            </View>
+
+            <Text style={s.blockModalTitle}>Monto mínimo no alcanzado</Text>
+            <Text style={s.blockModalBody}>
+              El importe mínimo para realizar una operación es de{' '}
+              <Text style={s.minModalHighlight}>$50 dólares</Text>.{'\n\n'}
+              Ajusta el monto e intenta nuevamente.
+            </Text>
+
+            <TouchableOpacity
+              style={s.minModalBtnClose}
+              activeOpacity={0.7}
+              onPress={() => setShowMinAmountModal(false)}
             >
               <Text style={s.blockModalBtnSecondaryText}>Entendido</Text>
             </TouchableOpacity>
@@ -971,22 +1067,26 @@ const s = StyleSheet.create({
     paddingVertical: 20,
     paddingHorizontal: 18,
     gap: 6,
-    backgroundColor: GLASS_BG,
+    backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: GLASS_BORDER,
     borderRadius: 22,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    elevation: 8,
   },
   rateTabActive: {
     backgroundColor: 'rgba(34,197,94,0.13)',
     borderColor: GREEN,
   },
   rateTabActiveCompra: {
-    backgroundColor: 'rgba(34,197,94,0.13)',
-    borderColor: GREEN,
+    borderColor: 'rgba(34,197,94,0.60)',
   },
   rateTabActiveVenta: {
-    backgroundColor: 'rgba(59,130,246,0.13)',
-    borderColor: '#3b82f6',
+    borderColor: 'rgba(59,130,246,0.60)',
   },
   rateTabLabel: {
     fontSize: 11,
@@ -1227,6 +1327,32 @@ const s = StyleSheet.create({
     color: 'rgba(255,255,255,0.38)',
     fontWeight: '500',
   },
+  minModalCard: {
+    borderColor: 'rgba(245,158,11,0.22)',
+  },
+  minModalIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(245,158,11,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  minModalHighlight: {
+    color: '#f59e0b',
+    fontWeight: '700',
+  },
+  minModalBtnClose: {
+    width: '100%',
+    paddingVertical: 13,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+  },
 
   // ── Referral ──────────────────────────────────────────────────────────────
   referralRow: {
@@ -1275,6 +1401,24 @@ const s = StyleSheet.create({
     fontWeight: '700',
     color: GREEN,
     marginBottom: 2,
+  },
+  volumeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(251,191,36,0.10)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(251,191,36,0.22)',
+  },
+  volumeBadgeText: {
+    fontSize: 11,
+    color: '#fbbf24',
+    fontWeight: '600',
   },
 
   // ── Referral modal ────────────────────────────────────────────────────────
