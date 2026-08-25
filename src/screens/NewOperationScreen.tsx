@@ -632,64 +632,71 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
           </MotiView>
 
-          {/* ── BUY / SELL toggle ── */}
+          {/* ── Trading card (toggle + TC hero) ── */}
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
             transition={{ type: 'spring', delay: 90, damping: 22, stiffness: 200 }}
           >
-            <View style={s.bsWrap}>
-              <TouchableOpacity
-                style={[s.bsBtn, operationType === 'Compra' && s.bsBtnBuy]}
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setOperationType('Compra'); }}
-                activeOpacity={0.82}
-              >
-                <Ionicons name="trending-up" size={20} color={operationType === 'Compra' ? GREEN : 'rgba(255,255,255,0.18)'} />
-                <Text style={[s.bsBtnLabel, { color: operationType === 'Compra' ? GREEN : 'rgba(255,255,255,0.2)' }]}>Qoricash compra</Text>
-                <Text style={[s.bsBtnSub, { color: operationType === 'Compra' ? 'rgba(34,197,94,0.7)' : 'rgba(255,255,255,0.14)' }]}>Usted envía dólares</Text>
-              </TouchableOpacity>
-              <View style={s.bsDivider}>
-                <Ionicons name="swap-horizontal" size={13} color="rgba(255,255,255,0.13)" />
-              </View>
-              <TouchableOpacity
-                style={[s.bsBtn, operationType === 'Venta' && s.bsBtnSell]}
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setOperationType('Venta'); }}
-                activeOpacity={0.82}
-              >
-                <Ionicons name="trending-down" size={20} color={operationType === 'Venta' ? RED : 'rgba(255,255,255,0.18)'} />
-                <Text style={[s.bsBtnLabel, { color: operationType === 'Venta' ? RED : 'rgba(255,255,255,0.2)' }]}>Qoricash vende</Text>
-                <Text style={[s.bsBtnSub, { color: operationType === 'Venta' ? 'rgba(239,68,68,0.65)' : 'rgba(255,255,255,0.14)' }]}>Usted recibe dólares</Text>
-              </TouchableOpacity>
-            </View>
-          </MotiView>
+            <View style={s.tradingCard}>
+              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.055)' }]} />
+              <View style={[StyleSheet.absoluteFill, {
+                borderRadius: 20, borderWidth: 1,
+                borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.28)' : 'rgba(239,68,68,0.25)',
+              }]} />
 
-          {/* ── Rate ticker ── */}
-          <MotiView
-            from={{ opacity: 0, translateY: 10 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', delay: 150, damping: 22, stiffness: 200 }}
-          >
-            <View style={s.tickerRow}>
-              <View style={s.tickerPair}>
-                <View style={s.tickerDot} />
-                <Text style={s.tickerPairTxt}>USD/PEN</Text>
-              </View>
-              <View style={s.tickerRates}>
-                <View style={s.tickerRateItem}>
-                  <Text style={s.tickerRateLabel}>BID</Text>
-                  <Text style={s.tickerRateValue}>{realExchangeRates.compra.toFixed(3)}</Text>
+              {/* ── BUY / SELL tabs ── */}
+              <View style={s.bsWrap}>
+                <TouchableOpacity
+                  style={[s.bsBtn, operationType === 'Compra' && s.bsBtnBuy]}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setOperationType('Compra'); }}
+                  activeOpacity={0.82}
+                >
+                  <Ionicons name="trending-up" size={18} color={operationType === 'Compra' ? GREEN : 'rgba(255,255,255,0.2)'} />
+                  <Text style={[s.bsBtnLabel, { color: operationType === 'Compra' ? GREEN : 'rgba(255,255,255,0.22)' }]}>Qoricash compra</Text>
+                </TouchableOpacity>
+                <View style={s.bsDivider}>
+                  <Ionicons name="swap-horizontal" size={12} color="rgba(255,255,255,0.12)" />
                 </View>
-                <View style={s.tickerSep} />
-                <View style={s.tickerRateItem}>
-                  <Text style={s.tickerRateLabel}>ASK</Text>
-                  <Text style={s.tickerRateValue}>{realExchangeRates.venta.toFixed(3)}</Text>
-                </View>
+                <TouchableOpacity
+                  style={[s.bsBtn, operationType === 'Venta' && s.bsBtnSell]}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setOperationType('Venta'); }}
+                  activeOpacity={0.82}
+                >
+                  <Ionicons name="trending-down" size={18} color={operationType === 'Venta' ? RED : 'rgba(255,255,255,0.2)'} />
+                  <Text style={[s.bsBtnLabel, { color: operationType === 'Venta' ? RED : 'rgba(255,255,255,0.22)' }]}>Qoricash vende</Text>
+                </TouchableOpacity>
               </View>
-              <View style={s.tickerApplied}>
-                <Text style={s.tickerAppliedLabel}>APLICADO</Text>
-                <Text style={[s.tickerAppliedValue, { color: operationType === 'Compra' ? GREEN : RED }]}>
+
+              {/* ── Divider ── */}
+              <View style={s.tradingCardDivider} />
+
+              {/* ── T.C. hero ── */}
+              <View style={s.tcHeroWrap}>
+                <Text style={s.tcHeroLabel}>TIPO DE CAMBIO</Text>
+                <Text style={[s.tcHeroValue, { color: operationType === 'Compra' ? GREEN : RED }]}>
                   {parseFloat(exchangeRate).toFixed(3)}
                 </Text>
+                <Text style={s.tcHeroCurr}>PEN por USD</Text>
+              </View>
+
+              {/* ── BID / ASK reference ── */}
+              <View style={s.tcRefRow}>
+                <View style={s.tcRefPair}>
+                  <View style={s.tickerDot} />
+                  <Text style={s.tickerPairTxt}>USD/PEN</Text>
+                </View>
+                <View style={s.tcRefRates}>
+                  <View style={s.tcRefItem}>
+                    <Text style={s.tcRefLabel}>BID</Text>
+                    <Text style={s.tcRefValue}>{realExchangeRates.compra.toFixed(3)}</Text>
+                  </View>
+                  <View style={s.tcRefSep} />
+                  <View style={s.tcRefItem}>
+                    <Text style={s.tcRefLabel}>ASK</Text>
+                    <Text style={s.tcRefValue}>{realExchangeRates.venta.toFixed(3)}</Text>
+                  </View>
+                </View>
               </View>
             </View>
           </MotiView>
@@ -1098,50 +1105,63 @@ const s = StyleSheet.create({
   liveDot:   { width: 5, height: 5, borderRadius: 2.5, backgroundColor: GREEN },
   pairTxt:   { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.38)', letterSpacing: 2 },
 
-  // ── BUY / SELL toggle ──
+  // ── Trading card (toggle + TC hero) ──
+  tradingCard: {
+    borderRadius: 20, overflow: 'hidden',
+    marginBottom: 10,
+  },
   bsWrap: {
-    flexDirection: 'row', marginBottom: 10,
-    borderRadius: 18, overflow: 'hidden',
-    borderWidth: 1, borderColor: GLASS_BORDER,
-    backgroundColor: 'rgba(0,0,0,0.28)',
+    flexDirection: 'row',
   },
   bsBtn: {
-    flex: 1, alignItems: 'center', paddingVertical: 15, paddingHorizontal: 10, gap: 4,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, paddingHorizontal: 12,
   },
   bsBtnBuy: {
-    backgroundColor: 'rgba(34,197,94,0.12)',
-    shadowColor: GREEN, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.25, shadowRadius: 12,
+    backgroundColor: 'rgba(34,197,94,0.1)',
   },
   bsBtnSell: {
-    backgroundColor: 'rgba(239,68,68,0.1)',
-    shadowColor: RED, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.2, shadowRadius: 12,
+    backgroundColor: 'rgba(239,68,68,0.08)',
   },
-  bsBtnLabel: { fontSize: 13, fontWeight: '800', letterSpacing: 1.8 },
-  bsBtnSub:   { fontSize: 10, fontWeight: '500', letterSpacing: 0.2 },
+  bsBtnLabel: { fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
   bsDivider: {
     width: 1, backgroundColor: GLASS_BORDER,
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center', paddingVertical: 6,
   },
+  tradingCardDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginHorizontal: 0,
+  },
+  tcHeroWrap: {
+    alignItems: 'center', paddingTop: 20, paddingBottom: 14,
+  },
+  tcHeroLabel: {
+    fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.28)',
+    letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 6,
+  },
+  tcHeroValue: {
+    fontSize: 46, fontWeight: '800', letterSpacing: -1,
+    lineHeight: 50,
+  },
+  tcHeroCurr: {
+    fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.28)',
+    letterSpacing: 1, marginTop: 6,
+  },
+  tcRefRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 18, paddingBottom: 16, paddingTop: 4,
+  },
+  tcRefPair:  { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  tcRefRates: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  tcRefItem:  { alignItems: 'center' },
+  tcRefLabel: { fontSize: 8, fontWeight: '700', color: 'rgba(255,255,255,0.28)', letterSpacing: 1.5, marginBottom: 2 },
+  tcRefValue: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.65)' },
+  tcRefSep:   { width: 1, height: 20, backgroundColor: GLASS_BORDER },
 
-  // ── Rate ticker ──
-  tickerRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.32)',
-    borderWidth: 1, borderColor: GLASS_BORDER,
-    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 11,
-    marginBottom: 10, gap: 10,
-  },
-  tickerPair:    { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  // ── Ticker remnants used inside trading card ──
   tickerDot:     { width: 5, height: 5, borderRadius: 2.5, backgroundColor: GREEN },
-  tickerPairTxt: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.38)', letterSpacing: 1 },
-  tickerRates:   { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14 },
-  tickerRateItem:{ alignItems: 'center' },
-  tickerRateLabel:{ fontSize: 8, fontWeight: '700', color: 'rgba(255,255,255,0.28)', letterSpacing: 1.5, marginBottom: 2 },
-  tickerRateValue:{ fontSize: 14, fontWeight: '700', color: '#fff' },
-  tickerSep:     { width: 1, height: 22, backgroundColor: GLASS_BORDER },
-  tickerApplied: { alignItems: 'flex-end' },
-  tickerAppliedLabel: { fontSize: 8, fontWeight: '700', color: 'rgba(255,255,255,0.28)', letterSpacing: 1.5, marginBottom: 2 },
-  tickerAppliedValue: { fontSize: 17, fontWeight: '800' },
+  tickerPairTxt: { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.32)', letterSpacing: 1 },
 
   // ── Order card ──
   orderCard: {
