@@ -21,7 +21,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotiView } from 'moti';
 import * as Haptics from 'expo-haptics';
-import { Audio } from 'expo-av';
 import { useAuth } from '../contexts/AuthContext';
 import { operationsApi } from '../api/operations';
 import { CreateOperationForm, BankAccount } from '../types';
@@ -207,20 +206,6 @@ const CreatingOverlay: React.FC<{ visible: boolean; success: boolean }> = ({ vis
     outerRef.current?.stop();
     innerRef.current?.stop();
     dotRef.current?.stop();
-
-    // Reproducir sonido de confirmación
-    (async () => {
-      try {
-        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-        const { sound } = await Audio.Sound.createAsync(
-          require('../../assets/sounds/payment_success.mp3'),
-          { shouldPlay: true, volume: 0.75 }
-        );
-        sound.setOnPlaybackStatusUpdate(status => {
-          if (status.isLoaded && status.didJustFinish) sound.unloadAsync();
-        });
-      } catch {}
-    })();
 
     // Loader desaparece
     Animated.timing(loaderOp, { toValue: 0, duration: 220, easing: Easing.out(Easing.ease), useNativeDriver: true }).start();
@@ -1025,7 +1010,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
         }
       >
         <View style={s.modalBody}>
-          <Text style={s.inputLabel}>Origen</Text>
+          <Text style={s.inputLabel}>¿En qué plaza se aperturó su cuenta?</Text>
           <Seg options={['Lima','Provincia']} value={newAccountOrigen} onChange={v => { setNewAccountOrigen(v); setNewAccountBank(''); }} />
 
           {newAccountOrigen === 'Provincia' && (
