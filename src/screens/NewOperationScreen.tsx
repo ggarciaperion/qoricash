@@ -34,7 +34,7 @@ const GREEN_DIM    = 'rgba(34,197,94,0.14)';
 const GREEN_BORDER = 'rgba(34,197,94,0.3)';
 const GLASS_BG     = 'rgba(255,255,255,0.08)';
 const GLASS_BORDER = 'rgba(255,255,255,0.15)';
-const RED          = '#ef4444';
+const RED          = '#3b82f6';
 
 // ─── Banks ─────────────────────────────────────────────────────────────────────
 const BANKS_LIMA      = ['BCP', 'INTERBANK', 'PICHINCHA', 'BANBIF', 'BBVA', 'Scotiabank', 'Otros'];
@@ -642,7 +642,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
               <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.055)' }]} />
               <View style={[StyleSheet.absoluteFill, {
                 borderRadius: 20, borderWidth: 1,
-                borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.28)' : 'rgba(239,68,68,0.25)',
+                borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.28)' : 'rgba(59,130,246,0.25)',
               }]} />
 
               {/* ── BUY / SELL tabs ── */}
@@ -730,7 +730,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
               {/* Separador */}
               <View style={s.orderSepRow}>
                 <View style={s.orderSepLine} />
-                <View style={[s.orderSepIcon, { borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)' }]}>
+                <View style={[s.orderSepIcon, { borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.3)' : 'rgba(59,130,246,0.3)' }]}>
                   <Ionicons name="swap-vertical" size={14} color={operationType === 'Compra' ? GREEN : RED} />
                 </View>
                 <View style={s.orderSepLine} />
@@ -740,8 +740,8 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
               <View style={s.orderRow}>
                 <View style={s.orderLeftCol}>
                   <View style={[s.orderCurrTag, {
-                    borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.35)',
-                    backgroundColor: operationType === 'Compra' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                    borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.35)' : 'rgba(59,130,246,0.35)',
+                    backgroundColor: operationType === 'Compra' ? 'rgba(34,197,94,0.1)' : 'rgba(59,130,246,0.1)',
                   }]}>
                     <Text style={[s.orderCurrTxt, { color: operationType === 'Compra' ? GREEN : RED }]}>{outputCurrency}</Text>
                   </View>
@@ -1121,7 +1121,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(34,197,94,0.1)',
   },
   bsBtnSell: {
-    backgroundColor: 'rgba(239,68,68,0.08)',
+    backgroundColor: 'rgba(59,130,246,0.08)',
   },
   bsBtnLabel: { fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
   bsDivider: {
