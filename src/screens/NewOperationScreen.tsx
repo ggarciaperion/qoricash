@@ -394,6 +394,53 @@ const lpb = StyleSheet.create({
   },
 });
 
+// ─── BsDividerAnim — partícula viajera entre las opciones ────────────────────
+const BsDividerAnim: React.FC = () => {
+  const travel = useRef(new Animated.Value(0)).current;
+  const glowOp = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(travel, { toValue: 1, duration: 820, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.sequence([
+            Animated.timing(glowOp, { toValue: 0.85, duration: 410, useNativeDriver: true }),
+            Animated.timing(glowOp, { toValue: 0.3,  duration: 410, useNativeDriver: true }),
+          ]),
+        ]),
+        Animated.parallel([
+          Animated.timing(travel, { toValue: 0, duration: 820, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.sequence([
+            Animated.timing(glowOp, { toValue: 0.85, duration: 410, useNativeDriver: true }),
+            Animated.timing(glowOp, { toValue: 0.3,  duration: 410, useNativeDriver: true }),
+          ]),
+        ]),
+      ])
+    ).start();
+  }, []);
+
+  const translateY = travel.interpolate({ inputRange: [0, 1], outputRange: [-14, 14] });
+
+  return (
+    <View style={bsd.wrap}>
+      <View style={bsd.line} />
+      <Animated.View style={[bsd.particle, { opacity: glowOp, transform: [{ translateY }] }]} />
+    </View>
+  );
+};
+
+const bsd = StyleSheet.create({
+  wrap:     { width: 22, alignItems: 'center', justifyContent: 'center' },
+  line:     { position: 'absolute', width: 1, top: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.09)' },
+  particle: {
+    width: 4, height: 4, borderRadius: 2,
+    backgroundColor: '#fff',
+    shadowColor: '#fff', shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9, shadowRadius: 4,
+  },
+});
+
 // ─── Screen ────────────────────────────────────────────────────────────────────
 export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
   const { client, refreshClient } = useAuth();
@@ -724,7 +771,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
                     Qoricash compra
                   </Text>
                 </TouchableOpacity>
-                <View style={s.bsDivider} />
+                <BsDividerAnim />
                 <TouchableOpacity
                   style={[s.bsBtn, operationType === 'Venta' && s.bsBtnSell]}
                   onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setOperationType('Venta'); }}
@@ -1181,9 +1228,6 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(59,130,246,0.08)',
   },
   bsBtnLabel: { fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
-  bsDivider: {
-    width: 1, backgroundColor: GLASS_BORDER,
-  },
   bsRadio: {
     width: 18, height: 18, borderRadius: 9,
     borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.2)',
