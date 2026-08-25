@@ -607,6 +607,31 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
           </MotiView>
 
+
+          {/* ── Stepper ── */}
+          <MotiView
+            from={{ opacity: 0, translateY: -6 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', delay: 65, damping: 24, stiffness: 220 }}
+          >
+            <View style={s.stepperWrap}>
+              {(['Cotiza', 'Transfiere', 'Recibe'] as const).map((label, i) => (
+                <React.Fragment key={label}>
+                  <View style={s.step}>
+                    <View style={[s.stepDot, i === 0 && s.stepDotActive]}>
+                      {i === 0
+                        ? <Ionicons name="checkmark" size={12} color="#fff" />
+                        : <Text style={s.stepNum}>{i + 1}</Text>
+                      }
+                    </View>
+                    <Text style={[s.stepLabel, i === 0 && s.stepLabelActive]}>{label}</Text>
+                  </View>
+                  {i < 2 && <View style={s.stepLine} />}
+                </React.Fragment>
+              ))}
+            </View>
+          </MotiView>
+
           {/* ── BUY / SELL toggle ── */}
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
@@ -620,8 +645,8 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
                 activeOpacity={0.82}
               >
                 <Ionicons name="trending-up" size={20} color={operationType === 'Compra' ? GREEN : 'rgba(255,255,255,0.18)'} />
-                <Text style={[s.bsBtnLabel, { color: operationType === 'Compra' ? GREEN : 'rgba(255,255,255,0.2)' }]}>COMPRAR</Text>
-                <Text style={[s.bsBtnSub, { color: operationType === 'Compra' ? 'rgba(34,197,94,0.7)' : 'rgba(255,255,255,0.14)' }]}>Recibo dólares</Text>
+                <Text style={[s.bsBtnLabel, { color: operationType === 'Compra' ? GREEN : 'rgba(255,255,255,0.2)' }]}>Qoricash compra</Text>
+                <Text style={[s.bsBtnSub, { color: operationType === 'Compra' ? 'rgba(34,197,94,0.7)' : 'rgba(255,255,255,0.14)' }]}>Usted envía dólares</Text>
               </TouchableOpacity>
               <View style={s.bsDivider}>
                 <Ionicons name="swap-horizontal" size={13} color="rgba(255,255,255,0.13)" />
@@ -632,8 +657,8 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
                 activeOpacity={0.82}
               >
                 <Ionicons name="trending-down" size={20} color={operationType === 'Venta' ? RED : 'rgba(255,255,255,0.18)'} />
-                <Text style={[s.bsBtnLabel, { color: operationType === 'Venta' ? RED : 'rgba(255,255,255,0.2)' }]}>VENDER</Text>
-                <Text style={[s.bsBtnSub, { color: operationType === 'Venta' ? 'rgba(239,68,68,0.65)' : 'rgba(255,255,255,0.14)' }]}>Entrego dólares</Text>
+                <Text style={[s.bsBtnLabel, { color: operationType === 'Venta' ? RED : 'rgba(255,255,255,0.2)' }]}>Qoricash vende</Text>
+                <Text style={[s.bsBtnSub, { color: operationType === 'Venta' ? 'rgba(239,68,68,0.65)' : 'rgba(255,255,255,0.14)' }]}>Usted recibe dólares</Text>
               </TouchableOpacity>
             </View>
           </MotiView>
@@ -681,8 +706,11 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
 
               {/* Envías */}
               <View style={s.orderRow}>
-                <View style={s.orderCurrTag}>
-                  <Text style={s.orderCurrTxt}>{inputCurrency}</Text>
+                <View style={s.orderLeftCol}>
+                  <View style={s.orderCurrTag}>
+                    <Text style={s.orderCurrTxt}>{inputCurrency}</Text>
+                  </View>
+                  <Text style={s.orderFlag}>{inputCurrency === 'USD' ? '🇺🇸' : '🇵🇪'}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.orderRowLabel}>ENVIÁS</Text>
@@ -703,11 +731,14 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
 
               {/* Recibes */}
               <View style={s.orderRow}>
-                <View style={[s.orderCurrTag, {
-                  borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.35)',
-                  backgroundColor: operationType === 'Compra' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-                }]}>
-                  <Text style={[s.orderCurrTxt, { color: operationType === 'Compra' ? GREEN : RED }]}>{outputCurrency}</Text>
+                <View style={s.orderLeftCol}>
+                  <View style={[s.orderCurrTag, {
+                    borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.35)',
+                    backgroundColor: operationType === 'Compra' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                  }]}>
+                    <Text style={[s.orderCurrTxt, { color: operationType === 'Compra' ? GREEN : RED }]}>{outputCurrency}</Text>
+                  </View>
+                  <Text style={s.orderFlag}>{outputCurrency === 'USD' ? '🇺🇸' : '🇵🇪'}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.orderRowLabel}>RECIBES</Text>
@@ -732,7 +763,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
               {/* Cuenta cargo */}
               <View style={s.accountBlock}>
                 <View style={s.accountMeta}>
-                  <Text style={s.accountRoleLabel}>CARGO</Text>
+                  <Text style={s.accountRoleLabel}>Cuenta de origen</Text>
                   <Text style={s.accountRoleSub}>{operationType === 'Venta' ? 'S/ Soles' : '$ Dólares'}</Text>
                 </View>
                 <TouchableOpacity
@@ -758,7 +789,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
               {/* Cuenta abono */}
               <View style={s.accountBlock}>
                 <View style={s.accountMeta}>
-                  <Text style={s.accountRoleLabel}>ABONO</Text>
+                  <Text style={s.accountRoleLabel}>Cuenta de destino</Text>
                   <Text style={s.accountRoleSub}>{operationType === 'Venta' ? '$ Dólares' : 'S/ Soles'}</Text>
                 </View>
                 <TouchableOpacity
@@ -1027,6 +1058,31 @@ const s = StyleSheet.create({
   overlay: { backgroundColor: 'transparent' },
   scroll:  { paddingHorizontal: 18 },
 
+  // ── Stepper ──
+  stepperWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', marginBottom: 16,
+  },
+  step:          { alignItems: 'center', gap: 5 },
+  stepDot: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: GLASS_BG, borderWidth: 1, borderColor: GLASS_BORDER,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  stepDotActive: {
+    backgroundColor: GREEN, borderColor: GREEN,
+    shadowColor: GREEN, shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5, shadowRadius: 8,
+  },
+  stepNum:        { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.3)' },
+  stepLabel:      { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.28)', letterSpacing: 0.3 },
+  stepLabelActive:{ color: GREEN, fontWeight: '700' },
+  stepLine: {
+    flex: 1, height: 1,
+    backgroundColor: GLASS_BORDER,
+    marginHorizontal: 6, marginBottom: 18,
+  },
+
   // ── Page header ──
   pageHeader: {
     flexDirection: 'row', alignItems: 'center',
@@ -1100,6 +1156,8 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   orderCurrTxt:  { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.55)', letterSpacing: 0.5 },
+  orderLeftCol:  { alignItems: 'center', gap: 5 },
+  orderFlag:     { fontSize: 20 },
   orderRowLabel: { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.28)', letterSpacing: 2, marginBottom: 4 },
   orderAmount:   { fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
   orderSepRow:   { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
@@ -1119,8 +1177,8 @@ const s = StyleSheet.create({
     marginBottom: 10,
   },
   accountBlock:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  accountMeta:      { width: 48 },
-  accountRoleLabel: { fontSize: 8, fontWeight: '800', color: 'rgba(255,255,255,0.35)', letterSpacing: 1.8 },
+  accountMeta:      { width: 78 },
+  accountRoleLabel: { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.5)', letterSpacing: 0.3 },
   accountRoleSub:   { fontSize: 9, color: 'rgba(255,255,255,0.22)', marginTop: 2, fontWeight: '500' },
   accountSelector: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 7,
