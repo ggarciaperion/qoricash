@@ -855,7 +855,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
                 <Text style={[s.tcHeroValue, { color: operationType === 'Compra' ? GREEN : RED }]}>
                   {parseFloat(exchangeRate).toFixed(3)}
                 </Text>
-                <Text style={s.tcHeroCurr}>PEN por USD</Text>
+                <Text style={s.tcHeroCurr}>{operationType === 'Compra' ? 'USD por PEN' : 'PEN por USD'}</Text>
               </View>
 
               {/* ── BID / ASK reference ── */}
