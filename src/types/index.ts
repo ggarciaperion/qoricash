@@ -38,6 +38,10 @@ export interface Client {
   total_operations?: number;
   total_usd_traded?: number;
   has_complete_documents?: boolean;
+  referral_code?: string;
+  used_referral_code?: string;
+  referral_pips_earned?: number;
+  referral_pips_available?: number;
   // Documentos para Persona Natural (DNI/CE)
   dni_front_url?: string;
   dni_back_url?: string;

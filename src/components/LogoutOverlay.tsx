@@ -160,7 +160,7 @@ export const LogoutOverlay: React.FC<Props> = ({ visible, onLogout, onComplete }
 
           {/* Logo */}
           <Animated.View style={{ opacity: logoFade, transform: [{ translateY: logoY }], marginBottom: 34 }}>
-            <Image source={require('../../assets/vv.png')} style={s.logo} resizeMode="contain" />
+            <Image source={require('../../assets/logo.png')} style={s.logo} resizeMode="contain" />
           </Animated.View>
 
           {/* Spinner */}
@@ -220,8 +220,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 32,
   },
   logo: {
-    width: 160,
-    height: 28,
+    width: 150,
+    height: 34,
   },
   spinWrap: {
     width: 96,

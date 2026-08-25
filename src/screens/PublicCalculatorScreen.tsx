@@ -272,7 +272,7 @@ export const PublicCalculatorScreen: React.FC<Props> = ({ navigation }) => {
         >
           {/* Logo absoluto — no empuja el contenido sin importar su tamaño */}
           <Image
-            source={require('../../assets/vv.png')}
+            source={require('../../assets/logo.png')}
             style={styles.brandLogo}
             resizeMode="contain"
           />
@@ -345,7 +345,7 @@ export const PublicCalculatorScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.rateCardLabel}>Qoricash vende</Text>
             <RateValue value={venta} style={styles.rateCardValue} />
             <View style={styles.ratePill}>
-              <Text style={styles.ratePillText}>USD → PEN</Text>
+              <Text style={styles.ratePillText}>PEN → USD</Text>
             </View>
           </View>
         </MotiView>
@@ -633,10 +633,10 @@ const styles = StyleSheet.create({
   },
   rateCardValue: {
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 26,
+    fontSize: 32,
     color: '#FFFFFF',
     letterSpacing: -0.5,
-    lineHeight: 32,
+    lineHeight: 38,
   },
   ratePill: {
     alignSelf: 'flex-start',
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    marginTop: 2,
+    marginTop: 8,
   },
   ratePillText: {
     fontFamily: 'Inter_400Regular',

@@ -38,7 +38,10 @@ import { Colors } from './src/constants/colors';
 import { notificationService } from './src/services/notificationService';
 
 // Precarga de assets
-Asset.loadAsync([require('./assets/ddd_bg.jpg')]).catch(() => {});
+Asset.loadAsync([
+  require('./assets/ddd_bg.jpg'),
+  require('./assets/logo.png'),
+]).catch(() => {});
 
 const theme = {
   ...MD3LightTheme,

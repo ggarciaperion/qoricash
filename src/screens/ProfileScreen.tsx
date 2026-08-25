@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -15,6 +15,8 @@ import {
   Text,
   SafeAreaView,
   Image,
+  Share,
+  Clipboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -66,6 +68,42 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { client, user, refreshClient } = useAuth();
   const { setShowLogoutLoading } = useLoginLoading();
+
+  // Referral stats
+  const [referralStats, setReferralStats] = useState<{
+    referral_code: string;
+    total_referred_clients: number;
+    total_pips_earned: number;
+    pips_available: number;
+  } | null>(null);
+
+  const fetchReferralStats = useCallback(async () => {
+    if (!client?.dni) return;
+    try {
+      const { API_CONFIG } = require('../constants/config');
+      const res = await fetch(`${API_CONFIG.BASE_URL}/api/referrals/stats/${client.dni}`);
+      const data = await res.json();
+      if (data.success) setReferralStats(data);
+    } catch {}
+  }, [client?.dni]);
+
+  useEffect(() => { fetchReferralStats(); }, [fetchReferralStats]);
+
+  const handleCopyCode = () => {
+    if (!referralStats?.referral_code) return;
+    Clipboard.setString(referralStats.referral_code);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Alert.alert('¡Copiado!', `Código ${referralStats.referral_code} copiado al portapapeles`);
+  };
+
+  const handleShareCode = async () => {
+    if (!referralStats?.referral_code) return;
+    try {
+      await Share.share({
+        message: `¡Usa mi código de referido ${referralStats.referral_code} en Qoricash y obtén 20 pips de mejora en tu tipo de cambio! Descarga la app en www.qoricash.pe`,
+      });
+    } catch {}
+  };
 
   // Modal states
   const [changePasswordVisible, setChangePasswordVisible] = useState(false);
@@ -314,6 +352,52 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           <View style={s.rowLine} />
           <SectionRow icon="mail-outline"  title="Email"    subtitle={client?.email || 'No registrado'} onPress={undefined} chevron={false} />
         </View>
+
+        {/* ══ Código de Referido ══════════════════════════════════════════ */}
+        {referralStats && (
+          <View style={[s.card, s.referralCard]}>
+            <View style={[s.cardHeader, { paddingTop: 12, paddingBottom: 8 }]}>
+              <Ionicons name="gift-outline" size={15} color="#a78bfa" />
+              <Text style={[s.cardTitle, { color: '#a78bfa' }]}>Programa de Referidos</Text>
+            </View>
+
+            {/* Código */}
+            <View style={s.referralCodeRow}>
+              <View style={s.referralCodeWrap}>
+                <Text style={s.referralCodeLabel}>Tu código</Text>
+                <Text style={s.referralCode}>{referralStats.referral_code}</Text>
+              </View>
+              <TouchableOpacity style={s.referralBtn} onPress={handleCopyCode} activeOpacity={0.75}>
+                <Ionicons name="copy-outline" size={16} color="#a78bfa" />
+              </TouchableOpacity>
+              <TouchableOpacity style={s.referralBtn} onPress={handleShareCode} activeOpacity={0.75}>
+                <Ionicons name="share-social-outline" size={16} color="#a78bfa" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Stats */}
+            <View style={s.referralStatsRow}>
+              <View style={s.referralStat}>
+                <Text style={s.referralStatValue}>{referralStats.total_referred_clients}</Text>
+                <Text style={s.referralStatLabel}>Referidos</Text>
+              </View>
+              <View style={s.referralStatDivider} />
+              <View style={s.referralStat}>
+                <Text style={s.referralStatValue}>{referralStats.total_pips_earned}</Text>
+                <Text style={s.referralStatLabel}>Pips ganados</Text>
+              </View>
+              <View style={s.referralStatDivider} />
+              <View style={s.referralStat}>
+                <Text style={[s.referralStatValue, { color: '#a78bfa' }]}>{referralStats.pips_available}</Text>
+                <Text style={s.referralStatLabel}>Pips disponibles</Text>
+              </View>
+            </View>
+
+            <Text style={s.referralHint}>
+              Comparte tu código. Cuando tu referido complete su primera operación, ambos ganan 20 pips de mejora en el tipo de cambio.
+            </Text>
+          </View>
+        )}
 
         {/* ══ Configuración ════════════════════════════════════════════════ */}
         <View style={s.card}>
@@ -792,4 +876,89 @@ const s = StyleSheet.create({
   contactSub:   { fontSize: 12, color: 'rgba(255,255,255,0.4)' },
   infoBox: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 16, padding: 12, backgroundColor: GLASS_BG2, borderRadius: 12, borderWidth: 1, borderColor: GLASS_BORDER2 },
   infoBoxText: { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 18 },
+
+  // ── Referral card ──
+  referralCard: {
+    borderColor: 'rgba(167,139,250,0.25)',
+  },
+  referralCodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+  },
+  referralCodeWrap: {
+    flex: 1,
+    backgroundColor: 'rgba(167,139,250,0.08)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.22)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  referralCodeLabel: {
+    fontSize: 9,
+    color: 'rgba(167,139,250,0.6)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 1,
+  },
+  referralCode: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#a78bfa',
+    letterSpacing: 3,
+  },
+  referralBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(167,139,250,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  referralStatsRow: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(167,139,250,0.06)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.14)',
+    marginHorizontal: 14,
+    marginBottom: 10,
+  },
+  referralStat: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  referralStatDivider: {
+    width: 1,
+    backgroundColor: 'rgba(167,139,250,0.15)',
+    marginVertical: 8,
+  },
+  referralStatValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  referralStatLabel: {
+    fontSize: 9,
+    color: 'rgba(255,255,255,0.4)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  referralHint: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.35)',
+    lineHeight: 15,
+    textAlign: 'center',
+    paddingHorizontal: 14,
+    marginBottom: 14,
+  },
 });

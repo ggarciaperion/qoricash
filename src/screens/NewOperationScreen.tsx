@@ -306,15 +306,15 @@ const GlassModal: React.FC<{
   <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
       {/* Backdrop */}
+      <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
       <TouchableOpacity
-        style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.65)' }]}
+        style={StyleSheet.absoluteFill}
         activeOpacity={1}
         onPress={onClose}
       />
       {/* Contenido centrado — pointerEvents="box-none" deja pasar toques al backdrop excepto los de los hijos */}
       <View style={s.modalOuter} pointerEvents="box-none">
         <View style={s.modalBox}>
-          <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} pointerEvents="none" />
           <View style={s.modalBorder} />
           <Text style={s.modalTitle}>{title}</Text>
           <View style={s.modalDivider} />
@@ -486,8 +486,8 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
   const [sourceDialogVisible, setSourceDialogVisible]      = useState(false);
   const [destDialogVisible,   setDestDialogVisible]        = useState(false);
 
-  const accountsPEN = client?.bank_accounts?.filter(a => a.currency === 'S/') || [];
-  const accountsUSD = client?.bank_accounts?.filter(a => a.currency === '$')  || [];
+  const accountsPEN = client?.bank_accounts?.filter(a => a && a.account_number && a.currency === 'S/') || [];
+  const accountsUSD = client?.bank_accounts?.filter(a => a && a.account_number && a.currency === '$')  || [];
 
   // ── Fetch rates ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -711,28 +711,23 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
       <ImageBackground source={require('../../assets/cd.png')} style={StyleSheet.absoluteFill} resizeMode="cover" />
       <View style={[StyleSheet.absoluteFill, s.overlay]} pointerEvents="none" />
 
+      {/* ── Header fijo ── */}
+      <View style={[s.pageHeader, { paddingTop: insets.top + 10 }]}>
+        <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.75}>
+          <Ionicons name="chevron-back" size={20} color="#fff" />
+        </TouchableOpacity>
+        <View style={s.headerCenter}>
+          <Image source={require('../../assets/logo.png')} style={s.headerLogo} resizeMode="contain" />
+        </View>
+        <View style={{ width: 38 }} />
+      </View>
+
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView
-          contentContainerStyle={[s.scroll, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 100 }]}
+          contentContainerStyle={[s.scroll, { paddingTop: 12, paddingBottom: insets.bottom + 100 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-
-          {/* ── Header ── */}
-          <MotiView
-            from={{ opacity: 0, translateY: -8 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', delay: 40, damping: 24, stiffness: 220 }}
-          >
-            <View style={s.pageHeader}>
-              <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.75}>
-                <Ionicons name="chevron-back" size={20} color="#fff" />
-              </TouchableOpacity>
-              <Text style={s.pageTitle}>Nueva operación</Text>
-              <View style={{ width: 38 }} />
-            </View>
-          </MotiView>
-
 
           {/* ── Stepper ── */}
           <MotiView
@@ -1114,19 +1109,21 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
         onClose={() => setSourceDialogVisible(false)}
         title={`Cuenta de cargo (${operationType === 'Venta' ? 'S/' : 'USD'})`}
         footer={
-          <TouchableOpacity style={[s.modalBtnSec, { width: '100%' }]} onPress={() => setSourceDialogVisible(false)}>
-            <Text style={s.modalBtnSecTxt}>Cerrar</Text>
-          </TouchableOpacity>
+          <View style={s.modalFooter}>
+            <TouchableOpacity style={[s.modalBtnSec, { flex: undefined, width: '100%' }]} onPress={() => setSourceDialogVisible(false)}>
+              <Text style={s.modalBtnSecTxt}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
         }
       >
         <View style={s.modalBody}>
           {(operationType === 'Venta' ? accountsPEN : accountsUSD).length === 0 ? (
             <Text style={s.emptyTxt}>No tienes cuentas en {operationType === 'Venta' ? 'soles' : 'dólares'}. Agrega una primero.</Text>
           ) : (
-            (operationType === 'Venta' ? accountsPEN : accountsUSD).map((acc, i) => (
+            (operationType === 'Venta' ? accountsPEN : accountsUSD).map((acc, i, arr) => (
               <TouchableOpacity
                 key={i}
-                style={[s.bankItem, sourceAccount === acc.account_number && s.bankItemActive]}
+                style={[s.bankItem, sourceAccount === acc.account_number && s.bankItemActive, i === arr.length - 1 && { borderBottomWidth: 0 }]}
                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSourceAccount(acc.account_number); setErrors({ ...errors, sourceAccount: '' }); setSourceDialogVisible(false); }}
                 activeOpacity={0.75}
               >
@@ -1147,19 +1144,21 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
         onClose={() => setDestDialogVisible(false)}
         title={`Cuenta de destino (${operationType === 'Venta' ? 'USD' : 'S/'})`}
         footer={
-          <TouchableOpacity style={[s.modalBtnSec, { width: '100%' }]} onPress={() => setDestDialogVisible(false)}>
-            <Text style={s.modalBtnSecTxt}>Cerrar</Text>
-          </TouchableOpacity>
+          <View style={s.modalFooter}>
+            <TouchableOpacity style={[s.modalBtnSec, { flex: undefined, width: '100%' }]} onPress={() => setDestDialogVisible(false)}>
+              <Text style={s.modalBtnSecTxt}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
         }
       >
         <View style={s.modalBody}>
           {(operationType === 'Venta' ? accountsUSD : accountsPEN).length === 0 ? (
             <Text style={s.emptyTxt}>No tienes cuentas en {operationType === 'Venta' ? 'dólares' : 'soles'}. Agrega una primero.</Text>
           ) : (
-            (operationType === 'Venta' ? accountsUSD : accountsPEN).map((acc, i) => (
+            (operationType === 'Venta' ? accountsUSD : accountsPEN).map((acc, i, arr) => (
               <TouchableOpacity
                 key={i}
-                style={[s.bankItem, destinationAccount === acc.account_number && s.bankItemActive]}
+                style={[s.bankItem, destinationAccount === acc.account_number && s.bankItemActive, i === arr.length - 1 && { borderBottomWidth: 0 }]}
                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDestinationAccount(acc.account_number); setErrors({ ...errors, destinationAccount: '' }); setDestDialogVisible(false); }}
                 activeOpacity={0.75}
               >
@@ -1186,6 +1185,7 @@ const s = StyleSheet.create({
   root:    { flex: 1 },
   overlay: { backgroundColor: 'transparent' },
   scroll:  { paddingHorizontal: 18 },
+  noScrollContent: { flex: 1, paddingHorizontal: 18, paddingTop: 8 },
 
   // ── Stepper ──
   stepperWrap: {
@@ -1214,8 +1214,11 @@ const s = StyleSheet.create({
 
   // ── Page header ──
   pageHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 14,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 19,
@@ -1223,6 +1226,8 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   pageTitle: { fontSize: 14, fontWeight: '700', color: '#fff', letterSpacing: 0.3 },
+  headerCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  headerLogo: { width: 110, height: 26 },
 
   // ── Trading card (toggle + TC hero) ──
   tradingCard: {
@@ -1370,8 +1375,14 @@ const s = StyleSheet.create({
   modalBox: {
     width: '100%', maxHeight: '85%', borderRadius: 28, overflow: 'hidden',
     alignItems: 'center', paddingTop: 28, paddingBottom: 24, paddingHorizontal: 24,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.4,
+    shadowRadius: 28,
+    elevation: 20,
   },
-  modalBorder:  { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 28, borderWidth: 1, borderColor: GLASS_BORDER },
+  modalBorder:  { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 28, borderWidth: 1, borderColor: 'rgba(34,197,94,0.18)' },
   modalTitle:   { fontSize: 17, fontWeight: '800', color: '#fff', marginBottom: 16, letterSpacing: 0.1 },
   modalDivider: { width: '100%', height: StyleSheet.hairlineWidth, backgroundColor: GLASS_BORDER, marginBottom: 18 },
   modalBody:    { width: '100%', gap: 2 },

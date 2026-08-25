@@ -287,10 +287,10 @@ export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) =>
               <Ionicons
                 name={operation.operation_type === 'Compra' ? 'arrow-down-circle' : 'arrow-up-circle'}
                 size={14}
-                color={operation.operation_type === 'Compra' ? GREEN : AMBER}
+                color={operation.operation_type === 'Compra' ? GREEN : BLUE}
               />
-              <Text style={[s.typeText, { color: operation.operation_type === 'Compra' ? GREEN : AMBER }]}>
-                {operation.operation_type}
+              <Text style={[s.typeText, { color: operation.operation_type === 'Compra' ? GREEN : BLUE }]}>
+                {operation.operation_type === 'Compra' ? 'Qoricash Compra' : 'Qoricash Vende'}
               </Text>
             </View>
           </View>
@@ -769,8 +769,8 @@ const s = StyleSheet.create({
     borderColor: GREEN + '40',
   },
   typePillVenta: {
-    backgroundColor: AMBER + '15',
-    borderColor: AMBER + '40',
+    backgroundColor: BLUE + '15',
+    borderColor: BLUE + '40',
   },
   typeText: {
     fontSize: 13,

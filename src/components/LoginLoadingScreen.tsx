@@ -251,7 +251,7 @@ export const LoginLoadingScreen: React.FC<Props> = ({ visible, onComplete }) => 
 
           {/* Logo */}
           <Animated.View style={{ opacity: logoFade, transform: [{ translateY: logoY }], marginBottom: 36 }}>
-            <Image source={require('../../assets/vv.png')} style={st.logo} resizeMode="contain" />
+            <Image source={require('../../assets/logo.png')} style={st.logo} resizeMode="contain" />
           </Animated.View>
 
           {/* Spinner / Checkmark */}
@@ -357,8 +357,8 @@ const st = StyleSheet.create({
     paddingHorizontal: 32,
   },
   logo: {
-    width: width * 0.44,
-    height: 30,
+    width: 170,
+    height: 40,
   },
   spinWrap: {
     width: 120,

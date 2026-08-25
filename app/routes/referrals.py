@@ -196,6 +196,17 @@ def get_referral_stats(client_dni):
                 'message': 'Cliente no encontrado'
             }), 404
 
+        # Auto-generar código si el cliente no tiene uno
+        if not client.referral_code:
+            from app.utils.referral import generate_referral_code
+            for _ in range(20):
+                candidate = generate_referral_code()
+                if not Client.query.filter_by(referral_code=candidate).first():
+                    client.referral_code = candidate
+                    db.session.commit()
+                    logger.info(f'✨ Código de referido generado automáticamente para {client_dni}: {candidate}')
+                    break
+
         # Usar el servicio completo de referidos
         from app.services.referral_service import referral_service
         stats = referral_service.get_referral_stats(client)

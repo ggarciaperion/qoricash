@@ -25,7 +25,7 @@ import socketService from '../services/socket';
 
 const BANK_LOGOS: Record<string, any> = {
   'BCP':        require('../../assets/banks/bcp.png'),
-  'INTERBANK':  require('../../assets/banks/interbank.png'),
+  'INTERBANK':  require('../../assets/banks/ibk.png'),
   'BANBIF':     require('../../assets/banks/banbif.png'),
   'BBVA':       require('../../assets/banks/bbva.png'),
   'Scotiabank': require('../../assets/banks/scotiabank.png'),
@@ -55,6 +55,7 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
   const clockOpacity   = useRef(new Animated.Value(1)).current;
   const checkScale     = useRef(new Animated.Value(0)).current;
   const checkOpacity   = useRef(new Animated.Value(0)).current;
+  const stepSpin       = useRef(new Animated.Value(0)).current;
 
   // ── Animación reloj ↔ check ───────────────────────────────────────────────
   useEffect(() => {
@@ -91,6 +92,20 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
 
     runCycle();
   }, [navigation]);
+
+  // ── Arco giratorio paso 3 (independiente) ────────────────────────────────
+  useEffect(() => {
+    const arcLoop = Animated.loop(
+      Animated.timing(stepSpin, {
+        toValue: 1,
+        duration: 1600,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+    arcLoop.start();
+    return () => arcLoop.stop();
+  }, []);
 
   // ── Socket.IO ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -203,9 +218,19 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
   // helpers
   const clientName = (() => {
     const full  = ((operation as any).client_name || '').trim();
+    if (!full) return 'Por definir';
+    // Razon social: contiene sufijos de empresa → mostrar intacta
+    const empresaSufijos = /\b(SAC|S\.A\.C\.|SA|S\.A\.|SRL|S\.R\.L\.|EIRL|E\.I\.R\.L\.|SAS|LTDA)\b/i;
+    if (empresaSufijos.test(full)) return full;
+    // Nombre personal almacenado como "APELLIDO_PAT APELLIDO_MAT NOMBRE(S)"
+    // → mostrar "Nombre ApePaterno"
     const parts = full.split(/\s+/);
-    if (parts.length <= 2) return full || 'Por definir';
-    return `${parts[0]} ${parts[Math.max(1, parts.length - 2)]}`;
+    if (parts.length === 1) return full;
+    if (parts.length === 2) return `${parts[1]} ${parts[0]}`; // APELLIDO NOMBRE → NOMBRE APELLIDO
+    // RENIEC: APELLIDO_PAT APELLIDO_MAT NOMBRE1 [NOMBRE2] → primer nombre = última palabra
+    const nombre   = parts[parts.length - 1];
+    const apellido = parts[0];
+    return `${nombre} ${apellido}`;
   })();
 
   const accountInfo = (() => {
@@ -230,10 +255,18 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
 
       {/* ── Header ── */}
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity
+          onPress={() => navigation.replace('Tabs', { screen: 'HistoryTab' })}
+          style={s.backBtn}
+          activeOpacity={0.7}
+        >
+          <View style={s.backBtnInner}>
+            <Ionicons name="chevron-back" size={20} color="#fff" />
+          </View>
+        </TouchableOpacity>
         <View style={s.headerCenter}>
           <Image
-            source={require('../../assets/vv.png')}
+            source={require('../../assets/logo.png')}
             style={s.headerLogo}
             resizeMode="contain"
           />
@@ -274,8 +307,14 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
 
             {/* Paso 3 — activo */}
             <View style={s.step}>
-              <View style={[s.stepDot, s.stepDotActive]}>
-                <Ionicons name="gift-outline" size={13} color="#fff" />
+              <View style={s.stepDotActiveWrap}>
+                <View style={s.stepArcTrack} />
+                <Animated.View style={[s.stepArcSpin, {
+                  transform: [{ rotate: stepSpin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
+                }]} />
+                <View style={[s.stepDot, s.stepDotActive]}>
+                  <Ionicons name="gift-outline" size={13} color="#fff" />
+                </View>
               </View>
               <Text style={[s.stepLabel, s.stepLabelActive]}>Recibe</Text>
             </View>
@@ -325,20 +364,17 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
           style={s.card}
         >
           {/* Cabecera */}
-          <View style={s.cardHeaderRow}>
-            <View style={s.cardIconWrap}>
-              <Ionicons name="receipt-outline" size={17} color={GREEN} />
+          <View style={[s.cardHeaderRow, { justifyContent: 'space-between' }]}>
+            <View style={[s.cardHeaderRow, { gap: 12 }]}>
+              <View style={s.cardIconWrap}>
+                <Ionicons name="receipt-outline" size={17} color={GREEN} />
+              </View>
+              <Text style={s.cardTitle}>Detalles de la operación</Text>
             </View>
-            <Text style={s.cardTitle}>Detalles de la operación</Text>
+            <Text style={s.opIdBadge}>{operation.operation_id}</Text>
           </View>
 
           <View style={s.hairline} />
-
-          {/* ID / tipo / fecha */}
-          <View style={s.detailRow}>
-            <Text style={s.detailLabel}>ID de Operación</Text>
-            <Text style={s.detailValue}>{operation.operation_id}</Text>
-          </View>
           <View style={s.detailRow}>
             <Text style={s.detailLabel}>Tipo</Text>
             <Text style={s.detailValue}>
@@ -355,10 +391,12 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
           {/* Montos */}
           <View style={s.amountsRow}>
             <View style={s.amountBlock}>
-              <Text style={s.amountFlag}>
-                {operation.operation_type === 'Compra' ? '🇺🇸' : '🇵🇪'}
-              </Text>
-              <Text style={s.amountLabel}>Enviaste</Text>
+              <View style={s.amountHeader}>
+                <Text style={s.amountFlag}>
+                  {operation.operation_type === 'Compra' ? '🇺🇸' : '🇵🇪'}
+                </Text>
+                <Text style={s.amountLabel}>{operation.operation_type === 'Compra' ? 'Enviaste dólares' : 'Enviaste soles'}</Text>
+              </View>
               <Text style={s.amountValue}>
                 {operation.operation_type === 'Compra'
                   ? formatCurrency(operation.amount_usd, 'USD')
@@ -372,10 +410,12 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
             </View>
 
             <View style={s.amountBlock}>
-              <Text style={s.amountFlag}>
-                {operation.operation_type === 'Compra' ? '🇵🇪' : '🇺🇸'}
-              </Text>
-              <Text style={s.amountLabel}>Recibirás</Text>
+              <View style={s.amountHeader}>
+                <Text style={s.amountFlag}>
+                  {operation.operation_type === 'Compra' ? '🇵🇪' : '🇺🇸'}
+                </Text>
+                <Text style={s.amountLabel}>{operation.operation_type === 'Compra' ? 'Recibirás soles' : 'Recibirás dólares'}</Text>
+              </View>
               <Text style={[s.amountValue, { color: GREEN }]}>
                 {operation.operation_type === 'Compra'
                   ? formatCurrency(operation.amount_pen, 'PEN')
@@ -406,16 +446,14 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
             <Text style={s.detailValue}>{clientName}</Text>
           </View>
 
-          <View style={s.detailRowBank}>
+          <View style={[s.detailRow, { overflow: 'hidden', height: 36, paddingVertical: 0, alignItems: 'center', marginRight: -18 }]}>
             <Text style={s.detailLabel}>Banco</Text>
-            {operation.destination_bank_name && BANK_LOGOS[operation.destination_bank_name] ? (
-              <View style={s.bankLogoWrapper}>
-                <Image
-                  source={BANK_LOGOS[operation.destination_bank_name]}
-                  style={s.bankLogo}
-                  resizeMode="contain"
-                />
-              </View>
+            {operation.destination_bank_name && BANK_LOGOS[operation.destination_bank_name.toUpperCase()] ? (
+              <Image
+                source={BANK_LOGOS[operation.destination_bank_name.toUpperCase()]}
+                style={s.bankLogo}
+                resizeMode="contain"
+              />
             ) : (
               <Text style={s.detailValue}>{operation.destination_bank_name || 'Por definir'}</Text>
             )}
@@ -479,6 +517,22 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 14,
   },
+  backBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backBtnInner: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerCenter: {
     flex: 1,
     alignItems: 'center',
@@ -486,7 +540,7 @@ const s = StyleSheet.create({
   },
   headerLogo: {
     width: 110,
-    height: 22,
+    height: 26,
   },
 
   scroll: { flex: 1 },
@@ -586,6 +640,17 @@ const s = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
   },
+  opIdBadge: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: GREEN,
+    backgroundColor: 'rgba(34,197,94,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.25)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
 
   // ── Procesamiento ────────────────────────────────────────────────────────────
   processingRow: {
@@ -649,23 +714,34 @@ const s = StyleSheet.create({
     flex: 2,
     textAlign: 'right',
   },
-  detailRowBank: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 48,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-  },
-  bankLogoWrapper: {
-    flex: 1,
-    alignItems: 'flex-end',
-    marginRight: -18,
-  },
   bankLogo: {
-    width: 130,
+    width: 140,
+    height: 50,
+  },
+  stepDotActiveWrap: {
+    width: 38,
     height: 38,
-    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepArcTrack: {
+    position: 'absolute',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 2,
+    borderColor: 'rgba(34,197,94,0.18)',
+  },
+  stepArcSpin: {
+    position: 'absolute',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 2,
+    borderTopColor: GREEN,
+    borderRightColor: GREEN,
+    borderBottomColor: GREEN,
+    borderLeftColor: 'transparent',
   },
 
   // ── Montos ──────────────────────────────────────────────────────────────────
@@ -678,23 +754,28 @@ const s = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 12,
-    padding: 12,
+    padding: 16,
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+  },
+  amountHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   amountFlag: {
-    fontSize: 16,
+    fontSize: 13,
   },
   amountLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: DIM,
     fontWeight: '500',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
   amountValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '800',
     color: '#fff',
   },
   tcPill: {

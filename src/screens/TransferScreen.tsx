@@ -17,6 +17,7 @@ import {
   TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { MotiView } from 'moti';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -32,7 +33,7 @@ const LOCAL_OPERATIONS_CACHE_KEY = '@qoricash_local_operations_cache';
 
 const BANK_LOGOS: Record<string, any> = {
   'BCP':        require('../../assets/banks/bcp.png'),
-  'INTERBANK':  require('../../assets/banks/interbank.png'),
+  'INTERBANK':  require('../../assets/banks/ibk.png'),
   'BANBIF':     require('../../assets/banks/banbif.png'),
   'BBVA':       require('../../assets/banks/bbva.png'),
   'Scotiabank': require('../../assets/banks/scotiabank.png'),
@@ -76,8 +77,18 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
   const [canceling, setCanceling]           = useState(false);
   const [cancelAnimPhase, setCancelAnimPhase] = useState<'idle' | 'loading' | 'done'>('idle');
   const cancelSpinAnim    = useRef(new Animated.Value(0)).current;
+  const cancelSpin2       = useRef(new Animated.Value(0)).current;
+  const cancelDotScale    = useRef(new Animated.Value(1)).current;
   const cancelCheckScale  = useRef(new Animated.Value(0)).current;
   const cancelCheckOpacity = useRef(new Animated.Value(0)).current;
+
+  // ── Step arc spin animation ───────────────────────────────────────────────────
+  const stepSpin = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(stepSpin, { toValue: 1, duration: 1600, useNativeDriver: true, easing: Easing.linear })
+    ).start();
+  }, []);
 
   // ── Timer countdown ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -246,26 +257,39 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
     setCancelAnimPhase('loading');
     setCanceling(true);
     cancelSpinAnim.setValue(0);
+    cancelSpin2.setValue(0);
+    cancelDotScale.setValue(1);
     cancelCheckScale.setValue(0);
     cancelCheckOpacity.setValue(0);
 
     Animated.loop(
-      Animated.timing(cancelSpinAnim, { toValue: 1, duration: 800, easing: Easing.linear, useNativeDriver: true })
+      Animated.timing(cancelSpinAnim, { toValue: 1, duration: 1100, easing: Easing.linear, useNativeDriver: true })
+    ).start();
+    Animated.loop(
+      Animated.timing(cancelSpin2, { toValue: 1, duration: 1700, easing: Easing.linear, useNativeDriver: true })
+    ).start();
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(cancelDotScale, { toValue: 1.5, duration: 500, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+        Animated.timing(cancelDotScale, { toValue: 1,   duration: 500, easing: Easing.in(Easing.ease),  useNativeDriver: true }),
+      ])
     ).start();
 
     try {
       await Promise.all([
         apiClient.post(`/api/client/cancel-operation/${operation.id}`, { cancellation_reason: cancelReason.trim() }),
-        new Promise(resolve => setTimeout(resolve, 1500)),
+        new Promise(resolve => setTimeout(resolve, 2500)),
       ]);
 
       await AsyncStorage.removeItem(LOCAL_OPERATIONS_CACHE_KEY);
 
       cancelSpinAnim.stopAnimation();
+      cancelSpin2.stopAnimation();
+      cancelDotScale.stopAnimation();
       setCancelAnimPhase('done');
       Animated.parallel([
-        Animated.spring(cancelCheckScale,   { toValue: 1, useNativeDriver: true }),
-        Animated.timing(cancelCheckOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(cancelCheckScale, { toValue: 1, tension: 160, friction: 11, useNativeDriver: true }),
+        Animated.timing(cancelCheckOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
       ]).start();
 
       setTimeout(() => {
@@ -274,10 +298,12 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
         setCancelAnimPhase('idle');
         setCanceling(false);
         navigation.replace('Tabs', { screen: 'HistoryTab', params: { initialTab: 'completed' } });
-      }, 800);
+      }, 1400);
 
     } catch (error: any) {
       cancelSpinAnim.stopAnimation();
+      cancelSpin2.stopAnimation();
+      cancelDotScale.stopAnimation();
       setCancelAnimPhase('idle');
       setCanceling(false);
       Alert.alert('Error', error?.response?.data?.message || error?.message || 'No se pudo cancelar la operación');
@@ -310,7 +336,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
         </TouchableOpacity>
         <View style={s.headerCenter}>
           <Image
-            source={require('../../assets/vv.png')}
+            source={require('../../assets/logo.png')}
             style={s.headerLogo}
             resizeMode="contain"
           />
@@ -336,15 +362,23 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
               <View style={[s.stepDot, s.stepDotDone]}>
                 <Ionicons name="checkmark" size={13} color="#fff" />
               </View>
-              <Text style={[s.stepLabel, s.stepLabelDone]}>Cuentas</Text>
+              <Text style={[s.stepLabel, s.stepLabelDone]}>Cotiza</Text>
             </View>
 
             <View style={[s.stepLine, s.stepLineDone]} />
 
             {/* Paso 2 — activo */}
             <View style={s.step}>
-              <View style={[s.stepDot, s.stepDotActive]}>
-                <Ionicons name="swap-horizontal" size={13} color="#fff" />
+              <View style={s.stepDotActiveWrap}>
+                {/* Track fijo (borde tenue completo) */}
+                <View style={s.stepArcTrack} />
+                {/* Arco giratorio — 3/4 del borde visible */}
+                <Animated.View style={[s.stepArcSpin, {
+                  transform: [{ rotate: stepSpin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
+                }]} />
+                <View style={[s.stepDot, s.stepDotActive]}>
+                  <Ionicons name="swap-horizontal" size={13} color="#fff" />
+                </View>
               </View>
               <Text style={[s.stepLabel, s.stepLabelActive]}>Transfiere</Text>
             </View>
@@ -388,7 +422,9 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           <View style={s.metaRow}>
             <View style={s.metaItem}>
               <Text style={s.metaLabel}>Tipo</Text>
-              <Text style={s.metaValue}>{operation.operation_type}</Text>
+              <Text style={s.metaValue}>
+                {operation.operation_type === 'Compra' ? 'Qoricash Compra' : 'Qoricash Vende'}
+              </Text>
             </View>
             <View style={s.metaItem}>
               <Text style={s.metaLabel}>Fecha</Text>
@@ -401,7 +437,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           {/* Montos */}
           <View style={s.amountsRow}>
             <View style={s.amountBlock}>
-              <Text style={s.amountLabel}>Envías</Text>
+              <Text style={s.amountLabel}>{operation.operation_type === 'Compra' ? 'Envías dólares' : 'Envías soles'}</Text>
               <Text style={s.amountValue}>
                 {operation.operation_type === 'Compra'
                   ? formatCurrency(operation.amount_usd, 'USD')
@@ -415,7 +451,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
             </View>
 
             <View style={s.amountBlock}>
-              <Text style={s.amountLabel}>Recibes</Text>
+              <Text style={s.amountLabel}>{operation.operation_type === 'Compra' ? 'Recibes soles' : 'Recibes dólares'}</Text>
               <Text style={[s.amountValue, { color: GREEN }]}>
                 {operation.operation_type === 'Compra'
                   ? formatCurrency(operation.amount_pen, 'PEN')
@@ -438,19 +474,20 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
               <Ionicons name="business-outline" size={18} color={GREEN} />
             </View>
             <View>
-              <Text style={s.cardMeta}>Transferir a</Text>
+              <Text style={s.cardMeta}>Transfiere a</Text>
               <Text style={s.transferToName}>Qoricash SAC</Text>
+              <Text style={s.transferToRuc}>RUC 20612229524</Text>
             </View>
           </View>
 
           <View style={s.hairline} />
 
           {/* Banco */}
-          <View style={s.detailRow}>
+          <View style={[s.detailRow, { overflow: 'hidden', height: 36, paddingVertical: 0, alignItems: 'center', marginRight: -18 }]}>
             <Text style={s.detailLabel}>Banco</Text>
-            {BANK_LOGOS[qoriAccount.bank_name] ? (
+            {BANK_LOGOS[qoriAccount.bank_name.toUpperCase()] ? (
               <Image
-                source={BANK_LOGOS[qoriAccount.bank_name]}
+                source={BANK_LOGOS[qoriAccount.bank_name.toUpperCase()]}
                 style={s.bankLogo}
                 resizeMode="contain"
               />
@@ -484,7 +521,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
             <View style={s.infoBanner}>
               <Ionicons name="information-circle-outline" size={15} color="#60a5fa" />
               <Text style={s.infoBannerText}>
-                Para transferencias desde otros bancos, usa el CCI de Interbank
+                Para transferencias desde otros bancos, usa nuestro CCI de Interbank
               </Text>
             </View>
           )}
@@ -527,6 +564,18 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           >
             <Text style={s.dangerBtnText}>CANCELAR OPERACIÓN</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={s.supportBtn}
+            activeOpacity={0.7}
+            onPress={() => {
+              const msg = `Hola, necesito ayuda con mi operación ${operation.operation_id}`;
+              Linking.openURL(`https://wa.me/51910624404?text=${encodeURIComponent(msg)}`);
+            }}
+          >
+            <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
+            <Text style={s.supportBtnText}>Contactar con soporte</Text>
+          </TouchableOpacity>
         </MotiView>
 
       </ScrollView>
@@ -537,7 +586,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
       <Modal
         visible={transferCodeModalVisible}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => {
           if (submitAnimPhase === 'idle') { setTransferCodeModalVisible(false); setTransferCode(''); }
         }}
@@ -546,20 +595,24 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           style={s.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
+          <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={s.modalSheet}>
-            {/* Accent strip */}
-            <View style={s.modalAccentStrip} />
-            <View style={s.modalHandle} />
-
             {/* Header */}
             <View style={s.modalHeader}>
               <View style={s.modalIconWrap}>
-                <Ionicons name="receipt-outline" size={24} color={GREEN} />
+                <Ionicons name="receipt-outline" size={18} color={GREEN} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.modalTitle}>Código de transferencia</Text>
                 <Text style={s.modalSub}>Ingresa el número de tu voucher bancario</Text>
               </View>
+              <TouchableOpacity
+                onPress={() => { if (submitAnimPhase === 'idle') { setTransferCodeModalVisible(false); setTransferCode(''); } }}
+                activeOpacity={0.7}
+                style={s.modalCloseBtn}
+              >
+                <Ionicons name="close" size={18} color="rgba(255,255,255,0.4)" />
+              </TouchableOpacity>
             </View>
 
             {submitAnimPhase === 'idle' ? (
@@ -670,40 +723,50 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           style={s.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={s.modalSheet}>
-            <View style={s.modalHandle} />
-
-            <View style={s.modalHeader}>
-              <View style={[s.modalIconWrap, s.modalIconWrapDanger]}>
-                <Ionicons name="alert" size={22} color="#ef4444" />
-              </View>
-              <Text style={s.modalTitle}>Cancelar operación</Text>
-            </View>
-
+          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={s.cancelSheet}>
             {cancelAnimPhase === 'idle' ? (
               <>
-                <View style={s.modalBody}>
-                  <View style={s.modalOpIdRow}>
-                    <Text style={s.modalOpIdLabel}>Operación</Text>
-                    <Text style={s.modalOpIdValue}>{operation.operation_id}</Text>
+                {/* Header con ícono centrado + close */}
+                <View style={s.cancelIconBlock}>
+                  <View style={s.cancelIconRing}>
+                    <Ionicons name="close-circle" size={19} color="#ef4444" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.cancelTitle}>Cancelar operación</Text>
+                    <Text style={s.cancelSubtitle}>Esta acción no se puede deshacer</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => { if (!canceling) { setCancelModalVisible(false); setCancelReason(''); } }}
+                    activeOpacity={0.7}
+                    style={s.modalCloseBtn}
+                  >
+                    <Ionicons name="close" size={18} color="rgba(255,255,255,0.4)" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={s.cancelBody}>
+                  {/* Chip operación */}
+                  <View style={s.cancelOpRow}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="pricetag-outline" size={13} color="rgba(255,255,255,0.4)" />
+                      <Text style={s.modalOpIdLabel}>Operación</Text>
+                    </View>
+                    <View style={s.cancelOpChip}>
+                      <Text style={s.cancelOpChipText}>{operation.operation_id}</Text>
+                    </View>
                   </View>
 
-                  <View style={s.warningBanner}>
-                    <Text style={s.warningBannerText}>
-                      Esta acción no se puede deshacer. Deberás crear una nueva operación si deseas continuar.
-                    </Text>
-                  </View>
-
+                  {/* Input motivo */}
                   <Text style={s.modalInputLabel}>
-                    Motivo de cancelación{'  '}
-                    <Text style={{ color: '#ef4444' }}>*</Text>
+                    Motivo de cancelación{'  '}<Text style={{ color: '#ef4444' }}>*</Text>
                   </Text>
                   <TextInput
-                    style={[s.modalInput, s.modalInputMultiline, cancelReason.trim() ? s.modalInputActiveDanger : undefined]}
+                    style={[s.modalInput, s.modalInputMultiline, cancelReason.trim() ? s.cancelInputActive : undefined]}
                     value={cancelReason}
                     onChangeText={setCancelReason}
                     placeholder="Ej: Cambié de opinión, error en el monto..."
-                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    placeholderTextColor="rgba(255,255,255,0.25)"
                     multiline
                     numberOfLines={3}
                   />
@@ -712,21 +775,23 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
                   )}
                 </View>
 
-                <View style={s.modalActions}>
+                {/* Botones */}
+                <View style={s.cancelActions}>
                   <TouchableOpacity
-                    style={s.modalBtnGhost}
+                    style={[s.cancelBtnConfirm, !cancelReason.trim() && s.cancelBtnConfirmDisabled]}
+                    onPress={handleCancelOperation}
+                    disabled={!cancelReason.trim()}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="close-circle-outline" size={18} color="#fff" />
+                    <Text style={s.cancelBtnConfirmText}>Confirmar cancelación</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={s.cancelBtnBack}
                     onPress={() => { setCancelModalVisible(false); setCancelReason(''); }}
                     activeOpacity={0.8}
                   >
-                    <Text style={s.modalBtnGhostText}>Volver</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[s.modalBtnRed, !cancelReason.trim() && s.modalBtnRedDisabled]}
-                    onPress={handleCancelOperation}
-                    disabled={!cancelReason.trim()}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={s.modalBtnConfirmText}>Confirmar</Text>
+                    <Text style={s.cancelBtnBackText}>Volver sin cancelar</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -734,24 +799,62 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
               <View style={s.animContainer}>
                 {cancelAnimPhase === 'loading' ? (
                   <>
-                    <Animated.View style={{
-                      width: 64, height: 64, borderRadius: 32,
-                      borderWidth: 4, borderColor: '#ef4444', borderTopColor: 'transparent',
-                      transform: [{ rotate: cancelSpinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
-                    }} />
-                    <Text style={s.animText}>Cancelando operación...</Text>
+                    {/* Multi-ring premium loader */}
+                    <View style={{ width: 80, height: 80, alignItems: 'center', justifyContent: 'center' }}>
+                      {/* Outer static track */}
+                      <View style={{
+                        position: 'absolute',
+                        width: 80, height: 80, borderRadius: 40,
+                        borderWidth: 1, borderColor: 'rgba(239,68,68,0.12)',
+                      }} />
+                      {/* Main arc — clockwise */}
+                      <Animated.View style={{
+                        position: 'absolute',
+                        width: 80, height: 80, borderRadius: 40,
+                        borderWidth: 2,
+                        borderTopColor: '#ef4444',
+                        borderRightColor: '#ef4444',
+                        borderBottomColor: 'rgba(239,68,68,0.25)',
+                        borderLeftColor: 'transparent',
+                        transform: [{ rotate: cancelSpinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
+                      }} />
+                      {/* Inner arc — counter-clockwise */}
+                      <Animated.View style={{
+                        position: 'absolute',
+                        width: 56, height: 56, borderRadius: 28,
+                        borderWidth: 1.5,
+                        borderTopColor: 'transparent',
+                        borderRightColor: 'transparent',
+                        borderBottomColor: 'rgba(239,68,68,0.55)',
+                        borderLeftColor: 'rgba(239,68,68,0.55)',
+                        transform: [{ rotate: cancelSpin2.interpolate({ inputRange: [0, 1], outputRange: ['360deg', '0deg'] }) }],
+                      }} />
+                      {/* Center pulsing dot */}
+                      <Animated.View style={{
+                        width: 8, height: 8, borderRadius: 4,
+                        backgroundColor: '#ef4444',
+                        opacity: 0.7,
+                        transform: [{ scale: cancelDotScale }],
+                      }} />
+                    </View>
+                    <Text style={s.animText}>Anulando operación...</Text>
+                    <Text style={s.animSub}>Esto tomará un momento</Text>
                   </>
                 ) : (
                   <>
+                    {/* Outlined check — no solid fill, lines only */}
                     <Animated.View style={{
-                      width: 72, height: 72, borderRadius: 36,
-                      backgroundColor: GREEN, alignItems: 'center', justifyContent: 'center',
                       transform: [{ scale: cancelCheckScale }],
                       opacity: cancelCheckOpacity,
+                      shadowColor: '#ef4444',
+                      shadowOffset: { width: 0, height: 0 },
+                      shadowOpacity: 0.35,
+                      shadowRadius: 18,
                     }}>
-                      <Ionicons name="checkmark" size={38} color="#fff" />
+                      <Ionicons name="checkmark-circle-outline" size={76} color="#ef4444" />
                     </Animated.View>
-                    <Text style={[s.animText, { color: GREEN }]}>Operación cancelada</Text>
+                    <Text style={[s.animText, { color: '#ef4444' }]}>Operación anulada</Text>
+                    <Text style={s.animSub}>Tu solicitud fue procesada</Text>
                   </>
                 )}
               </View>
@@ -804,7 +907,7 @@ const s = StyleSheet.create({
   },
   headerLogo: {
     width: 110,
-    height: 22,
+    height: 26,
   },
 
   scroll: { flex: 1 },
@@ -844,6 +947,31 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(34,197,94,0.18)',
     borderColor: GREEN,
     borderWidth: 1.5,
+  },
+  stepDotActiveWrap: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepArcTrack: {
+    position: 'absolute',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1.5,
+    borderColor: 'rgba(34,197,94,0.18)',
+  },
+  stepArcSpin: {
+    position: 'absolute',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1.5,
+    borderTopColor: GREEN,
+    borderRightColor: GREEN,
+    borderBottomColor: GREEN,
+    borderLeftColor: 'transparent',
   },
   stepLine: {
     flex: 1,
@@ -963,7 +1091,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   amountLabel: {
-    fontSize: 10,
+    fontSize: 9,
     color: DIM,
     fontWeight: '500',
     marginBottom: 5,
@@ -971,9 +1099,10 @@ const s = StyleSheet.create({
     letterSpacing: 0.4,
   },
   amountValue: {
-    fontSize: 14,
+    fontSize: 22,
     fontWeight: '700',
     color: '#fff',
+    letterSpacing: -0.3,
   },
   tcPill: {
     alignItems: 'center',
@@ -1007,6 +1136,12 @@ const s = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
   },
+  transferToRuc: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: 'rgba(255,255,255,0.45)',
+    marginTop: 2,
+  },
 
   // Detalles — filas
   detailRow: {
@@ -1030,8 +1165,8 @@ const s = StyleSheet.create({
     textAlign: 'right',
   },
   bankLogo: {
-    width: 80,
-    height: 28,
+    width: 140,
+    height: 50,
   },
   accountRow: {
     flexDirection: 'row',
@@ -1136,96 +1271,103 @@ const s = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
+  supportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(37,211,102,0.3)',
+    backgroundColor: 'rgba(37,211,102,0.06)',
+  },
+  supportBtnText: {
+    fontSize: 14,
+    color: '#25D366',
+    fontWeight: '600',
+  },
 
   // ── Modales ──────────────────────────────────────────────────────────────────
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
   modalSheet: {
-    backgroundColor: '#0c1f30',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 24,
     overflow: 'hidden',
-    paddingBottom: Platform.OS === 'ios' ? 38 : 24,
-    borderTopWidth: 1,
-    borderColor: 'rgba(34,197,94,0.2)',
-    shadowColor: GREEN,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.18)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.4,
+    shadowRadius: 28,
+    elevation: 20,
   },
-  modalAccentStrip: {
-    height: 3,
-    backgroundColor: GREEN,
-    opacity: 0.7,
-  },
-  modalHandle: {
-    width: 48,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignSelf: 'center',
-    marginTop: 14,
-    marginBottom: 6,
+  modalCloseBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    alignItems: 'center', justifyContent: 'center',
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 18,
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: BORDER,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   modalIconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(34,197,94,0.14)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(34,197,94,0.35)',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.28)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: GREEN,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 6,
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   modalIconWrapDanger: {
     backgroundColor: 'rgba(239,68,68,0.12)',
     borderColor: 'rgba(239,68,68,0.25)',
   },
   modalTitle: {
-    fontSize: 19,
+    fontSize: 16,
     fontWeight: '700',
     color: '#fff',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
   modalSub: {
-    fontSize: 12,
+    fontSize: 11,
     color: DIM,
-    marginTop: 3,
+    marginTop: 2,
   },
   modalBody: {
-    paddingHorizontal: 24,
-    paddingTop: 22,
-    paddingBottom: 8,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 6,
   },
   modalOpIdRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: BORDER,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: 16,
+    borderColor: 'rgba(255,255,255,0.08)',
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    marginBottom: 12,
   },
   modalOpIdChip: {
     backgroundColor: 'rgba(34,197,94,0.12)',
@@ -1249,15 +1391,15 @@ const s = StyleSheet.create({
   modalInfoBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
-    backgroundColor: 'rgba(96,165,250,0.06)',
+    gap: 8,
+    backgroundColor: 'rgba(96,165,250,0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(96,165,250,0.15)',
+    borderColor: 'rgba(96,165,250,0.12)',
     borderLeftWidth: 3,
     borderLeftColor: '#60a5fa',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 18,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 14,
   },
   modalInfoAccent: {
     display: 'none',
@@ -1320,11 +1462,12 @@ const s = StyleSheet.create({
   },
   modalActions: {
     flexDirection: 'column',
-    gap: 10,
-    paddingHorizontal: 24,
-    paddingTop: 20,
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 6,
     borderTopWidth: 1,
-    borderTopColor: BORDER,
+    borderTopColor: 'rgba(255,255,255,0.07)',
   },
   modalBtnGhost: {
     flex: 1,
@@ -1350,15 +1493,15 @@ const s = StyleSheet.create({
     color: 'rgba(255,255,255,0.4)',
   },
   modalBtnGreen: {
-    paddingVertical: 17,
-    borderRadius: 16,
+    paddingVertical: 14,
+    borderRadius: 14,
     alignItems: 'center',
     backgroundColor: GREEN,
     shadowColor: GREEN,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
-    elevation: 8,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
   },
   modalBtnGreenDisabled: {
     backgroundColor: 'rgba(34,197,94,0.28)',
@@ -1379,6 +1522,154 @@ const s = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#fff',
+  },
+
+  // ── Cancel Modal ──────────────────────────────────────────────────────────────
+  cancelSheet: {
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.16)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    elevation: 18,
+  },
+  cancelIconBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(239,68,68,0.08)',
+  },
+  cancelIconRing: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(239,68,68,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.1,
+    marginBottom: 2,
+  },
+  cancelSubtitle: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.38)',
+  },
+  cancelBody: {
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 6,
+  },
+  cancelOpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginBottom: 12,
+  },
+  cancelOpChip: {
+    backgroundColor: 'rgba(239,68,68,0.08)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.18)',
+  },
+  cancelOpChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fca5a5',
+    letterSpacing: 0.3,
+  },
+  cancelWarning: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: 'rgba(239,68,68,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.12)',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 14,
+  },
+  cancelWarningText: {
+    flex: 1,
+    fontSize: 12,
+    color: 'rgba(252,165,165,0.85)',
+    lineHeight: 17,
+  },
+  cancelInputActive: {
+    borderColor: 'rgba(239,68,68,0.5)',
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+  },
+  cancelActions: {
+    flexDirection: 'column',
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(239,68,68,0.07)',
+  },
+  cancelBtnConfirm: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: 'rgba(239,68,68,0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.4)',
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  cancelBtnConfirmDisabled: {
+    backgroundColor: 'transparent',
+    borderColor: 'rgba(239,68,68,0.18)',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  cancelBtnConfirmText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.2,
+  },
+  cancelBtnBack: {
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  cancelBtnBackText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.35)',
   },
 
   // Animaciones dentro de modal

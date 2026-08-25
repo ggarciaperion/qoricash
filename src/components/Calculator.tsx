@@ -226,7 +226,8 @@ export const Calculator: React.FC<CalculatorProps> = ({
   const calculateSavings = () => {
     if (!amountPEN || !exchangeRates) return 0;
     const amount = parseFloat(amountPEN);
-    return (amount * 0.03).toFixed(2);
+    const rate = activeOperationType === 'Venta' ? 0.063 : 0.021;
+    return (amount * rate).toFixed(2);
   };
 
   const INPUT_ACCESSORY_ID = 'calculator-amount-input';
