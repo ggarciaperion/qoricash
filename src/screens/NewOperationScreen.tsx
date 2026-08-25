@@ -714,21 +714,29 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
                 <TouchableOpacity
                   style={[s.bsBtn, operationType === 'Compra' && s.bsBtnBuy]}
                   onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setOperationType('Compra'); }}
-                  activeOpacity={0.82}
+                  activeOpacity={0.78}
                 >
-                  <Ionicons name="trending-up" size={18} color={operationType === 'Compra' ? GREEN : 'rgba(255,255,255,0.2)'} />
-                  <Text style={[s.bsBtnLabel, { color: operationType === 'Compra' ? GREEN : 'rgba(255,255,255,0.22)' }]}>Qoricash compra</Text>
+                  {/* Radio indicator */}
+                  <View style={[s.bsRadio, operationType === 'Compra' && { borderColor: GREEN, backgroundColor: 'rgba(34,197,94,0.15)' }]}>
+                    {operationType === 'Compra' && <View style={[s.bsRadioDot, { backgroundColor: GREEN }]} />}
+                  </View>
+                  <Text style={[s.bsBtnLabel, { color: operationType === 'Compra' ? GREEN : 'rgba(255,255,255,0.35)' }]}>
+                    Qoricash compra
+                  </Text>
                 </TouchableOpacity>
-                <View style={s.bsDivider}>
-                  <Ionicons name="swap-horizontal" size={12} color="rgba(255,255,255,0.12)" />
-                </View>
+                <View style={s.bsDivider} />
                 <TouchableOpacity
                   style={[s.bsBtn, operationType === 'Venta' && s.bsBtnSell]}
                   onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setOperationType('Venta'); }}
-                  activeOpacity={0.82}
+                  activeOpacity={0.78}
                 >
-                  <Ionicons name="trending-down" size={18} color={operationType === 'Venta' ? RED : 'rgba(255,255,255,0.2)'} />
-                  <Text style={[s.bsBtnLabel, { color: operationType === 'Venta' ? RED : 'rgba(255,255,255,0.22)' }]}>Qoricash vende</Text>
+                  {/* Radio indicator */}
+                  <View style={[s.bsRadio, operationType === 'Venta' && { borderColor: RED, backgroundColor: 'rgba(59,130,246,0.15)' }]}>
+                    {operationType === 'Venta' && <View style={[s.bsRadioDot, { backgroundColor: RED }]} />}
+                  </View>
+                  <Text style={[s.bsBtnLabel, { color: operationType === 'Venta' ? RED : 'rgba(255,255,255,0.35)' }]}>
+                    Qoricash vende
+                  </Text>
                 </TouchableOpacity>
               </View>
 
@@ -1175,7 +1183,15 @@ const s = StyleSheet.create({
   bsBtnLabel: { fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
   bsDivider: {
     width: 1, backgroundColor: GLASS_BORDER,
-    alignItems: 'center', justifyContent: 'center', paddingVertical: 6,
+  },
+  bsRadio: {
+    width: 18, height: 18, borderRadius: 9,
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  bsRadioDot: {
+    width: 8, height: 8, borderRadius: 4,
   },
   tradingCardDivider: {
     height: StyleSheet.hairlineWidth,
