@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotiView } from 'moti';
 import * as Haptics from 'expo-haptics';
+import { Audio } from 'expo-av';
 import { useAuth } from '../contexts/AuthContext';
 import { operationsApi } from '../api/operations';
 import { CreateOperationForm, BankAccount } from '../types';
@@ -633,7 +634,17 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
     setCreatingSuccess(true);
 
     // Check visible mínimo 1600ms antes de navegar
-    await delay(1600);
+    await delay(1200);
+    // Sonido de confirmación en el último instante de la animación
+    try {
+      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+      const { sound } = await Audio.Sound.createAsync(
+        require('../../assets/sounds/payment_success.mp3'),
+        { shouldPlay: true, volume: 0.8 }
+      );
+      sound.setOnPlaybackStatusUpdate(s => { if (s.isLoaded && s.didJustFinish) sound.unloadAsync(); });
+    } catch {}
+    await delay(400);
     navigation.replace('Transfer', { operation: result.op });
   };
 
@@ -1020,7 +1031,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
           )}
 
-          <Text style={s.inputLabel}>Banco</Text>
+          <Text style={s.inputLabel}>Elige tu banco</Text>
           <TouchableOpacity style={s.inputRow} onPress={() => setBankMenuVisible(v => !v)} activeOpacity={0.78}>
             <Text style={[s.inputField, !newAccountBank && { color: 'rgba(255,255,255,0.25)' }]}>
               {newAccountBank || 'Seleccionar banco...'}

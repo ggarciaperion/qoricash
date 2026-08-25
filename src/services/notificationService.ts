@@ -14,7 +14,7 @@ import axios from 'axios';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
-    shouldPlaySound: true,
+    shouldPlaySound: false,
     shouldSetBadge: true,
   }),
 });

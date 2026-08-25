@@ -14,7 +14,7 @@ class SocketService {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
         shouldShowAlert: true,
-        shouldPlaySound: true,
+        shouldPlaySound: false,
         shouldSetBadge: true,
       }),
     });
