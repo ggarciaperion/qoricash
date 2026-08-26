@@ -800,11 +800,11 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
                 <Text style={s.tcHeroLabel}>TIPO DE CAMBIO</Text>
                 {hasImprovement && (
                   <Text style={s.tcHeroBaseValue}>
-                    {initialBaseRate!.toFixed(3)}
+                    {initialBaseRate!.toFixed(4)}
                   </Text>
                 )}
                 <Text style={[s.tcHeroValue, { color: operationType === 'Compra' ? GREEN : RED }]}>
-                  {parseFloat(exchangeRate).toFixed(3)}
+                  {parseFloat(exchangeRate).toFixed(4)}
                 </Text>
                 {hasImprovement && (
                   <View style={s.tcHeroPipBadge}>
@@ -823,12 +823,12 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View style={s.tcRefRates}>
                   <View style={s.tcRefItem}>
                     <Text style={s.tcRefLabel}>BID</Text>
-                    <Text style={s.tcRefValue}>{realExchangeRates.compra.toFixed(3)}</Text>
+                    <Text style={s.tcRefValue}>{realExchangeRates.compra.toFixed(4)}</Text>
                   </View>
                   <View style={s.tcRefSep} />
                   <View style={s.tcRefItem}>
                     <Text style={s.tcRefLabel}>ASK</Text>
-                    <Text style={s.tcRefValue}>{realExchangeRates.venta.toFixed(3)}</Text>
+                    <Text style={s.tcRefValue}>{realExchangeRates.venta.toFixed(4)}</Text>
                   </View>
                 </View>
               </View>
