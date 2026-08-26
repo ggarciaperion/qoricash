@@ -780,13 +780,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
               <View style={[s.opTypeBadge, {
                 backgroundColor: operationType === 'Compra' ? 'rgba(34,197,94,0.12)' : 'rgba(59,130,246,0.10)',
               }]}>
-                <View style={[s.bsRadio, {
-                  borderColor: operationType === 'Compra' ? GREEN : RED,
-                  backgroundColor: operationType === 'Compra' ? 'rgba(34,197,94,0.15)' : 'rgba(59,130,246,0.15)',
-                }]}>
-                  <View style={[s.bsRadioDot, { backgroundColor: operationType === 'Compra' ? GREEN : RED }]} />
-                </View>
-                <Text style={s.bsBtnLabel}>
+<Text style={s.bsBtnLabel}>
                   <Text style={s.opTypeSubLabel}>Tipo de operación: </Text>
                   <Text style={{ color: operationType === 'Compra' ? GREEN : RED }}>
                     {operationType === 'Compra' ? 'Qoricash compra' : 'Qoricash vende'}
