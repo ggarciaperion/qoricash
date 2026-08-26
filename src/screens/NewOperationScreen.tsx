@@ -786,10 +786,12 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
                 }]}>
                   <View style={[s.bsRadioDot, { backgroundColor: operationType === 'Compra' ? GREEN : RED }]} />
                 </View>
-                <Text style={[s.bsBtnLabel, { color: operationType === 'Compra' ? GREEN : RED }]}>
-                  {operationType === 'Compra' ? 'Qoricash compra' : 'Qoricash vende'}
-                </Text>
-                <Ionicons name="lock-closed" size={11} color="rgba(255,255,255,0.22)" />
+                <View>
+                  <Text style={s.opTypeSubLabel}>Tipo de operación</Text>
+                  <Text style={[s.bsBtnLabel, { color: operationType === 'Compra' ? GREEN : RED }]}>
+                    {operationType === 'Compra' ? 'Qoricash compra' : 'Qoricash vende'}
+                  </Text>
+                </View>
               </View>
 
               {/* ── Divider ── */}
@@ -1246,6 +1248,10 @@ const s = StyleSheet.create({
   opTypeBadge: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, paddingVertical: 10, paddingHorizontal: 16,
+  },
+  opTypeSubLabel: {
+    fontSize: 9, fontWeight: '500', color: 'rgba(255,255,255,0.35)',
+    letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 2,
   },
   bsWrap: {
     flexDirection: 'row',
