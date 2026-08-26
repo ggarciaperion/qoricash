@@ -786,12 +786,12 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
                 }]}>
                   <View style={[s.bsRadioDot, { backgroundColor: operationType === 'Compra' ? GREEN : RED }]} />
                 </View>
-                <View>
-                  <Text style={s.opTypeSubLabel}>Tipo de operación</Text>
-                  <Text style={[s.bsBtnLabel, { color: operationType === 'Compra' ? GREEN : RED }]}>
+                <Text style={s.bsBtnLabel}>
+                  <Text style={s.opTypeSubLabel}>Tipo de operación: </Text>
+                  <Text style={{ color: operationType === 'Compra' ? GREEN : RED }}>
                     {operationType === 'Compra' ? 'Qoricash compra' : 'Qoricash vende'}
                   </Text>
-                </View>
+                </Text>
               </View>
 
               {/* ── Divider ── */}
