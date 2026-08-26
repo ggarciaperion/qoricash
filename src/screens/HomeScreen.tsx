@@ -631,15 +631,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             hideTabs
           />
 
-          {/* Badge de mejora por volumen */}
-          {volumePips > 0 && (
-            <View style={s.volumeBadge}>
-              <Ionicons name="flash" size={11} color="#fbbf24" />
-              <Text style={s.volumeBadgeText}>
-                TC preferencial activo · +{Math.round(volumePips * 10000)} pips por monto especial
-              </Text>
-            </View>
-          )}
         </MotiView>
 
         {/* ══ Botón iniciar operación (fuera de la card) ══ */}
