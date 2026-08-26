@@ -23,6 +23,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { operationsApi } from '../api/operations';
 import { Operation } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 import {
   formatCurrency,
   formatDateTime,
@@ -64,6 +65,7 @@ interface Props { route: any; navigation: any }
 // ─── Component ────────────────────────────────────────────────────────────────
 export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const insets = useSafeAreaInsets();
+  const { client } = useAuth();
   const { operationId } = route.params;
 
   const [operation, setOperation]   = useState<Operation | null>(null);
@@ -105,7 +107,7 @@ export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) =>
   const loadOperation = async () => {
     try {
       setLoading(true);
-      setOperation(await operationsApi.getOperationById(operationId));
+      setOperation(await operationsApi.getOperationById(operationId, client?.dni || ''));
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Error al cargar operación');
       navigation.goBack();
@@ -177,6 +179,7 @@ export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) =>
         fd.append('deposit_index', idx.toString());
         fd.append('importe', dep.importe);
         fd.append('codigo_operacion', dep.codigoOperacion);
+        fd.append('client_dni', client?.dni || '');
         fd.append('file', { uri: dep.imageUri, type: 'image/jpeg', name: `comprobante_${idx}.jpg` } as any);
         await operationsApi.uploadDepositProof(operationId, idx, fd);
       }

@@ -8,7 +8,6 @@ import {
   ImageBackground,
   Text,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 
@@ -375,8 +374,7 @@ export const LoginLoadingScreen: React.FC<Props> = ({ visible, onComplete }) => 
       <ImageBackground source={require('../../assets/cd.png')} style={StyleSheet.absoluteFill} resizeMode="cover" />
       <Animated.View style={[StyleSheet.absoluteFill, st.overlay, { opacity:overlayFade }]} />
 
-      <Animated.View style={{ opacity:cardFade, transform:[{scale:cardScale},{translateY:cardY}], width:'100%', paddingHorizontal:28 }}>
-        <BlurView intensity={92} tint="dark" style={st.card}>
+      <Animated.View style={{ opacity:cardFade, transform:[{scale:cardScale},{translateY:cardY}], width:'100%', alignItems:'center' }}>
 
           {/* ── Logo flotante ── */}
           <Animated.View style={{
@@ -488,7 +486,6 @@ export const LoginLoadingScreen: React.FC<Props> = ({ visible, onComplete }) => 
             <Dot anim={d2} />
           </Animated.View>
 
-        </BlurView>
       </Animated.View>
     </Animated.View>
   );
@@ -500,12 +497,6 @@ const st = StyleSheet.create({
     zIndex:9999, justifyContent:'center', alignItems:'center',
   },
   overlay: { backgroundColor:'rgba(0,0,0,0.62)' },
-  card: {
-    borderRadius:32, overflow:'hidden',
-    borderWidth:1, borderColor:'rgba(255,255,255,0.13)',
-    alignItems:'center',
-    paddingTop:44, paddingBottom:36, paddingHorizontal:32,
-  },
   logo: { width:175, height:42 },
   spinWrap: {
     width:130, height:130,

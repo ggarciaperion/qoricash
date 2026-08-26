@@ -138,10 +138,11 @@ def client_login():
         client = Client.query.filter_by(dni=dni).first()
 
         if not client:
+            # Respuesta idéntica a contraseña incorrecta para evitar enumeración de DNIs
             return jsonify({
                 'success': False,
-                'message': 'Cliente no encontrado. Verifica el DNI.'
-            }), 404
+                'message': 'DNI o contraseña incorrectos'
+            }), 401
 
         # CAMBIO IMPORTANTE: Permitir login de clientes inactivos
         # para que puedan subir documentos KYC desde la página web
@@ -163,7 +164,7 @@ def client_login():
             if not client.check_password(password):
                 return jsonify({
                     'success': False,
-                    'message': 'Contraseña incorrecta'
+                    'message': 'DNI o contraseña incorrectos'
                 }), 401
 
         logger.info(f"Login exitoso de cliente: {client.dni}")
@@ -179,7 +180,7 @@ def client_login():
         logger.error(f"Error en login de cliente: {str(e)}")
         return jsonify({
             'success': False,
-            'message': f'Error al iniciar sesión: {str(e)}'
+            'message': 'Error al iniciar sesión. Intenta nuevamente.'
         }), 500
 
 
@@ -284,7 +285,7 @@ def change_password():
         db.session.rollback()
         return jsonify({
             'success': False,
-            'message': f'Error al cambiar contraseña: {str(e)}'
+            'message': 'Error al cambiar contraseña. Intenta nuevamente.'
         }), 500
 
 
@@ -445,7 +446,7 @@ def get_current_client():
         logger.error(f"Error obteniendo datos de cliente: {str(e)}")
         return jsonify({
             'success': False,
-            'message': f'Error al obtener datos: {str(e)}'
+            'message': 'Error al obtener datos. Intenta nuevamente.'
         }), 500
 
 
@@ -605,7 +606,7 @@ def register_client():
                 'client_id': new_client.id,
                 'client': new_client.to_dict(),
                 'created_by': 'App Móvil'
-            }, broadcast=True)
+            }, room='role_Master', namespace='/')
             logger.info(f'WebSocket client_created emitido para cliente {new_client.id} (canal: app)')
         except Exception as ws_exc:
             logger.warning(f'WebSocket emit falló (cliente ya creado): {ws_exc}')
@@ -631,7 +632,7 @@ def register_client():
         db.session.rollback()
         return jsonify({
             'success': False,
-            'message': f'Error al registrar: {str(e)}'
+            'message': 'Error al registrar cliente. Intenta nuevamente.'
         }), 500
 
 
@@ -800,7 +801,7 @@ def upload_dni_documents():
         db.session.rollback()
         return jsonify({
             'success': False,
-            'message': f'Error al subir documentos: {str(e)}'
+            'message': 'Error al subir documentos. Intenta nuevamente.'
         }), 500
 
 
@@ -837,7 +838,7 @@ def verify_client(dni):
         logger.error(f"Error al verificar cliente: {str(e)}")
         return jsonify({
             'success': False,
-            'message': f'Error al verificar cliente: {str(e)}'
+            'message': 'Error al verificar cliente. Intenta nuevamente.'
         }), 500
 
 
@@ -871,7 +872,7 @@ def get_exchange_rates():
         logger.error(f"Error al obtener tipos de cambio: {str(e)}")
         return jsonify({
             'success': False,
-            'message': f'Error al obtener tipos de cambio: {str(e)}'
+            'message': 'Error al obtener tipos de cambio. Intenta nuevamente.'
         }), 500
 
 
@@ -1015,7 +1016,7 @@ def create_operation():
         logger.error(traceback.format_exc())
         return jsonify({
             'success': False,
-            'message': f'Error al crear operación: {str(e)}'
+            'message': 'Error al crear operación. Intenta nuevamente.'
         }), 500
 
 
@@ -1069,7 +1070,7 @@ def get_client_operations(dni):
         logger.error(f"Error al obtener operaciones del cliente: {str(e)}")
         return jsonify({
             'success': False,
-            'message': f'Error al obtener operaciones: {str(e)}'
+            'message': 'Error al obtener operaciones. Intenta nuevamente.'
         }), 500
 
 
@@ -1081,6 +1082,8 @@ def get_operation_detail(operation_id):
 
     Args:
         operation_id: ID de la operación
+    Query params:
+        client_dni: DNI del cliente que solicita (requerido para validar propiedad)
 
     Returns:
         JSON: {"success": true, "operation": {...}}
@@ -1088,12 +1091,17 @@ def get_operation_detail(operation_id):
     try:
         from app.models.operation import Operation
 
+        client_dni = request.args.get('client_dni', '').strip()
+        if not client_dni:
+            return jsonify({'success': False, 'message': 'Parámetro requerido'}), 400
+
         operation = db.session.get(Operation, operation_id)
         if not operation:
-            return jsonify({
-                'success': False,
-                'message': 'Operación no encontrada'
-            }), 404
+            return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
+
+        # Validar que la operación pertenece al cliente solicitante
+        if not operation.client or operation.client.dni != client_dni:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 403
 
         return jsonify({
             'success': True,
@@ -1104,7 +1112,7 @@ def get_operation_detail(operation_id):
         logger.error(f"Error al obtener detalle de operación: {str(e)}")
         return jsonify({
             'success': False,
-            'message': f'Error al obtener operación: {str(e)}'
+            'message': 'Error al obtener la operación'
         }), 500
 
 
@@ -1124,6 +1132,13 @@ def upload_deposit_proof(operation_id):
         operation = db.session.get(Operation, operation_id)
         if not operation:
             return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
+
+        # Validar propiedad: el cliente que sube el comprobante debe ser el dueño de la operación
+        client_dni = request.form.get('client_dni', '').strip()
+        if not client_dni:
+            return jsonify({'success': False, 'message': 'Parámetro requerido'}), 400
+        if not operation.client or operation.client.dni != client_dni:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 403
 
         if 'file' not in request.files:
             return jsonify({'success': False, 'message': 'No se envió ningún archivo'}), 400
@@ -1227,7 +1242,7 @@ def upload_deposit_proof(operation_id):
 
     except Exception as e:
         logger.error(f"Error al subir comprobante: {str(e)}")
-        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+        return jsonify({'success': False, 'message': 'Error al subir comprobante. Intenta nuevamente.'}), 500
 
 
 @client_auth_bp.route('/submit-transfer-code/<int:operation_id>', methods=['POST'])
@@ -1319,7 +1334,7 @@ def submit_transfer_code(operation_id):
     except Exception as e:
         logger.error(f"Error al registrar código de transferencia: {str(e)}")
         db.session.rollback()
-        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+        return jsonify({'success': False, 'message': 'Error al registrar código. Intenta nuevamente.'}), 500
 
 
 @client_auth_bp.route('/cancel-operation/<int:operation_id>', methods=['POST'])
@@ -1348,12 +1363,16 @@ def cancel_operation(operation_id):
             }), 400
 
         cancellation_reason = data.get('cancellation_reason', '').strip()
+        client_dni = data.get('client_dni', '').strip()
 
         if not cancellation_reason:
             return jsonify({
                 'success': False,
                 'message': 'El motivo de cancelación es requerido'
             }), 400
+
+        if not client_dni:
+            return jsonify({'success': False, 'message': 'Parámetro requerido'}), 400
 
         # Buscar la operación
         operation = db.session.get(Operation, operation_id)
@@ -1363,6 +1382,10 @@ def cancel_operation(operation_id):
                 'success': False,
                 'message': 'Operación no encontrada'
             }), 404
+
+        # Validar que la operación pertenece al cliente solicitante
+        if not operation.client or operation.client.dni != client_dni:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 403
 
         # Validar que la operación no esté en proceso o completada
         if operation.status == 'En proceso':
@@ -1402,7 +1425,7 @@ def cancel_operation(operation_id):
         db.session.rollback()
         return jsonify({
             'success': False,
-            'message': f'Error al cancelar operación: {str(e)}'
+            'message': 'Error al cancelar la operación. Intenta nuevamente.'
         }), 500
 
 
@@ -1547,7 +1570,7 @@ def add_bank_account(client_dni):
         db.session.rollback()
         return jsonify({
             'success': False,
-            'message': f'Error al agregar cuenta bancaria: {str(e)}'
+            'message': 'Error al agregar cuenta bancaria. Intenta nuevamente.'
         }), 500
 
 
@@ -1624,7 +1647,7 @@ def delete_bank_account(client_dni, account_index):
         db.session.rollback()
         return jsonify({
             'success': False,
-            'message': f'Error al eliminar cuenta bancaria: {str(e)}'
+            'message': 'Error al eliminar cuenta bancaria. Intenta nuevamente.'
         }), 500
 
 
@@ -1703,7 +1726,7 @@ def register_push_token():
         logger.error(traceback.format_exc())
         return jsonify({
             'success': False,
-            'message': f'Error al registrar token: {str(e)}'
+            'message': 'Error al registrar token. Intenta nuevamente.'
         }), 500
 
 

@@ -1,10 +1,9 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authApi } from '../api/auth';
-import { clientsApi } from '../api/clients';
 import apiClient from '../api/client';
 import { User, Client, LoginCredentials } from '../types';
-import { STORAGE_KEYS, API_CONFIG } from '../constants/config';
+import { STORAGE_KEYS } from '../constants/config';
 import socketService from '../services/socketService';
 import { notificationService } from '../services/notificationService';
 
@@ -27,20 +26,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Configurar servicio de notificaciones
     socketService.configure();
-
-    // Conectar Socket.IO SIEMPRE (incluso sin autenticación) para tipos de cambio
-    console.log('📡 Conectando Socket.IO (modo público para tipos de cambio)');
     socketService.connect();
+    loadStoredData();
 
-    // NO cargar datos guardados - requiere login cada vez que se abre la app
-    // loadStoredData();
-
-    // Limpiar datos de sesión al iniciar la app
-    clearStoredSession();
-
-    // Limpiar al desmontar
     return () => {
       socketService.disconnect();
     };
@@ -49,84 +38,61 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Cuando el usuario se autentica, unirse a room específico del cliente
   useEffect(() => {
     if (client && client.dni) {
-      console.log('🔔 [AUTH] Cliente autenticado, configurando Socket.IO para DNI:', client.dni);
-      console.log('🔌 [AUTH] Socket conectado:', socketService.isConnected());
-
-      // Reconectar con DNI del cliente para recibir notificaciones específicas
       if (socketService.isConnected()) {
-        console.log('📡 [AUTH] Uniéndose al room del cliente...');
         socketService.joinClientRoom(client.dni);
       } else {
-        console.warn('⚠️ [AUTH] Socket NO conectado, esperando conexión...');
-        // Intentar conectar si no está conectado
         socketService.connect(client.dni);
       }
 
-      // Escuchar evento de documentos aprobados para refrescar datos
-      const handleDocumentsApproved = async (data: any) => {
-        console.log('🎉 [AUTH] ¡EVENTO RECIBIDO! documents_approved:', data);
-        console.log('🔄 [AUTH] Refrescando datos del cliente...');
+      const handleDocumentsApproved = async (_data: any) => {
         try {
           await refreshClient();
-          console.log('✅ [AUTH] Datos del cliente actualizados después de aprobación KYC');
         } catch (error) {
-          console.error('❌ [AUTH] Error refrescando cliente después de KYC:', error);
+          console.error('[AUTH] Error refrescando cliente después de KYC:', error);
         }
       };
 
-      console.log('👂 [AUTH] Registrando listener para evento documents_approved...');
       socketService.on('documents_approved', handleDocumentsApproved);
-      console.log('✅ [AUTH] Listener registrado exitosamente');
 
-      // Limpiar listener al desmontar
       return () => {
-        console.log('🧹 [AUTH] Limpiando listener de documents_approved');
         socketService.off('documents_approved', handleDocumentsApproved);
       };
     }
   }, [client]);
 
-  const clearStoredSession = async () => {
+  const loadStoredData = async () => {
     try {
-      // Limpiar todos los datos de sesión al abrir la app
-      await AsyncStorage.multiRemove([
-        STORAGE_KEYS.USER_DATA,
-        STORAGE_KEYS.CLIENT_DATA,
-        STORAGE_KEYS.AUTH_TOKEN,
-        STORAGE_KEYS.REQUIRES_PASSWORD_CHANGE,
+      const [storedUser, storedClient] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.USER_DATA),
+        AsyncStorage.getItem(STORAGE_KEYS.CLIENT_DATA),
       ]);
-      console.log('🧹 [AUTH] Sesión limpiada - requiere nuevo login');
+
+      if (storedClient && storedUser) {
+        const cachedClient: Client = JSON.parse(storedClient);
+        const cachedUser: User = JSON.parse(storedUser);
+
+        // Validar sesión contra el backend con datos frescos
+        try {
+          const response = await apiClient.post(`/api/client/me`, { dni: cachedClient.dni });
+          if (response.success && response.client) {
+            setClient(response.client);
+            setUser(cachedUser);
+          } else {
+            await AsyncStorage.multiRemove([STORAGE_KEYS.USER_DATA, STORAGE_KEYS.CLIENT_DATA]);
+          }
+        } catch {
+          // Sin conexión: restaurar datos cacheados para permitir uso offline básico
+          setClient(cachedClient);
+          setUser(cachedUser);
+        }
+      }
     } catch (error) {
-      console.error('❌ [AUTH] Error limpiando sesión:', error);
+      console.error('[AUTH] Error restaurando sesión:', error);
+      await AsyncStorage.multiRemove([STORAGE_KEYS.USER_DATA, STORAGE_KEYS.CLIENT_DATA]);
     } finally {
       setLoading(false);
     }
   };
-
-  // Función anterior comentada - ya no se usa auto-login
-  // const loadStoredData = async () => {
-  //   try {
-  //     const [storedUser, storedClient] = await Promise.all([
-  //       AsyncStorage.getItem(STORAGE_KEYS.USER_DATA),
-  //       AsyncStorage.getItem(STORAGE_KEYS.CLIENT_DATA),
-  //     ]);
-  //
-  //     if (storedUser) {
-  //       setUser(JSON.parse(storedUser));
-  //     }
-  //
-  //     if (storedClient) {
-  //       setClient(JSON.parse(storedClient));
-  //     }
-  //
-  //     // Load session cookie
-  //     await apiClient.loadSessionCookie();
-  //   } catch (error) {
-  //     console.error('Error loading stored data:', error);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
 
   const login = async (credentials: LoginCredentials, dni: string) => {
     // NOTE: We intentionally do NOT call setLoading(true) here.
@@ -134,32 +100,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // NavigationContainer and resets the nav stack to PublicCalculatorScreen
     // on failure. The LoginLoadingScreen overlay handles the visual feedback.
     try {
-      console.log('🔐 [AUTH CONTEXT] Intentando login con DNI:', dni);
-
-      // Login con DNI y contraseña
       const loginResponse = await authApi.login({
         username: dni,
         password: credentials.password || '',
       });
 
-      console.log('✅ [AUTH CONTEXT] Login response:', loginResponse);
-
       if (!loginResponse.success || !loginResponse.user || !loginResponse.client) {
-        console.error('❌ [AUTH CONTEXT] Login fallido:', loginResponse);
         throw new Error(loginResponse.message || 'Error de autenticación');
       }
 
       const clientData = loginResponse.client;
       const requiresPasswordChange = loginResponse.requires_password_change || false;
 
-      console.log('✅ [AUTH CONTEXT] Cliente autenticado:', clientData.dni);
-      console.log('🔐 [AUTH CONTEXT] Requiere cambio de contraseña:', requiresPasswordChange);
-
-      // NO guardar datos en AsyncStorage - sesión temporal solo en memoria
-      // La sesión se cierra automáticamente al cerrar la app
-      console.log('💾 [AUTH CONTEXT] Sesión temporal - NO se persiste en AsyncStorage');
-
-      console.log('✅ [AUTH CONTEXT] Login exitoso!');
+      // Persistir sesión en AsyncStorage para auto-login en próxima apertura
+      await AsyncStorage.multiSet([
+        [STORAGE_KEYS.CLIENT_DATA, JSON.stringify(clientData)],
+        [STORAGE_KEYS.USER_DATA, JSON.stringify(loginResponse.user)],
+      ]);
 
       setUser(loginResponse.user);
       setClient(clientData);
@@ -170,14 +127,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // Registrar token de push notifications
       try {
-        console.log('📲 [AUTH CONTEXT] Registrando token de push notifications...');
         await notificationService.registerForPushNotifications(dni);
       } catch (pushError) {
-        console.error('❌ [AUTH CONTEXT] Error registrando push token:', pushError);
-        // No bloquear el login si falla el registro de push
+        console.error('[AUTH] Error registrando push token:', pushError);
       }
     } catch (error: any) {
-      console.error('❌ [AUTH CONTEXT] Error en login:', error);
       throw new Error(error.message || 'Error al iniciar sesión');
     }
   };
@@ -189,19 +143,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         username: clientData.dni,
         role: 'Cliente',
       };
+
+      await AsyncStorage.multiSet([
+        [STORAGE_KEYS.CLIENT_DATA, JSON.stringify(clientData)],
+        [STORAGE_KEYS.USER_DATA, JSON.stringify(googleUser)],
+      ]);
+
       setUser(googleUser);
       setClient(clientData);
 
-      // Registrar push notifications
       try {
         await notificationService.registerForPushNotifications(clientData.dni);
       } catch (pushError) {
-        console.error('❌ [GOOGLE AUTH] Error registrando push token:', pushError);
+        console.error('[AUTH] Error registrando push token (Google):', pushError);
       }
-
-      console.log('✅ [GOOGLE AUTH] Sesión iniciada para:', clientData.email);
     } catch (error: any) {
-      console.error('❌ [GOOGLE AUTH] Error:', error);
       throw new Error(error.message || 'Error al iniciar sesión con Google');
     }
   };
@@ -209,30 +165,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = async () => {
     try {
       setLoading(true);
-
-      // Desconectar Socket.IO
       socketService.disconnect();
-
       await authApi.logout();
-      await AsyncStorage.multiRemove([
-        STORAGE_KEYS.USER_DATA,
-        STORAGE_KEYS.CLIENT_DATA,
-        STORAGE_KEYS.AUTH_TOKEN,
-      ]);
-      setUser(null);
-      setClient(null);
     } catch (error) {
-      console.error('Error during logout:', error);
-      // Clear local data even if API call fails
+      console.error('[AUTH] Error en logout:', error);
+    } finally {
       socketService.disconnect();
       await AsyncStorage.multiRemove([
         STORAGE_KEYS.USER_DATA,
         STORAGE_KEYS.CLIENT_DATA,
         STORAGE_KEYS.AUTH_TOKEN,
+        STORAGE_KEYS.REQUIRES_PASSWORD_CHANGE,
       ]);
       setUser(null);
       setClient(null);
-    } finally {
       setLoading(false);
     }
   };
@@ -241,18 +187,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       if (!client) return;
 
-      // Usar el nuevo endpoint /me para refrescar datos del cliente
-      const response = await apiClient.post(`/api/client/me`, {
-        dni: client.dni,
-      });
+      const response = await apiClient.post(`/api/client/me`, { dni: client.dni });
 
       if (response.success && response.client) {
         const updatedClient = response.client;
-        // NO guardar en AsyncStorage - sesión temporal solo en memoria
+        await AsyncStorage.setItem(STORAGE_KEYS.CLIENT_DATA, JSON.stringify(updatedClient));
         setClient(updatedClient);
       }
     } catch (error) {
-      console.error('Error refreshing client:', error);
+      console.error('[AUTH] Error refrescando cliente:', error);
       throw new Error('Error al obtener cliente');
     }
   };

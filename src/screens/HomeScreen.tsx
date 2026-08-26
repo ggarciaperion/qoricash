@@ -388,7 +388,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       : null;
     navigation.navigate('NewOperation', {
       operationType,
-      amountUSD,
+      amountUSD: usdAmount.toString(),
       exchangeRate,
       baseExchangeRate: baseRate,
     });

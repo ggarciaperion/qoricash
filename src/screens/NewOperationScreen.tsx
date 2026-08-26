@@ -523,19 +523,19 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
   }, [operationType, realExchangeRates]);
 
   // ── Calculations ───────────────────────────────────────────────────────────
+  // amountUsd es SIEMPRE el monto en USD. El equivalente en soles es siempre amt * rate.
   const calculatePEN = () => {
     if (!amountUsd || !exchangeRate) return 0;
     const amt  = parseFloat(amountUsd);
     const rate = parseFloat(exchangeRate);
-    return operationType === 'Compra'
-      ? parseFloat((amt * rate).toFixed(2))
-      : parseFloat((amt / rate).toFixed(2));
+    return parseFloat((amt * rate).toFixed(2));
   };
 
   const inputCurrency  = operationType === 'Compra' ? 'USD' : 'PEN';
   const outputCurrency = operationType === 'Compra' ? 'PEN' : 'USD';
-  const amountToSend    = parseFloat(amountUsd) || 0;
-  const amountToReceive = calculatePEN();
+  // Compra: cliente envía USD, recibe PEN. Venta: cliente envía PEN, recibe USD.
+  const amountToSend    = operationType === 'Compra' ? parseFloat(amountUsd) || 0 : calculatePEN();
+  const amountToReceive = operationType === 'Compra' ? calculatePEN() : parseFloat(amountUsd) || 0;
 
   const renderAccountOption = (acc: BankAccount) =>
     `${acc.bank_name} · ${acc.account_type} (${acc.currency}) · ****${acc.account_number.slice(-4)}`;

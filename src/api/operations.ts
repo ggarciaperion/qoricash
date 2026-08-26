@@ -1,5 +1,5 @@
 import apiClient from './client';
-import { Operation, CreateOperationForm, ApiResponse } from '../types';
+import { Operation, CreateOperationForm } from '../types';
 
 export const operationsApi = {
   /**
@@ -38,20 +38,13 @@ export const operationsApi = {
   /**
    * Get operations list for a client by DNI
    */
-  getOperations: async (clientDni: string, all: boolean = false): Promise<Operation[]> => {
+  getOperations: async (clientDni: string): Promise<Operation[]> => {
     try {
-      console.log('📡 [OPERATIONS API] Llamando a /api/client/my-operations/' + clientDni);
       const response = await apiClient.get<{ success: boolean; operations: Operation[] }>(
         `/api/client/my-operations/${clientDni}`
       );
-      console.log('✅ [OPERATIONS API] Response:', response);
-      console.log('✅ [OPERATIONS API] Operations count:', response.operations?.length || 0);
-
       return response.operations || [];
     } catch (error: any) {
-      console.error('❌ [OPERATIONS API] Error:', error);
-      console.error('❌ [OPERATIONS API] Error response:', error.response);
-      console.error('❌ [OPERATIONS API] Error data:', error.response?.data);
       throw new Error(error.response?.data?.message || 'Error al obtener operaciones');
     }
   },
@@ -59,10 +52,10 @@ export const operationsApi = {
   /**
    * Get operation detail by ID
    */
-  getOperationById: async (operationId: number): Promise<Operation> => {
+  getOperationById: async (operationId: number, clientDni: string): Promise<Operation> => {
     try {
       const response = await apiClient.get<{ success: boolean; operation: Operation }>(
-        `/api/client/operation/${operationId}`
+        `/api/client/operation/${operationId}?client_dni=${encodeURIComponent(clientDni)}`
       );
 
       if (!response.success || !response.operation) {
@@ -98,40 +91,27 @@ export const operationsApi = {
    * Get today's operations
    */
   getTodayOperations: async (clientDni: string): Promise<Operation[]> => {
-    try {
-      const operations = await this.getOperations(clientDni, false);
-      // Ya vienen filtradas por el backend
-      return operations;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Error al obtener operaciones de hoy');
-    }
+    return operationsApi.getOperations(clientDni);
   },
 
   /**
    * Get operation history (completed, cancelled, and expired operations)
    */
   getHistory: async (clientDni: string): Promise<Operation[]> => {
-    try {
-      const operations = await this.getOperations(clientDni, true);
-      // Filtrar solo operaciones finalizadas (no pendientes ni en proceso)
-      return operations.filter((op) =>
-        op.status !== 'Pendiente' && op.status !== 'En proceso'
-      );
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Error al obtener historial');
-    }
+    const operations = await operationsApi.getOperations(clientDni);
+    return operations.filter(
+      (op) => op.status !== 'Pendiente' && op.status !== 'En proceso'
+    );
   },
 
   /**
    * Get pending operations
    */
   getPendingOperations: async (clientDni: string): Promise<Operation[]> => {
-    try {
-      const operations = await this.getOperations(clientDni, false);
-      return operations.filter((op) => op.status === 'pendiente' || op.status === 'en_proceso');
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Error al obtener operaciones pendientes');
-    }
+    const operations = await operationsApi.getOperations(clientDni);
+    return operations.filter(
+      (op) => op.status === 'pendiente' || op.status === 'en_proceso'
+    );
   },
 
   /**

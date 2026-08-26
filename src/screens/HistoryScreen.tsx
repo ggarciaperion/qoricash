@@ -255,6 +255,7 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
       setCanceling(true);
       await axios.post(`${API_CONFIG.BASE_URL}/api/client/cancel-operation/${operationToCancel.id}`, {
         cancellation_reason: cancelReason.trim(),
+        client_dni: client?.dni || '',
       });
       try {
         const cacheStr = await AsyncStorage.getItem(LOCAL_OPERATIONS_CACHE_KEY);

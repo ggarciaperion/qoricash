@@ -116,13 +116,6 @@ def main():
                 )
                 print(f"  ✅ Eliminados {result_je.rowcount} asientos contables")
 
-            # 4d. Limpiar también en transaction_monitoring si existe
-            for op in ops:
-                db.session.execute(text(
-                    "UPDATE transaction_monitoring SET status='Cancelado' "
-                    "WHERE operation_id=:op_id"
-                ), {'op_id': op.id})
-
             db.session.commit()
 
             print(f"\n{'='*60}")

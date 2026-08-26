@@ -28,6 +28,7 @@ import { formatCurrency, formatDateTime } from '../utils/formatters';
 import apiClient from '../api/client';
 import socketService from '../services/socketService';
 import { logger } from '../utils/logger';
+import { useAuth } from '../contexts/AuthContext';
 
 const LOCAL_OPERATIONS_CACHE_KEY = '@qoricash_local_operations_cache';
 
@@ -61,6 +62,7 @@ interface TransferScreenProps {
 export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, route }) => {
   const { operation } = route.params;
   const insets = useSafeAreaInsets();
+  const { client } = useAuth();
 
   const [timeRemaining, setTimeRemaining]   = useState('');
   const [isExpired, setIsExpired]           = useState(false);
@@ -277,7 +279,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
 
     try {
       await Promise.all([
-        apiClient.post(`/api/client/cancel-operation/${operation.id}`, { cancellation_reason: cancelReason.trim() }),
+        apiClient.post(`/api/client/cancel-operation/${operation.id}`, { cancellation_reason: cancelReason.trim(), client_dni: client?.dni || '' }),
         new Promise(resolve => setTimeout(resolve, 2500)),
       ]);
 

@@ -85,7 +85,7 @@ export interface Operation {
   client_id: number;
   client_name: string;
   operation_type: 'Compra' | 'Venta';
-  origen: 'sistema' | 'plataforma';
+  origen: 'sistema' | 'plataforma' | 'app' | 'web';
   amount_usd: number;
   exchange_rate: number;
   amount_pen: number;
