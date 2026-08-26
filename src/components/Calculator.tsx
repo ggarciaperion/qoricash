@@ -39,6 +39,7 @@ interface CalculatorProps {
   showInitiateButton?: boolean;
   continueButtonText?: string;
   lightMode?: boolean;
+  overrideRates?: { compra: number; venta: number } | null;
 }
 
 interface ExchangeRates {
@@ -58,6 +59,7 @@ export const Calculator: React.FC<CalculatorProps> = ({
   showInitiateButton = false,
   continueButtonText = 'CONTINUAR',
   lightMode = false,
+  overrideRates = null,
 }) => {
   const [operationType, setOperationType] = useState<'Compra' | 'Venta'>('Compra');
   const activeOperationType = externalOperationType ?? operationType;
@@ -96,6 +98,15 @@ export const Calculator: React.FC<CalculatorProps> = ({
   const animSwapStyle = useAnimatedStyle(() => ({
     transform: [{ scale: swapScale.value }],
   }));
+
+  // TC efectivo: usa la mejora por volumen/cupón si está disponible
+  const effectiveRates = overrideRates ?? exchangeRates;
+
+  // Máximo 2 decimales en inputs de usuario
+  const limitDecimals = (v: string): string => {
+    const dot = v.indexOf('.');
+    return dot === -1 ? v : v.slice(0, dot + 3);
+  };
 
   const inputCurrency = activeOperationType === 'Compra' ? 'USD' : 'PEN';
   const outputCurrency = activeOperationType === 'Compra' ? 'PEN' : 'USD';
@@ -137,7 +148,7 @@ export const Calculator: React.FC<CalculatorProps> = ({
 
   useEffect(() => {
     calculateAmount();
-  }, [activeOperationType, exchangeRates]);
+  }, [activeOperationType, exchangeRates, overrideRates]);
 
   const fetchExchangeRates = async () => {
     try {
@@ -153,7 +164,7 @@ export const Calculator: React.FC<CalculatorProps> = ({
   };
 
   const calculateAmount = () => {
-    if (!amountUSD || !exchangeRates) {
+    if (!amountUSD || !effectiveRates) {
       setAmountPEN('');
       onAmountChange?.(false, activeOperationType, '', 0);
       return;
@@ -167,55 +178,53 @@ export const Calculator: React.FC<CalculatorProps> = ({
     }
 
     if (activeOperationType === 'Compra') {
-      const pen = (amount * exchangeRates.compra).toFixed(2);
+      const pen = (amount * effectiveRates.compra).toFixed(2);
       setAmountPEN(pen);
-      onAmountChange?.(true, activeOperationType, amountUSD, exchangeRates.compra);
+      onAmountChange?.(true, activeOperationType, amountUSD, effectiveRates.compra);
     } else {
-      const usd = (amount / exchangeRates.venta).toFixed(2);
+      const usd = (amount / effectiveRates.venta).toFixed(2);
       setAmountPEN(usd);
-      onAmountChange?.(true, activeOperationType, amountUSD, exchangeRates.venta);
+      onAmountChange?.(true, activeOperationType, amountUSD, effectiveRates.venta);
     }
   };
 
   const handleInputChange = (text: string) => {
-    const val = text.replace(/,/g, '');
+    const val = limitDecimals(text.replace(/,/g, ''));
     setAmountUSD(val);
     const amount = parseFloat(val);
-    if (!exchangeRates || isNaN(amount) || amount <= 0) {
+    if (!effectiveRates || isNaN(amount) || amount <= 0) {
       setAmountPEN('');
       onAmountChange?.(false, activeOperationType, '', 0);
       return;
     }
     if (activeOperationType === 'Compra') {
-      const out = (amount * exchangeRates.compra).toFixed(2);
+      const out = (amount * effectiveRates.compra).toFixed(2);
       setAmountPEN(out);
-      onAmountChange?.(true, activeOperationType, val, exchangeRates.compra);
+      onAmountChange?.(true, activeOperationType, val, effectiveRates.compra);
     } else {
-      const out = (amount / exchangeRates.venta).toFixed(2);
+      const out = (amount / effectiveRates.venta).toFixed(2);
       setAmountPEN(out);
-      onAmountChange?.(true, activeOperationType, val, exchangeRates.venta);
+      onAmountChange?.(true, activeOperationType, val, effectiveRates.venta);
     }
   };
 
   const handleOutputChange = (text: string) => {
-    const val = text.replace(/,/g, '');
+    const val = limitDecimals(text.replace(/,/g, ''));
     setAmountPEN(val);
     const amount = parseFloat(val);
-    if (!exchangeRates || isNaN(amount) || amount <= 0) {
+    if (!effectiveRates || isNaN(amount) || amount <= 0) {
       setAmountUSD('');
       onAmountChange?.(false, activeOperationType, '', 0);
       return;
     }
     if (activeOperationType === 'Compra') {
-      // output = PEN → input = USD = PEN / compra
-      const inp = (amount / exchangeRates.compra).toFixed(2);
+      const inp = (amount / effectiveRates.compra).toFixed(2);
       setAmountUSD(inp);
-      onAmountChange?.(true, activeOperationType, inp, exchangeRates.compra);
+      onAmountChange?.(true, activeOperationType, inp, effectiveRates.compra);
     } else {
-      // output = USD → input = PEN = USD * venta
-      const inp = (amount * exchangeRates.venta).toFixed(2);
+      const inp = (amount * effectiveRates.venta).toFixed(2);
       setAmountUSD(inp);
-      onAmountChange?.(true, activeOperationType, inp, exchangeRates.venta);
+      onAmountChange?.(true, activeOperationType, inp, effectiveRates.venta);
     }
   };
 
@@ -258,10 +267,10 @@ export const Calculator: React.FC<CalculatorProps> = ({
     }
   };
 
-  const currentRate = exchangeRates
+  const currentRate = effectiveRates
     ? activeOperationType === 'Compra'
-      ? exchangeRates.compra
-      : exchangeRates.venta
+      ? effectiveRates.compra
+      : effectiveRates.venta
     : 0;
 
   const calculateSavings = () => {
@@ -332,7 +341,7 @@ export const Calculator: React.FC<CalculatorProps> = ({
           <View style={[styles.inputBox, lightMode && styles.inputBoxLight]}>
             <Text style={[styles.inputLabel, lightMode && styles.inputLabelLight]}>¿Cuánto envías?</Text>
             <RNTextInput
-              value={formatInputAmount(amountUSD)}
+              value={amountUSD}
               onChangeText={handleInputChange}
               keyboardType="decimal-pad"
               placeholder="0"
@@ -366,7 +375,7 @@ export const Calculator: React.FC<CalculatorProps> = ({
           <View style={[styles.inputBox, lightMode && styles.inputBoxLight]}>
             <Text style={[styles.inputLabel, lightMode && styles.inputLabelLight]}>Entonces recibes</Text>
             <RNTextInput
-              value={formatInputAmount(amountPEN)}
+              value={amountPEN}
               onChangeText={handleOutputChange}
               keyboardType="decimal-pad"
               placeholder="0.00"

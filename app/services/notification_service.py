@@ -228,6 +228,10 @@ class NotificationService:
             }
             roles = ['Master', 'Operador']
             _emit_to_roles('operacion_completada', data, roles)
+            # Notificar al cliente móvil en tiempo real
+            if operation.client and operation.client.dni:
+                socketio.emit('operacion_completada', data, namespace='/', room=f'client_{operation.client.dni}')
+                logger.info(f'[NOTIF] operacion_completada → client_{operation.client.dni}: {operation.operation_id}')
             _save_to_db(roles, title, msg, notif_type='success', category='operation',
                         link=f'/operations/{operation.id}')
             _push_unread_counts_for_roles(roles)

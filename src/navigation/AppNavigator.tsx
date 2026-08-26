@@ -9,7 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import socketService from '../services/socket';
+import socketService from '../services/socketService';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useLoginLoading } from '../contexts/LoginLoadingContext';
@@ -311,8 +311,7 @@ export const AppNavigator = () => {
   useEffect(() => {
     if (!isAuthenticated || !client?.dni) return;
 
-    socketService.connect();
-    socketService.emit('join_client_room', { dni: client.dni });
+    socketService.connect(client.dni);
 
     const handleAdminCancel = (data: any) => {
       const opId   = data?.operation_id || data?.id || '';

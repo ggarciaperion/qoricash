@@ -152,6 +152,8 @@ class SocketService {
       '✅ Operación Completada',
       `Tu operación ${data.operation_id} ha sido completada exitosamente. Tu pago ha sido procesado`
     );
+    // Propagar a componentes suscritos vía eventEmitter
+    this.eventEmitter.emit('operacion_completada', data);
   }
 
   // Manejar tipos de cambio actualizados

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -35,7 +35,7 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { CommonActions } from '@react-navigation/native';
 import axios from 'axios';
-import socketService from '../services/socket';
+import socketService from '../services/socketService';
 import { useAuth } from '../contexts/AuthContext';
 import { Calculator } from '../components/Calculator';
 import { API_CONFIG } from '../constants/config';
@@ -225,8 +225,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   // Socket: actualizar widget en tiempo real cuando cambia el estado de una operación
   useEffect(() => {
     if (!client?.dni) return;
-    socketService.connect();
-    socketService.emit('join_client_room', { dni: client.dni });
+    socketService.joinClientRoom(client.dni);
 
     const removeOp = (data: any) => {
       const opId = data?.operation_id || data?.id;
@@ -290,16 +289,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     if (usdAmount >= 3000)  return 0.0010;
     return 0;
   };
-  const pendingUSD = (() => {
+  const pendingUSD = useMemo(() => {
     if (!pendingOp.ready || !pendingOp.amountUSD || !pendingOp.rate) return 0;
     const val = parseFloat(pendingOp.amountUSD) || 0;
     return pendingOp.operationType === 'Compra' ? val : (pendingOp.rate > 0 ? val / pendingOp.rate : 0);
-  })();
-  const volumePips    = getVolumePips(pendingUSD);
-  const effectivePips = Math.max(referralApplied ? REFERRAL_IMPROVEMENT : 0, volumePips);
-  const displayRates  = effectivePips > 0 && calcRates
-    ? { compra: calcRates.compra + effectivePips, venta: calcRates.venta - effectivePips }
-    : null;
+  }, [pendingOp.ready, pendingOp.amountUSD, pendingOp.rate, pendingOp.operationType]);
+
+  const volumePips    = useMemo(() => getVolumePips(pendingUSD), [pendingUSD]);
+  const effectivePips = useMemo(
+    () => Math.max(referralApplied ? REFERRAL_IMPROVEMENT : 0, volumePips),
+    [referralApplied, volumePips],
+  );
+  const displayRates = useMemo(
+    () => effectivePips > 0 && calcRates
+      ? { compra: calcRates.compra + effectivePips, venta: calcRates.venta - effectivePips }
+      : null,
+    [effectivePips, calcRates],
+  );
   const pipLabel = effectivePips > 0 ? `+${Math.round(effectivePips * 10000)} pips` : null;
 
   const improvedRates = referralApplied && calcRates
@@ -607,6 +613,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             onRatesChange={setCalcRates}
             onOperationTypeChange={setCalcOperationType}
             externalOperationType={calcOperationType}
+            overrideRates={displayRates}
             hideTabs
           />
 
