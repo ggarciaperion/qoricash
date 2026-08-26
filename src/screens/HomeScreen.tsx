@@ -355,8 +355,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     exchangeRate: number,
   ) => {
     // Validar monto mínimo en USD
+    // pendingUSD ya calcula correctamente el equivalente en USD sin importar qué casilla
+    // usó el cliente ("cuánto envías" o "entonces recibes")
     const inputVal  = parseFloat(amountUSD) || 0;
-    const usdAmount = operationType === 'Compra' ? inputVal : inputVal / exchangeRate;
+    const usdAmount = pendingUSD > 0
+      ? pendingUSD
+      : (operationType === 'Compra' ? inputVal : (exchangeRate > 0 ? inputVal / exchangeRate : 0));
     if (usdAmount < 50) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       minScale.value   = 0.86;
@@ -379,7 +383,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       );
       return;
     }
-    navigation.navigate('NewOperation', { operationType, amountUSD, exchangeRate });
+    const baseRate = calcRates
+      ? (operationType === 'Compra' ? calcRates.compra : calcRates.venta)
+      : null;
+    navigation.navigate('NewOperation', {
+      operationType,
+      amountUSD,
+      exchangeRate,
+      baseExchangeRate: baseRate,
+    });
   };
 
   if (!client) {
@@ -450,32 +462,34 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         }
       >
 
-        {/* ══ User info strip ══ */}
-        <MotiView
-          from={{ opacity: 0, translateY: 16, scale: 0.97 }}
-          animate={{ opacity: 1, translateY: 0, scale: 1 }}
-          transition={{ type: 'spring', delay: 80, damping: 20, stiffness: 180 }}
-          style={s.userStrip}
-        >
-          <View style={s.stripItem}>
-            <Text style={s.stripLabel}>Documento</Text>
-            <Text style={s.stripValue}>{client.dni}</Text>
-          </View>
-          <View style={s.stripDivider} />
-          <View style={s.stripItem}>
-            <Text style={s.stripLabel}>Estado</Text>
-            <View style={s.statusRow}>
-              <Text style={s.statusText}>{capitalize(client.status)}</Text>
+        {/* ══ User info strip — oculto cuando hay operación activa ══ */}
+        {activeOps.length === 0 && (
+          <MotiView
+            from={{ opacity: 0, translateY: 16, scale: 0.97 }}
+            animate={{ opacity: 1, translateY: 0, scale: 1 }}
+            transition={{ type: 'spring', delay: 80, damping: 20, stiffness: 180 }}
+            style={s.userStrip}
+          >
+            <View style={s.stripItem}>
+              <Text style={s.stripLabel}>Documento</Text>
+              <Text style={s.stripValue}>{client.dni}</Text>
             </View>
-          </View>
-          <View style={s.stripDivider} />
-          <View style={s.stripItem}>
-            <Text style={s.stripLabel}>Tipo</Text>
-            <Text style={s.stripValue}>
-              {(client as any).client_type === 'juridico' ? 'Empresa' : 'Natural'}
-            </Text>
-          </View>
-        </MotiView>
+            <View style={s.stripDivider} />
+            <View style={s.stripItem}>
+              <Text style={s.stripLabel}>Estado</Text>
+              <View style={s.statusRow}>
+                <Text style={s.statusText}>{capitalize(client.status)}</Text>
+              </View>
+            </View>
+            <View style={s.stripDivider} />
+            <View style={s.stripItem}>
+              <Text style={s.stripLabel}>Tipo</Text>
+              <Text style={s.stripValue}>
+                {(client as any).client_type === 'juridico' ? 'Empresa' : 'Natural'}
+              </Text>
+            </View>
+          </MotiView>
+        )}
 
         {/* ══ Banners de verificación ══ */}
         {!client.has_complete_documents && (

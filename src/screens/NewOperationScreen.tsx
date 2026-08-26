@@ -454,10 +454,14 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
   // ── Exchange rates ─────────────────────────────────────────────────────────
   const [realExchangeRates, setRealExchangeRates] = useState({ compra: 3.75, venta: 3.77 });
 
-  const params              = route?.params || {};
-  const initialOperationType = params.operationType || 'Compra';
-  const initialAmount        = params.amountUSD     || '';
-  const initialExchangeRate  = params.exchangeRate  || realExchangeRates.compra;
+  const params               = route?.params || {};
+  const initialOperationType = params.operationType    || 'Compra';
+  const initialAmount        = params.amountUSD        || '';
+  const initialExchangeRate  = params.exchangeRate     || realExchangeRates.compra;
+  const initialBaseRate      = params.baseExchangeRate || null;
+  // Si hay mejora de precio, showImprovement = true
+  const hasImprovement = initialBaseRate !== null &&
+    Math.abs(initialExchangeRate - initialBaseRate) > 0.0005;
 
   const [operationType,      setOperationType]      = useState<'Compra'|'Venta'>(initialOperationType);
   const [amountUsd,          setAmountUsd]          = useState(initialAmount);
@@ -498,16 +502,22 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
         );
         if (res.data.success) {
           setRealExchangeRates(res.data.rates);
-          const rate = initialOperationType === 'Compra' ? res.data.rates.compra : res.data.rates.venta;
-          setExchangeRate(rate.toString());
+          // Si se llegó desde la calculadora con un rate mejorado, preservarlo
+          if (!params.exchangeRate) {
+            const rate = initialOperationType === 'Compra' ? res.data.rates.compra : res.data.rates.venta;
+            setExchangeRate(rate.toString());
+          }
         }
       } catch {}
     })();
   }, []);
 
   useEffect(() => {
-    const rate = operationType === 'Compra' ? realExchangeRates.compra : realExchangeRates.venta;
-    setExchangeRate(rate.toString());
+    // Preservar rate mejorado si fue pasado desde la calculadora
+    if (!params.exchangeRate) {
+      const rate = operationType === 'Compra' ? realExchangeRates.compra : realExchangeRates.venta;
+      setExchangeRate(rate.toString());
+    }
     setSourceAccount('');
     setDestinationAccount('');
   }, [operationType, realExchangeRates]);
@@ -766,35 +776,20 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
                 borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.28)' : 'rgba(59,130,246,0.25)',
               }]} />
 
-              {/* ── BUY / SELL tabs ── */}
-              <View style={s.bsWrap}>
-                <TouchableOpacity
-                  style={[s.bsBtn, operationType === 'Compra' && s.bsBtnBuy]}
-                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setOperationType('Compra'); }}
-                  activeOpacity={0.78}
-                >
-                  {/* Radio indicator */}
-                  <View style={[s.bsRadio, operationType === 'Compra' && { borderColor: GREEN, backgroundColor: 'rgba(34,197,94,0.15)' }]}>
-                    {operationType === 'Compra' && <View style={[s.bsRadioDot, { backgroundColor: GREEN }]} />}
-                  </View>
-                  <Text style={[s.bsBtnLabel, { color: operationType === 'Compra' ? GREEN : 'rgba(255,255,255,0.35)' }]}>
-                    Qoricash compra
-                  </Text>
-                </TouchableOpacity>
-                <BsDividerAnim color={operationType === 'Compra' ? GREEN : RED} />
-                <TouchableOpacity
-                  style={[s.bsBtn, operationType === 'Venta' && s.bsBtnSell]}
-                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setOperationType('Venta'); }}
-                  activeOpacity={0.78}
-                >
-                  {/* Radio indicator */}
-                  <View style={[s.bsRadio, operationType === 'Venta' && { borderColor: RED, backgroundColor: 'rgba(59,130,246,0.15)' }]}>
-                    {operationType === 'Venta' && <View style={[s.bsRadioDot, { backgroundColor: RED }]} />}
-                  </View>
-                  <Text style={[s.bsBtnLabel, { color: operationType === 'Venta' ? RED : 'rgba(255,255,255,0.35)' }]}>
-                    Qoricash vende
-                  </Text>
-                </TouchableOpacity>
+              {/* ── Tipo de operación (solo lectura) ── */}
+              <View style={[s.opTypeBadge, {
+                backgroundColor: operationType === 'Compra' ? 'rgba(34,197,94,0.12)' : 'rgba(59,130,246,0.10)',
+              }]}>
+                <View style={[s.bsRadio, {
+                  borderColor: operationType === 'Compra' ? GREEN : RED,
+                  backgroundColor: operationType === 'Compra' ? 'rgba(34,197,94,0.15)' : 'rgba(59,130,246,0.15)',
+                }]}>
+                  <View style={[s.bsRadioDot, { backgroundColor: operationType === 'Compra' ? GREEN : RED }]} />
+                </View>
+                <Text style={[s.bsBtnLabel, { color: operationType === 'Compra' ? GREEN : RED }]}>
+                  {operationType === 'Compra' ? 'Qoricash compra' : 'Qoricash vende'}
+                </Text>
+                <Ionicons name="lock-closed" size={11} color="rgba(255,255,255,0.22)" />
               </View>
 
               {/* ── Divider ── */}
@@ -803,9 +798,19 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
               {/* ── T.C. hero ── */}
               <View style={s.tcHeroWrap}>
                 <Text style={s.tcHeroLabel}>TIPO DE CAMBIO</Text>
+                {hasImprovement && (
+                  <Text style={s.tcHeroBaseValue}>
+                    {initialBaseRate!.toFixed(3)}
+                  </Text>
+                )}
                 <Text style={[s.tcHeroValue, { color: operationType === 'Compra' ? GREEN : RED }]}>
                   {parseFloat(exchangeRate).toFixed(3)}
                 </Text>
+                {hasImprovement && (
+                  <View style={s.tcHeroPipBadge}>
+                    <Text style={s.tcHeroPipText}>✦ PRECIO MEJORADO</Text>
+                  </View>
+                )}
                 <Text style={s.tcHeroCurr}>{operationType === 'Compra' ? 'USD por PEN' : 'PEN por USD'}</Text>
               </View>
 
@@ -1234,6 +1239,10 @@ const s = StyleSheet.create({
     borderRadius: 20, overflow: 'hidden',
     marginBottom: 10,
   },
+  opTypeBadge: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, paddingHorizontal: 16,
+  },
   bsWrap: {
     flexDirection: 'row',
     alignItems: 'stretch',
@@ -1270,9 +1279,23 @@ const s = StyleSheet.create({
     fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.28)',
     letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 6,
   },
+  tcHeroBaseValue: {
+    fontSize: 18, fontWeight: '500', color: 'rgba(255,255,255,0.28)',
+    letterSpacing: -0.3, textDecorationLine: 'line-through', marginBottom: 2,
+  },
   tcHeroValue: {
     fontSize: 46, fontWeight: '800', letterSpacing: -1,
     lineHeight: 50,
+  },
+  tcHeroPipBadge: {
+    backgroundColor: 'rgba(34,197,94,0.15)',
+    borderWidth: 1, borderColor: 'rgba(34,197,94,0.30)',
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3,
+    marginTop: 8,
+  },
+  tcHeroPipText: {
+    fontSize: 9, fontWeight: '700', color: '#22c55e',
+    letterSpacing: 1.5, textTransform: 'uppercase',
   },
   tcHeroCurr: {
     fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.28)',
