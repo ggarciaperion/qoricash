@@ -298,6 +298,7 @@ export const AppNavigator = () => {
   // ── Notificación global: operación completada ──
   const navRef            = useRef<any>(null);
   const [completedOpId,     setCompletedOpId]     = useState<string | null>(null);
+  const [completedOpDbId,   setCompletedOpDbId]   = useState<number | null>(null);
   const [showCompleteAlert, setShowCompleteAlert] = useState(false);
   const completeScale   = useRef(new Animated.Value(0.82)).current;
   const completeOpacity = useRef(new Animated.Value(0)).current;
@@ -331,8 +332,9 @@ export const AppNavigator = () => {
     socketService.on('operacion_cancelada_admin', handleAdminCancel);
 
     const handleOperationCompleted = (data: any) => {
-      const opId = data?.operation_id || data?.id || '';
+      const opId = data?.operation_id || '';
       setCompletedOpId(opId || null);
+      setCompletedOpDbId(data?.id ?? null);
       setShowCompleteAlert(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // Reset values
@@ -500,9 +502,15 @@ export const AppNavigator = () => {
               onPress={() => {
                 dismissCompleteAlert();
                 setTimeout(() => {
-                  navRef.current?.dispatch(
-                    CommonActions.navigate({ name: 'HistoryTab' })
-                  );
+                  if (completedOpDbId) {
+                    navRef.current?.dispatch(
+                      CommonActions.navigate({ name: 'OperationDetail', params: { operationId: completedOpDbId } })
+                    );
+                  } else {
+                    navRef.current?.dispatch(
+                      CommonActions.navigate({ name: 'HistoryTab' })
+                    );
+                  }
                 }, 280);
               }}
             >

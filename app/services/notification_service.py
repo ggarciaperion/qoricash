@@ -222,6 +222,7 @@ class NotificationService:
             msg   = f'{operation.operation_id} — {name}'
             data  = {
                 'event': 'operacion_completada', 'operation_id': operation.operation_id,
+                'id': operation.id,
                 'client_name': name, 'amount_usd': float(operation.amount_usd or 0),
                 'amount_pen': float(operation.amount_pen or 0),
                 'title': title, 'message': msg, 'type': 'success', 'sound': True, 'sound_file': 'completada',

@@ -517,21 +517,18 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
             </View>
           </View>
 
-          {qoriAccount.use_cci && (
+          {!['BCP', 'INTERBANK', 'BANBIF'].includes((operation.source_bank_name || '').toUpperCase()) && (
             <View style={s.infoBanner}>
               <Ionicons name="information-circle-outline" size={15} color="#60a5fa" />
               <Text style={s.infoBannerText}>
-                Para transferencias desde otros bancos, usa nuestro CCI de Interbank
+                {operation.operation_type === 'Compra'
+                  ? 'Si tienes tus dólares en un banco que no sea BCP, INTERBANK o BANBIF, envíalos a través de nuestro CCI INTERBANK, es inmediato. Guarda el número de tu operación bancaria, lo necesitarás en el siguiente paso.'
+                  : 'Si tienes tus soles en un banco que no sea BCP, INTERBANK o BANBIF, envíalos a través de nuestro CCI INTERBANK, es inmediato. Guarda el número de tu operación bancaria, lo necesitarás en el siguiente paso.'
+                }
               </Text>
             </View>
           )}
 
-          <View style={s.noteBanner}>
-            <Ionicons name="bookmark-outline" size={15} color="#fbbf24" />
-            <Text style={s.noteBannerText}>
-              Guarda el número de tu operación, lo necesitarás en el siguiente paso
-            </Text>
-          </View>
         </MotiView>
 
         {/* ── Botones de acción ── */}
