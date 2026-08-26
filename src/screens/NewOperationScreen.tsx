@@ -795,23 +795,27 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
               {/* ── Divider ── */}
               <View style={s.tradingCardDivider} />
 
-              {/* ── T.C. hero ── */}
-              <View style={s.tcHeroWrap}>
-                <Text style={s.tcHeroLabel}>TIPO DE CAMBIO</Text>
-                {hasImprovement && (
-                  <Text style={s.tcHeroBaseValue}>
-                    {initialBaseRate!.toFixed(4)}
+              {/* ── T.C. row (label izq / valor der) ── */}
+              <View style={s.tcRow}>
+                <View style={s.tcRowLeft}>
+                  <Text style={s.tcHeroLabel}>TIPO DE CAMBIO</Text>
+                  <Text style={s.tcHeroCurr}>
+                    {operationType === 'Compra' ? 'USD → PEN' : 'PEN → USD'}
                   </Text>
-                )}
-                <Text style={[s.tcHeroValue, { color: operationType === 'Compra' ? GREEN : RED }]}>
-                  {parseFloat(exchangeRate).toFixed(4)}
-                </Text>
-                {hasImprovement && (
-                  <View style={s.tcHeroPipBadge}>
-                    <Text style={s.tcHeroPipText}>✦ PRECIO MEJORADO</Text>
-                  </View>
-                )}
-                <Text style={s.tcHeroCurr}>{operationType === 'Compra' ? 'USD por PEN' : 'PEN por USD'}</Text>
+                  {hasImprovement && (
+                    <View style={[s.tcHeroPipBadge, { marginTop: 6, alignSelf: 'flex-start' }]}>
+                      <Text style={s.tcHeroPipText}>✦ PRECIO MEJORADO</Text>
+                    </View>
+                  )}
+                </View>
+                <View style={s.tcRowRight}>
+                  {hasImprovement && (
+                    <Text style={s.tcHeroBaseValue}>{initialBaseRate!.toFixed(4)}</Text>
+                  )}
+                  <Text style={[s.tcHeroValue, { color: operationType === 'Compra' ? GREEN : RED }]}>
+                    {parseFloat(exchangeRate).toFixed(4)}
+                  </Text>
+                </View>
               </View>
 
               {/* ── BID / ASK reference ── */}
@@ -1241,7 +1245,7 @@ const s = StyleSheet.create({
   },
   opTypeBadge: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 14, paddingHorizontal: 16,
+    gap: 8, paddingVertical: 10, paddingHorizontal: 16,
   },
   bsWrap: {
     flexDirection: 'row',
@@ -1272,26 +1276,32 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
     marginHorizontal: 0,
   },
-  tcHeroWrap: {
-    alignItems: 'center', paddingTop: 20, paddingBottom: 14,
+  tcRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 18, paddingVertical: 14,
+  },
+  tcRowLeft: {
+    gap: 3,
+  },
+  tcRowRight: {
+    alignItems: 'flex-end',
+    gap: 2,
   },
   tcHeroLabel: {
     fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.28)',
-    letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 6,
+    letterSpacing: 2.5, textTransform: 'uppercase',
   },
   tcHeroBaseValue: {
-    fontSize: 18, fontWeight: '500', color: 'rgba(255,255,255,0.28)',
-    letterSpacing: -0.3, textDecorationLine: 'line-through', marginBottom: 2,
+    fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.28)',
+    letterSpacing: -0.2, textDecorationLine: 'line-through',
   },
   tcHeroValue: {
-    fontSize: 46, fontWeight: '800', letterSpacing: -1,
-    lineHeight: 50,
+    fontSize: 34, fontWeight: '800', letterSpacing: -0.8, lineHeight: 38,
   },
   tcHeroPipBadge: {
     backgroundColor: 'rgba(34,197,94,0.15)',
     borderWidth: 1, borderColor: 'rgba(34,197,94,0.30)',
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3,
-    marginTop: 8,
+    borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
   },
   tcHeroPipText: {
     fontSize: 9, fontWeight: '700', color: '#22c55e',
@@ -1299,11 +1309,11 @@ const s = StyleSheet.create({
   },
   tcHeroCurr: {
     fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.28)',
-    letterSpacing: 1, marginTop: 6,
+    letterSpacing: 1,
   },
   tcRefRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 18, paddingBottom: 16, paddingTop: 4,
+    paddingHorizontal: 18, paddingBottom: 12, paddingTop: 2,
   },
   tcRefPair:  { flexDirection: 'row', alignItems: 'center', gap: 5 },
   tcRefRates: { flexDirection: 'row', alignItems: 'center', gap: 14 },
