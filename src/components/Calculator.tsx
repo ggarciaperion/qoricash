@@ -108,6 +108,14 @@ export const Calculator: React.FC<CalculatorProps> = ({
     return dot === -1 ? v : v.slice(0, dot + 3);
   };
 
+  // Formatear con separador de miles para mostrar en el input (no afecta el valor interno)
+  const formatDisplay = (v: string): string => {
+    if (!v) return v;
+    const [intPart, decPart] = v.split('.');
+    const formatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return decPart !== undefined ? `${formatted}.${decPart}` : formatted;
+  };
+
   const inputCurrency = activeOperationType === 'Compra' ? 'USD' : 'PEN';
   const outputCurrency = activeOperationType === 'Compra' ? 'PEN' : 'USD';
 
@@ -341,7 +349,7 @@ export const Calculator: React.FC<CalculatorProps> = ({
           <View style={[styles.inputBox, lightMode && styles.inputBoxLight]}>
             <Text style={[styles.inputLabel, lightMode && styles.inputLabelLight]}>¿Cuánto envías?</Text>
             <RNTextInput
-              value={amountUSD}
+              value={formatDisplay(amountUSD)}
               onChangeText={handleInputChange}
               keyboardType="decimal-pad"
               placeholder="0"
@@ -375,7 +383,7 @@ export const Calculator: React.FC<CalculatorProps> = ({
           <View style={[styles.inputBox, lightMode && styles.inputBoxLight]}>
             <Text style={[styles.inputLabel, lightMode && styles.inputLabelLight]}>Entonces recibes</Text>
             <RNTextInput
-              value={amountPEN}
+              value={formatDisplay(amountPEN)}
               onChangeText={handleOutputChange}
               keyboardType="decimal-pad"
               placeholder="0.00"
