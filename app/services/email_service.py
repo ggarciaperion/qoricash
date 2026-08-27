@@ -164,7 +164,7 @@ def _wrap_email_svc(body_html: str) -> str:
   <tr><td align="center">
     <table width="600" cellpadding="0" cellspacing="0"
            style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;
-                  overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);border-top:4px solid #5CB85C;">
+                  overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);border-top:4px solid rgba(0,0,0,0.90);">
       {_HEADER_BLOCK}
       {body_html}
       {_FOOTER_BLOCK}
@@ -590,7 +590,7 @@ class EmailService:
                           </td>
                           <td width="80" style="text-align:center;vertical-align:middle;padding:0 4px;">
                             <p style="margin:0 0 5px 0;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;">T.C.</p>
-                            <p style="margin:0;font-size:15px;font-weight:700;color:#5CB85C;white-space:nowrap;">{{ "%.4f"|format(operation.exchange_rate) }}</p>
+                            <p style="margin:0;font-size:15px;font-weight:700;color:#1e293b;white-space:nowrap;">{{ "%.4f"|format(operation.exchange_rate) }}</p>
                           </td>
                           <td style="text-align:center;vertical-align:top;padding:0 6px;">
                             <p style="margin:0 0 5px 0;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Monto PEN</p>
@@ -605,7 +605,7 @@ class EmailService:
             </tr>
           </table>
           <!-- ── CUENTAS QORICASH (donde el cliente transfiere) ── -->
-          <p style="margin:0 0 3px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #5CB85C;">
+          <p style="margin:0 0 3px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">
             {% if operation.operation_type == 'Compra' %}¿A dónde transfiero mis dólares?{% else %}¿A dónde transfiero mis soles?{% endif %}
           </p>
           {% if es_interbancaria %}
@@ -648,7 +648,7 @@ class EmailService:
           </table>
 
           <!-- ── CUENTAS DEL CLIENTE (donde recibirá el pago) ── -->
-          <p style="margin:0 0 3px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #5CB85C;">
+          <p style="margin:0 0 3px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">
             {% if is_ruc %}¿Dónde recibirá su pago?{% else %}¿Dónde recibirás tu pago?{% endif %}
           </p>
           <p style="margin:0 0 10px 0;font-size:11px;color:#94a3b8;padding-left:13px;">
@@ -679,7 +679,7 @@ class EmailService:
 
           <!-- ── OBSERVACIONES ──────────────────────────────── -->
           {% if operation.notes %}
-          <p style="margin:0 0 6px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #5CB85C;">Observaciones</p>
+          <p style="margin:0 0 6px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">Observaciones</p>
           <div style="border-radius:6px;padding:12px 16px;margin:0 0 24px 0;background:#FFFBEB;border:1px solid #FDE68A;font-size:13px;color:#78350f;line-height:1.6;">
             {{ operation.notes }}
           </div>
@@ -746,19 +746,19 @@ class EmailService:
               <td colspan="4" style="padding:12px 14px;">
                 <table width="100%" cellspacing="0" cellpadding="0">
                   <tr>
-                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;border-top:3px solid #5CB85C;">
+                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;border-top:3px solid rgba(0,0,0,0.90);">
                       <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto USD</div>
-                      <div style="font-size:17px;font-weight:800;color:#5CB85C;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</div>
+                      <div style="font-size:17px;font-weight:800;color:#1e293b;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</div>
                     </td>
                     <td class="metric-spacer" width="8">&nbsp;</td>
-                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;border-top:3px solid #5CB85C;">
+                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;border-top:3px solid rgba(0,0,0,0.90);">
                       <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Tipo de Cambio</div>
                       <div style="font-size:15px;font-weight:700;color:#1e293b;">{{ "%.4f"|format(operation.exchange_rate) }}</div>
                     </td>
                     <td class="metric-spacer" width="8">&nbsp;</td>
-                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;border-top:3px solid #5CB85C;">
+                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;border-top:3px solid rgba(0,0,0,0.90);">
                       <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto PEN</div>
-                      <div style="font-size:17px;font-weight:800;color:#5CB85C;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</div>
+                      <div style="font-size:17px;font-weight:800;color:#1e293b;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</div>
                     </td>
                   </tr>
                 </table>
@@ -773,14 +773,14 @@ class EmailService:
           </table>
 
           {% if operation.operator_proofs and operation.operator_proofs|length > 0 %}
-          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #5CB85C;">Comprobante(s)</p>
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">Comprobante(s)</p>
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             {% for proof in operation.operator_proofs %}
             <tr style="{% if not loop.last %}border-bottom:1px solid #F1F5F9;{% endif %}">
               <td style="padding:12px 18px;vertical-align:middle;">
                 <a href="{{ proof.comprobante_url if proof.comprobante_url else proof }}"
                    target="_blank"
-                   style="display:inline-block;background:#0D1B2A;color:#5CB85C;border:1.5px solid #5CB85C;padding:8px 20px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;">
+                   style="display:inline-block;background:rgba(0,0,0,0.90);color:#ffffff;border:none;padding:8px 20px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;">
                   Ver comprobante{% if operation.operator_proofs|length > 1 %} {{ loop.index }}{% endif %}
                 </a>
                 {% if proof.comentario %}
@@ -795,12 +795,12 @@ class EmailService:
           {% if operation.invoices and operation.invoices|length > 0 %}
           {% set invoice = operation.invoices[0] %}
           {% if invoice.nubefact_enlace_pdf or invoice.invoice_number %}
-          <div style="border-radius:6px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#F0FDF4;border-left:3px solid #5CB85C;color:#14532d;">
+          <div style="border-radius:6px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#F0FDF4;border-left:3px solid #000000;color:#14532d;">
             <strong>Comprobante electrónico adjunto:</strong>
             {% if invoice.invoice_number %}{{ invoice.invoice_number }}{% endif %}
             {% if invoice.nubefact_enlace_pdf %}
             &nbsp;&mdash;&nbsp;
-            <a href="{{ invoice.nubefact_enlace_pdf }}" target="_blank" style="color:#5CB85C;text-decoration:none;font-weight:600;">Descargar PDF</a>
+            <a href="{{ invoice.nubefact_enlace_pdf }}" target="_blank" style="color:#000000;text-decoration:none;font-weight:600;">Descargar PDF</a>
             {% endif %}
           </div>
           {% endif %}
@@ -960,7 +960,7 @@ class EmailService:
             </tr>
           </table>
 
-          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #5CB85C;">Detalle del cambio</p>
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">Detalle del cambio</p>
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="background-color:#0D1B2A;">
               <td style="padding:9px 18px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;width:120px;">Concepto</td>
@@ -977,7 +977,7 @@ class EmailService:
                 <span style="color:#F59E0B;font-weight:700;font-size:14px;">&rarr;</span>
               </td>
               <td style="padding:12px 18px;vertical-align:middle;">
-                <span style="color:#5CB85C;font-weight:700;font-size:15px;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
+                <span style="color:#1e293b;font-weight:700;font-size:15px;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
               </td>
             </tr>
             <tr style="border-top:1px solid #F1F5F9;">
@@ -989,13 +989,13 @@ class EmailService:
                 <span style="color:#F59E0B;font-weight:700;font-size:14px;">&rarr;</span>
               </td>
               <td style="padding:12px 18px;vertical-align:middle;">
-                <span style="color:#5CB85C;font-weight:700;font-size:15px;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
+                <span style="color:#1e293b;font-weight:700;font-size:15px;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
               </td>
             </tr>
           </table>
 
           <!-- ── CUENTAS QORICASH (donde el cliente transfiere) ── -->
-          <p style="margin:0 0 3px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #5CB85C;">
+          <p style="margin:0 0 3px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">
             {% if operation.operation_type == 'Compra' %}¿A dónde transfiero mis dólares?{% else %}¿A dónde transfiero mis soles?{% endif %}
           </p>
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
@@ -1033,7 +1033,7 @@ class EmailService:
           </table>
 
           <!-- ── CUENTAS DEL CLIENTE (donde recibirá el pago) ── -->
-          <p style="margin:0 0 3px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #5CB85C;">
+          <p style="margin:0 0 3px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">
             {% if is_ruc %}¿Dónde recibirá su pago?{% else %}¿Dónde recibirás tu pago?{% endif %}
           </p>
           <p style="margin:0 0 10px 0;font-size:11px;color:#94a3b8;padding-left:13px;">
@@ -1062,7 +1062,7 @@ class EmailService:
           </div>
           {% endif %}
 
-          <div style="border-radius:6px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#F0FDF4;border-left:3px solid #5CB85C;color:#14532d;">
+          <div style="border-radius:6px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#F0FDF4;border-left:3px solid #000000;color:#14532d;">
             Si tiene alguna consulta sobre este cambio, responda este correo o contáctese directamente con su asesor.
           </div>
 
@@ -1120,19 +1120,19 @@ class EmailService:
               <td colspan="4" style="padding:12px 14px;">
                 <table width="100%" cellspacing="0" cellpadding="0">
                   <tr>
-                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;border-top:3px solid #5CB85C;">
+                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;border-top:3px solid rgba(0,0,0,0.90);">
                       <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto USD</div>
-                      <div style="font-size:17px;font-weight:800;color:#5CB85C;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</div>
+                      <div style="font-size:17px;font-weight:800;color:#1e293b;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</div>
                     </td>
                     <td class="metric-spacer" width="8">&nbsp;</td>
-                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;border-top:3px solid #5CB85C;">
+                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;border-top:3px solid rgba(0,0,0,0.90);">
                       <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Tipo de Cambio</div>
                       <div style="font-size:15px;font-weight:700;color:#1e293b;">{{ "%.4f"|format(operation.exchange_rate) }}</div>
                     </td>
                     <td class="metric-spacer" width="8">&nbsp;</td>
-                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;border-top:3px solid #5CB85C;">
+                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;border-top:3px solid rgba(0,0,0,0.90);">
                       <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto PEN</div>
-                      <div style="font-size:17px;font-weight:800;color:#5CB85C;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</div>
+                      <div style="font-size:17px;font-weight:800;color:#1e293b;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</div>
                     </td>
                   </tr>
                 </table>
@@ -1154,12 +1154,12 @@ class EmailService:
           </div>
           {% endif %}
 
-          <div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;background:#F0FDF4;border-left:3px solid #5CB85C;color:#14532d;">
+          <div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;background:#F0FDF4;border-left:3px solid #000000;color:#14532d;">
             Si desea realizar una nueva operación, puede ingresar a <strong>www.qoricash.pe</strong> o contactar a su asesor comercial.
           </div>
 
           <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
-          <p style="margin:0;font-size:12px;color:#94a3b8;">¿Consultas? Responda este correo o escríbanos a <a href="mailto:info@qoricash.pe" style="color:#5CB85C;">info@qoricash.pe</a></p>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">¿Consultas? Responda este correo o escríbanos a <a href="mailto:info@qoricash.pe" style="color:#000000;">info@qoricash.pe</a></p>
 
         </td>
       </tr>"""
@@ -1389,7 +1389,7 @@ class EmailService:
         <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
 
           <div style="margin:0 0 16px 0;">
-            <span style="display:inline-block;background:#F0FDF4;color:#5CB85C;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:5px 14px;border-radius:20px;border:1.5px solid #5CB85C;">Acceso Seguro</span>
+            <span style="display:inline-block;background:#ffffff;color:#000000;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:5px 14px;border-radius:20px;border:1.5px solid #000000;">Acceso Seguro</span>
           </div>
 
           <h1 style="margin:0 0 6px 0;font-size:21px;font-weight:700;color:#0D1B2A;line-height:1.3;">Contraseña temporal de acceso</h1>
@@ -1402,7 +1402,7 @@ class EmailService:
             <tr>
               <td style="padding:22px 24px;text-align:center;">
                 <p style="margin:0 0 10px 0;color:rgba(255,255,255,0.50);font-size:10px;letter-spacing:0.8px;text-transform:uppercase;">Contraseña de acceso</p>
-                <p style="margin:0 0 10px 0;color:#5CB85C;font-size:28px;font-family:'Courier New',Courier,monospace;font-weight:700;letter-spacing:4px;">{{ temp_password }}</p>
+                <p style="margin:0 0 10px 0;color:#ffffff;font-size:28px;font-family:'Courier New',Courier,monospace;font-weight:700;letter-spacing:4px;">{{ temp_password }}</p>
                 <p style="margin:0;color:rgba(255,255,255,0.35);font-size:11px;">Cópiala exactamente como aparece</p>
               </td>
             </tr>
@@ -1412,7 +1412,7 @@ class EmailService:
             <strong>Seguridad:</strong> Deberás cambiar esta contraseña al iniciar sesión. No la compartas con nadie.
           </div>
 
-          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #5CB85C;">Pasos a seguir</p>
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">Pasos a seguir</p>
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 16px 0;">
             <tr style="border-bottom:1px solid #F1F5F9;">
               <td style="padding:10px 14px;color:#94a3b8;font-size:12px;font-weight:700;width:28px;text-align:center;vertical-align:top;">1</td>
@@ -1428,9 +1428,9 @@ class EmailService:
             </tr>
           </table>
 
-          <div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;background:#F0FDF4;border-left:3px solid #5CB85C;color:#14532d;">
+          <div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;background:#F0FDF4;border-left:3px solid #000000;color:#14532d;">
             <strong>¿No solicitaste este cambio?</strong> Contacta a nuestro equipo inmediatamente en
-            <a href="mailto:info@qoricash.pe" style="color:#5CB85C;">info@qoricash.pe</a>
+            <a href="mailto:info@qoricash.pe" style="color:#000000;">info@qoricash.pe</a>
           </div>
 
           <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
@@ -1512,13 +1512,13 @@ class EmailService:
             </tr>
             <tr>
               <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Ejecutivo asignado</td>
-              <td style="padding:11px 18px;color:#5CB85C;font-size:13px;font-weight:600;vertical-align:top;">{{ trader.username }}</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:600;vertical-align:top;">{{ trader.username }}</td>
             </tr>
           </table>
 
           {{ shared_block }}
           <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
-          <p style="margin:0 0 6px 0;font-size:13px;color:#334155;">Para cualquier consulta, contacte a su ejecutivo <strong>{{ trader.username }}</strong>{% if trader.email %} en <a href="mailto:{{ trader.email }}" style="color:#5CB85C;">{{ trader.email }}</a>{% endif %}.</p>
+          <p style="margin:0 0 6px 0;font-size:13px;color:#334155;">Para cualquier consulta, contacte a su ejecutivo <strong>{{ trader.username }}</strong>{% if trader.email %} en <a href="mailto:{{ trader.email }}" style="color:#000000;">{{ trader.email }}</a>{% endif %}.</p>
           <p style="margin:0;font-size:12px;color:#94a3b8;">Este es un correo automático.</p>
         </td>
       </tr>"""
@@ -1615,7 +1615,7 @@ class EmailService:
           <h1 style="margin:0 0 6px 0;font-size:21px;font-weight:700;color:#0D1B2A;line-height:1.3;">{{ complaint_data.get('tipo_solicitud', 'Reclamo') }} recibido</h1>
           <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">N° <strong style="color:#1e293b;">{{ complaint_number }}</strong> &nbsp;&middot;&nbsp; {{ fecha_actual }}</p>
 
-          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #5CB85C;">Datos del reclamante</p>
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">Datos del reclamante</p>
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             {% if complaint_data.get('tipo_documento') == 'RUC' %}
             <tr style="border-bottom:1px solid #F1F5F9;">
@@ -1662,10 +1662,10 @@ class EmailService:
             </tr>
           </table>
 
-          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #5CB85C;">Detalle del {{ complaint_data.get('tipo_solicitud', 'reclamo') }}</p>
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">Detalle del {{ complaint_data.get('tipo_solicitud', 'reclamo') }}</p>
           <div style="border-radius:6px;padding:16px 18px;margin:0 0 24px 0;font-size:13px;color:#78350f;white-space:pre-wrap;line-height:1.7;background:#FFFBEB;border:1px solid #FDE68A;">{{ complaint_data.get('detalle', 'No se proporcionó detalle.') }}</div>
 
-          <div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;background:#F0FDF4;border-left:3px solid #5CB85C;color:#14532d;">
+          <div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;background:#F0FDF4;border-left:3px solid #000000;color:#14532d;">
             <strong>Plazo de respuesta:</strong> Este {{ complaint_data.get('tipo_solicitud', 'reclamo').lower() }} debe ser atendido dentro de las próximas 24–48 horas hábiles.
           </div>
 

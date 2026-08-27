@@ -204,7 +204,7 @@ def _wrap_email(body_html: str) -> str:
   <tr><td align="center">
     <table width="600" cellpadding="0" cellspacing="0"
            style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;
-                  overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);border-top:4px solid #5CB85C;">
+                  overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);border-top:4px solid rgba(0,0,0,0.90);">
       {_HEADER_BLOCK}
       {body_html}
       {_FOOTER_BLOCK}
@@ -445,9 +445,9 @@ class EmailTemplates:
         <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
 
           <div style="margin:0 0 20px 0;">
-            <span style="display:inline-block;background:#ffffff;color:""" + _GREEN + """;font-size:10px;font-weight:700;
+            <span style="display:inline-block;background:#ffffff;color:#000000;font-size:10px;font-weight:700;
                          text-transform:uppercase;letter-spacing:1.4px;padding:5px 14px;border-radius:20px;
-                         border:1.5px solid """ + _GREEN + """;box-shadow:0 2px 8px rgba(0,0,0,0.07);">
+                         border:1.5px solid #000000;box-shadow:0 2px 8px rgba(0,0,0,0.07);">
               Registro recibido con éxito
             </span>
           </div>
@@ -490,7 +490,7 @@ class EmailTemplates:
             </tr>
           </table>
 
-          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #5CB85C;">Próximos pasos</p>
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">Próximos pasos</p>
 
           {% if doc_type == 'RUC' %}
           <div style="border-radius:6px;padding:13px 16px;margin:0 0 12px 0;font-size:13px;line-height:1.65;
@@ -523,7 +523,7 @@ class EmailTemplates:
           <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
           <p style="margin:0;font-size:12px;color:#94a3b8;">
             ¿Tienes alguna consulta? Escríbenos a
-            <a href="mailto:info@qoricash.pe" style="color:""" + _GREEN + """;">info@qoricash.pe</a>
+            <a href="mailto:info@qoricash.pe" style="color:#000000;">info@qoricash.pe</a>
           </p>
         </td>
       </tr>"""
@@ -659,27 +659,27 @@ class EmailTemplates:
           </table>
           {% endif %}
 
-          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #5CB85C;">¿Qué puedes hacer ahora?</p>
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">¿Qué puedes hacer ahora?</p>
           <table width="100%" cellspacing="0" cellpadding="0"
                  style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="border-bottom:1px solid #F1F5F9;">
               <td style="padding:10px 18px;font-size:13px;color:#1e293b;vertical-align:top;">
-                <span style="color:""" + _GREEN + """;font-weight:700;margin-right:10px;">&#10003;</span>Realizar operaciones de compra y venta de dólares
+                <span style="color:#000000;font-weight:700;margin-right:10px;">&#10003;</span>Realizar operaciones de compra y venta de dólares
               </td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
               <td style="padding:10px 18px;font-size:13px;color:#1e293b;vertical-align:top;">
-                <span style="color:""" + _GREEN + """;font-weight:700;margin-right:10px;">&#10003;</span>Acceder a tipos de cambio competitivos en tiempo real
+                <span style="color:#000000;font-weight:700;margin-right:10px;">&#10003;</span>Acceder a tipos de cambio competitivos en tiempo real
               </td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
               <td style="padding:10px 18px;font-size:13px;color:#1e293b;vertical-align:top;">
-                <span style="color:""" + _GREEN + """;font-weight:700;margin-right:10px;">&#10003;</span>Recibir atención personalizada de tu ejecutivo
+                <span style="color:#000000;font-weight:700;margin-right:10px;">&#10003;</span>Recibir atención personalizada de tu ejecutivo
               </td>
             </tr>
             <tr>
               <td style="padding:10px 18px;font-size:13px;color:#1e293b;vertical-align:top;">
-                <span style="color:""" + _GREEN + """;font-weight:700;margin-right:10px;">&#10003;</span>Transferencias rápidas y seguras a tu cuenta bancaria
+                <span style="color:#000000;font-weight:700;margin-right:10px;">&#10003;</span>Transferencias rápidas y seguras a tu cuenta bancaria
               </td>
             </tr>
           </table>
@@ -689,13 +689,13 @@ class EmailTemplates:
               <td align="center">
                 {% if doc_type == 'RUC' %}
                 <a href="https://qoricash.pe/empresa"
-                   style="display:inline-block;background-color:""" + _GREEN + """;color:#ffffff;font-weight:700;
+                   style="display:inline-block;background-color:rgba(0,0,0,0.90);color:#ffffff;font-weight:700;
                           font-size:14px;padding:13px 36px;border-radius:8px;text-decoration:none;letter-spacing:0.3px;">
                   Ingresar a QoriCash
                 </a>
                 {% else %}
                 <a href="https://qoricash.pe"
-                   style="display:inline-block;background-color:""" + _GREEN + """;color:#ffffff;font-weight:700;
+                   style="display:inline-block;background-color:rgba(0,0,0,0.90);color:#ffffff;font-weight:700;
                           font-size:14px;padding:13px 36px;border-radius:8px;text-decoration:none;letter-spacing:0.3px;">
                   Ingresar a QoriCash
                 </a>
@@ -707,8 +707,8 @@ class EmailTemplates:
           <div style="height:1px;background-color:#F1F5F9;margin:0 0 20px 0;"></div>
           <p style="margin:0;font-size:12px;color:#94a3b8;">
             Para tu primera operación contacta a <strong style="color:#1e293b;">{{ trader_name }}</strong>
-            {% if trader_email %} en <a href="mailto:{{ trader_email }}" style="color:""" + _GREEN + """;">{{ trader_email }}</a>{% endif %}
-            o escríbenos a <a href="mailto:info@qoricash.pe" style="color:""" + _GREEN + """;">info@qoricash.pe</a>.
+            {% if trader_email %} en <a href="mailto:{{ trader_email }}" style="color:#000000;">{{ trader_email }}</a>{% endif %}
+            o escríbenos a <a href="mailto:info@qoricash.pe" style="color:#000000;">info@qoricash.pe</a>.
           </p>
         </td>
       </tr>"""
@@ -762,17 +762,17 @@ class EmailTemplates:
                  style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="border-bottom:1px solid #F1F5F9;">
               <td style="padding:12px 18px;font-size:13px;color:#1e293b;vertical-align:top;">
-                <span style="color:""" + _GREEN + """;font-weight:700;margin-right:10px;">&#10003;</span>Tu identidad ha sido verificada
+                <span style="color:#000000;font-weight:700;margin-right:10px;">&#10003;</span>Tu identidad ha sido verificada
               </td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
               <td style="padding:12px 18px;font-size:13px;color:#1e293b;vertical-align:top;">
-                <span style="color:""" + _GREEN + """;font-weight:700;margin-right:10px;">&#10003;</span>Puedes crear operaciones de compra y venta de dólares
+                <span style="color:#000000;font-weight:700;margin-right:10px;">&#10003;</span>Puedes crear operaciones de compra y venta de dólares
               </td>
             </tr>
             <tr>
               <td style="padding:12px 18px;font-size:13px;color:#1e293b;vertical-align:top;">
-                <span style="color:""" + _GREEN + """;font-weight:700;margin-right:10px;">&#10003;</span>Acceso completo a todas las funcionalidades
+                <span style="color:#000000;font-weight:700;margin-right:10px;">&#10003;</span>Acceso completo a todas las funcionalidades
               </td>
             </tr>
           </table>
@@ -782,13 +782,13 @@ class EmailTemplates:
               <td align="center">
                 {% if doc_type == 'RUC' %}
                 <a href="https://qoricash.pe/empresa"
-                   style="display:inline-block;background-color:""" + _GREEN + """;color:#ffffff;font-weight:700;
+                   style="display:inline-block;background-color:rgba(0,0,0,0.90);color:#ffffff;font-weight:700;
                           font-size:14px;padding:13px 36px;border-radius:8px;text-decoration:none;letter-spacing:0.3px;">
                   Ingresar a QoriCash
                 </a>
                 {% else %}
                 <a href="https://qoricash.pe"
-                   style="display:inline-block;background-color:""" + _GREEN + """;color:#ffffff;font-weight:700;
+                   style="display:inline-block;background-color:rgba(0,0,0,0.90);color:#ffffff;font-weight:700;
                           font-size:14px;padding:13px 36px;border-radius:8px;text-decoration:none;letter-spacing:0.3px;">
                   Ingresar a QoriCash
                 </a>
@@ -810,7 +810,7 @@ class EmailTemplates:
           <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
           <p style="margin:0;font-size:12px;color:#94a3b8;">
             ¿Tienes alguna consulta? Escríbenos a
-            <a href="mailto:info@qoricash.pe" style="color:""" + _GREEN + """;">info@qoricash.pe</a>
+            <a href="mailto:info@qoricash.pe" style="color:#000000;">info@qoricash.pe</a>
           </p>
         </td>
       </tr>"""
