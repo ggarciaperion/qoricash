@@ -332,9 +332,12 @@ export const PublicCalculatorScreen: React.FC<Props> = ({ navigation }) => {
           {/* Card Compra */}
           <View style={styles.rateCard}>
             <Text style={styles.rateCardLabel}>Qoricash compra</Text>
-            <RateValue value={compra} style={styles.rateCardValue} />
-            <View style={styles.ratePill}>
-              <Text style={styles.ratePillText}>USD → PEN</Text>
+            <RateValue value={compra} style={[styles.rateCardValue, { color: '#38bdf8' }]} />
+            <View style={[styles.ratePill, {
+              backgroundColor: 'transparent',
+              borderWidth: 0,
+            }]}>
+              <Text style={[styles.ratePillText, { color: '#38bdf8' }]}>USD → PEN</Text>
             </View>
           </View>
 
@@ -343,9 +346,12 @@ export const PublicCalculatorScreen: React.FC<Props> = ({ navigation }) => {
           {/* Card Venta */}
           <View style={styles.rateCard}>
             <Text style={styles.rateCardLabel}>Qoricash vende</Text>
-            <RateValue value={venta} style={styles.rateCardValue} />
-            <View style={styles.ratePill}>
-              <Text style={styles.ratePillText}>PEN → USD</Text>
+            <RateValue value={venta} style={[styles.rateCardValue, { color: '#22c55e' }]} />
+            <View style={[styles.ratePill, {
+              backgroundColor: 'transparent',
+              borderWidth: 0,
+            }]}>
+              <Text style={[styles.ratePillText, { color: '#22c55e' }]}>PEN → USD</Text>
             </View>
           </View>
         </MotiView>
@@ -640,7 +646,7 @@ const styles = StyleSheet.create({
   },
   ratePill: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'transparent',
     borderRadius: 20,
     paddingHorizontal: 8,
     paddingVertical: 3,

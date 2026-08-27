@@ -67,7 +67,7 @@ const AuthNavigator = () => {
     <View style={{ flex: 1 }}>
       {/* Fondo fijo — nunca transiciona, compartido por todas las pantallas auth */}
       <ImageBackground
-        source={require('../../assets/cd.png')}
+        source={require('../../assets/lo.png')}
         style={StyleSheet.absoluteFill}
         resizeMode="cover"
       />
@@ -252,18 +252,12 @@ const MainNavigator = () => {
       <Stack.Screen
         name="ChangePassword"
         component={ChangePasswordScreen}
-        options={{
-          title: 'Cambiar Contraseña',
-          headerTintColor: Colors.primary,
-        }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="VerifyIdentity"
         component={VerifyIdentityScreen}
-        options={{
-          title: 'Validación de Identidad',
-          headerTintColor: Colors.primary,
-        }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="Logs"
@@ -435,12 +429,7 @@ export const AppNavigator = () => {
                 name="ChangePassword"
                 component={ChangePasswordScreen}
                 initialParams={{ isFirstLogin: true, dni: client?.dni }}
-                options={{
-                  headerShown: true,
-                  title: 'Cambiar Contraseña',
-                  headerTintColor: Colors.primary,
-                  headerLeft: () => null, // Evitar que puedan regresar
-                }}
+                options={{ headerShown: false }}
               />
             </Stack.Navigator>
           ) : (

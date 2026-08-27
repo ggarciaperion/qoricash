@@ -347,10 +347,9 @@ def forgot_password():
 
         # Verificar que el email coincida
         if not client.email or client.email.lower().strip() != email:
-            # Por seguridad, no revelamos que el email no coincide
             return jsonify({
-                'success': True,
-                'message': 'Si los datos son correctos, recibirás un email con tu contraseña temporal'
+                'success': False,
+                'message': 'El correo ingresado no está asociado a este número de documento.'
             }), 200
 
         # Generar contraseña temporal simple (sin caracteres especiales para facilitar escritura)

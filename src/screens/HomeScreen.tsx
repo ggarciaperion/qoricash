@@ -42,6 +42,34 @@ import { API_CONFIG } from '../constants/config';
 import { Operation } from '../types';
 
 const { width: W } = Dimensions.get('window');
+
+// Reloj animado para el banner "Validación en proceso"
+const ClockIcon: React.FC = () => {
+  const rot = useSharedValue(0);
+  const sc  = useSharedValue(1);
+  useEffect(() => {
+    rot.value = withRepeat(
+      withTiming(1, { duration: 6000, easing: REasing.linear }), -1, false,
+    );
+    sc.value = withRepeat(
+      withSequence(
+        withTiming(1.18, { duration: 1100, easing: REasing.inOut(REasing.quad) }),
+        withTiming(1,    { duration: 1100, easing: REasing.inOut(REasing.quad) }),
+      ), -1, false,
+    );
+  }, []);
+  const style = useAnimatedStyle(() => ({
+    transform: [
+      { rotate: `${interpolate(rot.value, [0, 1], [0, 360])}deg` },
+      { scale: sc.value },
+    ],
+  }));
+  return (
+    <Reanimated.View style={style}>
+      <Ionicons name="time-outline" size={18} color="#60a5fa" />
+    </Reanimated.View>
+  );
+};
 const GLASS_BG     = 'rgba(255,255,255,0.09)';
 const GLASS_BORDER = 'rgba(255,255,255,0.17)';
 const GREEN        = '#22c55e';
@@ -242,12 +270,42 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     socketService.on('operacion_cancelada_admin', removeOp);
     socketService.on('operacion_en_proceso',     updateToInProcess);
 
+    const onDocumentsApproved = async () => {
+      try { await refreshClient(); } catch {}
+      setShowKycModal(true);
+      kycScale.value   = 0.82;
+      kycOpacity.value = 0;
+      kycScale.value   = withSpring(1, { damping: 15, stiffness: 240 });
+      kycOpacity.value = withTiming(1, { duration: 220 });
+      kycCircle.value  = withSequence(
+        withTiming(0, { duration: 0 }),
+        withSpring(1, { damping: 10, stiffness: 220 }),
+      );
+    };
+    socketService.on('documents_approved', onDocumentsApproved);
+
     return () => {
       socketService.off('operacion_completada',     removeOp);
       socketService.off('operacion_cancelada_admin', removeOp);
       socketService.off('operacion_en_proceso',     updateToInProcess);
+      socketService.off('documents_approved',       onDocumentsApproved);
     };
   }, [client?.dni]);
+
+  // ── Modal KYC aprobado ─────────────────────────────────────────────────────
+  const [showKycModal, setShowKycModal] = useState(false);
+  const kycScale   = useSharedValue(0.82);
+  const kycOpacity = useSharedValue(0);
+  const kycCircle  = useSharedValue(0);
+
+  const kycOverlayStyle = useAnimatedStyle(() => ({ opacity: kycOpacity.value }));
+  const kycCardStyle    = useAnimatedStyle(() => ({
+    opacity: kycOpacity.value,
+    transform: [{ scale: kycScale.value }],
+  }));
+  const kycCircleStyle  = useAnimatedStyle(() => ({
+    transform: [{ scale: kycCircle.value }],
+  }));
 
   const [showBlockModal,   setShowBlockModal]   = useState(false);
   const blockScale   = useSharedValue(0.86);
@@ -423,7 +481,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
       {/* ── Fondo ── */}
       <ImageBackground
-        source={require('../../assets/cd.png')}
+        source={require('../../assets/lo.png')}
         style={StyleSheet.absoluteFill}
         resizeMode="cover"
         pointerEvents="none"
@@ -512,7 +570,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 </View>
                 <View style={s.bannerBody}>
                   <Text style={s.warningTitle}>Validación pendiente</Text>
-                  <Text style={s.bannerSub}>Sube tu DNI para empezar a operar.</Text>
+                  <Text style={s.bannerSub}>Necesitamos validar tu identidad para que puedas operar.</Text>
                 </View>
                 <View style={s.bannerChevron}>
                   <Ionicons name="chevron-forward" size={16} color="rgba(251,191,36,0.6)" />
@@ -523,7 +581,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             {client.dni_front_url && client.dni_back_url && (
               <View style={s.infoBanner}>
                 <View style={[s.bannerIcon, { backgroundColor: 'rgba(96,165,250,0.12)' }]}>
-                  <Ionicons name="time-outline" size={18} color="#60a5fa" />
+                  <ClockIcon />
                 </View>
                 <View style={s.bannerBody}>
                   <Text style={s.infoTitle}>Validación en proceso</Text>
@@ -560,8 +618,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           >
             <LinearGradient
               colors={calcOperationType === 'Compra'
-                ? ['rgba(34,197,94,0.14)', 'rgba(10,40,22,0.55)']
-                : ['rgba(255,255,255,0.07)', 'rgba(8,16,30,0.70)']}
+                ? ['rgba(56,189,248,0.22)', 'rgba(8,22,48,0.65)']
+                : ['rgba(56,189,248,0.07)', 'rgba(8,16,30,0.70)']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
             />
@@ -572,13 +630,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 <Text style={[s.rateTabValue, s.rateImprovedValue]}>S/ {displayRates.compra.toFixed(4)}</Text>
               </View>
             ) : (
-              <Text style={[s.rateTabValue, calcOperationType !== 'Compra' && s.rateTabValueDim]}>
+              <Text style={[s.rateTabValue, { color: '#38bdf8' }, calcOperationType !== 'Compra' && s.rateTabValueDim]}>
                 S/ {calcRates?.compra.toFixed(4) ?? '—'}
               </Text>
             )}
             <View style={s.rateTabPill}>
               {pipLabel && <Text style={s.ratePipBadge}>{pipLabel}</Text>}
-              <Text style={s.rateTabPillText}>USD → PEN</Text>
+              <Text style={[s.rateTabPillText, { color: 'rgba(56,189,248,0.75)' }]}>USD → PEN</Text>
             </View>
           </TouchableOpacity>
 
@@ -589,8 +647,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           >
             <LinearGradient
               colors={calcOperationType === 'Venta'
-                ? ['rgba(59,130,246,0.14)', 'rgba(8,20,50,0.55)']
-                : ['rgba(255,255,255,0.07)', 'rgba(8,16,30,0.70)']}
+                ? ['rgba(34,197,94,0.22)', 'rgba(6,28,14,0.65)']
+                : ['rgba(34,197,94,0.07)', 'rgba(8,16,30,0.70)']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
             />
@@ -601,13 +659,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 <Text style={[s.rateTabValue, s.rateImprovedValue]}>S/ {displayRates.venta.toFixed(4)}</Text>
               </View>
             ) : (
-              <Text style={[s.rateTabValue, calcOperationType !== 'Venta' && s.rateTabValueDim]}>
+              <Text style={[s.rateTabValue, { color: '#22c55e' }, calcOperationType !== 'Venta' && s.rateTabValueDim]}>
                 S/ {calcRates?.venta.toFixed(4) ?? '—'}
               </Text>
             )}
             <View style={s.rateTabPill}>
               {pipLabel && <Text style={s.ratePipBadge}>{pipLabel}</Text>}
-              <Text style={s.rateTabPillText}>PEN → USD</Text>
+              <Text style={[s.rateTabPillText, { color: 'rgba(34,197,94,0.75)' }]}>PEN → USD</Text>
             </View>
           </TouchableOpacity>
         </MotiView>
@@ -869,6 +927,58 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* ══ Modal: Identidad verificada (KYC aprobado) ═══════════════════ */}
+      <Modal
+        visible={showKycModal}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+      >
+        <Reanimated.View style={[s.kycOverlay, kycOverlayStyle]}>
+          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+
+          <Reanimated.View style={[s.kycCard, kycCardStyle]}>
+
+            {/* Círculo verde animado */}
+            <Reanimated.View style={[s.kycCircle, kycCircleStyle]}>
+              <View style={s.kycRing} />
+              <Ionicons name="shield-checkmark" size={44} color="#ffffff" />
+            </Reanimated.View>
+
+            <Text style={s.kycTitle}>¡Identidad Verificada!</Text>
+            <Text style={s.kycSubtitle}>
+              {'Tu cuenta ha sido activada exitosamente.\nYa puedes realizar operaciones\nde cambio de divisas con Qoricash.'}
+            </Text>
+
+            {/* Badges de estado */}
+            <View style={s.kycBadgesRow}>
+              <View style={s.kycBadge}>
+                <Ionicons name="checkmark-circle" size={14} color="#22c55e" />
+                <Text style={s.kycBadgeText}>Cuenta Activa</Text>
+              </View>
+              <View style={s.kycBadge}>
+                <Ionicons name="checkmark-circle" size={14} color="#22c55e" />
+                <Text style={s.kycBadgeText}>KYC Aprobado</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={s.kycBtn}
+              onPress={() => {
+                kycOpacity.value = withTiming(0, { duration: 380, easing: REasing.out(REasing.quad) });
+                kycScale.value   = withTiming(0.92, { duration: 380, easing: REasing.out(REasing.quad) }, () => {
+                  setShowKycModal(false);
+                });
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={s.kycBtnText}>¡Empezar a Operar!</Text>
+            </TouchableOpacity>
+
+          </Reanimated.View>
+        </Reanimated.View>
+      </Modal>
+
     </View>
   );
 };
@@ -1095,10 +1205,10 @@ const s = StyleSheet.create({
     borderColor: GREEN,
   },
   rateTabActiveCompra: {
-    borderColor: 'rgba(34,197,94,0.60)',
+    borderColor: 'rgba(56,189,248,0.60)',
   },
   rateTabActiveVenta: {
-    borderColor: 'rgba(59,130,246,0.60)',
+    borderColor: 'rgba(34,197,94,0.60)',
   },
   rateTabLabel: {
     fontSize: 11,
@@ -1519,6 +1629,107 @@ const s = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#fff',
+    letterSpacing: 0.3,
+  },
+
+  // ── Modal KYC aprobado ─────────────────────────────────────────────────────
+  kycOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+    zIndex: 200,
+  },
+  kycCard: {
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.18)',
+    paddingHorizontal: 28,
+    paddingTop: 44,
+    paddingBottom: 32,
+    alignItems: 'center',
+    shadowColor: '#22c55e',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 28,
+    elevation: 20,
+  },
+  kycCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#22c55e',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 28,
+    shadowColor: '#22c55e',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.55,
+    shadowRadius: 22,
+    elevation: 16,
+  },
+  kycRing: {
+    position: 'absolute',
+    width: 122,
+    height: 122,
+    borderRadius: 61,
+    borderWidth: 2,
+    borderColor: 'rgba(34,197,94,0.28)',
+  },
+  kycTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#ffffff',
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginBottom: 14,
+  },
+  kycSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.6)',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  kycBadgesRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 28,
+  },
+  kycBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(34,197,94,0.1)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.25)',
+  },
+  kycBadgeText: {
+    fontSize: 12,
+    color: '#22c55e',
+    fontWeight: '700',
+  },
+  kycBtn: {
+    width: '100%',
+    backgroundColor: '#22c55e',
+    borderRadius: 16,
+    paddingVertical: 17,
+    alignItems: 'center',
+    shadowColor: '#22c55e',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  kycBtnText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#ffffff',
     letterSpacing: 0.3,
   },
 });

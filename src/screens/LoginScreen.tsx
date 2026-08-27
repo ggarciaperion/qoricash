@@ -4,6 +4,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
+  Easing,
   StatusBar,
   Modal,
   KeyboardAvoidingView,
@@ -69,10 +70,15 @@ export const LoginScreen = () => {
   const [resetDni,        setResetDni]        = useState('');
   const [resetEmail,      setResetEmail]      = useState('');
   const [resetLoading,    setResetLoading]    = useState(false);
+  const [resetStep,       setResetStep]       = useState('');
   const [resetError,      setResetError]      = useState('');
+  const [resetSending,    setResetSending]    = useState(false);
   const [resetSuccess,    setResetSuccess]    = useState(false);
-  const forgotSlide = useRef(new Animated.Value(600)).current;
-  const forgotFade  = useRef(new Animated.Value(0)).current;
+  const forgotSlide       = useRef(new Animated.Value(52)).current;
+  const resetBtnScale     = useRef(new Animated.Value(1)).current;
+  const forgotFade        = useRef(new Animated.Value(0)).current;
+  const forgotCardScale   = useRef(new Animated.Value(0.92)).current;
+  const forgotCardOpacity = useRef(new Animated.Value(0)).current;
 
   const btnScale  = useRef(new Animated.Value(1)).current;
   const exitFade  = useRef(new Animated.Value(1)).current;
@@ -167,47 +173,90 @@ export const LoginScreen = () => {
   const openForgotModal = () => {
     setShowForgotModal(true);
     setResetSuccess(false);
-    forgotSlide.setValue(600);
+    forgotSlide.setValue(52);
     forgotFade.setValue(0);
+    forgotCardScale.setValue(0.92);
+    forgotCardOpacity.setValue(0);
     Animated.parallel([
-      Animated.timing(forgotFade,  { toValue: 1, duration: 300, useNativeDriver: true }),
-      Animated.spring(forgotSlide, { toValue: 0, tension: 65, friction: 11, useNativeDriver: true }),
+      Animated.timing(forgotFade,        { toValue: 1, duration: 320, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.spring(forgotSlide,       { toValue: 0, tension: 200, friction: 18, useNativeDriver: true }),
+      Animated.spring(forgotCardScale,   { toValue: 1, tension: 200, friction: 18, useNativeDriver: true }),
+      Animated.timing(forgotCardOpacity, { toValue: 1, duration: 240, easing: Easing.out(Easing.quad), useNativeDriver: true }),
     ]).start();
   };
 
   const closeForgotModal = () => {
     Animated.parallel([
-      Animated.timing(forgotFade,  { toValue: 0, duration: 220, useNativeDriver: true }),
-      Animated.timing(forgotSlide, { toValue: 600, duration: 250, useNativeDriver: true }),
+      Animated.timing(forgotFade,        { toValue: 0, duration: 300, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+      Animated.timing(forgotCardOpacity, { toValue: 0, duration: 240, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+      Animated.timing(forgotCardScale,   { toValue: 0.94, duration: 280, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+      Animated.timing(forgotSlide,       { toValue: 20,   duration: 280, easing: Easing.in(Easing.quad), useNativeDriver: true }),
     ]).start(() => {
       setShowForgotModal(false);
-      setResetDni(''); setResetEmail(''); setResetError(''); setResetSuccess(false);
+      setResetDni(''); setResetEmail(''); setResetError(''); setResetSuccess(false); setResetSending(false);
     });
   };
 
   const handleForgotPassword = async () => {
+    Keyboard.dismiss();
+    setResetError('');
+
+    // ── Validación local ────────────────────────────────────────────────────
+    if (!resetDni || !resetEmail) {
+      setResetError('Completa todos los campos'); return;
+    }
+    if (resetDni.length < 8) {
+      setResetError('DNI / RUC inválido'); return;
+    }
+    if (!/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(resetEmail.trim())) {
+      setResetError('Ingresa un correo electrónico válido'); return;
+    }
+
+    // ── Animación del botón ─────────────────────────────────────────────────
+    Animated.sequence([
+      Animated.timing(resetBtnScale, { toValue: 0.96, duration: 80,  useNativeDriver: true }),
+      Animated.timing(resetBtnScale, { toValue: 1,    duration: 130, useNativeDriver: true }),
+    ]).start();
+
+    setResetLoading(true);
     try {
-      setResetError('');
-      if (!resetDni || !resetEmail) { setResetError('Completa todos los campos'); return; }
-      if (resetDni.length < 8)      { setResetError('DNI / RUC inválido');         return; }
-      if (!resetEmail.includes('@')) { setResetError('Email inválido');              return; }
-      setResetLoading(true);
+      // ── Paso 1: Verificar que el documento existe ───────────────────────
+      setResetStep('Verificando documento...');
+      const verifyRes  = await fetch(`${API_CONFIG.BASE_URL}/api/client/verify/${resetDni}`);
+      const verifyData = await verifyRes.json();
+
+      if (!verifyData.success || !verifyData.exists) {
+        setResetError('No encontramos ninguna cuenta con este número de documento.');
+        return;
+      }
+
+      // ── Paso 2: Validar correo y enviar instrucciones ───────────────────
+      setResetStep('Verificando correo...');
       const res  = await fetch(`${API_CONFIG.BASE_URL}/api/client/forgot-password`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ dni: resetDni, email: resetEmail.toLowerCase() }),
+        body:    JSON.stringify({ dni: resetDni, email: resetEmail.trim().toLowerCase() }),
       });
       const data = await res.json();
-      setResetLoading(false);
+
       if (data.success) {
         setFailedAttempts(0);
-        setResetSuccess(true);
+        setResetSending(true);
+        setTimeout(() => {
+          setResetSending(false);
+          setResetSuccess(true);
+        }, 1800);
       } else {
-        setResetError(data.message || 'No encontramos una cuenta con esos datos.');
+        setResetError(
+          data.message ||
+          'El correo ingresado no está asociado a este número de documento.'
+        );
       }
     } catch {
-      setResetLoading(false);
       setResetError('Error de conexión. Intenta nuevamente.');
+    } finally {
+      setResetLoading(false);
+      setResetStep('');
     }
   };
 
@@ -404,29 +453,53 @@ export const LoginScreen = () => {
       {/* ── Forgot password modal ──────────────────────────────────────────── */}
       <Modal visible={showForgotModal} transparent animationType="fade" onRequestClose={closeForgotModal}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          <View style={styles.errOverlay}>
-            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeForgotModal} />
-            <BlurView intensity={80} tint="dark" style={[styles.errCard, { width: '100%' }]}>
+          <Animated.View style={[StyleSheet.absoluteFill, { opacity: forgotFade }]}>
+            <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
+          </Animated.View>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeForgotModal} />
+          <View style={styles.forgotOverlay} pointerEvents="box-none">
+            <Animated.View style={[styles.forgotCard, {
+              opacity: forgotCardOpacity,
+              transform: [{ translateY: forgotSlide }, { scale: forgotCardScale }],
+            }]}>
+              <View style={styles.forgotCardBorder} />
 
-              {resetSuccess ? (
+              {resetSending ? (
+                <View style={{ alignItems: 'center', paddingVertical: 24, gap: 18 }}>
+                  <View style={{
+                    width: 64, height: 64, borderRadius: 32,
+                    backgroundColor: 'rgba(34,197,94,0.12)',
+                    borderWidth: 1, borderColor: 'rgba(34,197,94,0.25)',
+                    alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <ActivityIndicator color="#22c55e" size={28} />
+                  </View>
+                  <Text style={{ color: '#22c55e', fontSize: 15, fontWeight: '700', letterSpacing: 0.2 }}>
+                    Enviando instrucciones...
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, textAlign: 'center' }}>
+                    Estamos enviando tu contraseña temporal
+                  </Text>
+                </View>
+              ) : resetSuccess ? (
                 <>
                   <Text style={[styles.errEmoji, { textAlign: 'center' }]}>✅</Text>
                   <Text style={[styles.errTitle, { marginTop: 8 }]}>¡Correo enviado!</Text>
-                  <Text style={styles.errMsg}>
+                  <Text style={[styles.errMsg, { width: '100%' }]}>
                     {'Enviamos una contraseña temporal a\n'}
                     <Text style={{ fontWeight: '700', color: '#22c55e' }}>{resetEmail}</Text>
                   </Text>
-                  <TouchableOpacity style={styles.errBtnPrimary} onPress={closeForgotModal} activeOpacity={0.85}>
+                  <TouchableOpacity style={[styles.errBtnPrimary, { width: '100%' }]} onPress={closeForgotModal} activeOpacity={0.85}>
                     <Text style={styles.errBtnPrimaryTxt}>Entendido</Text>
                   </TouchableOpacity>
                 </>
               ) : (
                 <>
-                  <Text style={[styles.errEmoji, { textAlign: 'center' }]}>🔑</Text>
-                  <Text style={styles.errTitle}>Recuperar contraseña</Text>
-                  <Text style={styles.errMsg}>Te enviaremos acceso temporal a tu correo</Text>
+                  <Text style={styles.forgotModalTitle}>Recuperar contraseña</Text>
+                  <View style={styles.forgotModalDivider} />
+                  <Text style={[styles.errMsg, { marginBottom: 16 }]}>Te enviaremos acceso temporal a tu correo</Text>
 
-                  <View style={{ gap: 14, marginBottom: 12 }}>
+                  <View style={{ gap: 14, marginBottom: 12, width: '100%' }}>
                     <TextInput
                       label="Número de documento"
                       value={resetDni}
@@ -462,21 +535,27 @@ export const LoginScreen = () => {
                   </View>
 
                   {!!resetError && (
-                    <Text style={{ color: '#f87171', fontSize: 12, textAlign: 'center', marginBottom: 8 }}>{resetError}</Text>
+                    <Text style={{ color: '#f87171', fontSize: 12, textAlign: 'center', marginBottom: 8, width: '100%' }}>{resetError}</Text>
                   )}
 
-                  <View style={styles.errActions}>
-                    <TouchableOpacity
-                      style={[styles.errBtnPrimary, resetLoading && { opacity: 0.7 }]}
-                      onPress={handleForgotPassword}
-                      disabled={resetLoading}
-                      activeOpacity={0.85}
-                    >
-                      {resetLoading
-                        ? <ActivityIndicator color="#fff" size={20} />
-                        : <Text style={styles.errBtnPrimaryTxt}>Enviar instrucciones</Text>
-                      }
-                    </TouchableOpacity>
+                  <View style={[styles.errActions, { width: '100%' }]}>
+                    <Animated.View style={{ transform: [{ scale: resetBtnScale }] }}>
+                      <TouchableOpacity
+                        style={[styles.errBtnPrimary, resetLoading && styles.errBtnSending]}
+                        onPress={handleForgotPassword}
+                        disabled={resetLoading}
+                        activeOpacity={0.85}
+                      >
+                        {resetLoading ? (
+                          <View style={styles.errBtnLoadingRow}>
+                            <ActivityIndicator color="#fff" size={16} />
+                            <Text style={styles.errBtnStepTxt}>{resetStep}</Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.errBtnPrimaryTxt}>Enviar instrucciones</Text>
+                        )}
+                      </TouchableOpacity>
+                    </Animated.View>
                     <TouchableOpacity style={styles.errBtnSecondary} onPress={closeForgotModal} activeOpacity={0.7}>
                       <Text style={styles.errBtnSecondaryTxt}>Cancelar</Text>
                     </TouchableOpacity>
@@ -484,7 +563,7 @@ export const LoginScreen = () => {
                 </>
               )}
 
-            </BlurView>
+            </Animated.View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -647,6 +726,50 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
+  // ── Forgot password modal (glass style) ──────────────────────────────────
+  forgotOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  forgotCard: {
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 28,
+    overflow: 'hidden',
+    paddingTop: 28,
+    paddingBottom: 24,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    shadowColor: '#22c55e',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 28,
+    elevation: 20,
+  },
+  forgotCardBorder: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.18)',
+  },
+  forgotModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 16,
+    letterSpacing: 0.1,
+    textAlign: 'center',
+  },
+  forgotModalDivider: {
+    width: '100%',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    marginBottom: 18,
+  },
+
   // ── Error modal ───────────────────────────────────────────────────────────
   errOverlay: {
     flex: 1,
@@ -725,6 +848,21 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
+  },
+  errBtnSending: {
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    borderColor: 'rgba(34,197,94,0.3)',
+  },
+  errBtnLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  errBtnStepTxt: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
   errBtnPrimaryTxt: {
     color: '#fff',

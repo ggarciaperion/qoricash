@@ -164,7 +164,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     try {
-      setLoading(true);
       socketService.disconnect();
       await authApi.logout();
     } catch (error) {
@@ -179,7 +178,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       ]);
       setUser(null);
       setClient(null);
-      setLoading(false);
     }
   };
 

@@ -371,7 +371,7 @@ export const LoginLoadingScreen: React.FC<Props> = ({ visible, onComplete }) => 
       style={[st.container, { opacity:exitFade, transform:[{scale:exitScale}] }]}
       pointerEvents={visible ? 'auto' : 'none'}
     >
-      <ImageBackground source={require('../../assets/cd.png')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <ImageBackground source={require('../../assets/lo.png')} style={StyleSheet.absoluteFill} resizeMode="cover" />
       <Animated.View style={[StyleSheet.absoluteFill, st.overlay, { opacity:overlayFade }]} />
 
       <Animated.View style={{ opacity:cardFade, transform:[{scale:cardScale},{translateY:cardY}], width:'100%', alignItems:'center' }}>
