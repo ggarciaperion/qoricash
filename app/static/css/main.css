@@ -135,7 +135,7 @@ body.has-pb-bar.has-sidebar .main-wrapper {
     align-items: center;
     justify-content: space-between;
     padding: 0 12px;
-    height: 56px;
+    height: 76px;
     border-bottom: 1px solid rgba(255,255,255,.06);
     flex-shrink: 0;
 }
@@ -151,7 +151,7 @@ body.has-pb-bar.has-sidebar .main-wrapper {
 }
 
 .sidebar-logo {
-    height: 52px;
+    height: 68px;
     width: auto;
     flex-shrink: 0;
 }
