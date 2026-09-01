@@ -29,6 +29,7 @@ import apiClient from '../api/client';
 import socketService from '../services/socketService';
 import { logger } from '../utils/logger';
 import { useAuth } from '../contexts/AuthContext';
+import { useBackground } from '../hooks/useBackground';
 
 const LOCAL_OPERATIONS_CACHE_KEY = '@qoricash_local_operations_cache';
 
@@ -60,9 +61,11 @@ interface TransferScreenProps {
 }
 
 export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, route }) => {
+  const bg = useBackground();
   const { operation } = route.params;
   const insets = useSafeAreaInsets();
   const { client } = useAuth();
+  const isLegalEntity = client?.document_type === 'RUC';
 
   const [timeRemaining, setTimeRemaining]   = useState('');
   const [isExpired, setIsExpired]           = useState(false);
@@ -323,7 +326,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
   return (
     <View style={s.root}>
       <ImageBackground
-        source={require('../../assets/cd.png')}
+        source={bg}
         style={StyleSheet.absoluteFill}
         resizeMode="cover"
       />
@@ -337,11 +340,16 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           </View>
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Image
-            source={require('../../assets/logo.png')}
-            style={s.headerLogo}
-            resizeMode="contain"
-          />
+          <View style={{ alignItems: 'center' }}>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={s.headerLogo}
+              resizeMode="contain"
+            />
+            {isLegalEntity && (
+              <Text style={s.corporateLabel}>corporate</Text>
+            )}
+          </View>
         </View>
         <View style={{ width: 40 }} />
       </View>
@@ -908,6 +916,14 @@ const s = StyleSheet.create({
     width: 110,
     height: 26,
   },
+  corporateLabel: {
+    fontSize: 9,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.35)',
+    letterSpacing: 2.5,
+    marginTop: 2,
+    marginLeft: 18,
+  },
 
   scroll: { flex: 1 },
 
@@ -998,7 +1014,7 @@ const s = StyleSheet.create({
 
   // ── Cards ────────────────────────────────────────────────────────────────────
   card: {
-    backgroundColor: GLASS,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,
     borderColor: BORDER,
     borderRadius: 22,
@@ -1084,7 +1100,7 @@ const s = StyleSheet.create({
   },
   amountBlock: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 12,
     padding: 12,
     alignItems: 'center',
@@ -1296,7 +1312,7 @@ const s = StyleSheet.create({
   },
   modalSheet: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
@@ -1526,7 +1542,7 @@ const s = StyleSheet.create({
   // ── Cancel Modal ──────────────────────────────────────────────────────────────
   cancelSheet: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,

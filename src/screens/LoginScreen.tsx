@@ -735,7 +735,7 @@ const styles = StyleSheet.create({
   },
   forgotCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 28,
     overflow: 'hidden',
     paddingTop: 28,

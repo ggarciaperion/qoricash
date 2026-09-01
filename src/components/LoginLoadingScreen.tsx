@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
+import { useBackground } from '../hooks/useBackground';
 
 const GREEN      = '#22c55e';
 const GREEN_GLOW = 'rgba(34,197,94,0.18)';
@@ -47,6 +48,7 @@ const Arc: React.FC<{
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export const LoginLoadingScreen: React.FC<Props> = ({ visible, onComplete }) => {
+  const bg = useBackground();
   const [shouldRender, setShouldRender] = useState(false);
   const [phase, setPhase]               = useState<'loading'|'success'>('loading');
 
@@ -371,7 +373,7 @@ export const LoginLoadingScreen: React.FC<Props> = ({ visible, onComplete }) => 
       style={[st.container, { opacity:exitFade, transform:[{scale:exitScale}] }]}
       pointerEvents={visible ? 'auto' : 'none'}
     >
-      <ImageBackground source={require('../../assets/lo.png')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <ImageBackground source={bg} style={StyleSheet.absoluteFill} resizeMode="cover" />
       <Animated.View style={[StyleSheet.absoluteFill, st.overlay, { opacity:overlayFade }]} />
 
       <Animated.View style={{ opacity:cardFade, transform:[{scale:cardScale},{translateY:cardY}], width:'100%', alignItems:'center' }}>

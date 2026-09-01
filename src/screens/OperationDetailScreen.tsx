@@ -24,6 +24,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { operationsApi } from '../api/operations';
 import { Operation } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { useBackground } from '../hooks/useBackground';
 import {
   formatCurrency,
   formatDateTime,
@@ -65,6 +66,7 @@ interface Props { route: any; navigation: any }
 // ─── Component ────────────────────────────────────────────────────────────────
 export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const insets = useSafeAreaInsets();
+  const bg = useBackground();
   const { client } = useAuth();
   const { operationId } = route.params;
 
@@ -204,7 +206,7 @@ export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) =>
   if (loading) {
     return (
       <View style={s.fullCenter}>
-        <ImageBackground source={require('../../assets/cd.png')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <ImageBackground source={bg} style={StyleSheet.absoluteFill} resizeMode="cover" />
         <View style={[StyleSheet.absoluteFill, s.overlay]} />
         <ActivityIndicator size="large" color={GREEN} />
         <Text style={s.loadText}>Cargando operación...</Text>
@@ -215,7 +217,7 @@ export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) =>
   if (!operation) {
     return (
       <View style={s.fullCenter}>
-        <ImageBackground source={require('../../assets/cd.png')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <ImageBackground source={bg} style={StyleSheet.absoluteFill} resizeMode="cover" />
         <View style={[StyleSheet.absoluteFill, s.overlay]} />
         <Ionicons name="alert-circle-outline" size={40} color="rgba(255,255,255,0.3)" />
         <Text style={s.loadText}>Operación no encontrada</Text>
@@ -232,7 +234,7 @@ export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) =>
   return (
     <View style={s.root}>
       <ImageBackground
-        source={require('../../assets/cd.png')}
+        source={bg}
         style={StyleSheet.absoluteFill}
         resizeMode="cover"
       />
@@ -701,7 +703,7 @@ const s = StyleSheet.create({
 
   // Card base
   card: {
-    backgroundColor: GLASS_BG,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,
     borderColor: GLASS_BORDER,
     borderRadius: 22,
@@ -794,7 +796,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -957,7 +959,7 @@ const s = StyleSheet.create({
   // Operador comments
   commentsWrap: {
     marginTop: 12,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 12,
     padding: 12,
   },
@@ -1107,7 +1109,7 @@ const s = StyleSheet.create({
     paddingBottom: 12,
   },
   modalInfoCard: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,
     borderColor: GLASS_BORDER,
     borderRadius: 16,
@@ -1147,7 +1149,7 @@ const s = StyleSheet.create({
   modalDepositCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 12,
     padding: 10,
     marginBottom: 8,

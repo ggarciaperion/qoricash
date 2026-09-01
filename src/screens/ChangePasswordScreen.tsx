@@ -22,8 +22,9 @@ import axios from 'axios';
 import { API_CONFIG, STORAGE_KEYS } from '../constants/config';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
+import { useBackground } from '../hooks/useBackground';
 
-const BG    = require('../../assets/lo.png');
+// BG handled by useBackground hook
 const GREEN = '#22c55e';
 
 interface Props {
@@ -33,6 +34,7 @@ interface Props {
 export const ChangePasswordScreen: React.FC<Props> = ({ route }) => {
   const navigation   = useNavigation();
   const insets       = useSafeAreaInsets();
+  const bg = useBackground();
   const { client, logout } = useAuth();
   const isFirstLogin = route?.params?.isFirstLogin ?? false;
   const clientDni    = route?.params?.dni || client?.dni || '';
@@ -157,7 +159,7 @@ export const ChangePasswordScreen: React.FC<Props> = ({ route }) => {
   const spin = spinValue.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   return (
-    <ImageBackground source={BG} style={s.root} resizeMode="cover">
+    <ImageBackground source={bg} style={s.root} resizeMode="cover">
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

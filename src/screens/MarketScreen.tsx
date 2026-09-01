@@ -22,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotiView } from 'moti';
 import apiClient from '../api/client';
+import { useBackground } from '../hooks/useBackground';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface MarketIndicator {
@@ -70,7 +71,7 @@ interface MarketData {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const GLASS_BG     = 'rgba(255,255,255,0.08)';
+const GLASS_BG     = 'rgba(255,255,255,0.18)';
 const GLASS_BORDER = 'rgba(255,255,255,0.14)';
 const GREEN        = '#22c55e';
 const RED          = '#ef4444';
@@ -301,6 +302,7 @@ const NewsCard: React.FC<{ item: NewsItem; delay: number }> = ({ item, delay }) 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export const MarketScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const bg = useBackground();
   const [data, setData]           = useState<MarketData | null>(null);
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -342,7 +344,7 @@ export const MarketScreen: React.FC = () => {
   return (
     <View style={s.root}>
       <ImageBackground
-        source={require('../../assets/cd.png')}
+        source={bg}
         style={StyleSheet.absoluteFill}
         resizeMode="cover"
       />
@@ -588,7 +590,7 @@ const s = StyleSheet.create({
   signalCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: GLASS_BG,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,
     borderRadius: 18,
     padding: 16,
@@ -657,7 +659,7 @@ const s = StyleSheet.create({
   },
   indicatorCard: {
     width: '31%',
-    backgroundColor: GLASS_BG,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,
     borderColor: GLASS_BORDER,
     borderRadius: 14,
@@ -691,7 +693,7 @@ const s = StyleSheet.create({
 
   // Macro
   macroCard: {
-    backgroundColor: GLASS_BG,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,
     borderColor: GLASS_BORDER,
     borderRadius: 18,
@@ -742,7 +744,7 @@ const s = StyleSheet.create({
   newsList: { gap: 10, marginBottom: 8 },
   newsCard: {
     flexDirection: 'row',
-    backgroundColor: GLASS_BG,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,
     borderColor: GLASS_BORDER,
     borderRadius: 16,

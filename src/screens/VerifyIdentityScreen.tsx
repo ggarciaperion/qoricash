@@ -22,12 +22,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import axios from 'axios';
 import { API_CONFIG } from '../constants/config';
 import { useAuth } from '../contexts/AuthContext';
+import { useBackground } from '../hooks/useBackground';
 
-const BG = require('../../assets/lo.png');
+// BG handled by useBackground hook
 
 export const VerifyIdentityScreen = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const bg = useBackground();
   const { client, refreshClient } = useAuth();
 
   const [frontImage, setFrontImage]   = useState<string | null>(null);
@@ -158,7 +160,26 @@ export const VerifyIdentityScreen = () => {
     );
   };
 
-  const pickRucDocument = async () => {
+  const pickRucFromGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permisos Requeridos', 'Necesitamos acceso a tu galería.');
+      return;
+    }
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false, quality: 0.85,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const name = asset.fileName || `ficha_ruc_${Date.now()}.jpg`;
+        setRucDocument({ uri: asset.uri, name, type: asset.mimeType || 'image/jpeg' });
+      }
+    } catch { Alert.alert('Error', 'No se pudo seleccionar la imagen'); }
+  };
+
+  const pickRucFromFiles = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['image/*', 'application/pdf'], copyToCacheDirectory: true,
@@ -168,6 +189,18 @@ export const VerifyIdentityScreen = () => {
         setRucDocument({ uri: file.uri, name: file.name, type: file.mimeType || 'application/pdf' });
       }
     } catch { Alert.alert('Error', 'No se pudo seleccionar el documento'); }
+  };
+
+  const pickRucDocument = () => {
+    Alert.alert(
+      'Adjuntar Ficha RUC',
+      'Selecciona el origen del documento',
+      [
+        { text: 'Fotos', onPress: pickRucFromGallery },
+        { text: 'Archivos', onPress: pickRucFromFiles },
+        { text: 'Cancelar', style: 'cancel' },
+      ]
+    );
   };
 
   // ── Submit ─────────────────────────────────────────────────────────────────
@@ -210,7 +243,7 @@ export const VerifyIdentityScreen = () => {
 
   const canSubmit = !uploading && (
     isLegalEntity
-      ? !!frontImage && !!backImage && !!rucDocument
+      ? !!rucDocument
       : !!frontImage && !!backImage
   );
 
@@ -261,7 +294,7 @@ export const VerifyIdentityScreen = () => {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <Animated.View style={[{ flex: 1 }, { opacity: screenOpacity }]}>
-    <ImageBackground source={BG} style={s.root} resizeMode="cover">
+    <ImageBackground source={bg} style={s.root} resizeMode="cover">
       {/* ── Header fijo ──────────────────────────────────────────────────── */}
       <View style={[s.fixedHeader, { paddingTop: insets.top }]}>
         <TouchableOpacity
@@ -280,49 +313,48 @@ export const VerifyIdentityScreen = () => {
         showsVerticalScrollIndicator={false}
       >
 
-        {/* ── DNI Anverso ───────────────────────────────────────────────── */}
-        <Animated.View style={animStyle(card1Anim)}>
-          <BlurView intensity={35} tint="dark" style={s.card}>
-            <View style={s.cardHeader}>
-              <View style={s.cardIconWrap}>
-                <Ionicons name="card-outline" size={17} color="#63b3ed" />
-              </View>
-              <Text style={s.cardTitle}>
-                {isLegalEntity ? 'DNI Representante Legal' : 'DNI'} — Anverso
-              </Text>
-            </View>
-            <UploadZone
-              image={frontImage}
-              pulse={pulseFront}
-              onPress={() => showImageOptions('front')}
-              onClear={() => setFrontImage(null)}
-              label="Parte frontal del documento"
-              icon="image-outline"
-            />
-          </BlurView>
-        </Animated.View>
+        {/* ── DNI Anverso y Reverso — solo para Persona Natural ─────────── */}
+        {!isLegalEntity && (
+          <>
+            <Animated.View style={animStyle(card1Anim)}>
+              <BlurView intensity={35} tint="dark" style={s.card}>
+                <View style={s.cardHeader}>
+                  <View style={s.cardIconWrap}>
+                    <Ionicons name="card-outline" size={17} color="#63b3ed" />
+                  </View>
+                  <Text style={s.cardTitle}>DNI — Anverso</Text>
+                </View>
+                <UploadZone
+                  image={frontImage}
+                  pulse={pulseFront}
+                  onPress={() => showImageOptions('front')}
+                  onClear={() => setFrontImage(null)}
+                  label="Parte frontal del documento"
+                  icon="image-outline"
+                />
+              </BlurView>
+            </Animated.View>
 
-        {/* ── DNI Reverso ───────────────────────────────────────────────── */}
-        <Animated.View style={animStyle(card2Anim)}>
-          <BlurView intensity={35} tint="dark" style={s.card}>
-            <View style={s.cardHeader}>
-              <View style={s.cardIconWrap}>
-                <Ionicons name="card-outline" size={17} color="#63b3ed" />
-              </View>
-              <Text style={s.cardTitle}>
-                {isLegalEntity ? 'DNI Representante Legal' : 'DNI'} — Reverso
-              </Text>
-            </View>
-            <UploadZone
-              image={backImage}
-              pulse={pulseBack}
-              onPress={() => showImageOptions('back')}
-              onClear={() => setBackImage(null)}
-              label="Parte posterior del documento"
-              icon="image-outline"
-            />
-          </BlurView>
-        </Animated.View>
+            <Animated.View style={animStyle(card2Anim)}>
+              <BlurView intensity={35} tint="dark" style={s.card}>
+                <View style={s.cardHeader}>
+                  <View style={s.cardIconWrap}>
+                    <Ionicons name="card-outline" size={17} color="#63b3ed" />
+                  </View>
+                  <Text style={s.cardTitle}>DNI — Reverso</Text>
+                </View>
+                <UploadZone
+                  image={backImage}
+                  pulse={pulseBack}
+                  onPress={() => showImageOptions('back')}
+                  onClear={() => setBackImage(null)}
+                  label="Parte posterior del documento"
+                  icon="image-outline"
+                />
+              </BlurView>
+            </Animated.View>
+          </>
+        )}
 
         {/* ── Ficha RUC ─────────────────────────────────────────────────── */}
         {isLegalEntity && (
@@ -537,7 +569,7 @@ const s = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.02)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     marginBottom: 14,
     padding: 18,
   },
@@ -653,18 +685,21 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1A3D58',
+    backgroundColor: '#22c55e',
     borderRadius: 16,
     paddingVertical: 17,
     borderWidth: 1,
-    borderColor: 'rgba(99,179,237,0.2)',
-    shadowColor: '#1A3D58',
+    borderColor: 'rgba(34,197,94,0.3)',
+    shadowColor: '#22c55e',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.45,
     shadowRadius: 14,
     elevation: 8,
   },
   submitBtnDisabled: {
+    backgroundColor: '#1A3D58',
+    borderColor: 'rgba(99,179,237,0.2)',
+    shadowColor: '#1A3D58',
     opacity: 0.38,
     shadowOpacity: 0,
   },
@@ -712,7 +747,7 @@ const s = StyleSheet.create({
   },
   successCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 28,
     borderWidth: 1,
     borderColor: 'rgba(34,197,94,0.18)',

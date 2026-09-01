@@ -67,7 +67,7 @@ const AuthNavigator = () => {
     <View style={{ flex: 1 }}>
       {/* Fondo fijo — nunca transiciona, compartido por todas las pantallas auth */}
       <ImageBackground
-        source={require('../../assets/lo.png')}
+        source={require('../../assets/lo.jpg')}
         style={StyleSheet.absoluteFill}
         resizeMode="cover"
       />
@@ -594,7 +594,7 @@ const navS = StyleSheet.create({
   // ── Success modal ──
   successCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,
     borderColor: 'rgba(34,197,94,0.28)',
     borderRadius: 28,
@@ -680,7 +680,7 @@ const navS = StyleSheet.create({
   },
   alertCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,
     borderColor: 'rgba(239,68,68,0.25)',
     borderRadius: 24,

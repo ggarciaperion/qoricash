@@ -273,6 +273,27 @@ export const RegisterScreen: React.FC = () => {
     { num: 3, label: 'Verificación' },
   ];
 
+  // ── Validación reactiva por paso ─────────────────────────────────────────
+  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+  const canContinuePaso1 =
+    numDoc.length === DOC_MAX[tipoDoc] &&
+    emailLooksValid &&
+    password.length >= 8 &&
+    acceptTerms &&
+    notRobot;
+
+  const canContinuePaso2 = isNatural
+    ? !!nombres.trim() && !!apellidoP.trim() && telefono.length === 9
+    : !!razonSocial.trim() && !!personaContacto.trim() && !!relacionEmpresa.trim() && telefono.length === 9;
+
+  const canContinuePaso3 = true; // siempre activo — es solo confirmación
+
+  const isReady =
+    paso === 1 ? canContinuePaso1 :
+    paso === 2 ? canContinuePaso2 :
+    canContinuePaso3;
+
   const handleContinuar = async () => {
     setError('');
     if (!numDoc || numDoc.length !== DOC_MAX[tipoDoc]) {
@@ -727,14 +748,14 @@ export const RegisterScreen: React.FC = () => {
 
             {/* Botón principal */}
             <TouchableOpacity
-              style={s.continueBtn}
+              style={[s.continueBtn, isReady && s.continueBtnReady]}
               onPress={paso === 1 ? handleContinuar : paso === 2 ? handleContinuarPaso2 : handleSubmit}
               activeOpacity={0.75}
               disabled={loading}
             >
               {loading
                 ? <ActivityIndicator color="#ffffff" size="small" />
-                : <Text style={s.continueBtnText}>
+                : <Text style={[s.continueBtnText, isReady && s.continueBtnTextReady]}>
                     {paso === 3 ? 'Crear Cuenta' : 'Continuar'}
                   </Text>
               }
@@ -1244,11 +1265,24 @@ const s = StyleSheet.create({
   continueBtn: {
     paddingVertical: 18,
     alignItems: 'center',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  continueBtnReady: {
+    backgroundColor: '#22c55e',
+    shadowColor: '#22c55e',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
   continueBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#ffffff',
+    color: 'rgba(255,255,255,0.4)',
     letterSpacing: 0.3,
+  },
+  continueBtnTextReady: {
+    color: '#ffffff',
   },
 });

@@ -28,6 +28,7 @@ import { CreateOperationForm, BankAccount } from '../types';
 import { formatCurrency, calculateAmount, formatExchangeRate } from '../utils/formatters';
 import axios from 'axios';
 import { API_CONFIG } from '../constants/config';
+import { useBackground } from '../hooks/useBackground';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const GREEN        = '#22c55e';
@@ -448,7 +449,9 @@ const bsd = StyleSheet.create({
 
 // ─── Screen ────────────────────────────────────────────────────────────────────
 export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
+  const bg = useBackground();
   const { client, refreshClient } = useAuth();
+  const isLegalEntity = client?.document_type === 'RUC';
   const insets = useSafeAreaInsets();
 
   // ── Exchange rates ─────────────────────────────────────────────────────────
@@ -718,7 +721,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <View style={s.root}>
-      <ImageBackground source={require('../../assets/cd.png')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <ImageBackground source={bg} style={StyleSheet.absoluteFill} resizeMode="cover" />
       <View style={[StyleSheet.absoluteFill, s.overlay]} pointerEvents="none" />
 
       {/* ── Header fijo ── */}
@@ -727,7 +730,12 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
           <Ionicons name="chevron-back" size={20} color="#fff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Image source={require('../../assets/logo.png')} style={s.headerLogo} resizeMode="contain" />
+          <View style={{ alignItems: 'center' }}>
+            <Image source={require('../../assets/logo.png')} style={s.headerLogo} resizeMode="contain" />
+            {isLegalEntity && (
+              <Text style={s.corporateLabel}>corporate</Text>
+            )}
+          </View>
         </View>
         <View style={{ width: 38 }} />
       </View>
@@ -770,7 +778,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             transition={{ type: 'spring', delay: 90, damping: 22, stiffness: 200 }}
           >
             <View style={s.tradingCard}>
-              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.055)' }]} />
+              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)' }]} />
               <View style={[StyleSheet.absoluteFill, {
                 borderRadius: 20, borderWidth: 1,
                 borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.28)' : 'rgba(59,130,246,0.25)',
@@ -842,7 +850,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             transition={{ type: 'spring', delay: 210, damping: 22, stiffness: 180 }}
           >
             <View style={s.orderCard}>
-              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.055)' }]} />
+              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)' }]} />
               <View style={[StyleSheet.absoluteFill, { borderRadius: 20, borderWidth: 1, borderColor: GLASS_BORDER }]} />
 
               {/* Envías */}
@@ -896,7 +904,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             transition={{ type: 'spring', delay: 280, damping: 22, stiffness: 180 }}
           >
             <View style={s.accountsCard}>
-              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.055)' }]} />
+              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)' }]} />
               <View style={[StyleSheet.absoluteFill, { borderRadius: 20, borderWidth: 1, borderColor: GLASS_BORDER }]} />
 
               {/* Cuenta cargo */}
@@ -1233,6 +1241,14 @@ const s = StyleSheet.create({
   pageTitle: { fontSize: 14, fontWeight: '700', color: '#fff', letterSpacing: 0.3 },
   headerCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   headerLogo: { width: 110, height: 26 },
+  corporateLabel: {
+    fontSize: 9,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.35)',
+    letterSpacing: 2.5,
+    marginTop: 2,
+    marginLeft: 18,
+  },
 
   // ── Trading card (toggle + TC hero) ──
   tradingCard: {
@@ -1408,7 +1424,7 @@ const s = StyleSheet.create({
   modalBox: {
     width: '100%', maxHeight: '85%', borderRadius: 28, overflow: 'hidden',
     alignItems: 'center', paddingTop: 28, paddingBottom: 24, paddingHorizontal: 24,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.4,

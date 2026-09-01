@@ -40,6 +40,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Calculator } from '../components/Calculator';
 import { API_CONFIG } from '../constants/config';
 import { Operation } from '../types';
+import { useBackground } from '../hooks/useBackground';
 
 const { width: W } = Dimensions.get('window');
 
@@ -70,7 +71,7 @@ const ClockIcon: React.FC = () => {
     </Reanimated.View>
   );
 };
-const GLASS_BG     = 'rgba(255,255,255,0.09)';
+const GLASS_BG     = 'rgba(255,255,255,0.18)';
 const GLASS_BORDER = 'rgba(255,255,255,0.17)';
 const GREEN        = '#22c55e';
 
@@ -211,8 +212,10 @@ const LiveDot: React.FC = () => {
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
+  const bg = useBackground();
   const insets = useSafeAreaInsets();
   const { client, refreshClient } = useAuth();
+  const isLegalEntity = client?.document_type === 'RUC';
   const [refreshing, setRefreshing] = useState(false);
   const [activeOps, setActiveOps] = useState<Operation[]>([]);
 
@@ -333,6 +336,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [calcOperationType, setCalcOperationType] = useState<'Compra' | 'Venta'>('Compra');
   const [calcRates, setCalcRates] = useState<{ compra: number; venta: number } | null>(null);
 
+  // ── Corporate rate improvement (10 pips over base) ────────────────────────
+  const EMPRESA_IMPROVEMENT = 0.0010; // 10 pips
+  const EMPRESA_STRIKE_DIFF = 0.0030; // 30 pips below displayed rate
+
+  const empresaRates = useMemo(
+    () => calcRates && isLegalEntity
+      ? { compra: calcRates.compra + EMPRESA_IMPROVEMENT, venta: calcRates.venta - EMPRESA_IMPROVEMENT }
+      : null,
+    [calcRates, isLegalEntity],
+  );
+  const empresaStrike = useMemo(
+    () => empresaRates
+      ? { compra: empresaRates.compra - EMPRESA_STRIKE_DIFF, venta: empresaRates.venta + EMPRESA_STRIKE_DIFF }
+      : null,
+    [empresaRates],
+  );
+
   // ── Referral code ──────────────────────────────────────────────────────────
   const REFERRAL_IMPROVEMENT = 0.002; // 20 pips (0.0001 cada uno)
   const [referralModalVisible, setReferralModalVisible] = useState(false);
@@ -434,9 +454,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       return;
     }
     if (!client?.has_complete_documents) {
+      const isEmpresa = client?.document_type === 'RUC';
       Alert.alert(
         'Validación de Identidad Requerida',
-        'Necesitamos validar tu DNI antes de iniciar una operación.\n\nPor favor, sube las fotos de tu DNI.',
+        isEmpresa
+          ? 'Necesitamos validar la identidad de tu empresa.\n\nPor favor, adjunta tu Ficha RUC.'
+          : 'Necesitamos validar tu DNI antes de iniciar una operación.\n\nPor favor, sube las fotos de tu DNI.',
         [{ text: 'Entendido' }],
       );
       return;
@@ -481,7 +504,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
       {/* ── Fondo ── */}
       <ImageBackground
-        source={require('../../assets/lo.png')}
+        source={bg}
         style={StyleSheet.absoluteFill}
         resizeMode="cover"
         pointerEvents="none"
@@ -495,7 +518,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Text style={s.greetingLabel}>Bienvenido,</Text>
             <Text style={s.greetingName}>{firstName}</Text>
           </View>
-          <Image source={require('../../assets/logo.png')} style={s.logo} resizeMode="contain" />
+          <View style={{ alignItems: 'center', width: 110 }}>
+            <Image source={require('../../assets/logo.png')} style={s.logo} resizeMode="contain" />
+            {isLegalEntity && (
+              <Text style={s.corporateLabel}>corporate</Text>
+            )}
+          </View>
         </View>
         <View style={s.fixedGreetingHairline} />
       </View>
@@ -556,7 +584,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             animate={{ opacity: 1, translateY: 0 }}
             transition={{ type: 'spring', delay: 140, damping: 20, stiffness: 160 }}
           >
-            {(!client.dni_front_url || !client.dni_back_url) && (
+            {(isLegalEntity ? !client.ficha_ruc_url : (!client.dni_front_url || !client.dni_back_url)) && (
               <TouchableOpacity
                 style={s.warningBanner}
                 onPress={() => {
@@ -578,7 +606,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               </TouchableOpacity>
             )}
 
-            {client.dni_front_url && client.dni_back_url && (
+            {(isLegalEntity ? !!client.ficha_ruc_url : (client.dni_front_url && client.dni_back_url)) && (
               <View style={s.infoBanner}>
                 <View style={[s.bannerIcon, { backgroundColor: 'rgba(96,165,250,0.12)' }]}>
                   <ClockIcon />
@@ -624,15 +652,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               style={StyleSheet.absoluteFill}
             />
             <Text style={s.rateTabLabel}>Qoricash compra</Text>
-            {displayRates ? (
+            {isLegalEntity && empresaRates ? (
+              <View style={s.rateImprovedWrap}>
+                <Text style={s.rateTabValueStrike}>S/ {empresaStrike?.compra.toFixed(4)}</Text>
+                <Text style={[s.rateTabValue, { color: '#38bdf8' }]}>S/ {empresaRates.compra.toFixed(4)}</Text>
+              </View>
+            ) : displayRates ? (
               <View style={s.rateImprovedWrap}>
                 <Text style={s.rateTabValueStrike}>S/ {calcRates?.compra.toFixed(4)}</Text>
                 <Text style={[s.rateTabValue, s.rateImprovedValue]}>S/ {displayRates.compra.toFixed(4)}</Text>
               </View>
+            ) : calcRates ? (
+              <View style={s.rateImprovedWrap}>
+                <Text style={s.rateTabValueStrike}>S/ {(calcRates.compra - 0.003).toFixed(4)}</Text>
+                <Text style={[s.rateTabValue, { color: '#38bdf8' }, calcOperationType !== 'Compra' && s.rateTabValueDim]}>S/ {calcRates.compra.toFixed(4)}</Text>
+              </View>
             ) : (
-              <Text style={[s.rateTabValue, { color: '#38bdf8' }, calcOperationType !== 'Compra' && s.rateTabValueDim]}>
-                S/ {calcRates?.compra.toFixed(4) ?? '—'}
-              </Text>
+              <Text style={[s.rateTabValue, { color: '#38bdf8' }]}>—</Text>
             )}
             <View style={s.rateTabPill}>
               {pipLabel && <Text style={s.ratePipBadge}>{pipLabel}</Text>}
@@ -653,15 +689,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               style={StyleSheet.absoluteFill}
             />
             <Text style={s.rateTabLabel}>Qoricash vende</Text>
-            {displayRates ? (
+            {isLegalEntity && empresaRates ? (
+              <View style={s.rateImprovedWrap}>
+                <Text style={s.rateTabValueStrike}>S/ {empresaStrike?.venta.toFixed(4)}</Text>
+                <Text style={[s.rateTabValue, s.rateImprovedValue]}>S/ {empresaRates.venta.toFixed(4)}</Text>
+              </View>
+            ) : displayRates ? (
               <View style={s.rateImprovedWrap}>
                 <Text style={s.rateTabValueStrike}>S/ {calcRates?.venta.toFixed(4)}</Text>
                 <Text style={[s.rateTabValue, s.rateImprovedValue]}>S/ {displayRates.venta.toFixed(4)}</Text>
               </View>
+            ) : calcRates ? (
+              <View style={s.rateImprovedWrap}>
+                <Text style={s.rateTabValueStrike}>S/ {(calcRates.venta + 0.003).toFixed(4)}</Text>
+                <Text style={[s.rateTabValue, { color: '#22c55e' }, calcOperationType !== 'Venta' && s.rateTabValueDim]}>S/ {calcRates.venta.toFixed(4)}</Text>
+              </View>
             ) : (
-              <Text style={[s.rateTabValue, { color: '#22c55e' }, calcOperationType !== 'Venta' && s.rateTabValueDim]}>
-                S/ {calcRates?.venta.toFixed(4) ?? '—'}
-              </Text>
+              <Text style={[s.rateTabValue, { color: '#22c55e' }]}>—</Text>
             )}
             <View style={s.rateTabPill}>
               {pipLabel && <Text style={s.ratePipBadge}>{pipLabel}</Text>}
@@ -686,6 +730,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             onOperationTypeChange={setCalcOperationType}
             externalOperationType={calcOperationType}
             overrideRates={displayRates}
+            showStrikeRate={!isLegalEntity}
             hideTabs
           />
 
@@ -1029,6 +1074,14 @@ const s = StyleSheet.create({
     width: 110,
     height: 26,
   },
+  corporateLabel: {
+    fontSize: 9,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.35)',
+    letterSpacing: 2.5,
+    marginTop: 2,
+    marginLeft: 18,
+  },
   greetingLabel: {
     fontSize: 13,
     color: 'rgba(255,255,255,0.5)',
@@ -1046,7 +1099,7 @@ const s = StyleSheet.create({
   // ── User strip ──
   userStrip: {
     flexDirection: 'row',
-    backgroundColor: GLASS_BG,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,
     borderColor: GLASS_BORDER,
     borderRadius: 20,
@@ -1384,7 +1437,7 @@ const s = StyleSheet.create({
   },
   blockModalCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.13)',
     borderRadius: 24,
@@ -1552,7 +1605,7 @@ const s = StyleSheet.create({
   },
   referralModalSheet: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
@@ -1642,7 +1695,7 @@ const s = StyleSheet.create({
   },
   kycCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 28,
     borderWidth: 1,
     borderColor: 'rgba(34,197,94,0.18)',

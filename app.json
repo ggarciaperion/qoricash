@@ -7,13 +7,12 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#1976D2"
     },
-    "privacy": "public",
     "primaryColor": "#1976D2",
     "description": "QoriCash - Casa de cambio digital. Compra y vende dólares de forma rápida, segura y al mejor tipo de cambio del mercado.",
     "ios": {
@@ -30,7 +29,7 @@
         "backgroundColor": "#1976D2"
       },
       "package": "com.qoricash.app",
-      "versionCode": 6,
+      "versionCode": 7,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",

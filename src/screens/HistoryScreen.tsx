@@ -30,10 +30,11 @@ import { API_CONFIG } from '../constants/config';
 import socketService from '../services/socketService';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
 import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useBackground } from '../hooks/useBackground';
 
 const { width: W } = Dimensions.get('window');
 
-const GLASS_BG     = 'rgba(255,255,255,0.08)';
+const GLASS_BG     = 'rgba(255,255,255,0.18)';
 const GLASS_BORDER = 'rgba(255,255,255,0.15)';
 const GREEN        = '#22c55e';
 const OPERATION_TIMEOUT_MINUTES = 15;
@@ -125,6 +126,7 @@ const ShimmerBar: React.FC<{ color: string }> = ({ color }) => {
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
+  const bg = useBackground();
   const { client } = useAuth();
   const insets     = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -366,7 +368,7 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
 
   return (
     <View style={s.root}>
-      <ImageBackground source={require('../../assets/cd.png')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <ImageBackground source={bg} style={StyleSheet.absoluteFill} resizeMode="cover" />
       <View style={[StyleSheet.absoluteFill, s.overlay]} pointerEvents="none" />
 
       {/* ── Tab switcher ── */}
@@ -552,7 +554,7 @@ const s = StyleSheet.create({
 
   // ── Card ──
   card: {
-    backgroundColor: GLASS_BG,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,
     borderColor: GLASS_BORDER,
     borderRadius: 20,

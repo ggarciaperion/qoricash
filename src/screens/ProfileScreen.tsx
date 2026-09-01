@@ -24,9 +24,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../contexts/AuthContext';
 import { useLoginLoading } from '../contexts/LoginLoadingContext';
+import { useBackground } from '../hooks/useBackground';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const GLASS_BG     = 'rgba(255,255,255,0.08)';
+const GLASS_BG     = 'rgba(255,255,255,0.18)';
 const GLASS_BORDER = 'rgba(255,255,255,0.15)';
 const GREEN        = '#22c55e';
 
@@ -66,6 +67,7 @@ const SectionRow: React.FC<{
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
+  const bg = useBackground();
   const { client, user, refreshClient } = useAuth();
   const { setShowLogoutLoading } = useLoginLoading();
 
@@ -296,7 +298,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <View style={s.root}>
-      <ImageBackground source={require('../../assets/cd.png')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <ImageBackground source={bg} style={StyleSheet.absoluteFill} resizeMode="cover" />
       <View style={[StyleSheet.absoluteFill, s.overlay]} pointerEvents="none" />
 
       {/* ══ Header fijo (no scrollea) ════════════════════════════════════ */}
@@ -709,7 +711,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const GLASS_BG2    = 'rgba(255,255,255,0.08)';
+const GLASS_BG2    = 'rgba(255,255,255,0.18)';
 const GLASS_BORDER2 = 'rgba(255,255,255,0.15)';
 const GREEN2 = '#22c55e';
 

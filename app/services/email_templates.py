@@ -442,89 +442,94 @@ class EmailTemplates:
 
         body = """
       <tr>
-        <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
+        <td class="email-body-cell" style="padding:28px 32px;">
 
-          <div style="margin:0 0 20px 0;">
-            <span style="display:inline-block;background:#ffffff;color:#000000;font-size:10px;font-weight:700;
-                         text-transform:uppercase;letter-spacing:1.4px;padding:5px 14px;border-radius:20px;
-                         border:1.5px solid #000000;box-shadow:0 2px 8px rgba(0,0,0,0.07);">
-              Registro recibido con éxito
+          <p style="margin:0 0 18px;">
+            <span style="display:inline-block;background:#F1F5F9;color:#64748B;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:5px 14px;border-radius:20px;">
+              Registro recibido ✓
             </span>
-          </div>
-
-          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">
-            Hola <strong style="color:#1e293b;">{{ client_name }}</strong>, te damos la bienvenida a QoriCash.
           </p>
 
-          <table width="100%" cellspacing="0" cellpadding="0"
-                 style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
-            <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Documento</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;">{{ client_dni }}</td>
+          <h1 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#0F172A;line-height:1.25;">Bienvenido a QoriCash</h1>
+          <p style="margin:0 0 28px;font-size:14px;color:#64748B;line-height:1.7;">
+            {% if doc_type == 'RUC' %}Estimado(a){% else %}Hola{% endif %}
+            <strong style="color:#1E293B;">{{ client_name }}</strong> — recibimos tu solicitud de registro con éxito. Completa la verificación para comenzar a operar.
+          </p>
+
+          <!-- Card: Datos registrados -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #E9EDF2;border-radius:10px;overflow:hidden;margin:0 0 14px;">
+            <tr style="background:#F8FAFC;border-bottom:1px solid #E9EDF2;">
+              <td colspan="2" style="padding:11px 18px;border-bottom:1px solid #E9EDF2;">
+                <span style="font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.3px;">Datos de tu cuenta</span>
+              </td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Correo electrónico</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;">{{ client_email }}</td>
+              <td style="padding:12px 18px;width:130px;font-size:11px;font-weight:600;color:#94A3B8;white-space:nowrap;vertical-align:middle;border-bottom:1px solid #F1F5F9;">Documento</td>
+              <td style="padding:12px 18px;font-size:13px;font-weight:600;color:#0F172A;vertical-align:middle;border-bottom:1px solid #F1F5F9;">{{ client_dni }}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:12px 18px;font-size:11px;font-weight:600;color:#94A3B8;white-space:nowrap;vertical-align:middle;border-bottom:1px solid #F1F5F9;">Correo</td>
+              <td style="padding:12px 18px;font-size:13px;color:#1E293B;vertical-align:middle;border-bottom:1px solid #F1F5F9;">{{ client_email }}</td>
             </tr>
             {% if client_phone %}
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Teléfono</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;">{{ client_phone }}</td>
+              <td style="padding:12px 18px;font-size:11px;font-weight:600;color:#94A3B8;white-space:nowrap;vertical-align:middle;border-bottom:1px solid #F1F5F9;">Teléfono</td>
+              <td style="padding:12px 18px;font-size:13px;color:#1E293B;vertical-align:middle;border-bottom:1px solid #F1F5F9;">{{ client_phone }}</td>
             </tr>
             {% endif %}
             {% if client_contacto %}
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Persona de contacto</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;">{{ client_contacto }}</td>
+              <td style="padding:12px 18px;font-size:11px;font-weight:600;color:#94A3B8;white-space:nowrap;vertical-align:middle;border-bottom:1px solid #F1F5F9;">Contacto</td>
+              <td style="padding:12px 18px;font-size:13px;color:#1E293B;vertical-align:middle;border-bottom:1px solid #F1F5F9;">{{ client_contacto }}</td>
             </tr>
             {% endif %}
             <tr>
-              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Estado</td>
-              <td style="padding:11px 18px;vertical-align:middle;">
-                <span style="display:inline-block;background:#ffffff;border:1px solid #E2E8F0;border-radius:8px;
-                             padding:4px 14px;font-size:13px;font-weight:600;color:#1e293b;
-                             box-shadow:0 2px 8px rgba(0,0,0,0.05);">
-                  Pendiente de verificación
-                </span>
+              <td style="padding:12px 18px;font-size:11px;font-weight:600;color:#94A3B8;white-space:nowrap;vertical-align:middle;">Estado</td>
+              <td style="padding:12px 18px;vertical-align:middle;">
+                <span style="display:inline-block;background:#FEF9C3;color:#854D0E;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;">En verificación</span>
               </td>
             </tr>
           </table>
 
-          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">Próximos pasos</p>
+          <!-- Card: Próximos pasos -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #E9EDF2;border-radius:10px;overflow:hidden;margin:0 0 28px;">
+            <tr style="background:#F8FAFC;">
+              <td colspan="2" style="padding:11px 18px;border-bottom:1px solid #E9EDF2;">
+                <span style="font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.3px;">Próximos pasos</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:14px 10px 14px 18px;width:28px;font-size:13px;font-weight:800;color:#CBD5E1;vertical-align:top;text-align:center;border-bottom:1px solid #F1F5F9;">1</td>
+              <td style="padding:14px 18px 14px 8px;font-size:13px;color:#475569;line-height:1.65;vertical-align:top;border-bottom:1px solid #F1F5F9;">
+                {% if doc_type == 'RUC' %}
+                Envía tu <strong style="color:#0F172A;">ficha RUC</strong> respondiendo este correo o cárgala desde la app o la web. La verificación tarda hasta 10 minutos.
+                {% else %}
+                Sube tu <strong style="color:#0F172A;">DNI</strong> (anverso y reverso) desde la app, la web o respondiendo este correo.
+                {% endif %}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:14px 10px 14px 18px;width:28px;font-size:13px;font-weight:800;color:#CBD5E1;vertical-align:top;text-align:center;border-bottom:1px solid #F1F5F9;">2</td>
+              <td style="padding:14px 18px 14px 8px;font-size:13px;color:#475569;line-height:1.65;vertical-align:top;border-bottom:1px solid #F1F5F9;">
+                Nuestro equipo revisará tu información y te enviará la confirmación de activación por correo.
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:14px 10px 14px 18px;width:28px;font-size:13px;font-weight:800;color:#CBD5E1;vertical-align:top;text-align:center;">3</td>
+              <td style="padding:14px 18px 14px 8px;font-size:13px;color:#475569;line-height:1.65;vertical-align:top;">
+                {% if canal == 'movil' %}
+                También puedes ingresar desde <strong style="color:#0F172A;">www.qoricash.pe</strong> con tu documento y la contraseña que creaste en la app.
+                {% else %}
+                Próximamente lanzamos nuestra app para <strong style="color:#0F172A;">iOS y Android</strong>. Te notificaremos cuando esté disponible.
+                {% endif %}
+              </td>
+            </tr>
+          </table>
 
-          {% if doc_type == 'RUC' %}
-          <div style="border-radius:6px;padding:13px 16px;margin:0 0 12px 0;font-size:13px;line-height:1.65;
-                      background:#F0FDF4;border-left:3px solid """ + _GREEN + """;color:#14532d;">
-            Para realizar su primera operación, necesitamos validar su información. Envíe su ficha RUC
-            desde la app, la web o respondiendo a este correo. La validación se completará en un plazo
-            máximo de 10 minutos y le notificaremos cuando haya sido aprobada.
-          </div>
-          {% else %}
-          <div style="border-radius:6px;padding:13px 16px;margin:0 0 12px 0;font-size:13px;line-height:1.65;
-                      background:#F0FDF4;border-left:3px solid """ + _GREEN + """;color:#14532d;">
-            Sube tu DNI (anverso y reverso) desde la web, la app móvil o respondiendo a este correo. Te notificaremos cuando sea aprobado.
-          </div>
-          {% endif %}
-
-          {% if canal == 'movil' %}
-          <div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;
-                      background:#F0FDF4;border-left:3px solid """ + _GREEN + """;color:#14532d;">
-            <strong>Acceso web:</strong> También puedes ingresar desde <strong>www.qoricash.pe</strong>
-            usando tu número de documento y la contraseña que registraste en la app.
-          </div>
-          {% else %}
-          <div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;
-                      background:#F0FDF4;border-left:3px solid """ + _GREEN + """;color:#14532d;">
-            Próximamente publicaremos nuestra app para <strong>iOS</strong> y <strong>Android</strong>.
-            Te notificaremos cuando esté disponible para descargar.
-          </div>
-          {% endif %}
-
-          <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
-          <p style="margin:0;font-size:12px;color:#94a3b8;">
-            ¿Tienes alguna consulta? Escríbenos a
-            <a href="mailto:info@qoricash.pe" style="color:#000000;">info@qoricash.pe</a>
+          <p style="margin:0;font-size:12px;color:#94A3B8;text-align:center;">
+            ¿Consultas? Escríbenos a <a href="mailto:info@qoricash.pe" style="color:#0F172A;font-weight:600;text-decoration:none;">info@qoricash.pe</a>
           </p>
+
         </td>
       </tr>"""
 

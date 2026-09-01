@@ -22,6 +22,8 @@ import { Operation, BankAccount } from '../types';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
 import { STORAGE_KEYS } from '../constants/config';
 import socketService from '../services/socket';
+import { useBackground } from '../hooks/useBackground';
+import { useAuth } from '../contexts/AuthContext';
 
 const BANK_LOGOS: Record<string, any> = {
   'BCP':        require('../../assets/banks/bcp.png'),
@@ -48,6 +50,9 @@ interface ReceiveScreenProps {
 }
 
 export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route }) => {
+  const bg = useBackground();
+  const { client } = useAuth();
+  const isLegalEntity = client?.document_type === 'RUC';
   const { operation }  = route.params;
   const insets         = useSafeAreaInsets();
 
@@ -247,7 +252,7 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
   return (
     <View style={s.root}>
       <ImageBackground
-        source={require('../../assets/cd.png')}
+        source={bg}
         style={StyleSheet.absoluteFill}
         resizeMode="cover"
       />
@@ -265,11 +270,16 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
           </View>
         </TouchableOpacity>
         <View style={s.headerCenter}>
+          <View style={{ alignItems: 'center' }}>
           <Image
             source={require('../../assets/logo.png')}
             style={s.headerLogo}
             resizeMode="contain"
           />
+          {isLegalEntity && (
+            <Text style={s.corporateLabel}>corporate</Text>
+          )}
+          </View>
         </View>
         <View style={{ width: 40 }} />
       </View>
@@ -397,7 +407,7 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
                 </Text>
                 <Text style={s.amountLabel}>{operation.operation_type === 'Compra' ? 'Enviaste dólares' : 'Enviaste soles'}</Text>
               </View>
-              <Text style={s.amountValue}>
+              <Text style={s.amountValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
                 {operation.operation_type === 'Compra'
                   ? formatCurrency(operation.amount_usd, 'USD')
                   : formatCurrency(operation.amount_pen, 'PEN')}
@@ -416,7 +426,7 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
                 </Text>
                 <Text style={s.amountLabel}>{operation.operation_type === 'Compra' ? 'Recibirás soles' : 'Recibirás dólares'}</Text>
               </View>
-              <Text style={[s.amountValue, { color: GREEN }]}>
+              <Text style={[s.amountValue, { color: GREEN }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
                 {operation.operation_type === 'Compra'
                   ? formatCurrency(operation.amount_pen, 'PEN')
                   : formatCurrency(operation.amount_usd, 'USD')}
@@ -538,6 +548,14 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  corporateLabel: {
+    fontSize: 9,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.35)',
+    letterSpacing: 2.5,
+    marginTop: 2,
+    marginLeft: 18,
+  },
   headerLogo: {
     width: 110,
     height: 26,
@@ -607,7 +625,7 @@ const s = StyleSheet.create({
 
   // ── Cards ────────────────────────────────────────────────────────────────────
   card: {
-    backgroundColor: GLASS,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,
     borderColor: BORDER,
     borderRadius: 22,
@@ -752,7 +770,7 @@ const s = StyleSheet.create({
   },
   amountBlock: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -777,6 +795,8 @@ const s = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     color: '#fff',
+    width: '100%',
+    textAlign: 'center',
   },
   tcPill: {
     alignItems: 'center',

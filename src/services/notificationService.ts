@@ -10,14 +10,19 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import axios from 'axios';
 
-// Configurar comportamiento de notificaciones
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: true,
-  }),
-});
+// Detectar si estamos en Expo Go (push notifications no disponibles desde SDK 53)
+const isExpoGo = Constants.executionEnvironment === 'storeClient';
+
+// Configurar comportamiento de notificaciones solo si NO es Expo Go
+if (!isExpoGo) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: false,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 // URL del backend
 const API_URL = 'https://qoricash-trading-v2.onrender.com';
@@ -106,23 +111,16 @@ export const notificationService = {
     onNotificationReceived?: (notification: Notifications.Notification) => void,
     onNotificationTapped?: (response: Notifications.NotificationResponse) => void
   ) {
-    // Listener para notificaciones recibidas
+    if (isExpoGo) return () => {};
+
     const receivedListener = Notifications.addNotificationReceivedListener(notification => {
-      console.log('🔔 Notificación recibida:', notification);
-      if (onNotificationReceived) {
-        onNotificationReceived(notification);
-      }
+      if (onNotificationReceived) onNotificationReceived(notification);
     });
 
-    // Listener para cuando se toca la notificación
     const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('👆 Notificación tocada:', response);
-      if (onNotificationTapped) {
-        onNotificationTapped(response);
-      }
+      if (onNotificationTapped) onNotificationTapped(response);
     });
 
-    // Retornar función de limpieza
     return () => {
       receivedListener.remove();
       responseListener.remove();
@@ -133,16 +131,14 @@ export const notificationService = {
    * Configurar canal de notificaciones para Android
    */
   async setupAndroidNotificationChannel() {
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'QoriCash Notifications',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#1976D2',
-        sound: 'default',
-      });
-      console.log('✅ Canal de notificaciones Android configurado');
-    }
+    if (isExpoGo || Platform.OS !== 'android') return;
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'QoriCash Notifications',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#1976D2',
+      sound: 'default',
+    });
   },
 
   /**

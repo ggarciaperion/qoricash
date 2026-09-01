@@ -40,6 +40,7 @@ interface CalculatorProps {
   continueButtonText?: string;
   lightMode?: boolean;
   overrideRates?: { compra: number; venta: number } | null;
+  showStrikeRate?: boolean;
 }
 
 interface ExchangeRates {
@@ -60,6 +61,7 @@ export const Calculator: React.FC<CalculatorProps> = ({
   continueButtonText = 'CONTINUAR',
   lightMode = false,
   overrideRates = null,
+  showStrikeRate = false,
 }) => {
   const [operationType, setOperationType] = useState<'Compra' | 'Venta'>('Compra');
   const activeOperationType = externalOperationType ?? operationType;
@@ -412,9 +414,18 @@ export const Calculator: React.FC<CalculatorProps> = ({
             <Text style={[styles.infoText, lightMode && styles.infoTextLight]}>
               Ahorro estimado: S/ {formatInputAmount(String(calculateSavings()))}
             </Text>
-            <Text style={[styles.infoText, lightMode && styles.infoTextLight]}>
-              Tipo de cambio: {currentRate.toFixed(3)}
-            </Text>
+            <View style={{ alignItems: 'flex-end' }}>
+              {showStrikeRate && currentRate > 0 && (
+                <Text style={styles.strikeRateText}>
+                  {activeOperationType === 'Compra'
+                    ? (currentRate - 0.003).toFixed(4)
+                    : (currentRate + 0.003).toFixed(4)}
+                </Text>
+              )}
+              <Text style={[styles.infoText, lightMode && styles.infoTextLight]}>
+                TC: {currentRate.toFixed(4)}
+              </Text>
+            </View>
           </View>
         )}
       </View>
@@ -604,6 +615,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#FFFFFF',
     fontWeight: '500',
+  },
+  strikeRateText: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.38)',
+    textDecorationLine: 'line-through',
+    marginBottom: 1,
   },
   continueButton: {
     backgroundColor: Colors.primary,

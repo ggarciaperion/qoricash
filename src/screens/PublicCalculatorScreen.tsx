@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
   // ── Rate cards ─────────────────────────────────────────────────
   ratesRow: {
     flexDirection: 'row',
-    backgroundColor: GLASS_BG,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,
     borderColor: GLASS_BORDER,
     borderRadius: 22,
