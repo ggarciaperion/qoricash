@@ -481,23 +481,20 @@ class EmailService:
                     break
         logger.info(f'[email] nueva_op {getattr(operation, "operation_id", "?")} dest_num={dest_num} accounts={len(client_accounts)} destination_acc={destination_acc}')
 
-        from app.config.bank_accounts import get_accounts_for_currency, QORICASH_TITULAR, QORICASH_RUC
+        from app.config.bank_accounts import QORICASH_ACCOUNTS as _QA, QORICASH_TITULAR, QORICASH_RUC
 
-        # Determinar banco de origen del cliente para filtrar cuentas QoriCash
-        _BANCOS_PROPIOS = {'BCP', 'INTERBANK', 'BANBIF'}
+        # Determinar cuenta QoriCash exacta según banco de origen del cliente
+        # BCP → cuenta BCP | INTERBANK → cuenta IBK | BANBIF → cuenta BANBIF
+        # Otro banco (BBVA, Scotiabank, Pichincha, etc.) → CCI INTERBANK
+        _BANCOS_DIRECTOS = ('BCP', 'INTERBANK', 'BANBIF')
         _src_bank_raw = getattr(operation, 'source_bank_name', None) or ''
         _src_bank = _src_bank_raw.upper().strip()
-        _es_interbancaria = not any(b in _src_bank for b in _BANCOS_PROPIOS)
+        _banco_match = next((b for b in _BANCOS_DIRECTOS if b in _src_bank), None)
+        _es_interbancaria = _banco_match is None
+        _op_currency = 'USD' if getattr(operation, 'operation_type', '') == 'Compra' else 'PEN'
+        qori_account = _QA[_banco_match][_op_currency] if _banco_match else _QA['INTERBANK'][_op_currency]
 
-        if _es_interbancaria:
-            # Solo mostrar cuenta INTERBANK (operación interbancaria: el cliente abona por CCI)
-            usd_accounts = [acc for acc in get_accounts_for_currency('USD') if acc['banco'] == 'INTERBANK']
-            pen_accounts = [acc for acc in get_accounts_for_currency('PEN') if acc['banco'] == 'INTERBANK']
-        else:
-            usd_accounts = get_accounts_for_currency('USD')
-            pen_accounts = get_accounts_for_currency('PEN')
-
-        logger.info(f'[email] nueva_op {getattr(operation, "operation_id", "?")} source_bank="{_src_bank_raw}" interbancaria={_es_interbancaria}')
+        logger.info(f'[email] nueva_op {getattr(operation, "operation_id", "?")} source_bank="{_src_bank_raw}" banco_match={_banco_match} interbancaria={_es_interbancaria}')
 
         body = """
       <tr>
@@ -522,157 +519,120 @@ class EmailService:
             {% if is_ruc %}le confirmamos que hemos generado una nueva operación:{% else %}te confirmamos que hemos generado una nueva operación:{% endif %}
           </p>
 
-          <!-- ── CARD PRINCIPAL: Estado + Importe ───────────── -->
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;margin:0 0 8px 0;">
-            <!-- Fila Estado + Fecha -->
+          <!-- ── CARD 1: RESUMEN ─────────────────────────────── -->
+          <p style="margin:0 0 8px;font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.4px;">Resumen de operación</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#F3F5F8;border:1px solid #DDE3EC;border-radius:12px;overflow:hidden;margin:0 0 20px;">
+            <!-- Estado + Fecha -->
             <tr>
-              <td style="padding:11px 16px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;">
-                <table width="100%" cellspacing="0" cellpadding="0">
-                  <tr>
-                    <td style="font-size:11px;color:#64748b;">
-                      Estado &nbsp;
-                      <span style="display:inline-block;background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.3px;">{{ operation.status }}</span>
-                    </td>
-                    <td style="font-size:11px;color:#64748b;text-align:right;">
-                      Fecha &nbsp;<strong style="color:#1e293b;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</strong>
-                    </td>
-                  </tr>
-                </table>
+              <td style="padding:14px 20px;">
+                <table width="100%" cellspacing="0" cellpadding="0"><tr>
+                  <td style="font-size:12px;color:#64748B;">
+                    Estado &nbsp;
+                    <span style="display:inline-block;background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:3px 12px;border-radius:20px;letter-spacing:0.3px;">{{ operation.status }}</span>
+                  </td>
+                  <td style="font-size:12px;color:#64748B;text-align:right;">
+                    <strong style="color:#1E293B;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</strong>
+                  </td>
+                </tr></table>
               </td>
             </tr>
-            <!-- Inner themed card: Código + Tipo + importes -->
+            <tr><td style="height:1px;background:#E4E8EE;font-size:0;line-height:0;">&nbsp;</td></tr>
+            <!-- Código + Tipo -->
             <tr>
-              <td style="padding:14px 16px;">
-                {% if is_ruc %}
-                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#F0FDF4;border:1px solid rgba(26,61,88,0.18);border-radius:8px;overflow:hidden;">
-                {% else %}
-                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#F0FDF4;border:1px solid rgba(34,197,94,0.28);border-radius:8px;overflow:hidden;">
-                {% endif %}
-                  <!-- Código + Tipo -->
-                  <tr>
-                    <td style="padding:10px 14px;">
-                      <table width="100%" cellspacing="0" cellpadding="0">
-                        <tr>
-                          <td style="text-align:left;padding:0 6px;font-size:11px;color:#64748b;">
-                            Código &nbsp;<strong style="color:#1e293b;font-family:'Courier New',monospace;letter-spacing:0.5px;">{{ operation.operation_id }}</strong>
-                          </td>
-                          <td width="80" style="padding:0 4px;"></td>
-                          <td style="text-align:right;padding:0 6px;font-size:11px;color:#64748b;">
-                            Tipo &nbsp;
-                            {% if operation.operation_type == 'Compra' %}
-                            <strong style="color:#15803D;">COMPRA USD</strong>
-                            {% else %}
-                            <strong style="color:#1D4ED8;">VENTA USD</strong>
-                            {% endif %}
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-                  <!-- Separador sutil -->
-                  <tr>
-                    <td>
-                      {% if is_ruc %}
-                      <div style="height:1px;background:rgba(26,61,88,0.12);margin:0 14px;"></div>
-                      {% else %}
-                      <div style="height:1px;background:rgba(34,197,94,0.20);margin:0 14px;"></div>
-                      {% endif %}
-                    </td>
-                  </tr>
-                  <!-- Importes: Monto USD | Tipo de Cambio | Monto PEN -->
-                  <tr>
-                    <td style="padding:14px 14px 16px 14px;">
-                      <table width="100%" cellspacing="0" cellpadding="0">
-                        <tr>
-                          <td style="text-align:center;vertical-align:top;padding:0 6px;">
-                            <p style="margin:0 0 5px 0;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Monto USD</p>
-                            <p style="margin:0;font-size:20px;font-weight:800;color:#0D1B2A;white-space:nowrap;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</p>
-                          </td>
-                          <td width="80" style="text-align:center;vertical-align:middle;padding:0 4px;">
-                            <p style="margin:0 0 5px 0;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;">T.C.</p>
-                            <p style="margin:0;font-size:15px;font-weight:700;color:#1e293b;white-space:nowrap;">{{ "%.4f"|format(operation.exchange_rate) }}</p>
-                          </td>
-                          <td style="text-align:center;vertical-align:top;padding:0 6px;">
-                            <p style="margin:0 0 5px 0;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Monto PEN</p>
-                            <p style="margin:0;font-size:20px;font-weight:800;color:#0D1B2A;white-space:nowrap;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</p>
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-                </table>
+              <td style="padding:14px 20px;">
+                <table width="100%" cellspacing="0" cellpadding="0"><tr>
+                  <td style="font-size:12px;color:#64748B;">
+                    Código &nbsp;<strong style="color:#0D1B2A;font-family:'Courier New',monospace;letter-spacing:0.5px;">{{ operation.operation_id }}</strong>
+                  </td>
+                  <td style="font-size:12px;color:#64748B;text-align:right;">
+                    Tipo &nbsp;
+                    {% if operation.operation_type == 'Compra' %}
+                    <strong style="color:#15803D;">COMPRA USD</strong>
+                    {% else %}
+                    <strong style="color:#1D4ED8;">VENTA USD</strong>
+                    {% endif %}
+                  </td>
+                </tr></table>
+              </td>
+            </tr>
+            <tr><td style="height:1px;background:#E4E8EE;font-size:0;line-height:0;">&nbsp;</td></tr>
+            <!-- Montos -->
+            <tr>
+              <td style="padding:22px 20px;">
+                <table width="100%" cellspacing="0" cellpadding="0"><tr>
+                  <td style="text-align:center;vertical-align:top;">
+                    <p style="margin:0 0 6px;font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">Monto USD</p>
+                    <p style="margin:0;font-size:22px;font-weight:800;color:#0D1B2A;white-space:nowrap;">$&thinsp;{{ "{:,.2f}".format(operation.amount_usd) }}</p>
+                  </td>
+                  <td width="1" style="background:#E4E8EE;">&nbsp;</td>
+                  <td width="100" style="text-align:center;vertical-align:top;padding:0 12px;">
+                    <p style="margin:0 0 6px;font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">T.C.</p>
+                    <p style="margin:0;font-size:17px;font-weight:700;color:#334155;white-space:nowrap;">{{ "%.4f"|format(operation.exchange_rate) }}</p>
+                  </td>
+                  <td width="1" style="background:#E4E8EE;">&nbsp;</td>
+                  <td style="text-align:center;vertical-align:top;">
+                    <p style="margin:0 0 6px;font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">Monto PEN</p>
+                    <p style="margin:0;font-size:22px;font-weight:800;color:#0D1B2A;white-space:nowrap;">S/&thinsp;{{ "{:,.2f}".format(operation.amount_pen) }}</p>
+                  </td>
+                </tr></table>
               </td>
             </tr>
           </table>
-          <!-- ── CUENTAS QORICASH (donde el cliente transfiere) ── -->
-          <p style="margin:0 0 3px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">
+
+          <!-- ── CARD 2: CUENTAS QORICASH ───────────────────── -->
+          <p style="margin:0 0 8px;font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.4px;">
             {% if operation.operation_type == 'Compra' %}¿A dónde transfiero mis dólares?{% else %}¿A dónde transfiero mis soles?{% endif %}
           </p>
           {% if es_interbancaria %}
-          <div style="border-radius:6px;padding:10px 14px;margin:0 0 10px 0;background:#EFF6FF;border:1px solid #BFDBFE;font-size:12px;color:#1e40af;line-height:1.6;">
-            Su banco de origen no pertenece a nuestra red directa (BCP, INTERBANK o BANBIF). Por ello, debe realizar una <strong>transferencia interbancaria</strong> usando el CCI de nuestra cuenta INTERBANK indicada a continuación.
+          <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:10px 16px;margin:0 0 10px;font-size:12px;color:#1e40af;line-height:1.6;">
+            {% if is_ruc %}Su banco de origen no pertenece a nuestra red directa. Realice una <strong>transferencia interbancaria</strong> usando el CCI de nuestra cuenta INTERBANK.{% else %}Tu banco de origen no está en nuestra red directa. Realiza una <strong>transferencia interbancaria</strong> usando el CCI de nuestra cuenta INTERBANK.{% endif %}
           </div>
           {% endif %}
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
-            <tr style="background:#F8FAFC;border-bottom:1px solid #E2E8F0;">
-              <td colspan="4" style="padding:9px 14px;font-size:11px;color:#64748b;text-align:justify;">
-                Titular: <strong style="color:#1e293b;">{{ qoricash_titular }}</strong> &nbsp;&bull;&nbsp; RUC {{ qoricash_ruc }} &nbsp;&bull;&nbsp;
-                {% if operation.operation_type == 'Compra' %}Transfiera en <strong style="color:#1e293b;">USD</strong>{% else %}Transfiera en <strong style="color:#1e293b;">PEN</strong>{% endif %}
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#F3F5F8;border:1px solid #DDE3EC;border-radius:12px;overflow:hidden;margin:0 0 20px;">
+            <tr>
+              <td colspan="4" style="padding:12px 20px;font-size:11px;color:#64748B;">
+                Titular: <strong style="color:#0D1B2A;">{{ qoricash_titular }}</strong> &nbsp;&bull;&nbsp; RUC {{ qoricash_ruc }} &nbsp;&bull;&nbsp;
+                {% if operation.operation_type == 'Compra' %}Transfiere en <strong style="color:#0D1B2A;">USD</strong>{% else %}Transfiere en <strong style="color:#0D1B2A;">PEN</strong>{% endif %}
               </td>
             </tr>
-            <tr style="background:#0D1B2A;">
-              <td style="padding:7px 12px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Banco</td>
-              <td style="padding:7px 12px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Tipo de cuenta</td>
-              <td style="padding:7px 12px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">N° Cuenta</td>
-              <td style="padding:7px 12px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">CCI</td>
+            <tr><td colspan="4" style="height:1px;background:#E4E8EE;font-size:0;line-height:0;">&nbsp;</td></tr>
+            <tr style="background:#1A2B3C;">
+              <td style="padding:8px 20px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">Banco</td>
+              <td style="padding:8px 14px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">Tipo de cuenta</td>
+              <td style="padding:8px 14px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">N° Cuenta</td>
+              <td style="padding:8px 20px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">CCI</td>
             </tr>
-            {% if operation.operation_type == 'Compra' %}
-            {% for acc in usd_accounts %}
-            <tr style="border-top:1px solid #F1F5F9;">
-              <td style="padding:9px 12px;font-size:12px;font-weight:700;color:#1e293b;white-space:nowrap;">{{ acc.banco }}</td>
-              <td style="padding:9px 12px;font-size:12px;color:#64748b;">{{ acc.tipo }}</td>
-              <td style="padding:9px 12px;font-family:'Courier New',monospace;font-size:11px;font-weight:600;color:#0D1B2A;">{{ acc.numero }}</td>
-              <td style="padding:9px 12px;font-family:'Courier New',monospace;font-size:11px;color:#64748b;">{{ acc.cci }}</td>
+            <tr>
+              <td style="padding:13px 20px;font-size:13px;font-weight:700;color:#0D1B2A;white-space:nowrap;">{{ qori_account.banco }}</td>
+              <td style="padding:13px 14px;font-size:12px;color:#64748B;">{{ qori_account.tipo }}</td>
+              <td style="padding:13px 14px;font-family:'Courier New',monospace;font-size:11px;font-weight:600;color:#0D1B2A;">{{ qori_account.numero }}</td>
+              <td style="padding:13px 20px;font-family:'Courier New',monospace;font-size:11px;color:#64748B;">{{ qori_account.cci }}</td>
             </tr>
-            {% endfor %}
-            {% else %}
-            {% for acc in pen_accounts %}
-            <tr style="border-top:1px solid #F1F5F9;">
-              <td style="padding:9px 12px;font-size:12px;font-weight:700;color:#1e293b;white-space:nowrap;">{{ acc.banco }}</td>
-              <td style="padding:9px 12px;font-size:12px;color:#64748b;">{{ acc.tipo }}</td>
-              <td style="padding:9px 12px;font-family:'Courier New',monospace;font-size:11px;font-weight:600;color:#0D1B2A;">{{ acc.numero }}</td>
-              <td style="padding:9px 12px;font-family:'Courier New',monospace;font-size:11px;color:#64748b;">{{ acc.cci }}</td>
-            </tr>
-            {% endfor %}
-            {% endif %}
           </table>
 
-          <!-- ── CUENTAS DEL CLIENTE (donde recibirá el pago) ── -->
-          <p style="margin:0 0 3px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">
+          <!-- ── CARD 3: CUENTA DESTINO CLIENTE ─────────────── -->
+          <p style="margin:0 0 8px;font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.4px;">
             {% if is_ruc %}¿Dónde recibirá su pago?{% else %}¿Dónde recibirás tu pago?{% endif %}
           </p>
-          <p style="margin:0 0 10px 0;font-size:11px;color:#94a3b8;padding-left:13px;">
-            Qoricash acreditará en la siguiente cuenta
-          </p>
           {% if destination_acc %}
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
-            <tr style="background:#0D1B2A;">
-              <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Banco</td>
-              <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Tipo de cuenta</td>
-              <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Titular</td>
-              <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">N° Cuenta</td>
-              <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Moneda</td>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#F3F5F8;border:1px solid #DDE3EC;border-radius:12px;overflow:hidden;margin:0 0 24px;">
+            <tr style="background:#1A2B3C;">
+              <td style="padding:8px 20px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">Banco</td>
+              <td style="padding:8px 14px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">Tipo</td>
+              <td style="padding:8px 14px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">Titular</td>
+              <td style="padding:8px 14px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">N° Cuenta</td>
+              <td style="padding:8px 20px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">Moneda</td>
             </tr>
-            <tr style="border-top:1px solid #F1F5F9;">
-              <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#1e293b;white-space:nowrap;">{{ destination_acc.get('bank_name', '') }}</td>
-              <td style="padding:10px 14px;font-size:12px;color:#64748b;">{{ destination_acc.get('account_type', 'Cuenta Bancaria') }}</td>
-              <td style="padding:10px 14px;font-size:12px;color:#1e293b;">{{ operation.client.full_name or operation.client.razon_social }}</td>
-              <td style="padding:10px 14px;font-family:'Courier New',monospace;font-size:11px;font-weight:600;color:#0D1B2A;">{{ destination_acc.get('account_number', '') }}</td>
-              <td style="padding:10px 14px;font-size:12px;color:#64748b;">{{ destination_acc.get('currency', '') }}</td>
+            <tr>
+              <td style="padding:13px 20px;font-size:13px;font-weight:700;color:#0D1B2A;white-space:nowrap;">{{ destination_acc.get('bank_name', '') }}</td>
+              <td style="padding:13px 14px;font-size:12px;color:#64748B;">{{ destination_acc.get('account_type', 'Cuenta Bancaria') }}</td>
+              <td style="padding:13px 14px;font-size:12px;color:#0D1B2A;">{{ operation.client.full_name or operation.client.razon_social }}</td>
+              <td style="padding:13px 14px;font-family:'Courier New',monospace;font-size:11px;font-weight:600;color:#0D1B2A;">{{ destination_acc.get('account_number', '') }}</td>
+              <td style="padding:13px 20px;font-size:12px;color:#64748B;">{{ destination_acc.get('currency', '') }}</td>
             </tr>
           </table>
           {% else %}
-          <div style="border-radius:6px;padding:12px 16px;margin:0 0 24px 0;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;color:#94a3b8;text-align:center;">
+          <div style="border-radius:10px;padding:14px 18px;margin:0 0 24px;background:#F3F5F8;border:1px solid #DDE3EC;font-size:12px;color:#94A3B8;text-align:center;">
             {% if is_ruc %}No tiene cuentas bancarias registradas. Su ejecutivo le contactará para coordinar el pago.{% else %}No tienes cuentas bancarias registradas. Tu ejecutivo te contactará para coordinar el pago.{% endif %}
           </div>
           {% endif %}
@@ -699,13 +659,12 @@ class EmailService:
             _wrap_email_themed_svc(body, _theme),
             operation=operation,
             is_ruc=is_ruc,
-            usd_accounts=usd_accounts,
-            pen_accounts=pen_accounts,
             qoricash_titular=QORICASH_TITULAR,
             qoricash_ruc=QORICASH_RUC,
             client_accounts=client_accounts,
             destination_acc=destination_acc,
             es_interbancaria=_es_interbancaria,
+            qori_account=qori_account,
         )
         return _apply_theme_colors(html, _theme)
 
