@@ -28,14 +28,14 @@ _THEMES = {
         'bg':       '#F0FDF4',
         'info_bg':  '#F0FDF4',
         'info_txt': '#14532d',
-        'banner':   'https://app.qoricash.pe/static/images/logopn.png',
+        'banner':   'https://app.qoricash.pe/static/images/logopn.jpg',
     },
     'empresa': {
         'accent':   '#1A3D58',
         'bg':       '#EEF2F8',
         'info_bg':  '#EEF4FF',
         'info_txt': '#1e3a5f',
-        'banner':   'https://app.qoricash.pe/static/images/logocorpo.png',
+        'banner':   'https://app.qoricash.pe/static/images/logocorpo.jpg',
     },
 }
 
