@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   },
   rateTabPill: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.50)',
     borderRadius: 20,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
   },
   inputBox: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.50)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.17)',
     borderRadius: 20,
@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
   },
   currencyBox: {
     width: 95,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.50)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.17)',
     borderRadius: 20,

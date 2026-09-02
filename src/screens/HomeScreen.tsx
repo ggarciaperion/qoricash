@@ -70,7 +70,7 @@ const ClockIcon: React.FC = () => {
     </Reanimated.View>
   );
 };
-const GLASS_BG     = 'rgba(255,255,255,0.25)';
+const GLASS_BG     = 'rgba(255,255,255,0.50)';
 const GLASS_BORDER = 'rgba(255,255,255,0.17)';
 const GREEN        = '#22c55e';
 
@@ -160,7 +160,7 @@ const ActiveOpCard: React.FC<ActiveOpCardProps> = ({
             {isEnProceso ? 'En proceso' : 'Pendiente'}
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={13} color="rgba(255,255,255,0.25)" style={{ marginTop: 2 }} />
+        <Ionicons name="chevron-forward" size={13} color="rgba(255,255,255,0.50)" style={{ marginTop: 2 }} />
       </View>
     </TouchableOpacity>
   );
@@ -644,7 +644,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             style={[s.rateTab, calcOperationType === 'Compra' && s.rateTabActiveCompra]}
           >
             <View style={[StyleSheet.absoluteFill, {
-              backgroundColor: 'rgba(255,255,255,0.25)',
+              backgroundColor: 'rgba(255,255,255,0.50)',
             }]} />
             <Text style={s.rateTabLabel}>Qoricash compra</Text>
             {isLegalEntity && empresaRates ? (
@@ -677,7 +677,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             style={[s.rateTab, calcOperationType === 'Venta' && s.rateTabActiveVenta]}
           >
             <View style={[StyleSheet.absoluteFill, {
-              backgroundColor: 'rgba(255,255,255,0.25)',
+              backgroundColor: 'rgba(255,255,255,0.50)',
             }]} />
             <Text style={s.rateTabLabel}>Qoricash vende</Text>
             {isLegalEntity && empresaRates ? (
@@ -942,7 +942,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               value={referralInput}
               onChangeText={t => setReferralInput(t.toUpperCase())}
               placeholder="Ej: ABC123"
-              placeholderTextColor="rgba(255,255,255,0.25)"
+              placeholderTextColor="rgba(255,255,255,0.50)"
               autoCapitalize="characters"
               maxLength={8}
             />
@@ -1052,7 +1052,7 @@ const s = StyleSheet.create({
   fixedGreetingHairline: {
     marginTop: 14,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.50)',
   },
 
   // ── Header row ──
@@ -1090,7 +1090,7 @@ const s = StyleSheet.create({
   // ── User strip ──
   userStrip: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.50)',
     borderWidth: 1,
     borderColor: GLASS_BORDER,
     borderRadius: 20,
@@ -1308,7 +1308,7 @@ const s = StyleSheet.create({
     elevation: 8,
   },
   initiateBtnDisabled: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.50)',
     shadowOpacity: 0,
     elevation: 0,
   },
@@ -1428,7 +1428,7 @@ const s = StyleSheet.create({
   },
   blockModalCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.50)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.13)',
     borderRadius: 24,
