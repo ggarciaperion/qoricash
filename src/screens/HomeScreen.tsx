@@ -644,7 +644,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             style={[s.rateTab, calcOperationType === 'Compra' && s.rateTabActiveCompra]}
           >
             <View style={[StyleSheet.absoluteFill, {
-              backgroundColor: calcOperationType === 'Compra' ? '#0E2A4A' : '#0A1E35',
+              backgroundColor: calcOperationType === 'Compra' ? '#1A56A8' : '#163F7A',
             }]} />
             <Text style={s.rateTabLabel}>Qoricash compra</Text>
             {isLegalEntity && empresaRates ? (
@@ -677,7 +677,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             style={[s.rateTab, calcOperationType === 'Venta' && s.rateTabActiveVenta]}
           >
             <View style={[StyleSheet.absoluteFill, {
-              backgroundColor: calcOperationType === 'Venta' ? '#0C2E18' : '#081E10',
+              backgroundColor: calcOperationType === 'Venta' ? '#16A34A' : '#166534',
             }]} />
             <Text style={s.rateTabLabel}>Qoricash vende</Text>
             {isLegalEntity && empresaRates ? (
@@ -1249,10 +1249,10 @@ const s = StyleSheet.create({
     borderColor: GREEN,
   },
   rateTabActiveCompra: {
-    borderColor: 'rgba(56,189,248,0.60)',
+    borderColor: '#38bdf8',
   },
   rateTabActiveVenta: {
-    borderColor: 'rgba(34,197,94,0.60)',
+    borderColor: '#22c55e',
   },
   rateTabLabel: {
     fontSize: 11,
