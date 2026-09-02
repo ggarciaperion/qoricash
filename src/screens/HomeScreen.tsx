@@ -70,7 +70,7 @@ const ClockIcon: React.FC = () => {
     </Reanimated.View>
   );
 };
-const GLASS_BG     = 'rgba(255,255,255,0.18)';
+const GLASS_BG     = 'rgba(255,255,255,0.10)';
 const GLASS_BORDER = 'rgba(255,255,255,0.17)';
 const GREEN        = '#22c55e';
 
@@ -644,7 +644,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             style={[s.rateTab, calcOperationType === 'Compra' && s.rateTabActiveCompra]}
           >
             <View style={[StyleSheet.absoluteFill, {
-              backgroundColor: calcOperationType === 'Compra' ? '#1A56A8' : '#163F7A',
+              backgroundColor: 'rgba(255,255,255,0.10)',
             }]} />
             <Text style={s.rateTabLabel}>Qoricash compra</Text>
             {isLegalEntity && empresaRates ? (
@@ -677,7 +677,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             style={[s.rateTab, calcOperationType === 'Venta' && s.rateTabActiveVenta]}
           >
             <View style={[StyleSheet.absoluteFill, {
-              backgroundColor: calcOperationType === 'Venta' ? '#16A34A' : '#166534',
+              backgroundColor: 'rgba(255,255,255,0.10)',
             }]} />
             <Text style={s.rateTabLabel}>Qoricash vende</Text>
             {isLegalEntity && empresaRates ? (
@@ -798,7 +798,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             {activeOps.map(op => {
               const isEnProceso = op.status === 'en_proceso';
               const accentColor = isEnProceso ? GREEN : '#f59e0b';
-              const bgColor     = isEnProceso ? 'rgba(34,197,94,0.07)' : 'rgba(245,158,11,0.07)';
+              const bgColor     = isEnProceso ? 'rgba(34,197,94,0.10)' : 'rgba(245,158,11,0.10)';
               const borderColor = isEnProceso ? 'rgba(34,197,94,0.22)' : 'rgba(245,158,11,0.22)';
 
               return (
@@ -1090,7 +1090,7 @@ const s = StyleSheet.create({
   // ── User strip ──
   userStrip: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.10)',
     borderWidth: 1,
     borderColor: GLASS_BORDER,
     borderRadius: 20,
@@ -1428,7 +1428,7 @@ const s = StyleSheet.create({
   },
   blockModalCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.10)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.13)',
     borderRadius: 24,
