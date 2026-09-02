@@ -801,12 +801,15 @@ def _operacion_activa_cliente(numero):
 def _flujo_op_ya_activa(numero, op):
     """Informa al cliente que ya tiene una operación activa y no puede cotizar."""
     estado_texto = 'pendiente de pago' if op.status == 'Pendiente' else 'siendo procesada'
+    botones = [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+    if op.status == 'Pendiente':
+        botones.append({'id': 'btn_modificar_importe', 'title': '✏️ Modificar importe'})
     send_buttons(numero,
         f'⏳ Tu operación *{op.operation_id}* está {estado_texto}.\n\n'
         f'Solo puedes tener una operación activa a la vez. '
         f'En cuanto se complete podrás iniciar una nueva.\n\n'
         f'¿Tienes alguna consulta?',
-        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+        botones
     )
 
 
@@ -973,8 +976,39 @@ def _flujo_op_creada(numero, op, session, client):
         f'_Una vez transferido, presiona el botón y te pediremos el código de tu voucher (el número que aparece en tu constancia bancaria)._'
     )
     send_buttons(numero, msg, [
-        {'id': 'btn_ya_transferi', 'title': '✅ Ya transferí'},
+        {'id': 'btn_ya_transferi',      'title': '✅ Ya transferí'},
+        {'id': 'btn_modificar_importe', 'title': '✏️ Modificar importe'},
     ])
+
+
+def _flujo_modificar_importe(numero, session):
+    """Inicia el flujo para que el cliente modifique el importe de su operación pendiente."""
+    from app.models.operation import Operation
+    op = Operation.query.filter_by(operation_id=session.cotiz_op_id).first()
+
+    if not op:
+        send_text(numero, '⚠️ No encontramos tu operación. Contacta a un asesor: *+51 910 624 404*')
+        return
+
+    if op.status != 'Pendiente':
+        send_text(
+            numero,
+            f'ℹ️ Tu operación *{op.operation_id}* ya está en estado *{op.status}* '
+            f'y no puede modificarse. Contacta a un asesor si necesitas ayuda.'
+        )
+        session.estado = 'op_pendiente_pago'
+        return
+
+    verbo = 'comprar' if session.cotiz_op == 'compra' else 'vender'
+    send_text(
+        numero,
+        f'✏️ *Modificar importe — {op.operation_id}*\n\n'
+        f'Importe actual: *USD {float(op.amount_usd):,.2f}*\n'
+        f'T.C. aplicado: *{float(op.exchange_rate):.4f}*\n\n'
+        f'¿Cuántos USD deseas {verbo} ahora?\n'
+        f'_(Mínimo USD {MONTO_MINIMO_USD:,.0f} · Máximo USD 20,000)_'
+    )
+    session.estado = 'esperando_nuevo_importe'
 
 
 def _flujo_registrar_codigo_op(numero, codigo, session):
@@ -1603,6 +1637,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 )
                 session.estado = 'esperando_codigo_op'
 
+            elif btn_id == 'btn_modificar_importe':
+                _flujo_modificar_importe(numero, session)
+
             elif btn_id == 'btn_tengo_cuenta':
                 _flujo_pedir_doc_verificacion(numero)
                 session.estado = 'esperando_doc'
@@ -1873,6 +1910,92 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     )
                 else:
                     send_text(numero, '🔢 Ingresa el código de operación de tu voucher bancario.')
+
+            elif estado == 'esperando_nuevo_importe':
+                nuevo_monto = _parse_monto(texto)
+                if not nuevo_monto or nuevo_monto <= 0:
+                    send_text(numero,
+                        '⚠️ No entendí el monto. Ingresa solo el número en USD.\n'
+                        'Ejemplo: *1500* o *1500.50*'
+                    )
+                elif nuevo_monto < MONTO_MINIMO_USD:
+                    send_text(numero,
+                        f'⚠️ El monto mínimo es *USD {MONTO_MINIMO_USD:,.0f}*.\n'
+                        f'¿Cuántos USD deseas cambiar?'
+                    )
+                elif nuevo_monto > 20000:
+                    send_buttons(numero,
+                        '💼 Para importes superiores a *USD 20,000* te atendemos de forma personalizada.\n'
+                        'Un asesor te contactará para coordinarlo.',
+                        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                    )
+                    session.estado = 'inicio'
+                else:
+                    from app.models.operation import Operation
+                    from app.services.email_service import EmailService
+                    from app.services.notification_service import NotificationService
+
+                    op = Operation.query.filter_by(operation_id=session.cotiz_op_id).first()
+                    if not op:
+                        send_text(numero, '⚠️ No encontramos tu operación. Contacta a un asesor: *+51 910 624 404*')
+                        session.estado = 'inicio'
+                    elif op.status != 'Pendiente':
+                        send_text(numero,
+                            f'ℹ️ Tu operación *{op.operation_id}* ya está en estado *{op.status}* '
+                            f'y no puede modificarse.'
+                        )
+                        session.estado = 'op_pendiente_pago'
+                    else:
+                        # Guardar importes anteriores para el email
+                        old_usd = float(op.amount_usd)
+                        old_pen = float(op.amount_pen)
+                        tc      = float(op.exchange_rate)
+
+                        # Calcular nuevos importes con el mismo TC
+                        nuevo_usd = round(nuevo_monto, 2)
+                        nuevo_pen = round(nuevo_monto * tc, 2)
+
+                        op.amount_usd = nuevo_usd
+                        op.amount_pen = nuevo_pen
+                        db.session.commit()
+
+                        log.info(
+                            f'[WaBot] {numero} modificó importe {op.operation_id}: '
+                            f'USD {old_usd} → {nuevo_usd} | PEN {old_pen} → {nuevo_pen}'
+                        )
+
+                        # Notificación en tiempo real al sistema web
+                        try:
+                            NotificationService.notify_operation_updated(op, old_status=op.status)
+                        except Exception as _ne:
+                            log.warning(f'[WaBot] notify_operation_updated error: {_ne}')
+
+                        # Email automático de modificación de importe
+                        try:
+                            EmailService.send_amount_modified_operation_email(op, old_usd, old_pen)
+                        except Exception as _ee:
+                            log.warning(f'[WaBot] email modificación importe error: {_ee}')
+
+                        # Reenviar instrucciones de pago con el nuevo importe
+                        moneda_enviar = 'PEN' if session.cotiz_op == 'compra' else 'USD'
+                        simbolo       = 'S/' if moneda_enviar == 'PEN' else 'USD'
+                        monto_enviar  = nuevo_pen if moneda_enviar == 'PEN' else nuevo_usd
+                        cuentas       = _texto_cuentas_qoricash(moneda_enviar)
+
+                        msg = (
+                            f'✅ *Importe actualizado correctamente*\n\n'
+                            f'📋 *Operación:* {op.operation_id}\n'
+                            f'💱 *Nuevo importe:* USD {nuevo_usd:,.2f} → S/ {nuevo_pen:,.2f}\n'
+                            f'📈 *T.C.:* {tc:.4f}\n\n'
+                            f'*Transfiere {simbolo} {monto_enviar:,.2f} a:*\n\n'
+                            f'{cuentas}\n\n'
+                            f'_Una vez transferido, presiona el botón y te pediremos el código de tu voucher._'
+                        )
+                        send_buttons(numero, msg, [
+                            {'id': 'btn_ya_transferi',      'title': '✅ Ya transferí'},
+                            {'id': 'btn_modificar_importe', 'title': '✏️ Modificar importe'},
+                        ])
+                        session.estado = 'op_pendiente_pago'
 
             elif estado == 'esperando_email':
                 email = texto.strip()

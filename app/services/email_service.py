@@ -81,7 +81,7 @@ _FOOTER_BLOCK = f"""
         <td class="email-footer-cell"
             style="background-color:#F8FAFC;border-top:1px solid #E2E8F0;
                    padding:20px 36px;text-align:center;">
-          <p style="margin:0 0 3px;color:{_DARK};font-size:13px;font-weight:700;">QoriCash</p>
+          <p style="margin:0 0 3px;color:{_DARK};font-size:13px;font-weight:700;">Qoricash</p>
           <p style="margin:0 0 3px;color:#94a3b8;font-size:11px;">
             RUC: 20615113698 &nbsp;&middot;&nbsp;
             <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a>
@@ -91,7 +91,7 @@ _FOOTER_BLOCK = f"""
           <p style="margin:0 0 3px;color:#94a3b8;font-size:11px;">
             Av. Brasil 2790, int. 504 &nbsp;&middot;&nbsp; Pueblo Libre, Lima
           </p>
-          <p style="margin:0;color:#CBD5E1;font-size:10px;">&copy; 2026 QoriCash. Todos los derechos reservados.</p>
+          <p style="margin:0;color:#CBD5E1;font-size:10px;">&copy; 2026 Qoricash. Todos los derechos reservados.</p>
         </td>
       </tr>
 """
@@ -141,7 +141,7 @@ def _wrap_email_themed_svc(body_html: str, theme: str = 'persona') -> str:
         </td>
       </tr>
       <tr>
-        <td style="height:3px;background:{t['accent']};padding:0;line-height:0;font-size:0;">&nbsp;</td>
+        <td style="height:1px;background:#1E293B;padding:0;line-height:0;font-size:0;">&nbsp;</td>
       </tr>
       {{body_html}}
       {_FOOTER_BLOCK}
@@ -498,159 +498,209 @@ class EmailService:
 
         body = """
       <tr>
-        <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
+        <td class="email-body-cell" style="padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;">
 
-          <!-- ── BADGE + TIPO ─────────────────────────────── -->
-          <div style="margin:0 0 20px 0;">
-            {% if is_ruc %}
-            <span style="display:inline-block;background:linear-gradient(135deg,#1A6EAD 0%,#1A3D58 100%);color:#ffffff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:6px 16px;border-radius:20px;box-shadow:0 4px 12px rgba(26,61,88,0.30);">Nueva Operación</span>
-            {% else %}
-            <span style="display:inline-block;background:linear-gradient(135deg,#22C55E 0%,#16a34a 100%);color:#ffffff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:6px 16px;border-radius:20px;box-shadow:0 4px 12px rgba(34,197,94,0.30);">Nueva Operación</span>
-            {% endif %}
-            </div>
-
-          <!-- ── TÍTULO ────────────────────────────────────── -->
-          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">
-            {% if is_ruc %}Su operación ha sido registrada{% else %}Tu operación ha sido registrada{% endif %}
-          </h1>
-          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">
-            {% if is_ruc %}Estimado(a){% else %}Hola{% endif %}
-            <strong style="color:#1e293b;">{{ operation.client.full_name or operation.client.razon_social }}</strong>,
-            {% if is_ruc %}le confirmamos que hemos generado una nueva operación:{% else %}te confirmamos que hemos generado una nueva operación:{% endif %}
-          </p>
-
-          <!-- ── CARD 1: RESUMEN ─────────────────────────────── -->
-          <p style="margin:0 0 8px;font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.4px;">Resumen de operación</p>
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#F3F5F8;border:1px solid #DDE3EC;border-radius:12px;overflow:hidden;margin:0 0 20px;">
-            <!-- Estado + Fecha -->
+          <!-- ── BARRA ACENTO ──────────────────────────────── -->
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
             <tr>
-              <td style="padding:14px 20px;">
-                <table width="100%" cellspacing="0" cellpadding="0"><tr>
-                  <td style="font-size:12px;color:#64748B;">
-                    Estado &nbsp;
-                    <span style="display:inline-block;background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:3px 12px;border-radius:20px;letter-spacing:0.3px;">{{ operation.status }}</span>
-                  </td>
-                  <td style="font-size:12px;color:#64748B;text-align:right;">
-                    <strong style="color:#1E293B;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</strong>
-                  </td>
-                </tr></table>
-              </td>
-            </tr>
-            <tr><td style="height:1px;background:#E4E8EE;font-size:0;line-height:0;">&nbsp;</td></tr>
-            <!-- Código + Tipo -->
-            <tr>
-              <td style="padding:14px 20px;">
-                <table width="100%" cellspacing="0" cellpadding="0"><tr>
-                  <td style="font-size:12px;color:#64748B;">
-                    Código &nbsp;<strong style="color:#0D1B2A;font-family:'Courier New',monospace;letter-spacing:0.5px;">{{ operation.operation_id }}</strong>
-                  </td>
-                  <td style="font-size:12px;color:#64748B;text-align:right;">
-                    Tipo &nbsp;
-                    {% if operation.operation_type == 'Compra' %}
-                    <strong style="color:#15803D;">COMPRA USD</strong>
-                    {% else %}
-                    <strong style="color:#1D4ED8;">VENTA USD</strong>
-                    {% endif %}
-                  </td>
-                </tr></table>
-              </td>
-            </tr>
-            <tr><td style="height:1px;background:#E4E8EE;font-size:0;line-height:0;">&nbsp;</td></tr>
-            <!-- Montos -->
-            <tr>
-              <td style="padding:22px 20px;">
-                <table width="100%" cellspacing="0" cellpadding="0"><tr>
-                  <td style="text-align:center;vertical-align:top;">
-                    <p style="margin:0 0 6px;font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">Monto USD</p>
-                    <p style="margin:0;font-size:22px;font-weight:800;color:#0D1B2A;white-space:nowrap;">$&thinsp;{{ "{:,.2f}".format(operation.amount_usd) }}</p>
-                  </td>
-                  <td width="1" style="background:#E4E8EE;">&nbsp;</td>
-                  <td width="100" style="text-align:center;vertical-align:top;padding:0 12px;">
-                    <p style="margin:0 0 6px;font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">T.C.</p>
-                    <p style="margin:0;font-size:17px;font-weight:700;color:#334155;white-space:nowrap;">{{ "%.4f"|format(operation.exchange_rate) }}</p>
-                  </td>
-                  <td width="1" style="background:#E4E8EE;">&nbsp;</td>
-                  <td style="text-align:center;vertical-align:top;">
-                    <p style="margin:0 0 6px;font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">Monto PEN</p>
-                    <p style="margin:0;font-size:22px;font-weight:800;color:#0D1B2A;white-space:nowrap;">S/&thinsp;{{ "{:,.2f}".format(operation.amount_pen) }}</p>
-                  </td>
-                </tr></table>
-              </td>
+              <td style="height:1px;background:linear-gradient(90deg,#1E293B 0%,#334155 100%);font-size:0;line-height:0;">&nbsp;</td>
             </tr>
           </table>
 
-          <!-- ── CARD 2: CUENTAS QORICASH ───────────────────── -->
-          <p style="margin:0 0 8px;font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.4px;">
-            {% if operation.operation_type == 'Compra' %}¿A dónde transfiero mis dólares?{% else %}¿A dónde transfiero mis soles?{% endif %}
-          </p>
-          {% if es_interbancaria %}
-          <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:10px 16px;margin:0 0 10px;font-size:12px;color:#1e40af;line-height:1.6;">
-            {% if is_ruc %}Su banco de origen no pertenece a nuestra red directa. Realice una <strong>transferencia interbancaria</strong> usando el CCI de nuestra cuenta INTERBANK.{% else %}Tu banco de origen no está en nuestra red directa. Realiza una <strong>transferencia interbancaria</strong> usando el CCI de nuestra cuenta INTERBANK.{% endif %}
-          </div>
-          {% endif %}
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#F3F5F8;border:1px solid #DDE3EC;border-radius:12px;overflow:hidden;margin:0 0 20px;">
+          <!-- ── CONTENIDO PRINCIPAL ───────────────────────── -->
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
             <tr>
-              <td colspan="4" style="padding:12px 20px;font-size:11px;color:#64748B;">
-                Titular: <strong style="color:#0D1B2A;">{{ qoricash_titular }}</strong> &nbsp;&bull;&nbsp; RUC {{ qoricash_ruc }} &nbsp;&bull;&nbsp;
-                {% if operation.operation_type == 'Compra' %}Transfiere en <strong style="color:#0D1B2A;">USD</strong>{% else %}Transfiere en <strong style="color:#0D1B2A;">PEN</strong>{% endif %}
+              <td style="padding:36px 40px 40px;">
+
+                <!-- BADGE -->
+                <table cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 22px;">
+                  <tr>
+                    <td style="background:#16a34a;border-radius:4px;padding:4px 12px;font-size:10px;font-weight:700;color:#FFFFFF;text-transform:uppercase;letter-spacing:1.8px;">Nueva Operación</td>
+                  </tr>
+                </table>
+
+                <!-- SALUDO -->
+                <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0F1C2E;line-height:1.25;">
+                  {% if is_ruc %}Operación registrada{% else %}Operación registrada{% endif %}
+                </p>
+                <p style="margin:0 0 32px;font-size:14px;color:#64748B;line-height:1.6;">
+                  {% if is_ruc %}Estimado(a) <strong style="color:#1E293B;font-weight:600;">{{ operation.client.full_name or operation.client.razon_social }}</strong>, su operación ha sido recibida y está siendo procesada.{% else %}Hola <strong style="color:#1E293B;font-weight:600;">{{ operation.client.full_name or operation.client.razon_social }}</strong>, tu operación ha sido recibida y está siendo procesada.{% endif %}
+                </p>
+
+                <!-- ── HERO CARD: MONTOS ──────────────────── -->
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#000000;border-radius:16px;margin:0 0 32px;">
+                  <tr>
+                    <td style="padding:28px 32px 22px;">
+
+                      <!-- Título hero -->
+                      <p style="margin:0 0 24px;font-size:11px;font-weight:600;color:#FFFFFF;text-transform:uppercase;letter-spacing:2px;">
+                        {% if operation.operation_type == 'Compra' %}Qoricash Compra{% else %}Qoricash Vende{% endif %}
+                      </p>
+
+                      <!-- Montos -->
+                      <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td style="vertical-align:middle;">
+                            <p style="margin:0 0 6px;font-size:11px;color:rgba(255,255,255,0.40);text-transform:uppercase;letter-spacing:1.2px;">Envías</p>
+                            <p style="margin:0;font-size:32px;font-weight:700;color:#FFFFFF;letter-spacing:-1px;line-height:1;">
+                              {% if operation.operation_type == 'Compra' %}${% else %}S/{% endif %}&thinsp;{{ "{:,.2f}".format(operation.amount_usd if operation.operation_type == 'Compra' else operation.amount_pen) }}
+                            </p>
+                            <p style="margin:6px 0 0;font-size:12px;color:rgba(255,255,255,0.35);">
+                              {% if operation.operation_type == 'Compra' %}Dólares (USD){% else %}Soles (PEN){% endif %}
+                            </p>
+                          </td>
+                          <td width="72" style="text-align:center;vertical-align:middle;padding:0 4px;">
+                            <p style="margin:0 0 6px;font-size:9px;font-weight:600;color:rgba(255,255,255,0.30);text-transform:uppercase;letter-spacing:1px;">T.C.</p>
+                            {% if is_ruc %}
+                            <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#60A5FA;">{{ "%.4f"|format(operation.exchange_rate) }}</p>
+                            {% else %}
+                            <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#4ADE80;">{{ "%.4f"|format(operation.exchange_rate) }}</p>
+                            {% endif %}
+                            <p style="margin:0;font-size:20px;color:rgba(255,255,255,0.20);">&#8594;</p>
+                          </td>
+                          <td style="vertical-align:middle;text-align:right;">
+                            <p style="margin:0 0 6px;font-size:11px;color:rgba(255,255,255,0.40);text-transform:uppercase;letter-spacing:1.2px;">Recibes</p>
+                            <p style="margin:0;font-size:32px;font-weight:700;color:#FFFFFF;letter-spacing:-1px;line-height:1;">
+                              {% if operation.operation_type == 'Compra' %}S/{% else %}${% endif %}&thinsp;{{ "{:,.2f}".format(operation.amount_pen if operation.operation_type == 'Compra' else operation.amount_usd) }}
+                            </p>
+                            <p style="margin:6px 0 0;font-size:12px;color:rgba(255,255,255,0.35);">
+                              {% if operation.operation_type == 'Compra' %}Soles (PEN){% else %}Dólares (USD){% endif %}
+                            </p>
+                          </td>
+                        </tr>
+                      </table>
+
+                    </td>
+                  </tr>
+                  <!-- Barra estado -->
+                  <tr>
+                    <td style="padding:14px 32px;border-top:1px solid rgba(255,255,255,0.07);">
+                      <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td style="font-size:12px;color:rgba(255,255,255,0.40);">
+                            <span style="font-family:'Courier New',monospace;color:rgba(255,255,255,0.60);letter-spacing:0.3px;">{{ operation.operation_id }}</span>
+                          </td>
+                          <td style="text-align:center;font-size:12px;color:rgba(255,255,255,0.35);">
+                            {{ operation.created_at.strftime('%d %b %Y · %H:%M') }}
+                          </td>
+                          <td style="text-align:right;">
+                            {% if is_ruc %}
+                            <span style="background:rgba(26,61,88,0.80);border:1px solid rgba(42,96,128,0.60);color:#93C5FD;font-size:10px;font-weight:600;padding:3px 12px;border-radius:20px;letter-spacing:0.5px;">{{ operation.status }}</span>
+                            {% else %}
+                            <span style="background:rgba(21,128,61,0.30);border:1px solid rgba(34,197,94,0.40);color:#4ADE80;font-size:10px;font-weight:600;padding:3px 12px;border-radius:20px;letter-spacing:0.5px;">{{ operation.status }}</span>
+                            {% endif %}
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- ── CUENTA QORICASH ────────────────────── -->
+                <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;">
+                  {% if operation.operation_type == 'Compra' %}Deposita aquí tus dólares{% else %}Deposita aquí tus soles{% endif %}
+                </p>
+                {% if es_interbancaria %}
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 10px;">
+                  <tr>
+                    <td style="border-left:3px solid #3B82F6;padding:10px 14px;font-size:13px;color:#3B82F6;line-height:1.6;background:#EFF6FF;border-radius:0 8px 8px 0;">
+                      {% if is_ruc %}Realice una <strong>transferencia interbancaria</strong> usando el CCI de la cuenta INTERBANK.{% else %}Realiza una <strong>transferencia interbancaria</strong> usando el CCI de la cuenta INTERBANK.{% endif %}
+                    </td>
+                  </tr>
+                </table>
+                {% endif %}
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;margin:0 0 28px;">
+                  <tr>
+                    <td style="padding:22px 24px;">
+                      <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td style="vertical-align:top;">
+                            <p style="margin:0 0 2px;font-size:17px;font-weight:700;color:#0F1C2E;">{{ qori_account.banco }}</p>
+                            <p style="margin:0 0 18px;font-size:13px;color:#94A3B8;">{{ qori_account.tipo }} &nbsp;·&nbsp; {% if operation.operation_type == 'Compra' %}USD{% else %}PEN{% endif %}</p>
+                            {% if es_interbancaria %}
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">CCI</p>
+                            <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;font-family:'Courier New',monospace;letter-spacing:0.5px;">{{ qori_account.cci }}</p>
+                            {% else %}
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">N° de Cuenta</p>
+                            <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;font-family:'Courier New',monospace;letter-spacing:0.5px;">{{ qori_account.numero }}</p>
+                            {% endif %}
+                          </td>
+                          <td width="1" style="background:#F1F5F9;">&nbsp;</td>
+                          <td width="140" style="padding-left:24px;vertical-align:top;">
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">Titular</p>
+                            <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#0F1C2E;line-height:1.4;">{{ qoricash_titular }}</p>
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">RUC</p>
+                            <p style="margin:0;font-size:13px;color:#64748B;">{{ qoricash_ruc }}</p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- ── CUENTA CLIENTE ────────────────────── -->
+                <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;">
+                  {% if is_ruc %}Recibirá el pago en{% else %}Recibirás el pago en{% endif %}
+                </p>
+                {% if destination_acc %}
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;margin:0 0 32px;">
+                  <tr>
+                    <td style="padding:22px 24px;">
+                      <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td style="vertical-align:top;">
+                            <p style="margin:0 0 2px;font-size:17px;font-weight:700;color:#0F1C2E;">{{ destination_acc.get('bank_name', '') }}</p>
+                            <p style="margin:0 0 18px;font-size:13px;color:#94A3B8;">{{ destination_acc.get('account_type', 'Cuenta Bancaria') }} &nbsp;·&nbsp; {{ destination_acc.get('currency', '') }}</p>
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">N° de Cuenta</p>
+                            <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;font-family:'Courier New',monospace;letter-spacing:0.5px;">{{ destination_acc.get('account_number', '') }}</p>
+                          </td>
+                          <td width="1" style="background:#F1F5F9;">&nbsp;</td>
+                          <td width="140" style="padding-left:24px;vertical-align:top;">
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">Titular</p>
+                            <p style="margin:0;font-size:13px;font-weight:600;color:#0F1C2E;line-height:1.4;">{{ operation.client.full_name or operation.client.razon_social }}</p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+                {% else %}
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;margin:0 0 32px;">
+                  <tr>
+                    <td style="padding:20px 24px;font-size:14px;color:#94A3B8;text-align:center;">
+                      {% if is_ruc %}No tiene cuentas registradas. Su ejecutivo le contactará para coordinar el pago.{% else %}No tienes cuentas registradas. Tu ejecutivo te contactará para coordinar el pago.{% endif %}
+                    </td>
+                  </tr>
+                </table>
+                {% endif %}
+
+                <!-- ── OBSERVACIONES ─────────────────────── -->
+                {% if operation.notes %}
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 32px;">
+                  <tr>
+                    <td style="border-left:3px solid #E2E8F0;padding:2px 0 2px 16px;">
+                      <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.4px;">Observaciones</p>
+                      <p style="margin:0;font-size:14px;color:#64748B;line-height:1.6;">{{ operation.notes }}</p>
+                    </td>
+                  </tr>
+                </table>
+                {% endif %}
+
+                <!-- ── FOOTER ────────────────────────────── -->
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-top:1px solid #F1F5F9;">
+                  <tr>
+                    <td style="padding-top:20px;">
+                      <p style="margin:0 0 4px;font-size:13px;color:#64748B;line-height:1.65;">
+                        {% if is_ruc %}Nuestro equipo procesará su operación a la brevedad. Ante cualquier consulta, responda este correo o contacte a su ejecutivo.{% else %}Nuestro equipo procesará tu operación a la brevedad. Ante cualquier consulta, responde este correo o contacta a tu ejecutivo.{% endif %}
+                      </p>
+                      <p style="margin:0;font-size:11px;color:#CBD5E1;">Este es un correo automático generado por Qoricash.</p>
+                    </td>
+                  </tr>
+                </table>
+
               </td>
             </tr>
-            <tr><td colspan="4" style="height:1px;background:#E4E8EE;font-size:0;line-height:0;">&nbsp;</td></tr>
-            <tr style="background:#1A2B3C;">
-              <td style="padding:8px 20px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">Banco</td>
-              <td style="padding:8px 14px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">Tipo de cuenta</td>
-              <td style="padding:8px 14px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">N° Cuenta</td>
-              <td style="padding:8px 20px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">CCI</td>
-            </tr>
-            <tr>
-              <td style="padding:13px 20px;font-size:13px;font-weight:700;color:#0D1B2A;white-space:nowrap;">{{ qori_account.banco }}</td>
-              <td style="padding:13px 14px;font-size:12px;color:#64748B;">{{ qori_account.tipo }}</td>
-              <td style="padding:13px 14px;font-family:'Courier New',monospace;font-size:11px;font-weight:600;color:#0D1B2A;">{{ qori_account.numero }}</td>
-              <td style="padding:13px 20px;font-family:'Courier New',monospace;font-size:11px;color:#64748B;">{{ qori_account.cci }}</td>
-            </tr>
           </table>
-
-          <!-- ── CARD 3: CUENTA DESTINO CLIENTE ─────────────── -->
-          <p style="margin:0 0 8px;font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.4px;">
-            {% if is_ruc %}¿Dónde recibirá su pago?{% else %}¿Dónde recibirás tu pago?{% endif %}
-          </p>
-          {% if destination_acc %}
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#F3F5F8;border:1px solid #DDE3EC;border-radius:12px;overflow:hidden;margin:0 0 24px;">
-            <tr style="background:#1A2B3C;">
-              <td style="padding:8px 20px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">Banco</td>
-              <td style="padding:8px 14px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">Tipo</td>
-              <td style="padding:8px 14px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">Titular</td>
-              <td style="padding:8px 14px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">N° Cuenta</td>
-              <td style="padding:8px 20px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">Moneda</td>
-            </tr>
-            <tr>
-              <td style="padding:13px 20px;font-size:13px;font-weight:700;color:#0D1B2A;white-space:nowrap;">{{ destination_acc.get('bank_name', '') }}</td>
-              <td style="padding:13px 14px;font-size:12px;color:#64748B;">{{ destination_acc.get('account_type', 'Cuenta Bancaria') }}</td>
-              <td style="padding:13px 14px;font-size:12px;color:#0D1B2A;">{{ operation.client.full_name or operation.client.razon_social }}</td>
-              <td style="padding:13px 14px;font-family:'Courier New',monospace;font-size:11px;font-weight:600;color:#0D1B2A;">{{ destination_acc.get('account_number', '') }}</td>
-              <td style="padding:13px 20px;font-size:12px;color:#64748B;">{{ destination_acc.get('currency', '') }}</td>
-            </tr>
-          </table>
-          {% else %}
-          <div style="border-radius:10px;padding:14px 18px;margin:0 0 24px;background:#F3F5F8;border:1px solid #DDE3EC;font-size:12px;color:#94A3B8;text-align:center;">
-            {% if is_ruc %}No tiene cuentas bancarias registradas. Su ejecutivo le contactará para coordinar el pago.{% else %}No tienes cuentas bancarias registradas. Tu ejecutivo te contactará para coordinar el pago.{% endif %}
-          </div>
-          {% endif %}
-
-          <!-- ── OBSERVACIONES ──────────────────────────────── -->
-          {% if operation.notes %}
-          <p style="margin:0 0 6px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">Observaciones</p>
-          <div style="border-radius:6px;padding:12px 16px;margin:0 0 24px 0;background:#FFFBEB;border:1px solid #FDE68A;font-size:13px;color:#78350f;line-height:1.6;">
-            {{ operation.notes }}
-          </div>
-          {% endif %}
-
-          <!-- ── FOOTER ─────────────────────────────────────── -->
-          <div style="height:1px;background-color:#F1F5F9;margin:0 0 16px 0;"></div>
-          <p style="margin:0 0 4px 0;font-size:12px;color:#64748b;">
-            {% if is_ruc %}Nuestro equipo procesará su operación a la brevedad. Ante cualquier consulta, responda este correo o contacte a su ejecutivo.{% else %}Nuestro equipo procesará tu operación a la brevedad. Ante cualquier consulta, responde este correo o contacta a tu ejecutivo.{% endif %}
-          </p>
-          <p style="margin:0;font-size:11px;color:#94a3b8;">Este es un correo automático generado por Qoricash.</p>
 
         </td>
       </tr>"""
@@ -673,16 +723,14 @@ class EmailService:
         """Renderizar plantilla HTML para operación completada"""
         _doc = getattr(getattr(operation, 'client', None), 'document_type', 'DNI')
         _theme = _get_theme(_doc)
-        body = """
+        is_ruc = (_doc == 'RUC')
+
+        body_empresa = """
       <tr>
         <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
 
           <div style="margin:0 0 16px 0;">
-            {% if operation.client.document_type == 'RUC' %}
             <span style="display:inline-block;background:linear-gradient(135deg,#1A6EAD 0%,#1A3D58 100%);color:#ffffff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:6px 16px;border-radius:20px;box-shadow:0 4px 14px rgba(26,61,88,0.35);">✓ Operación Completada</span>
-            {% else %}
-            <span style="display:inline-block;background:linear-gradient(135deg,#22C55E 0%,#16a34a 100%);color:#ffffff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:6px 16px;border-radius:20px;box-shadow:0 4px 14px rgba(34,197,94,0.35);">✓ Operación Completada</span>
-            {% endif %}
           </div>
 
           <h1 style="margin:0 0 6px 0;font-size:21px;font-weight:700;color:#0D1B2A;line-height:1.3;">Su operación fue procesada con éxito</h1>
@@ -739,7 +787,7 @@ class EmailService:
               <td style="padding:12px 18px;vertical-align:middle;">
                 <a href="{{ proof.comprobante_url if proof.comprobante_url else proof }}"
                    target="_blank"
-                   style="display:inline-block;background:rgba(0,0,0,0.90);color:#ffffff;border:none;padding:8px 20px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;">
+                   style="display:inline-block;background:rgba(0,0,0,0.50);color:#ffffff;border:none;padding:8px 20px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;">
                   Ver comprobante{% if operation.operator_proofs|length > 1 %} {{ loop.index }}{% endif %}
                 </a>
                 {% if proof.comentario %}
@@ -766,12 +814,159 @@ class EmailService:
           {% endif %}
 
           <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
-          <p style="margin:0 0 8px 0;font-size:13px;color:#334155;">Gracias por confiar en <strong>QoriCash</strong> para sus operaciones cambiarias.</p>
+          <p style="margin:0 0 8px 0;font-size:13px;color:#334155;">Gracias por confiar en <strong>Qoricash</strong> para sus operaciones cambiarias.</p>
           <p style="margin:0;font-size:12px;color:#94a3b8;">¿Consultas? Responda este correo o contacte a su asesor comercial.</p>
 
         </td>
       </tr>"""
-        html = render_template_string(_wrap_email_themed_svc(body, _theme), operation=operation)
+
+        body_persona = """
+      <tr>
+        <td class="email-body-cell" style="padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;">
+
+          <!-- ── BARRA ACENTO ──────────────────────────────── -->
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+            <tr>
+              <td style="height:1px;background:linear-gradient(90deg,#1E293B 0%,#334155 100%);font-size:0;line-height:0;">&nbsp;</td>
+            </tr>
+          </table>
+
+          <!-- ── CONTENIDO PRINCIPAL ───────────────────────── -->
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+            <tr>
+              <td style="padding:36px 40px 40px;">
+
+                <!-- BADGE -->
+                <table cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 22px;">
+                  <tr>
+                    <td style="background:#16a34a;border-radius:4px;padding:4px 12px;font-size:10px;font-weight:700;color:#FFFFFF;text-transform:uppercase;letter-spacing:1.8px;">✓ Operación Completada</td>
+                  </tr>
+                </table>
+
+                <!-- SALUDO -->
+                <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0F1C2E;line-height:1.25;">Tu operación fue exitosa</p>
+                <p style="margin:0 0 32px;font-size:14px;color:#64748B;line-height:1.6;">
+                  Hola <strong style="color:#1E293B;font-weight:600;">{{ operation.client.full_name or operation.client.razon_social }}</strong>, tu cambio de divisas ha sido procesado y completado.
+                </p>
+
+                <!-- ── HERO CARD ──────────────────────────── -->
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#000000;border-radius:16px;margin:0 0 32px;">
+                  <tr>
+                    <td style="padding:28px 32px 22px;">
+                      <p style="margin:0 0 24px;font-size:11px;font-weight:600;color:#FFFFFF;text-transform:uppercase;letter-spacing:2px;">
+                        {% if operation.operation_type == 'Compra' %}Qoricash Compra{% else %}Qoricash Vende{% endif %}
+                      </p>
+                      <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td style="vertical-align:middle;">
+                            <p style="margin:0 0 6px;font-size:11px;color:rgba(255,255,255,0.40);text-transform:uppercase;letter-spacing:1.2px;">Enviaste</p>
+                            <p style="margin:0;font-size:32px;font-weight:700;color:#FFFFFF;letter-spacing:-1px;line-height:1;">
+                              {% if operation.operation_type == 'Compra' %}${% else %}S/{% endif %}&thinsp;{{ "{:,.2f}".format(operation.amount_usd if operation.operation_type == 'Compra' else operation.amount_pen) }}
+                            </p>
+                            <p style="margin:6px 0 0;font-size:12px;color:rgba(255,255,255,0.35);">
+                              {% if operation.operation_type == 'Compra' %}Dólares (USD){% else %}Soles (PEN){% endif %}
+                            </p>
+                          </td>
+                          <td width="72" style="text-align:center;vertical-align:middle;padding:0 4px;">
+                            <p style="margin:0 0 6px;font-size:9px;font-weight:600;color:rgba(255,255,255,0.30);text-transform:uppercase;letter-spacing:1px;">T.C.</p>
+                            <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#4ADE80;">{{ "%.4f"|format(operation.exchange_rate) }}</p>
+                            <p style="margin:0;font-size:20px;color:rgba(255,255,255,0.20);">&#8594;</p>
+                          </td>
+                          <td style="vertical-align:middle;text-align:right;">
+                            <p style="margin:0 0 6px;font-size:11px;color:rgba(255,255,255,0.40);text-transform:uppercase;letter-spacing:1.2px;">Recibiste</p>
+                            <p style="margin:0;font-size:32px;font-weight:700;color:#FFFFFF;letter-spacing:-1px;line-height:1;">
+                              {% if operation.operation_type == 'Compra' %}S/{% else %}${% endif %}&thinsp;{{ "{:,.2f}".format(operation.amount_pen if operation.operation_type == 'Compra' else operation.amount_usd) }}
+                            </p>
+                            <p style="margin:6px 0 0;font-size:12px;color:rgba(255,255,255,0.35);">
+                              {% if operation.operation_type == 'Compra' %}Soles (PEN){% else %}Dólares (USD){% endif %}
+                            </p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <!-- Barra estado -->
+                  <tr>
+                    <td style="padding:14px 32px;border-top:1px solid rgba(255,255,255,0.07);">
+                      <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td style="font-size:12px;color:rgba(255,255,255,0.40);">
+                            <span style="font-family:'Courier New',monospace;color:rgba(255,255,255,0.60);letter-spacing:0.3px;">{{ operation.operation_id }}</span>
+                          </td>
+                          <td style="text-align:center;font-size:12px;color:rgba(255,255,255,0.35);">
+                            {{ operation.completed_at.strftime('%d %b %Y · %H:%M') if operation.completed_at else operation.created_at.strftime('%d %b %Y · %H:%M') }}
+                          </td>
+                          <td style="text-align:right;">
+                            <span style="background:rgba(21,128,61,0.30);border:1px solid rgba(34,197,94,0.40);color:#4ADE80;font-size:10px;font-weight:600;padding:3px 12px;border-radius:20px;letter-spacing:0.5px;">Completado</span>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- ── COMPROBANTES ───────────────────────── -->
+                {% if operation.operator_proofs and operation.operator_proofs|length > 0 %}
+                <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;">Comprobante(s) de pago</p>
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;margin:0 0 28px;">
+                  {% for proof in operation.operator_proofs %}
+                  <tr{% if not loop.last %} style="border-bottom:1px solid #F1F5F9;"{% endif %}>
+                    <td style="padding:18px 24px;vertical-align:middle;">
+                      <a href="{{ proof.comprobante_url if proof.comprobante_url else proof }}"
+                         target="_blank"
+                         style="display:inline-block;background:#0F1C2E;color:#FFFFFF;border:none;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;letter-spacing:0.3px;">
+                        Ver comprobante{% if operation.operator_proofs|length > 1 %} {{ loop.index }}{% endif %}
+                      </a>
+                      {% if proof.comentario %}
+                      <p style="margin:8px 0 0;font-size:13px;color:#64748B;line-height:1.5;">{{ proof.comentario }}</p>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </table>
+                {% endif %}
+
+                <!-- ── FACTURA ────────────────────────────── -->
+                {% if operation.invoices and operation.invoices|length > 0 %}
+                {% set invoice = operation.invoices[0] %}
+                {% if invoice.nubefact_enlace_pdf or invoice.invoice_number %}
+                <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;">Comprobante electrónico</p>
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:12px;margin:0 0 32px;">
+                  <tr>
+                    <td style="padding:18px 24px;">
+                      <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#14532D;">
+                        {% if invoice.invoice_number %}{{ invoice.invoice_number }}{% endif %}
+                      </p>
+                      {% if invoice.nubefact_enlace_pdf %}
+                      <a href="{{ invoice.nubefact_enlace_pdf }}" target="_blank" style="font-size:13px;color:#16a34a;font-weight:600;text-decoration:none;">Descargar PDF &#8594;</a>
+                      {% endif %}
+                    </td>
+                  </tr>
+                </table>
+                {% endif %}
+                {% endif %}
+
+                <!-- ── FOOTER ────────────────────────────── -->
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-top:1px solid #F1F5F9;">
+                  <tr>
+                    <td style="padding-top:20px;">
+                      <p style="margin:0 0 4px;font-size:13px;color:#64748B;line-height:1.65;">
+                        Gracias por confiar en Qoricash para tus operaciones cambiarias. ¿Consultas? Responde este correo o contacta a tu ejecutivo.
+                      </p>
+                      <p style="margin:0;font-size:11px;color:#CBD5E1;">Este es un correo automático generado por Qoricash.</p>
+                    </td>
+                  </tr>
+                </table>
+
+              </td>
+            </tr>
+          </table>
+
+        </td>
+      </tr>"""
+
+        body = body_empresa if is_ruc else body_persona
+        html = render_template_string(_wrap_email_themed_svc(body, _theme), operation=operation, is_ruc=is_ruc)
         return _apply_theme_colors(html, _theme)
 
     @staticmethod
@@ -899,7 +1094,19 @@ class EmailService:
                 if acc.get('currency') in target_currencies:
                     destination_acc = acc
                     break
-        body = """
+
+        from app.config.bank_accounts import QORICASH_ACCOUNTS as _QA, get_accounts_for_currency, QORICASH_TITULAR, QORICASH_RUC
+
+        # Banco-matching para persona natural (igual que nueva operación)
+        _BANCOS_DIRECTOS = ('BCP', 'INTERBANK', 'BANBIF')
+        _src_bank_raw = getattr(operation, 'source_bank_name', None) or ''
+        _src_bank = _src_bank_raw.upper().strip()
+        _banco_match = next((b for b in _BANCOS_DIRECTOS if b in _src_bank), None)
+        _es_interbancaria = _banco_match is None
+        _op_currency = 'USD' if getattr(operation, 'operation_type', '') == 'Compra' else 'PEN'
+        qori_account = _QA[_banco_match][_op_currency] if _banco_match else _QA['INTERBANK'][_op_currency]
+
+        body_empresa = """
       <tr>
         <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
 
@@ -953,13 +1160,13 @@ class EmailService:
             </tr>
           </table>
 
-          <!-- ── CUENTAS QORICASH (donde el cliente transfiere) ── -->
+          <!-- ── CUENTAS QORICASH ── -->
           <p style="margin:0 0 3px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">
             {% if operation.operation_type == 'Compra' %}¿A dónde transfiero mis dólares?{% else %}¿A dónde transfiero mis soles?{% endif %}
           </p>
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="background:#F8FAFC;border-bottom:1px solid #E2E8F0;">
-              <td colspan="4" style="padding:9px 14px;font-size:11px;color:#64748b;text-align:justify;">
+              <td colspan="4" style="padding:9px 14px;font-size:11px;color:#64748b;">
                 Titular: <strong style="color:#1e293b;">{{ qoricash_titular }}</strong> &nbsp;&bull;&nbsp; RUC {{ qoricash_ruc }} &nbsp;&bull;&nbsp;
                 {% if operation.operation_type == 'Compra' %}Transfiera en <strong style="color:#1e293b;">USD</strong>{% else %}Transfiera en <strong style="color:#1e293b;">PEN</strong>{% endif %}
               </td>
@@ -991,18 +1198,14 @@ class EmailService:
             {% endif %}
           </table>
 
-          <!-- ── CUENTAS DEL CLIENTE (donde recibirá el pago) ── -->
-          <p style="margin:0 0 3px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">
-            {% if is_ruc %}¿Dónde recibirá su pago?{% else %}¿Dónde recibirás tu pago?{% endif %}
-          </p>
-          <p style="margin:0 0 10px 0;font-size:11px;color:#94a3b8;padding-left:13px;">
-            Qoricash acreditará en la siguiente cuenta
-          </p>
+          <!-- ── CUENTA CLIENTE ── -->
+          <p style="margin:0 0 3px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #000000;">¿Dónde recibirá su pago?</p>
+          <p style="margin:0 0 10px 0;font-size:11px;color:#94a3b8;padding-left:13px;">Qoricash acreditará en la siguiente cuenta</p>
           {% if destination_acc %}
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="background:#0D1B2A;">
               <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Banco</td>
-              <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Tipo de cuenta</td>
+              <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Tipo</td>
               <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Titular</td>
               <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">N° Cuenta</td>
               <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Moneda</td>
@@ -1017,26 +1220,238 @@ class EmailService:
           </table>
           {% else %}
           <div style="border-radius:6px;padding:12px 16px;margin:0 0 24px 0;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;color:#94a3b8;text-align:center;">
-            {% if is_ruc %}No tiene cuentas bancarias registradas. Su ejecutivo le contactará para coordinar el pago.{% else %}No tienes cuentas bancarias registradas. Tu ejecutivo te contactará para coordinar el pago.{% endif %}
+            No tiene cuentas bancarias registradas. Su ejecutivo le contactará para coordinar el pago.
           </div>
           {% endif %}
 
           <div style="border-radius:6px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#F0FDF4;border-left:3px solid #000000;color:#14532d;">
-            Si tiene alguna consulta sobre este cambio, responda este correo o contáctese directamente con su asesor.
+            Si tiene alguna consulta sobre este cambio, responda este correo o contáctese con su asesor.
           </div>
 
           <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
-          <p style="margin:0;font-size:12px;color:#94a3b8;">Este es un correo automático generado por el sistema QoriCash.</p>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">Este es un correo automático generado por el sistema Qoricash.</p>
 
         </td>
       </tr>"""
-        from app.config.bank_accounts import get_accounts_for_currency, QORICASH_TITULAR, QORICASH_RUC
+
+        body_persona = """
+      <tr>
+        <td class="email-body-cell" style="padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;">
+
+          <!-- ── BARRA ACENTO ──────────────────────────────── -->
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+            <tr>
+              <td style="height:1px;background:linear-gradient(90deg,#1E293B 0%,#334155 100%);font-size:0;line-height:0;">&nbsp;</td>
+            </tr>
+          </table>
+
+          <!-- ── CONTENIDO PRINCIPAL ───────────────────────── -->
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+            <tr>
+              <td style="padding:36px 40px 40px;">
+
+                <!-- BADGE -->
+                <table cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 22px;">
+                  <tr>
+                    <td style="background:#D97706;border-radius:4px;padding:4px 12px;font-size:10px;font-weight:700;color:#FFFFFF;text-transform:uppercase;letter-spacing:1.8px;">Actualización de Importe</td>
+                  </tr>
+                </table>
+
+                <!-- SALUDO -->
+                <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0F1C2E;line-height:1.25;">Se actualizó el importe de tu operación</p>
+                <p style="margin:0 0 32px;font-size:14px;color:#64748B;line-height:1.6;">
+                  Hola <strong style="color:#1E293B;font-weight:600;">{{ operation.client.full_name or operation.client.razon_social }}</strong>, el importe de la operación <strong style="color:#1E293B;font-family:'Courier New',monospace;">{{ operation.operation_id }}</strong> ha sido actualizado.
+                </p>
+
+                <!-- ── HERO CARD (nuevos montos) ─────────── -->
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#000000;border-radius:16px;margin:0 0 24px;">
+                  <tr>
+                    <td style="padding:28px 32px 22px;">
+                      <p style="margin:0 0 24px;font-size:11px;font-weight:600;color:#FFFFFF;text-transform:uppercase;letter-spacing:2px;">
+                        {% if operation.operation_type == 'Compra' %}Qoricash Compra{% else %}Qoricash Vende{% endif %}
+                      </p>
+                      <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td style="vertical-align:middle;">
+                            <p style="margin:0 0 6px;font-size:11px;color:rgba(255,255,255,0.40);text-transform:uppercase;letter-spacing:1.2px;">Envías</p>
+                            <p style="margin:0;font-size:32px;font-weight:700;color:#FFFFFF;letter-spacing:-1px;line-height:1;">
+                              {% if operation.operation_type == 'Compra' %}${% else %}S/{% endif %}&thinsp;{{ "{:,.2f}".format(operation.amount_usd if operation.operation_type == 'Compra' else operation.amount_pen) }}
+                            </p>
+                            <p style="margin:6px 0 0;font-size:12px;color:rgba(255,255,255,0.35);">
+                              {% if operation.operation_type == 'Compra' %}Dólares (USD){% else %}Soles (PEN){% endif %}
+                            </p>
+                          </td>
+                          <td width="72" style="text-align:center;vertical-align:middle;padding:0 4px;">
+                            <p style="margin:0 0 6px;font-size:9px;font-weight:600;color:rgba(255,255,255,0.30);text-transform:uppercase;letter-spacing:1px;">T.C.</p>
+                            <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#FCD34D;">{{ "%.4f"|format(operation.exchange_rate) }}</p>
+                            <p style="margin:0;font-size:20px;color:rgba(255,255,255,0.20);">&#8594;</p>
+                          </td>
+                          <td style="vertical-align:middle;text-align:right;">
+                            <p style="margin:0 0 6px;font-size:11px;color:rgba(255,255,255,0.40);text-transform:uppercase;letter-spacing:1.2px;">Recibes</p>
+                            <p style="margin:0;font-size:32px;font-weight:700;color:#FFFFFF;letter-spacing:-1px;line-height:1;">
+                              {% if operation.operation_type == 'Compra' %}S/{% else %}${% endif %}&thinsp;{{ "{:,.2f}".format(operation.amount_pen if operation.operation_type == 'Compra' else operation.amount_usd) }}
+                            </p>
+                            <p style="margin:6px 0 0;font-size:12px;color:rgba(255,255,255,0.35);">
+                              {% if operation.operation_type == 'Compra' %}Soles (PEN){% else %}Dólares (USD){% endif %}
+                            </p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <!-- Barra estado -->
+                  <tr>
+                    <td style="padding:14px 32px;border-top:1px solid rgba(255,255,255,0.07);">
+                      <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td style="font-size:12px;color:rgba(255,255,255,0.40);">
+                            <span style="font-family:'Courier New',monospace;color:rgba(255,255,255,0.60);letter-spacing:0.3px;">{{ operation.operation_id }}</span>
+                          </td>
+                          <td style="text-align:center;font-size:12px;color:rgba(255,255,255,0.35);">
+                            {{ operation.created_at.strftime('%d %b %Y · %H:%M') }}
+                          </td>
+                          <td style="text-align:right;">
+                            <span style="background:rgba(217,119,6,0.25);border:1px solid rgba(251,191,36,0.40);color:#FCD34D;font-size:10px;font-weight:600;padding:3px 12px;border-radius:20px;letter-spacing:0.5px;">Actualizado</span>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- ── TABLA CAMBIO DE IMPORTES ───────────── -->
+                <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;">Detalle del cambio</p>
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;margin:0 0 32px;">
+                  <tr style="border-bottom:1px solid #F1F5F9;">
+                    <td style="padding:14px 24px;font-size:13px;color:#94A3B8;vertical-align:middle;width:90px;">Monto USD</td>
+                    <td style="padding:14px 20px;vertical-align:middle;">
+                      <span style="color:#94A3B8;text-decoration:line-through;font-size:14px;">$ {{ "{:,.2f}".format(old_amount_usd) }}</span>
+                    </td>
+                    <td style="padding:14px 12px;text-align:center;vertical-align:middle;width:24px;">
+                      <span style="color:#FCD34D;font-weight:700;font-size:16px;">&rarr;</span>
+                    </td>
+                    <td style="padding:14px 24px;vertical-align:middle;">
+                      <span style="color:#0F1C2E;font-weight:700;font-size:16px;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:14px 24px;font-size:13px;color:#94A3B8;vertical-align:middle;">Monto PEN</td>
+                    <td style="padding:14px 20px;vertical-align:middle;">
+                      <span style="color:#94A3B8;text-decoration:line-through;font-size:14px;">S/ {{ "{:,.2f}".format(old_amount_pen) }}</span>
+                    </td>
+                    <td style="padding:14px 12px;text-align:center;vertical-align:middle;">
+                      <span style="color:#FCD34D;font-weight:700;font-size:16px;">&rarr;</span>
+                    </td>
+                    <td style="padding:14px 24px;vertical-align:middle;">
+                      <span style="color:#0F1C2E;font-weight:700;font-size:16px;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- ── CUENTA QORICASH ────────────────────── -->
+                <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;">
+                  {% if operation.operation_type == 'Compra' %}Deposita aquí tus dólares{% else %}Deposita aquí tus soles{% endif %}
+                </p>
+                {% if es_interbancaria %}
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 10px;">
+                  <tr>
+                    <td style="border-left:3px solid #3B82F6;padding:10px 14px;font-size:13px;color:#3B82F6;line-height:1.6;background:#EFF6FF;border-radius:0 8px 8px 0;">
+                      Realiza una <strong>transferencia interbancaria</strong> usando el CCI de la cuenta INTERBANK.
+                    </td>
+                  </tr>
+                </table>
+                {% endif %}
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;margin:0 0 28px;">
+                  <tr>
+                    <td style="padding:22px 24px;">
+                      <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td style="vertical-align:top;">
+                            <p style="margin:0 0 2px;font-size:17px;font-weight:700;color:#0F1C2E;">{{ qori_account.banco }}</p>
+                            <p style="margin:0 0 18px;font-size:13px;color:#94A3B8;">{{ qori_account.tipo }} &nbsp;·&nbsp; {% if operation.operation_type == 'Compra' %}USD{% else %}PEN{% endif %}</p>
+                            {% if es_interbancaria %}
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">CCI</p>
+                            <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;font-family:'Courier New',monospace;letter-spacing:0.5px;">{{ qori_account.cci }}</p>
+                            {% else %}
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">N° de Cuenta</p>
+                            <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;font-family:'Courier New',monospace;letter-spacing:0.5px;">{{ qori_account.numero }}</p>
+                            {% endif %}
+                          </td>
+                          <td width="1" style="background:#F1F5F9;">&nbsp;</td>
+                          <td width="140" style="padding-left:24px;vertical-align:top;">
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">Titular</p>
+                            <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#0F1C2E;line-height:1.4;">{{ qoricash_titular }}</p>
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">RUC</p>
+                            <p style="margin:0;font-size:13px;color:#64748B;">{{ qoricash_ruc }}</p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- ── CUENTA CLIENTE ────────────────────── -->
+                <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;">Recibirás el pago en</p>
+                {% if destination_acc %}
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;margin:0 0 32px;">
+                  <tr>
+                    <td style="padding:22px 24px;">
+                      <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td style="vertical-align:top;">
+                            <p style="margin:0 0 2px;font-size:17px;font-weight:700;color:#0F1C2E;">{{ destination_acc.get('bank_name', '') }}</p>
+                            <p style="margin:0 0 18px;font-size:13px;color:#94A3B8;">{{ destination_acc.get('account_type', 'Cuenta Bancaria') }} &nbsp;·&nbsp; {{ destination_acc.get('currency', '') }}</p>
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">N° de Cuenta</p>
+                            <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;font-family:'Courier New',monospace;letter-spacing:0.5px;">{{ destination_acc.get('account_number', '') }}</p>
+                          </td>
+                          <td width="1" style="background:#F1F5F9;">&nbsp;</td>
+                          <td width="140" style="padding-left:24px;vertical-align:top;">
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">Titular</p>
+                            <p style="margin:0;font-size:13px;font-weight:600;color:#0F1C2E;line-height:1.4;">{{ operation.client.full_name or operation.client.razon_social }}</p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+                {% else %}
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;margin:0 0 32px;">
+                  <tr>
+                    <td style="padding:20px 24px;font-size:14px;color:#94A3B8;text-align:center;">
+                      No tienes cuentas registradas. Tu ejecutivo te contactará para coordinar el pago.
+                    </td>
+                  </tr>
+                </table>
+                {% endif %}
+
+                <!-- ── FOOTER ────────────────────────────── -->
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-top:1px solid #F1F5F9;">
+                  <tr>
+                    <td style="padding-top:20px;">
+                      <p style="margin:0 0 4px;font-size:13px;color:#64748B;line-height:1.65;">
+                        Si tienes alguna consulta sobre este cambio, responde este correo o contacta a tu ejecutivo.
+                      </p>
+                      <p style="margin:0;font-size:11px;color:#CBD5E1;">Este es un correo automático generado por Qoricash.</p>
+                    </td>
+                  </tr>
+                </table>
+
+              </td>
+            </tr>
+          </table>
+
+        </td>
+      </tr>"""
+
+        body = body_empresa if is_ruc else body_persona
         html = render_template_string(
             _wrap_email_themed_svc(body, _theme),
             operation=operation,
             old_amount_usd=old_amount_usd,
             old_amount_pen=old_amount_pen,
             is_ruc=is_ruc,
+            es_interbancaria=_es_interbancaria,
+            qori_account=qori_account,
             usd_accounts=get_accounts_for_currency('USD'),
             pen_accounts=get_accounts_for_currency('PEN'),
             qoricash_titular=QORICASH_TITULAR,
@@ -1051,7 +1466,9 @@ class EmailService:
         """Renderizar plantilla HTML para operación cancelada"""
         _doc = getattr(getattr(operation, 'client', None), 'document_type', 'DNI')
         _theme = _get_theme(_doc)
-        body = """
+        is_ruc = (_doc == 'RUC')
+
+        body_empresa = """
       <tr>
         <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
 
@@ -1122,7 +1539,134 @@ class EmailService:
 
         </td>
       </tr>"""
-        html = render_template_string(_wrap_email_themed_svc(body, _theme), operation=operation, reason=reason)
+
+        body_persona = """
+      <tr>
+        <td class="email-body-cell" style="padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;">
+
+          <!-- ── BARRA ACENTO ──────────────────────────────── -->
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+            <tr>
+              <td style="height:1px;background:linear-gradient(90deg,#1E293B 0%,#334155 100%);font-size:0;line-height:0;">&nbsp;</td>
+            </tr>
+          </table>
+
+          <!-- ── CONTENIDO PRINCIPAL ───────────────────────── -->
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+            <tr>
+              <td style="padding:36px 40px 40px;">
+
+                <!-- BADGE -->
+                <table cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 22px;">
+                  <tr>
+                    <td style="background:#EF4444;border-radius:4px;padding:4px 12px;font-size:10px;font-weight:700;color:#FFFFFF;text-transform:uppercase;letter-spacing:1.8px;">Operación Cancelada</td>
+                  </tr>
+                </table>
+
+                <!-- SALUDO -->
+                <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0F1C2E;line-height:1.25;">Tu operación fue cancelada</p>
+                <p style="margin:0 0 32px;font-size:14px;color:#64748B;line-height:1.6;">
+                  Hola <strong style="color:#1E293B;font-weight:600;">{{ operation.client.full_name or operation.client.razon_social }}</strong>, la siguiente operación ha sido cancelada en nuestro sistema.
+                </p>
+
+                <!-- ── HERO CARD ──────────────────────────── -->
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#000000;border-radius:16px;margin:0 0 32px;">
+                  <tr>
+                    <td style="padding:28px 32px 22px;">
+                      <p style="margin:0 0 24px;font-size:11px;font-weight:600;color:#FFFFFF;text-transform:uppercase;letter-spacing:2px;">
+                        {% if operation.operation_type == 'Compra' %}Qoricash Compra{% else %}Qoricash Vende{% endif %}
+                      </p>
+                      <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td style="vertical-align:middle;">
+                            <p style="margin:0 0 6px;font-size:11px;color:rgba(255,255,255,0.40);text-transform:uppercase;letter-spacing:1.2px;">Envías</p>
+                            <p style="margin:0;font-size:32px;font-weight:700;color:#FFFFFF;letter-spacing:-1px;line-height:1;">
+                              {% if operation.operation_type == 'Compra' %}${% else %}S/{% endif %}&thinsp;{{ "{:,.2f}".format(operation.amount_usd if operation.operation_type == 'Compra' else operation.amount_pen) }}
+                            </p>
+                            <p style="margin:6px 0 0;font-size:12px;color:rgba(255,255,255,0.35);">
+                              {% if operation.operation_type == 'Compra' %}Dólares (USD){% else %}Soles (PEN){% endif %}
+                            </p>
+                          </td>
+                          <td width="72" style="text-align:center;vertical-align:middle;padding:0 4px;">
+                            <p style="margin:0 0 6px;font-size:9px;font-weight:600;color:rgba(255,255,255,0.30);text-transform:uppercase;letter-spacing:1px;">T.C.</p>
+                            <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#FCA5A5;">{{ "%.4f"|format(operation.exchange_rate) }}</p>
+                            <p style="margin:0;font-size:20px;color:rgba(255,255,255,0.20);">&#8594;</p>
+                          </td>
+                          <td style="vertical-align:middle;text-align:right;">
+                            <p style="margin:0 0 6px;font-size:11px;color:rgba(255,255,255,0.40);text-transform:uppercase;letter-spacing:1.2px;">Recibes</p>
+                            <p style="margin:0;font-size:32px;font-weight:700;color:#FFFFFF;letter-spacing:-1px;line-height:1;">
+                              {% if operation.operation_type == 'Compra' %}S/{% else %}${% endif %}&thinsp;{{ "{:,.2f}".format(operation.amount_pen if operation.operation_type == 'Compra' else operation.amount_usd) }}
+                            </p>
+                            <p style="margin:6px 0 0;font-size:12px;color:rgba(255,255,255,0.35);">
+                              {% if operation.operation_type == 'Compra' %}Soles (PEN){% else %}Dólares (USD){% endif %}
+                            </p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <!-- Barra estado -->
+                  <tr>
+                    <td style="padding:14px 32px;border-top:1px solid rgba(255,255,255,0.07);">
+                      <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td style="font-size:12px;color:rgba(255,255,255,0.40);">
+                            <span style="font-family:'Courier New',monospace;color:rgba(255,255,255,0.60);letter-spacing:0.3px;">{{ operation.operation_id }}</span>
+                          </td>
+                          <td style="text-align:center;font-size:12px;color:rgba(255,255,255,0.35);">
+                            {{ operation.created_at.strftime('%d %b %Y · %H:%M') }}
+                          </td>
+                          <td style="text-align:right;">
+                            <span style="background:rgba(239,68,68,0.20);border:1px solid rgba(239,68,68,0.40);color:#FCA5A5;font-size:10px;font-weight:600;padding:3px 12px;border-radius:20px;letter-spacing:0.5px;">Cancelado</span>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- ── MOTIVO ─────────────────────────────── -->
+                {% if reason %}
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 28px;">
+                  <tr>
+                    <td style="border-left:3px solid #EF4444;padding:14px 18px;background:#FEF2F2;border-radius:0 8px 8px 0;">
+                      <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#B91C1C;text-transform:uppercase;letter-spacing:1.4px;">Motivo de cancelación</p>
+                      <p style="margin:0;font-size:14px;color:#991B1B;line-height:1.6;">{{ reason }}</p>
+                    </td>
+                  </tr>
+                </table>
+                {% endif %}
+
+                <!-- ── INFO ──────────────────────────────── -->
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 32px;">
+                  <tr>
+                    <td style="border-left:3px solid #E2E8F0;padding:2px 0 2px 16px;">
+                      <p style="margin:0;font-size:14px;color:#64748B;line-height:1.6;">Si deseas realizar una nueva operación, ingresa a <strong style="color:#1E293B;">www.qoricash.pe</strong> o contacta a tu ejecutivo.</p>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- ── FOOTER ────────────────────────────── -->
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-top:1px solid #F1F5F9;">
+                  <tr>
+                    <td style="padding-top:20px;">
+                      <p style="margin:0 0 4px;font-size:13px;color:#64748B;line-height:1.65;">
+                        ¿Consultas? Responde este correo o escríbenos a <a href="mailto:info@qoricash.pe" style="color:#64748B;">info@qoricash.pe</a>
+                      </p>
+                      <p style="margin:0;font-size:11px;color:#CBD5E1;">Este es un correo automático generado por Qoricash.</p>
+                    </td>
+                  </tr>
+                </table>
+
+              </td>
+            </tr>
+          </table>
+
+        </td>
+      </tr>"""
+
+        body = body_empresa if is_ruc else body_persona
+        html = render_template_string(_wrap_email_themed_svc(body, _theme), operation=operation, reason=reason, is_ruc=is_ruc)
         return _apply_theme_colors(html, _theme)
 
     @staticmethod
