@@ -650,7 +650,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             {isLegalEntity && empresaRates ? (
               <View style={s.rateImprovedWrap}>
                 <Text style={s.rateTabValueStrike}>S/ {empresaStrike?.compra.toFixed(4)}</Text>
-                <Text style={[s.rateTabValue, { color: '#38bdf8' }]}>S/ {empresaRates.compra.toFixed(4)}</Text>
+                <Text style={[s.rateTabValue, { color: '#FFFFFF' }]}>S/ {empresaRates.compra.toFixed(4)}</Text>
               </View>
             ) : displayRates ? (
               <View style={s.rateImprovedWrap}>
@@ -660,14 +660,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             ) : calcRates ? (
               <View style={s.rateImprovedWrap}>
                 <Text style={s.rateTabValueStrike}>S/ {(calcRates.compra - 0.003).toFixed(4)}</Text>
-                <Text style={[s.rateTabValue, { color: '#38bdf8' }, calcOperationType !== 'Compra' && s.rateTabValueDim]}>S/ {calcRates.compra.toFixed(4)}</Text>
+                <Text style={[s.rateTabValue, { color: '#FFFFFF' }, calcOperationType !== 'Compra' && s.rateTabValueDim]}>S/ {calcRates.compra.toFixed(4)}</Text>
               </View>
             ) : (
-              <Text style={[s.rateTabValue, { color: '#38bdf8' }]}>—</Text>
+              <Text style={[s.rateTabValue, { color: '#FFFFFF' }]}>—</Text>
             )}
             <View style={s.rateTabPill}>
               {pipLabel && <Text style={s.ratePipBadge}>{pipLabel}</Text>}
-              <Text style={[s.rateTabPillText, { color: 'rgba(56,189,248,0.75)' }]}>USD → PEN</Text>
+              <Text style={[s.rateTabPillText, { color: 'rgba(255,255,255,0.90)' }]}>USD → PEN</Text>
             </View>
           </TouchableOpacity>
 
@@ -693,14 +693,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             ) : calcRates ? (
               <View style={s.rateImprovedWrap}>
                 <Text style={s.rateTabValueStrike}>S/ {(calcRates.venta + 0.003).toFixed(4)}</Text>
-                <Text style={[s.rateTabValue, { color: '#22c55e' }, calcOperationType !== 'Venta' && s.rateTabValueDim]}>S/ {calcRates.venta.toFixed(4)}</Text>
+                <Text style={[s.rateTabValue, { color: '#FFFFFF' }, calcOperationType !== 'Venta' && s.rateTabValueDim]}>S/ {calcRates.venta.toFixed(4)}</Text>
               </View>
             ) : (
-              <Text style={[s.rateTabValue, { color: '#22c55e' }]}>—</Text>
+              <Text style={[s.rateTabValue, { color: '#FFFFFF' }]}>—</Text>
             )}
             <View style={s.rateTabPill}>
               {pipLabel && <Text style={s.ratePipBadge}>{pipLabel}</Text>}
-              <Text style={[s.rateTabPillText, { color: 'rgba(34,197,94,0.75)' }]}>PEN → USD</Text>
+              <Text style={[s.rateTabPillText, { color: 'rgba(255,255,255,0.90)' }]}>PEN → USD</Text>
             </View>
           </TouchableOpacity>
         </MotiView>
@@ -1256,7 +1256,7 @@ const s = StyleSheet.create({
   },
   rateTabLabel: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.52)',
+    color: '#FFFFFF',
     letterSpacing: 1.4,
     textTransform: 'uppercase',
     fontWeight: '400',
@@ -1273,7 +1273,7 @@ const s = StyleSheet.create({
   },
   rateTabPill: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(255,255,255,0.20)',
     borderRadius: 20,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -1281,7 +1281,7 @@ const s = StyleSheet.create({
   },
   rateTabPillText: {
     fontSize: 9.5,
-    color: 'rgba(255,255,255,0.55)',
+    color: 'rgba(255,255,255,0.90)',
     letterSpacing: 0.3,
   },
   // ── Calculator card ──
@@ -1556,16 +1556,16 @@ const s = StyleSheet.create({
   rateTabValueStrike: {
     fontSize: 13,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.3)',
+    color: 'rgba(255,255,255,0.55)',
     textDecorationLine: 'line-through',
   },
   rateImprovedValue: {
-    color: GREEN,
+    color: '#FFFFFF',
   },
   ratePipBadge: {
     fontSize: 9,
     fontWeight: '700',
-    color: GREEN,
+    color: '#FFFFFF',
     marginBottom: 2,
   },
   volumeBadge: {
