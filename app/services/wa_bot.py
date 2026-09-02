@@ -1605,8 +1605,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 elif len(clientes_tel) > 1:
                     # Múltiples cuentas con el mismo teléfono → pedir documento para identificar
                     send_text(numero,
-                        '🔎 Hay varias cuentas asociadas a tu número. '
-                        'Ingresa tu *DNI/CE* (8-9 dígitos) o *RUC* (11 dígitos) para continuar:'
+                        '🔎 Ingresa el *DNI/CE* (8-9 dígitos) o *RUC* (11 dígitos) '
+                        'con el que deseas operar:'
                     )
                     session.estado = 'esperando_doc'
                 else:
