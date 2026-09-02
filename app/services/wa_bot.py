@@ -340,6 +340,27 @@ def wa_notify_operacion_completada(client, op_id, titular, email_txt):
     send_template(phone_digits, 'qoricash_operacion_completada', 'es', [op_id, titular, email_txt])
 
 
+def wa_notify_operacion_cancelada(client, op_id, titular, reason):
+    """
+    Notifica al cliente que su operación fue cancelada.
+    Usa send_text (válido dentro de la ventana de 24h).
+    """
+    if not client:
+        return
+    phone_raw = (getattr(client, 'phone', None) or '').split(';')[0].strip()
+    phone_digits = ''.join(c for c in phone_raw if c.isdigit())
+    if not phone_digits:
+        return
+    if not phone_digits.startswith('51'):
+        phone_digits = '51' + phone_digits
+    mensaje = (
+        f'❌ Tu operación *{op_id}* a nombre de *{titular}* ha sido cancelada.\n\n'
+        f'*Motivo:* {reason}\n\n'
+        f'Si tienes alguna consulta escríbenos o llámanos al *+51 910 624 404*.'
+    )
+    send_text(phone_digits, mensaje)
+
+
 def send_text(numero, texto):
     payload = {
         'messaging_product': 'whatsapp',
