@@ -18,7 +18,6 @@ import {
   Platform,
 } from 'react-native';
 import { MotiView } from 'moti';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Reanimated, {
   useSharedValue,
@@ -644,13 +643,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             activeOpacity={0.82}
             style={[s.rateTab, calcOperationType === 'Compra' && s.rateTabActiveCompra]}
           >
-            <LinearGradient
-              colors={calcOperationType === 'Compra'
-                ? ['rgba(56,189,248,0.22)', 'rgba(8,22,48,0.65)']
-                : ['rgba(56,189,248,0.07)', 'rgba(8,16,30,0.70)']}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
+            <View style={[StyleSheet.absoluteFill, {
+              backgroundColor: calcOperationType === 'Compra' ? '#0E2A4A' : '#0A1E35',
+            }]} />
             <Text style={s.rateTabLabel}>Qoricash compra</Text>
             {isLegalEntity && empresaRates ? (
               <View style={s.rateImprovedWrap}>
@@ -681,13 +676,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             activeOpacity={0.82}
             style={[s.rateTab, calcOperationType === 'Venta' && s.rateTabActiveVenta]}
           >
-            <LinearGradient
-              colors={calcOperationType === 'Venta'
-                ? ['rgba(34,197,94,0.22)', 'rgba(6,28,14,0.65)']
-                : ['rgba(34,197,94,0.07)', 'rgba(8,16,30,0.70)']}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
+            <View style={[StyleSheet.absoluteFill, {
+              backgroundColor: calcOperationType === 'Venta' ? '#0C2E18' : '#081E10',
+            }]} />
             <Text style={s.rateTabLabel}>Qoricash vende</Text>
             {isLegalEntity && empresaRates ? (
               <View style={s.rateImprovedWrap}>
