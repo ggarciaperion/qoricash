@@ -22,6 +22,7 @@ import { Operation, BankAccount } from '../types';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
 import { STORAGE_KEYS } from '../constants/config';
 import socketService from '../services/socket';
+import { BlurView } from 'expo-blur';
 import { useBackground } from '../hooks/useBackground';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -338,6 +339,8 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
           transition={{ type: 'timing', duration: 400, delay: 80 }}
           style={s.card}
         >
+          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
           <View style={s.processingRow}>
             {/* Icono animado reloj ↔ check */}
             <View style={s.processingIconWrap}>
@@ -373,6 +376,8 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
           transition={{ type: 'timing', duration: 400, delay: 160 }}
           style={s.card}
         >
+          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
           {/* Cabecera */}
           <View style={[s.cardHeaderRow, { justifyContent: 'space-between' }]}>
             <View style={[s.cardHeaderRow, { gap: 12 }]}>
@@ -442,6 +447,8 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
           transition={{ type: 'timing', duration: 400, delay: 240 }}
           style={s.card}
         >
+          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
           <View style={s.cardHeaderRow}>
             <View style={s.cardIconWrap}>
               <Ionicons name="wallet-outline" size={17} color={GREEN} />
@@ -625,13 +632,14 @@ const s = StyleSheet.create({
 
   // ── Cards ────────────────────────────────────────────────────────────────────
   card: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: BORDER,
     borderRadius: 22,
     marginHorizontal: 16,
     marginBottom: 14,
     padding: 18,
+    overflow: 'hidden',
   },
   hairline: {
     height: 1,
@@ -770,7 +778,7 @@ const s = StyleSheet.create({
   },
   amountBlock: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
