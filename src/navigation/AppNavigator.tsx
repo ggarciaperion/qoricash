@@ -67,7 +67,7 @@ const AuthNavigator = () => {
     <View style={{ flex: 1 }}>
       {/* Fondo fijo — nunca transiciona, compartido por todas las pantallas auth */}
       <ImageBackground
-        source={require('../../assets/lo.png')}
+        source={require('../../assets/lo.jpg')}
         style={StyleSheet.absoluteFill}
         resizeMode="cover"
       />
