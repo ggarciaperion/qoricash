@@ -778,7 +778,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             transition={{ type: 'spring', delay: 90, damping: 22, stiffness: 200 }}
           >
             <View style={s.tradingCard}>
-              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.50)' }]} />
+              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.25)' }]} />
               <View style={[StyleSheet.absoluteFill, {
                 borderRadius: 20, borderWidth: 1,
                 borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.28)' : 'rgba(59,130,246,0.25)',
@@ -850,7 +850,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             transition={{ type: 'spring', delay: 210, damping: 22, stiffness: 180 }}
           >
             <View style={s.orderCard}>
-              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.50)' }]} />
+              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.25)' }]} />
               <View style={[StyleSheet.absoluteFill, { borderRadius: 20, borderWidth: 1, borderColor: GLASS_BORDER }]} />
 
               {/* Envías */}
@@ -904,7 +904,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             transition={{ type: 'spring', delay: 280, damping: 22, stiffness: 180 }}
           >
             <View style={s.accountsCard}>
-              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.50)' }]} />
+              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.25)' }]} />
               <View style={[StyleSheet.absoluteFill, { borderRadius: 20, borderWidth: 1, borderColor: GLASS_BORDER }]} />
 
               {/* Cuenta cargo */}
@@ -923,7 +923,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
                     ? <Text style={s.accountSelectorTxt} numberOfLines={1}>{getSourceText()}</Text>
                     : <Text style={s.accountSelectorPh}>Seleccionar cuenta...</Text>
                   }
-                  <Ionicons name="chevron-down" size={13} color="rgba(255,255,255,0.50)" />
+                  <Ionicons name="chevron-down" size={13} color="rgba(255,255,255,0.25)" />
                 </TouchableOpacity>
                 <TouchableOpacity style={s.addMicroBtn} onPress={() => openAddAccount('source')} activeOpacity={0.75}>
                   <Ionicons name="add" size={14} color={GREEN} />
@@ -949,7 +949,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
                     ? <Text style={s.accountSelectorTxt} numberOfLines={1}>{getDestText()}</Text>
                     : <Text style={s.accountSelectorPh}>Seleccionar cuenta...</Text>
                   }
-                  <Ionicons name="chevron-down" size={13} color="rgba(255,255,255,0.50)" />
+                  <Ionicons name="chevron-down" size={13} color="rgba(255,255,255,0.25)" />
                 </TouchableOpacity>
                 <TouchableOpacity style={s.addMicroBtn} onPress={() => openAddAccount('destination')} activeOpacity={0.75}>
                   <Ionicons name="add" size={14} color={GREEN} />
@@ -1041,7 +1041,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
 
           <Text style={s.inputLabel}>Elige tu banco</Text>
           <TouchableOpacity style={s.inputRow} onPress={() => setBankMenuVisible(v => !v)} activeOpacity={0.78}>
-            <Text style={[s.inputField, !newAccountBank && { color: 'rgba(255,255,255,0.50)' }]}>
+            <Text style={[s.inputField, !newAccountBank && { color: 'rgba(255,255,255,0.25)' }]}>
               {newAccountBank || 'Seleccionar banco...'}
             </Text>
             <Ionicons name={bankMenuVisible ? 'chevron-up' : 'chevron-down'} size={16} color="rgba(255,255,255,0.4)" />
@@ -1066,7 +1066,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             <>
               <Text style={s.inputLabel}>Nombre del banco</Text>
               <View style={s.inputRow}>
-                <TextInput style={s.inputField} value={newAccountBankCustom} onChangeText={setNewAccountBankCustom} placeholder="Ej: Banco de la Nación" placeholderTextColor="rgba(255,255,255,0.50)" />
+                <TextInput style={s.inputField} value={newAccountBankCustom} onChangeText={setNewAccountBankCustom} placeholder="Ej: Banco de la Nación" placeholderTextColor="rgba(255,255,255,0.25)" />
               </View>
             </>
           )}
@@ -1085,7 +1085,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             onChangeText={setNewAccountNumber}
             keyboardType="numeric"
             placeholder="Número de cuenta"
-            placeholderTextColor="rgba(255,255,255,0.50)"
+            placeholderTextColor="rgba(255,255,255,0.25)"
             autoCorrect={false}
             autoCapitalize="none"
           />
@@ -1097,7 +1097,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             keyboardType="numeric"
             maxLength={20}
             placeholder="00000000000000000000"
-            placeholderTextColor="rgba(255,255,255,0.50)"
+            placeholderTextColor="rgba(255,255,255,0.25)"
             autoCorrect={false}
             autoCapitalize="none"
           />
