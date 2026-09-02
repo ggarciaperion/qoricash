@@ -412,6 +412,8 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           transition={{ type: 'timing', duration: 400, delay: 80 }}
           style={s.card}
         >
+          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
           {/* ID + timer */}
           <View style={s.cardTopRow}>
             <View>
@@ -478,6 +480,8 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           transition={{ type: 'timing', duration: 400, delay: 160 }}
           style={s.card}
         >
+          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
           {/* Cabecera */}
           <View style={s.transferToHeader}>
             <View style={s.transferToIcon}>
@@ -1014,13 +1018,14 @@ const s = StyleSheet.create({
 
   // ── Cards ────────────────────────────────────────────────────────────────────
   card: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: BORDER,
     borderRadius: 22,
     marginHorizontal: 16,
     marginBottom: 14,
     padding: 18,
+    overflow: 'hidden',
   },
   hairline: {
     height: 1,
