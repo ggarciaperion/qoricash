@@ -778,7 +778,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             transition={{ type: 'spring', delay: 90, damping: 22, stiffness: 200 }}
           >
             <View style={s.tradingCard}>
-              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)' }]} />
+              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.10)' }]} />
               <View style={[StyleSheet.absoluteFill, {
                 borderRadius: 20, borderWidth: 1,
                 borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.28)' : 'rgba(59,130,246,0.25)',
@@ -850,7 +850,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             transition={{ type: 'spring', delay: 210, damping: 22, stiffness: 180 }}
           >
             <View style={s.orderCard}>
-              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)' }]} />
+              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.10)' }]} />
               <View style={[StyleSheet.absoluteFill, { borderRadius: 20, borderWidth: 1, borderColor: GLASS_BORDER }]} />
 
               {/* Envías */}
@@ -904,7 +904,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             transition={{ type: 'spring', delay: 280, damping: 22, stiffness: 180 }}
           >
             <View style={s.accountsCard}>
-              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)' }]} />
+              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.10)' }]} />
               <View style={[StyleSheet.absoluteFill, { borderRadius: 20, borderWidth: 1, borderColor: GLASS_BORDER }]} />
 
               {/* Cuenta cargo */}
