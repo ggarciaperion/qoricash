@@ -70,7 +70,7 @@ const ClockIcon: React.FC = () => {
     </Reanimated.View>
   );
 };
-const GLASS_BG     = 'rgba(255,255,255,0.10)';
+const GLASS_BG     = 'rgba(255,255,255,0.25)';
 const GLASS_BORDER = 'rgba(255,255,255,0.17)';
 const GREEN        = '#22c55e';
 
@@ -644,7 +644,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             style={[s.rateTab, calcOperationType === 'Compra' && s.rateTabActiveCompra]}
           >
             <View style={[StyleSheet.absoluteFill, {
-              backgroundColor: 'rgba(255,255,255,0.10)',
+              backgroundColor: 'rgba(255,255,255,0.25)',
             }]} />
             <Text style={s.rateTabLabel}>Qoricash compra</Text>
             {isLegalEntity && empresaRates ? (
@@ -677,7 +677,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             style={[s.rateTab, calcOperationType === 'Venta' && s.rateTabActiveVenta]}
           >
             <View style={[StyleSheet.absoluteFill, {
-              backgroundColor: 'rgba(255,255,255,0.10)',
+              backgroundColor: 'rgba(255,255,255,0.25)',
             }]} />
             <Text style={s.rateTabLabel}>Qoricash vende</Text>
             {isLegalEntity && empresaRates ? (
@@ -1052,7 +1052,7 @@ const s = StyleSheet.create({
   fixedGreetingHairline: {
     marginTop: 14,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(255,255,255,0.25)',
   },
 
   // ── Header row ──
@@ -1090,7 +1090,7 @@ const s = StyleSheet.create({
   // ── User strip ──
   userStrip: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(255,255,255,0.25)',
     borderWidth: 1,
     borderColor: GLASS_BORDER,
     borderRadius: 20,
@@ -1308,7 +1308,7 @@ const s = StyleSheet.create({
     elevation: 8,
   },
   initiateBtnDisabled: {
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(255,255,255,0.25)',
     shadowOpacity: 0,
     elevation: 0,
   },
@@ -1428,7 +1428,7 @@ const s = StyleSheet.create({
   },
   blockModalCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(255,255,255,0.25)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.13)',
     borderRadius: 24,
