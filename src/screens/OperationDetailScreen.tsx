@@ -19,6 +19,7 @@ import { Text } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotiView } from 'moti';
+import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 
 import { operationsApi } from '../api/operations';
@@ -535,6 +536,8 @@ export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) =>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={s.modalOverlay}>
             <View style={s.modalSheet}>
+              <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
               {/* Modal header */}
               <View style={s.modalHeader}>
                 <Text style={s.modalTitle}>Agregar Comprobantes</Text>
@@ -1069,7 +1072,7 @@ const s = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: '#0f1f30',
+    backgroundColor: 'transparent',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderTopWidth: 1,
@@ -1078,6 +1081,7 @@ const s = StyleSheet.create({
     borderColor: GLASS_BORDER,
     paddingBottom: Platform.OS === 'ios' ? 28 : 12,
     maxHeight: '92%',
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',

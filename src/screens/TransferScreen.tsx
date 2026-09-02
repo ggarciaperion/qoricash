@@ -608,6 +608,8 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
         >
           <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={s.modalSheet}>
+            <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
             {/* Header */}
             <View style={s.modalHeader}>
               <View style={s.modalIconWrap}>
@@ -736,6 +738,8 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
         >
           <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={s.cancelSheet}>
+            <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
             {cancelAnimPhase === 'idle' ? (
               <>
                 {/* Header con ícono centrado + close */}
@@ -1317,7 +1321,7 @@ const s = StyleSheet.create({
   },
   modalSheet: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'transparent',
     borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
@@ -1547,7 +1551,7 @@ const s = StyleSheet.create({
   // ── Cancel Modal ──────────────────────────────────────────────────────────────
   cancelSheet: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'transparent',
     borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,

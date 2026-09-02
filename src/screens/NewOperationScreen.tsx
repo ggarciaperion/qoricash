@@ -316,6 +316,8 @@ const GlassModal: React.FC<{
       {/* Contenido centrado — pointerEvents="box-none" deja pasar toques al backdrop excepto los de los hijos */}
       <View style={s.modalOuter} pointerEvents="box-none">
         <View style={s.modalBox}>
+          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
           <View style={s.modalBorder} />
           <Text style={s.modalTitle}>{title}</Text>
           <View style={s.modalDivider} />
@@ -1427,7 +1429,7 @@ const s = StyleSheet.create({
   modalBox: {
     width: '100%', maxHeight: '85%', borderRadius: 28, overflow: 'hidden',
     alignItems: 'center', paddingTop: 28, paddingBottom: 24, paddingHorizontal: 24,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'transparent',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.4,

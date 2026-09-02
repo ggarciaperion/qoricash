@@ -462,6 +462,8 @@ export const LoginScreen = () => {
               opacity: forgotCardOpacity,
               transform: [{ translateY: forgotSlide }, { scale: forgotCardScale }],
             }]}>
+              <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
               <View style={styles.forgotCardBorder} />
 
               {resetSending ? (
@@ -735,7 +737,7 @@ const styles = StyleSheet.create({
   },
   forgotCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'transparent',
     borderRadius: 28,
     overflow: 'hidden',
     paddingTop: 28,
