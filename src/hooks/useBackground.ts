@@ -1,7 +1,7 @@
 import { useAuth } from '../contexts/AuthContext';
 
 // Fondo para persona natural (DNI / CE)
-const BG_NATURAL = require('../../assets/lo.jpg');
+const BG_NATURAL = require('../../assets/dcv.png');
 // Fondo para empresa / persona jurídica (RUC — 11 dígitos)
 const BG_EMPRESA = require('../../assets/lo_empresa.jpg');
 
