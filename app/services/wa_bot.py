@@ -1603,9 +1603,12 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         _flujo_pedir_cuenta_destino(numero, moneda_recibe_tel)
                         session.estado = 'esperando_cuenta_destino'
                 elif len(clientes_tel) > 1:
-                    # Múltiples cuentas (ej. personal + empresa) → elegir
-                    _flujo_elegir_cliente_telefono(numero, clientes_tel)
-                    session.estado = 'eligiendo_cliente_telefono'
+                    # Múltiples cuentas con el mismo teléfono → pedir documento para identificar
+                    send_text(numero,
+                        '🔎 Hay varias cuentas asociadas a tu número. '
+                        'Ingresa tu *DNI/CE* (8-9 dígitos) o *RUC* (11 dígitos) para continuar:'
+                    )
+                    session.estado = 'esperando_doc'
                 else:
                     # No encontrado → flujo estándar con DNI
                     _flujo_cotiz_aceptada(numero, session)
@@ -2264,17 +2267,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         session.estado = 'inicio'
 
                 elif estado == 'eligiendo_cliente_telefono':
-                    # B5 — Re-enviar botones o derivar con mensaje explicativo
-                    clientes_re = _buscar_clientes_por_telefono(numero)
-                    if clientes_re:
-                        _flujo_elegir_cliente_telefono(numero, clientes_re)
-                    else:
-                        send_text(numero,
-                            '🔎 No pudimos identificarte por tu número de teléfono. '
-                            'Por favor ingresa tu DNI o RUC para continuar.'
-                        )
-                        _flujo_pedir_doc_verificacion(numero)
-                        session.estado = 'esperando_doc'
+                    # Flujo legacy — redirigir siempre a verificación por documento
+                    _flujo_pedir_doc_verificacion(numero)
+                    session.estado = 'esperando_doc'
 
                 elif estado == 'completado':
                     send_buttons(numero,
