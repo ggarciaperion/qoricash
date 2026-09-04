@@ -381,27 +381,3 @@ def get_reward_codes(client_dni):
             'success': False,
             'message': f'Error al obtener códigos: {str(e)}'
         }), 500
-
-
-@referrals_bp.route('/admin/credit-pips', methods=['POST'])
-def admin_credit_pips():
-    """Endpoint temporal admin: acreditar pips a un cliente"""
-    data = request.get_json() or {}
-    dni = data.get('dni', '').strip()
-    pips = float(data.get('pips', 0))
-    secret = data.get('secret', '')
-    if secret != 'qori-admin-2025':
-        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-    client = Client.query.filter_by(dni=dni).first()
-    if not client:
-        return jsonify({'success': False, 'message': 'Cliente no encontrado'}), 404
-    pip_value = pips / 10000.0
-    client.referral_pips_available = (client.referral_pips_available or 0) + pip_value
-    client.referral_pips_earned    = (client.referral_pips_earned    or 0) + pip_value
-    db.session.commit()
-    return jsonify({
-        'success': True,
-        'dni': dni,
-        'pips_added': pips,
-        'pips_available': round(float(client.referral_pips_available) * 10000)
-    }), 200
