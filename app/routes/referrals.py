@@ -331,7 +331,9 @@ def generate_reward_code():
             return jsonify({
                 'success': True,
                 'message': message,
-                'reward_code': reward_code.to_dict()
+                'reward_code': reward_code.to_dict(),
+                'pips_redeemed': float(reward_code.pips_redeemed),
+                'improvement': float(reward_code.pips_redeemed)
             }), 200
         else:
             return jsonify({

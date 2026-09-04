@@ -15,10 +15,10 @@ from app.utils.formatters import now_peru
 logger = logging.getLogger(__name__)
 
 # Constante: Beneficio por cada operación completada con código de referido
-PIPS_PER_REFERRAL = 0.0015  # 15 pips = 0.0015 (actualizado según nuevas reglas)
+PIPS_PER_REFERRAL = 0.0020  # 20 pips por operación completada con código de referido
 
-# Constante: Pips necesarios para canjear por código de recompensa
-PIPS_REQUIRED_FOR_REWARD = 0.0030  # 30 pips = 0.003
+# Constante: máximo de pips canjeables por operación (30 pips = 0.003)
+PIPS_PER_OPERATION_MAX = 0.0030
 
 
 class ReferralService:
@@ -343,9 +343,13 @@ class ReferralService:
         try:
             from app.models.reward_code import RewardCode
 
-            # Verificar que tenga suficientes pips
-            if client.referral_pips_available < PIPS_REQUIRED_FOR_REWARD:
-                return False, f'Necesitas al menos 30 pips. Tienes: {int(client.referral_pips_available * 10000)} pips', None
+            # Verificar que tenga pips disponibles
+            pips_disponibles = float(client.referral_pips_available or 0)
+            if pips_disponibles <= 0:
+                return False, 'No tienes pips disponibles para canjear', None
+
+            # Calcular pips a canjear (máximo 30 pips por operación)
+            pips_to_redeem = min(pips_disponibles, PIPS_PER_OPERATION_MAX)
 
             # Generar código único
             code = RewardCode.generate_unique_code()
@@ -354,19 +358,19 @@ class ReferralService:
             reward_code = RewardCode(
                 code=code,
                 client_id=client.id,
-                pips_redeemed=PIPS_REQUIRED_FOR_REWARD,
+                pips_redeemed=pips_to_redeem,
                 created_at=now_peru()
             )
 
             # Descontar pips
-            client.referral_pips_available -= PIPS_REQUIRED_FOR_REWARD
+            client.referral_pips_available -= pips_to_redeem
 
             db.session.add(reward_code)
             db.session.commit()
 
             logger.info(
                 f"✅ Código de recompensa generado: {code} para cliente {client.dni}. "
-                f"Pips restantes: {client.referral_pips_available}"
+                f"Pips canjeados: {pips_to_redeem} | Pips restantes: {client.referral_pips_available}"
             )
 
             return True, 'Código de recompensa generado exitosamente', reward_code
