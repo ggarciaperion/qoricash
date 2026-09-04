@@ -70,6 +70,16 @@ def validate_referral_code():
                 'is_valid': False
             }), 400
 
+        # ── Código demo hardcodeado ──────────────────────────────────────────
+        if code == 'QORI25':
+            return jsonify({
+                'success': True,
+                'message': '¡Código válido! Se aplicará una mejora en tu tipo de cambio.',
+                'is_valid': True,
+                'code_type': 'referral',
+                'referrer': {'name': 'QoriCash Demo', 'code': 'QORI25'}
+            }), 200
+
         # Primero intentar buscar como código de recompensa
         from app.models.reward_code import RewardCode
         reward_code = RewardCode.query.filter_by(code=code).first()
