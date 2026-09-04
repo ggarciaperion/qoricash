@@ -562,6 +562,7 @@ def create_operation():
         source_account = data.get('source_account', '').strip()
         destination_account = data.get('destination_account', '').strip()
         notes = data.get('notes', '').strip()
+        reward_code = data.get('reward_code', '').strip() or None
 
         logger.info(f'📱 [CREATE OPERATION] Creando operación para cliente: {client_dni}')
         logger.info(f'📱 [CREATE OPERATION] Tipo: {operation_type}, Monto USD: {amount_usd}, TC: {exchange_rate}')
@@ -638,6 +639,7 @@ def create_operation():
             source_account=source_account,
             destination_account=destination_account,
             notes=notes,
+            coupon_code=reward_code,  # Código de recompensa (pips se descuentan al completar)
             origen='app',  # Identificar origen: app móvil
             status='Pendiente',
             created_at=now_peru()

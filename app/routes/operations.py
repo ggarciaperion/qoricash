@@ -1350,6 +1350,19 @@ def complete_operation(operation_id):
             except Exception:
                 pass
 
+        # Consumir código de recompensa (pips) si la operación lo tiene
+        try:
+            if operation.coupon_code:
+                from app.models.client import Client as ClientModel
+                from app.services.referral_service import referral_service
+                op_client = db.session.get(ClientModel, operation.client_id)
+                if op_client:
+                    referral_service.consume_reward_code(
+                        operation.coupon_code, operation.id, op_client
+                    )
+        except Exception as e:
+            logger.warning(f"⚠️ Error al consumir reward code: {str(e)}")
+
         # Generar factura electrónica
         invoice_generated = False
         try:

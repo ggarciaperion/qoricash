@@ -348,13 +348,19 @@ class ReferralService:
             if pips_disponibles <= 0:
                 return False, 'No tienes pips disponibles para canjear', None
 
-            # Calcular pips a canjear (máximo 30 pips por operación)
+            # Reusar código existente sin usar (evita duplicados si presiona varias veces)
+            existing = RewardCode.query.filter_by(client_id=client.id, is_used=False).first()
+            if existing:
+                logger.info(f"♻️ Reutilizando código existente {existing.code} para cliente {client.dni}")
+                return True, 'Código de recompensa recuperado', existing
+
+            # Calcular pips a canjear (máximo 30 pips por operación) — se descuenta al completar
             pips_to_redeem = min(pips_disponibles, PIPS_PER_OPERATION_MAX)
 
             # Generar código único
             code = RewardCode.generate_unique_code()
 
-            # Crear el código de recompensa
+            # Crear el código de recompensa (pips NO se descuentan aún — se descuentan al completar)
             reward_code = RewardCode(
                 code=code,
                 client_id=client.id,
@@ -362,15 +368,12 @@ class ReferralService:
                 created_at=now_peru()
             )
 
-            # Descontar pips
-            client.referral_pips_available -= pips_to_redeem
-
             db.session.add(reward_code)
             db.session.commit()
 
             logger.info(
                 f"✅ Código de recompensa generado: {code} para cliente {client.dni}. "
-                f"Pips canjeados: {pips_to_redeem} | Pips restantes: {client.referral_pips_available}"
+                f"Pips reservados: {pips_to_redeem} (se descuentan al completar operación)"
             )
 
             return True, 'Código de recompensa generado exitosamente', reward_code
@@ -403,6 +406,49 @@ class ReferralService:
         except Exception as e:
             logger.error(f"❌ Error al obtener códigos de recompensa: {str(e)}", exc_info=True)
             return []
+
+
+    @staticmethod
+    def consume_reward_code(reward_code_str: str, operation_id: int, client: 'Client') -> bool:
+        """
+        Consumir un código de recompensa al completar una operación.
+        Descuenta los pips del cliente y marca el código como usado.
+        Solo se llama cuando la operación se completa exitosamente.
+        """
+        try:
+            from app.models.reward_code import RewardCode
+            reward_code = RewardCode.query.filter_by(code=reward_code_str).first()
+            if not reward_code:
+                logger.warning(f"Código de recompensa {reward_code_str} no encontrado")
+                return False
+            if reward_code.is_used:
+                logger.warning(f"Código {reward_code_str} ya fue usado")
+                return False
+            if reward_code.client_id != client.id:
+                logger.warning(f"Código {reward_code_str} no pertenece al cliente {client.dni}")
+                return False
+
+            pips = float(reward_code.pips_redeemed)
+            if client.referral_pips_available < pips:
+                # Descontar lo que haya disponible
+                pips = float(client.referral_pips_available or 0)
+
+            client.referral_pips_available = max(0, float(client.referral_pips_available or 0) - pips)
+            reward_code.is_used = True
+            reward_code.used_at = now_peru()
+            reward_code.used_in_operation_id = operation_id
+            db.session.commit()
+
+            logger.info(
+                f"✅ Pips consumidos: {pips} de cliente {client.dni} "
+                f"al completar operación {operation_id}. Código: {reward_code_str}"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ Error al consumir reward code: {str(e)}", exc_info=True)
+            db.session.rollback()
+            return False
 
 
 # Instancia global del servicio
