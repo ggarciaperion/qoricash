@@ -12,12 +12,13 @@ import {
   ActivityIndicator,
   ScrollView,
   Keyboard,
+  ImageBackground,
 } from 'react-native';
 import { TextInput, Text, IconButton } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../contexts/AuthContext';
@@ -31,12 +32,9 @@ type DocumentType = 'DNI' | 'CE' | 'RUC';
 const MAX_ATTEMPTS = 3;
 const REMEMBER_KEY = '@qoricash:remember_doc';
 
-// Opaque bg so react-native-paper can cut a clean gap in the floating label
-const INPUT_BG = 'rgba(0,8,22,0.35)';
-
-// Glass constants — matches PublicCalculatorScreen
-const GLASS_BG     = 'rgba(255,255,255,0.08)';
-const GLASS_BORDER = 'rgba(255,255,255,0.17)';
+const INPUT_BG     = '#FFFFFF';
+const GLASS_BG     = '#FFFFFF';
+const GLASS_BORDER = 'rgba(0,0,0,0.10)';
 
 const detectDocType = (num: string): DocumentType | null => {
   if (num.length === 8)  return 'DNI';
@@ -111,7 +109,16 @@ export const LoginScreen = () => {
   }, []);
 
 
-  const handleGoBack = () => navigation.goBack();
+  const handleGoBack = () => {
+    if (navigation.canGoBack()) {
+      Animated.parallel([
+        Animated.timing(exitFade,  { toValue: 0, duration: 220, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(exitSlide, { toValue: -28, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start(() => navigation.goBack());
+    } else {
+      navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'PublicCalculator' }] }));
+    }
+  };
 
   const punchBtn = () => {
     Animated.sequence([
@@ -262,9 +269,11 @@ export const LoginScreen = () => {
 
   return (
     <>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      <View style={styles.bg}>
+      <Animated.View style={{ flex: 1, opacity: exitFade, transform: [{ translateX: exitSlide }] }}>
+        <ImageBackground source={require('../../assets/lo.jpg')} style={{ flex: 1 }} resizeMode="cover">
+        <View style={styles.bg}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={[styles.scroll, { paddingTop: insets.top }]}
@@ -276,14 +285,14 @@ export const LoginScreen = () => {
 
             {/* ── Back button ── */}
             <TouchableOpacity style={[styles.backBtn, { top: insets.top + 16 }]} onPress={handleGoBack} activeOpacity={0.8}>
-              <Ionicons name="chevron-back" size={22} color="#ffffff" />
+              <Ionicons name="chevron-back" size={22} color="#0D1117" />
             </TouchableOpacity>
 
             {/* ── Form ── */}
             <View style={styles.formContainer}>
 
 
-              <Text style={styles.screenTitle}>Inicia <Text style={{ color: '#22c55e', fontWeight: '800' }}>sesión</Text></Text>
+              <Text style={styles.screenTitle}>Inicia <Text style={{ color: '#0D1117', fontWeight: '800' }}>sesión</Text></Text>
               <Text style={styles.formTitle}>Accede a tu cuenta Qoricash</Text>
 
               {/* Document number */}
@@ -297,13 +306,13 @@ export const LoginScreen = () => {
                   mode="outlined"
                   keyboardType="numeric"
                   maxLength={11}
-                  left={<TextInput.Icon icon="card-account-details-outline" iconColor="rgba(255,255,255,0.6)" />}
+                  left={<TextInput.Icon icon="card-account-details-outline" iconColor="#9CA3AF" />}
                   style={styles.input}
                   outlineStyle={styles.inputOutline}
                   outlineColor={GLASS_BORDER}
-                  activeOutlineColor="rgba(255,255,255,0.9)"
-                  textColor="#fff"
-                  theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: '#000000' } }}
+                  activeOutlineColor="#0D1117"
+                  textColor="#0D1117"
+                  theme={{ colors: { onSurfaceVariant: '#6B7280', background: '#FFFFFF' } }}
                 />
               </Animated.View>
 
@@ -317,20 +326,20 @@ export const LoginScreen = () => {
                   onBlur={() => focusField(pwY, false)}
                   mode="outlined"
                   secureTextEntry={!showPassword}
-                  left={<TextInput.Icon icon="lock-outline" iconColor="rgba(255,255,255,0.6)" />}
+                  left={<TextInput.Icon icon="lock-outline" iconColor="#9CA3AF" />}
                   right={
                     <TextInput.Icon
                       icon={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                      iconColor="rgba(255,255,255,0.5)"
+                      iconColor="#9CA3AF"
                       onPress={() => setShowPassword(v => !v)}
                     />
                   }
                   style={styles.input}
                   outlineStyle={styles.inputOutline}
                   outlineColor={GLASS_BORDER}
-                  activeOutlineColor="rgba(255,255,255,0.9)"
-                  textColor="#fff"
-                  theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: '#000000' } }}
+                  activeOutlineColor="#0D1117"
+                  textColor="#0D1117"
+                  theme={{ colors: { onSurfaceVariant: '#6B7280', background: '#FFFFFF' } }}
                 />
               </Animated.View>
 
@@ -342,7 +351,7 @@ export const LoginScreen = () => {
               >
                 <View style={[styles.checkbox, rememberMe && styles.checkboxActive]}>
                   {rememberMe && (
-                    <IconButton icon="check" size={12} iconColor="#0a1a2e" style={{ margin: 0 }} />
+                    <IconButton icon="check" size={12} iconColor="#ffffff" style={{ margin: 0 }} />
                   )}
                 </View>
                 <Text style={styles.rememberText}>Recuérdame</Text>
@@ -357,7 +366,7 @@ export const LoginScreen = () => {
                   activeOpacity={0.88}
                 >
                   {loading ? (
-                    <ActivityIndicator color={isLocked ? '#6B7280' : '#0a1a2e'} size={20} />
+                    <ActivityIndicator color={isLocked ? '#6B7280' : '#ffffff'} size={20} />
                   ) : (
                     <Text style={[styles.btnText, isLocked && styles.btnTextLocked]}>
                       {isLocked ? 'Cuenta Bloqueada' : 'Ingresar'}
@@ -392,7 +401,9 @@ export const LoginScreen = () => {
             </View>
           </View>
         </ScrollView>
-      </View>
+        </View>
+        </ImageBackground>
+      </Animated.View>
 
       {/* ── Error / auth failure modal ─────────────────────────────────────── */}
       <Modal
@@ -511,12 +522,12 @@ export const LoginScreen = () => {
                       maxLength={11}
                       left={<TextInput.Icon icon="card-account-details-outline" iconColor="rgba(255,255,255,0.6)" />}
                       disabled={resetLoading}
-                      style={styles.input}
+                      style={[styles.input, { backgroundColor: '#1C2333' }]}
                       outlineStyle={styles.inputOutline}
-                      outlineColor={GLASS_BORDER}
+                      outlineColor="rgba(255,255,255,0.17)"
                       activeOutlineColor="rgba(255,255,255,0.9)"
                       textColor="#fff"
-                      theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: '#000000' } }}
+                      theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: '#1C2333' } }}
                     />
                     <TextInput
                       label="Correo electrónico"
@@ -527,12 +538,12 @@ export const LoginScreen = () => {
                       autoCapitalize="none"
                       left={<TextInput.Icon icon="email-outline" iconColor="rgba(255,255,255,0.6)" />}
                       disabled={resetLoading}
-                      style={styles.input}
+                      style={[styles.input, { backgroundColor: '#1C2333' }]}
                       outlineStyle={styles.inputOutline}
-                      outlineColor={GLASS_BORDER}
+                      outlineColor="rgba(255,255,255,0.17)"
                       activeOutlineColor="rgba(255,255,255,0.9)"
                       textColor="#fff"
-                      theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: '#000000' } }}
+                      theme={{ colors: { onSurfaceVariant: 'rgba(255,255,255,0.5)', background: '#1C2333' } }}
                     />
                   </View>
 
@@ -576,6 +587,7 @@ export const LoginScreen = () => {
 const styles = StyleSheet.create({
   bg: {
     flex: 1,
+    backgroundColor: '#F5F7FA',
   },
   scrollView: {
     flex: 1,
@@ -593,7 +605,7 @@ const styles = StyleSheet.create({
   screenTitle: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#ffffff',
+    color: '#0D1117',
     marginBottom: 6,
     letterSpacing: 0.2,
     textAlign: 'center',
@@ -601,7 +613,7 @@ const styles = StyleSheet.create({
   formTitle: {
     fontSize: 15,
     fontWeight: '400',
-    color: 'rgba(255,255,255,0.6)',
+    color: '#6B7280',
     marginBottom: 28,
     letterSpacing: 0.1,
     textAlign: 'center',
@@ -612,7 +624,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 20,
     zIndex: 10,
-    padding: 4,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   formContainer: {
     paddingHorizontal: 4,
@@ -641,18 +665,18 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: GLASS_BORDER,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(0,0,0,0.15)',
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxActive: {
-    backgroundColor: '#fff',
-    borderColor: '#fff',
+    backgroundColor: '#0D1117',
+    borderColor: '#0D1117',
   },
   rememberText: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.65)',
+    color: '#374151',
     fontWeight: '500',
   },
 
@@ -661,29 +685,29 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
     marginBottom: 14,
-    shadowColor: '#fff',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
   },
   btn: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#0D1117',
     paddingVertical: 15,
     borderRadius: 14,
     alignItems: 'center',
   },
   btnLocked: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(0,0,0,0.08)',
   },
   btnText: {
-    color: '#0a1a2e',
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.3,
   },
   btnTextLocked: {
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(0,0,0,0.3)',
   },
 
   // ── Forgot ────────────────────────────────────────────────────────────────
@@ -692,7 +716,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   forgotText: {
-    color: 'rgba(255,255,255,0.65)',
+    color: '#6B7280',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -703,7 +727,7 @@ const styles = StyleSheet.create({
   },
   // ── Register button ───────────────────────────────────────────────────────
   registerPrompt: {
-    color: 'rgba(255,255,255,0.45)',
+    color: 'rgba(0,0,0,0.4)',
     fontSize: 12,
     fontWeight: '400',
     textAlign: 'center',
@@ -712,16 +736,21 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   registerBtn: {
-    backgroundColor: GLASS_BG,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: 'rgba(0,0,0,0.09)',
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
     marginBottom: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 1,
   },
   registerBtnText: {
-    color: '#fff',
+    color: '#0D1117',
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.2,
@@ -844,9 +873,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   errBtnPrimary: {
-    backgroundColor: GLASS_BG,
+    backgroundColor: 'rgba(255,255,255,0.10)',
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: 'rgba(255,255,255,0.18)',
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
@@ -874,9 +903,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   errBtnSecondary: {
-    backgroundColor: GLASS_BG,
+    backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: 'rgba(255,255,255,0.12)',
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',

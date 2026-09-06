@@ -6,14 +6,11 @@ import {
   ScrollView,
   Alert,
   Image,
-  ImageBackground,
   TouchableOpacity,
   Linking,
   Animated,
   Easing,
-  ActivityIndicator,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -22,42 +19,28 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import axios from 'axios';
 import { API_CONFIG } from '../constants/config';
 import { useAuth } from '../contexts/AuthContext';
-import { useBackground } from '../hooks/useBackground';
-
-// BG handled by useBackground hook
+import { DocsLoadingOverlay } from '../components/DocsLoadingOverlay';
 
 export const VerifyIdentityScreen = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const bg = useBackground();
   const { client, refreshClient } = useAuth();
 
   const [frontImage, setFrontImage]   = useState<string | null>(null);
   const [backImage, setBackImage]     = useState<string | null>(null);
   const [rucDocument, setRucDocument] = useState<{ uri: string; name: string; type: string } | null>(null);
-  const [uploading, setUploading]     = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const screenOpacity = useRef(new Animated.Value(1)).current;
+  const [showDocsLoading, setShowDocsLoading] = useState(false);
 
   const isLegalEntity = client?.document_type === 'RUC';
 
   // ── Entrance animations ────────────────────────────────────────────────────
-  const info1Anim = useRef(new Animated.Value(0)).current;
   const card1Anim = useRef(new Animated.Value(0)).current;
   const card2Anim = useRef(new Animated.Value(0)).current;
   const card3Anim = useRef(new Animated.Value(0)).current;
   const btnAnim   = useRef(new Animated.Value(0)).current;
 
-  // ── Success modal animations ───────────────────────────────────────────────
-  const overlayFade  = useRef(new Animated.Value(0)).current;
-  const cardScale    = useRef(new Animated.Value(0.82)).current;
-  const cardSlide    = useRef(new Animated.Value(48)).current;
-  const circleScale  = useRef(new Animated.Value(0)).current;
-  const checkScale   = useRef(new Animated.Value(0)).current;
-  const checkOpacity = useRef(new Animated.Value(0)).current;
-
   useEffect(() => {
-    Animated.stagger(70, [info1Anim, card1Anim, card2Anim, card3Anim, btnAnim].map(a =>
+    Animated.stagger(70, [card1Anim, card2Anim, card3Anim, btnAnim].map(a =>
       Animated.spring(a, { toValue: 1, tension: 200, friction: 18, useNativeDriver: true })
     )).start();
   }, []);
@@ -65,9 +48,29 @@ export const VerifyIdentityScreen = () => {
   const animStyle = (anim: Animated.Value) => ({
     opacity: anim,
     transform: [{
-      translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [28, 0] }),
+      translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }),
     }],
   });
+
+  // ── Pulse del dot de estado ───────────────────────────────────────────────
+  const dotScale   = useRef(new Animated.Value(1)).current;
+  const dotOpacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(dotScale,   { toValue: 1.7,  duration: 700, easing: Easing.out(Easing.ease),    useNativeDriver: true }),
+          Animated.timing(dotOpacity, { toValue: 0,    duration: 700, easing: Easing.out(Easing.ease),    useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(dotScale,   { toValue: 1,    duration: 0,   useNativeDriver: true }),
+          Animated.timing(dotOpacity, { toValue: 1,    duration: 0,   useNativeDriver: true }),
+        ]),
+        Animated.delay(400),
+      ])
+    ).start();
+  }, []);
 
   // ── Pulse for upload zones ─────────────────────────────────────────────────
   const pulseFront = useRef(new Animated.Value(1)).current;
@@ -77,8 +80,8 @@ export const VerifyIdentityScreen = () => {
   const startPulse = (anim: Animated.Value) => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(anim, { toValue: 1.03, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 1,    duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1.02, duration: 950, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1,    duration: 950, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
       ])
     ).start();
   };
@@ -87,24 +90,11 @@ export const VerifyIdentityScreen = () => {
   useEffect(() => { startPulse(pulseBack);  }, []);
   useEffect(() => { startPulse(pulseRuc);   }, []);
 
-  // ── Success modal ──────────────────────────────────────────────────────────
-  const showSuccessModal = () => {
-    setShowSuccess(true);
-    overlayFade.setValue(0);  cardScale.setValue(0.82);  cardSlide.setValue(48);
-    circleScale.setValue(0);  checkScale.setValue(0);    checkOpacity.setValue(0);
-
-    Animated.parallel([
-      Animated.timing(overlayFade, { toValue: 1, duration: 260, useNativeDriver: true }),
-      Animated.spring(cardScale,   { toValue: 1, tension: 180, friction: 16, useNativeDriver: true }),
-      Animated.spring(cardSlide,   { toValue: 0, tension: 180, friction: 16, useNativeDriver: true }),
-    ]).start(() => {
-      Animated.spring(circleScale, { toValue: 1, tension: 200, friction: 10, useNativeDriver: true }).start(() => {
-        Animated.parallel([
-          Animated.spring(checkScale,   { toValue: 1, tension: 240, friction: 9, useNativeDriver: true }),
-          Animated.timing(checkOpacity, { toValue: 1, duration: 120, useNativeDriver: true }),
-        ]).start();
-      });
-    });
+  // ── Animation complete → navigate home ────────────────────────────────────
+  const handleAnimationComplete = async () => {
+    setShowDocsLoading(false);
+    try { await refreshClient(); } catch {}
+    navigation.goBack();
   };
 
   // ── Permissions ────────────────────────────────────────────────────────────
@@ -213,8 +203,11 @@ export const VerifyIdentityScreen = () => {
       Alert.alert('Falta Ficha RUC', 'Por favor adjunta la Ficha RUC (imagen o PDF)');
       return;
     }
+
+    // Inicia animación de inmediato y llama la API en paralelo
+    setShowDocsLoading(true);
+
     try {
-      setUploading(true);
       const formData = new FormData();
       formData.append('dni', client?.dni || '');
       if (frontImage)
@@ -229,19 +222,18 @@ export const VerifyIdentityScreen = () => {
         formData,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       );
-      if (response.data.success) {
-        showSuccessModal();
-      } else {
+      if (!response.data.success) {
+        setShowDocsLoading(false);
         Alert.alert('Error', response.data.message || 'Error al subir documentos');
       }
+      // Si success: la animación sigue su curso y onComplete navega al home
     } catch (error: any) {
+      setShowDocsLoading(false);
       Alert.alert('Error', error.response?.data?.message || 'Error al subir documentos');
-    } finally {
-      setUploading(false);
     }
   };
 
-  const canSubmit = !uploading && (
+  const canSubmit = !showDocsLoading && (
     isLegalEntity
       ? !!rucDocument
       : !!frontImage && !!backImage
@@ -260,11 +252,11 @@ export const VerifyIdentityScreen = () => {
   }) => (
     <View style={s.cardSection}>
       <View style={s.cardLabelRow}>
-        <Ionicons name={icon as any} size={14} color="rgba(255,255,255,0.45)" />
+        <Ionicons name={icon as any} size={14} color="#9CA3AF" />
         <Text style={s.cardLabel}>{label}</Text>
         {image && (
           <TouchableOpacity onPress={onClear} style={s.clearBtn} activeOpacity={0.7}>
-            <Ionicons name="close-circle" size={18} color="rgba(239,68,68,0.8)" />
+            <Ionicons name="close-circle" size={18} color="#EF4444" />
           </TouchableOpacity>
         )}
       </View>
@@ -273,7 +265,7 @@ export const VerifyIdentityScreen = () => {
         <TouchableOpacity onPress={onPress} activeOpacity={0.88} style={s.previewWrap}>
           <Image source={{ uri: image }} style={s.previewImage} resizeMode="cover" />
           <View style={s.previewBadge}>
-            <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
+            <Ionicons name="checkmark-circle" size={15} color="#FFFFFF" />
             <Text style={s.previewBadgeText}>Imagen cargada</Text>
           </View>
         </TouchableOpacity>
@@ -281,7 +273,7 @@ export const VerifyIdentityScreen = () => {
         <Animated.View style={{ transform: [{ scale: pulse }] }}>
           <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={s.uploadZone}>
             <View style={s.uploadIconWrap}>
-              <Ionicons name="camera-outline" size={28} color="rgba(99,179,237,0.85)" />
+              <Ionicons name="camera-outline" size={26} color="#0D1117" />
             </View>
             <Text style={s.uploadZoneText}>Toca para agregar</Text>
             <Text style={s.uploadZoneSub}>Cámara o galería</Text>
@@ -293,16 +285,16 @@ export const VerifyIdentityScreen = () => {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <Animated.View style={[{ flex: 1 }, { opacity: screenOpacity }]}>
-    <ImageBackground source={bg} style={s.root} resizeMode="cover">
-      {/* ── Header fijo ──────────────────────────────────────────────────── */}
-      <View style={[s.fixedHeader, { paddingTop: insets.top }]}>
+    <View style={s.root}>
+
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <View style={[s.fixedHeader, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
           style={s.backBtn}
           onPress={() => navigation.goBack()}
           activeOpacity={0.8}
         >
-          <Ionicons name="chevron-back" size={22} color="#ffffff" />
+          <Ionicons name="chevron-back" size={22} color="#0D1117" />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Validación de Identidad</Text>
         <View style={s.headerRight} />
@@ -312,46 +304,65 @@ export const VerifyIdentityScreen = () => {
         contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* ── Badge de estado ─────────────────────────────────────────── */}
+        <Animated.View style={[s.statusBadge, animStyle(card1Anim)]}>
+          <View style={s.statusDotWrap}>
+            {/* Aro que se expande y desvanece */}
+            <Animated.View style={[s.statusDotRing, { transform: [{ scale: dotScale }], opacity: dotOpacity }]} />
+            {/* Punto sólido central */}
+            <View style={s.statusDot} />
+          </View>
+          <Text style={s.statusText}>Pendiente de verificación</Text>
+        </Animated.View>
 
-        {/* ── DNI Anverso y Reverso — solo para Persona Natural ─────────── */}
+        {/* ── DNI Anverso ─────────────────────────────────────────────── */}
         {!isLegalEntity && (
           <>
             <Animated.View style={animStyle(card1Anim)}>
-              <BlurView intensity={35} tint="dark" style={s.card}>
+              <View style={s.card}>
                 <View style={s.cardHeader}>
                   <View style={s.cardIconWrap}>
-                    <Ionicons name="card-outline" size={17} color="#63b3ed" />
+                    <Ionicons name="card-outline" size={17} color="#0D1117" />
                   </View>
-                  <Text style={s.cardTitle}>DNI — Anverso</Text>
+                  <View>
+                    <Text style={s.cardTitle}>DNI — Anverso</Text>
+                    <Text style={s.cardSubtitle}>Parte frontal del documento</Text>
+                  </View>
                 </View>
+                <View style={s.divider} />
                 <UploadZone
                   image={frontImage}
                   pulse={pulseFront}
                   onPress={() => showImageOptions('front')}
                   onClear={() => setFrontImage(null)}
-                  label="Parte frontal del documento"
+                  label="Foto nítida y legible"
                   icon="image-outline"
                 />
-              </BlurView>
+              </View>
             </Animated.View>
 
+            {/* ── DNI Reverso ─────────────────────────────────────────── */}
             <Animated.View style={animStyle(card2Anim)}>
-              <BlurView intensity={35} tint="dark" style={s.card}>
+              <View style={s.card}>
                 <View style={s.cardHeader}>
                   <View style={s.cardIconWrap}>
-                    <Ionicons name="card-outline" size={17} color="#63b3ed" />
+                    <Ionicons name="card-outline" size={17} color="#0D1117" />
                   </View>
-                  <Text style={s.cardTitle}>DNI — Reverso</Text>
+                  <View>
+                    <Text style={s.cardTitle}>DNI — Reverso</Text>
+                    <Text style={s.cardSubtitle}>Parte posterior del documento</Text>
+                  </View>
                 </View>
+                <View style={s.divider} />
                 <UploadZone
                   image={backImage}
                   pulse={pulseBack}
                   onPress={() => showImageOptions('back')}
                   onClear={() => setBackImage(null)}
-                  label="Parte posterior del documento"
+                  label="Foto nítida y legible"
                   icon="image-outline"
                 />
-              </BlurView>
+              </View>
             </Animated.View>
           </>
         )}
@@ -359,21 +370,25 @@ export const VerifyIdentityScreen = () => {
         {/* ── Ficha RUC ─────────────────────────────────────────────────── */}
         {isLegalEntity && (
           <Animated.View style={animStyle(card3Anim)}>
-            <BlurView intensity={35} tint="dark" style={s.card}>
+            <View style={s.card}>
               <View style={s.cardHeader}>
                 <View style={s.cardIconWrap}>
-                  <Ionicons name="document-text-outline" size={17} color="#63b3ed" />
+                  <Ionicons name="document-text-outline" size={17} color="#0D1117" />
                 </View>
-                <Text style={s.cardTitle}>Ficha RUC</Text>
+                <View>
+                  <Text style={s.cardTitle}>Ficha RUC</Text>
+                  <Text style={s.cardSubtitle}>Descárgala desde SUNAT</Text>
+                </View>
               </View>
+              <View style={s.divider} />
 
               <View style={s.cardSection}>
                 <View style={s.cardLabelRow}>
-                  <Ionicons name="attach-outline" size={14} color="rgba(255,255,255,0.45)" />
+                  <Ionicons name="attach-outline" size={14} color="#9CA3AF" />
                   <Text style={s.cardLabel}>Imagen o PDF de la Ficha RUC</Text>
                   {rucDocument && (
                     <TouchableOpacity onPress={() => setRucDocument(null)} style={s.clearBtn} activeOpacity={0.7}>
-                      <Ionicons name="close-circle" size={18} color="rgba(239,68,68,0.8)" />
+                      <Ionicons name="close-circle" size={18} color="#EF4444" />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -382,14 +397,16 @@ export const VerifyIdentityScreen = () => {
                   <TouchableOpacity onPress={pickRucDocument} activeOpacity={0.88} style={s.previewWrap}>
                     {rucDocument.type.includes('pdf') ? (
                       <View style={s.pdfPreview}>
-                        <Ionicons name="document-text" size={38} color="#ef4444" />
+                        <View style={s.pdfIconWrap}>
+                          <Ionicons name="document-text" size={32} color="#EF4444" />
+                        </View>
                         <Text style={s.pdfName} numberOfLines={2}>{rucDocument.name}</Text>
                       </View>
                     ) : (
                       <Image source={{ uri: rucDocument.uri }} style={s.previewImage} resizeMode="cover" />
                     )}
                     <View style={s.previewBadge}>
-                      <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
+                      <Ionicons name="checkmark-circle" size={15} color="#FFFFFF" />
                       <Text style={s.previewBadgeText}>Documento cargado</Text>
                     </View>
                   </TouchableOpacity>
@@ -397,7 +414,7 @@ export const VerifyIdentityScreen = () => {
                   <Animated.View style={{ transform: [{ scale: pulseRuc }] }}>
                     <TouchableOpacity onPress={pickRucDocument} activeOpacity={0.8} style={s.uploadZone}>
                       <View style={s.uploadIconWrap}>
-                        <Ionicons name="cloud-upload-outline" size={28} color="rgba(99,179,237,0.85)" />
+                        <Ionicons name="cloud-upload-outline" size={26} color="#0D1117" />
                       </View>
                       <Text style={s.uploadZoneText}>Toca para adjuntar</Text>
                       <Text style={s.uploadZoneSub}>Imagen o PDF</Text>
@@ -405,11 +422,11 @@ export const VerifyIdentityScreen = () => {
                   </Animated.View>
                 )}
               </View>
-            </BlurView>
+            </View>
           </Animated.View>
         )}
 
-        {/* ── Submit button ─────────────────────────────────────────────── */}
+        {/* ── Botones ──────────────────────────────────────────────────── */}
         <Animated.View style={animStyle(btnAnim)}>
           <TouchableOpacity
             style={[s.submitBtn, !canSubmit && s.submitBtnDisabled]}
@@ -417,14 +434,8 @@ export const VerifyIdentityScreen = () => {
             disabled={!canSubmit}
             activeOpacity={0.85}
           >
-            {uploading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <>
-                <Ionicons name="cloud-upload-outline" size={20} color="#ffffff" style={{ marginRight: 8 }} />
-                <Text style={s.submitBtnText}>Enviar Documentos</Text>
-              </>
-            )}
+            <Ionicons name="cloud-upload-outline" size={19} color="#ffffff" style={{ marginRight: 8 }} />
+            <Text style={s.submitBtnText}>Enviar Documentos</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -432,14 +443,14 @@ export const VerifyIdentityScreen = () => {
             onPress={() => Linking.openURL('https://wa.me/51910624404?text=Hola,%20quiero%20enviar%20mis%20documentos%20para%20validar%20mi%20identidad')}
             activeOpacity={0.85}
           >
-            <Ionicons name="logo-whatsapp" size={20} color="#ffffff" style={{ marginRight: 8 }} />
-            <Text style={s.waBtnText}>Enviar documentos por WhatsApp</Text>
+            <Ionicons name="logo-whatsapp" size={18} color="#16A34A" style={{ marginRight: 8 }} />
+            <Text style={s.waBtnText}>Enviar por WhatsApp</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={s.cancelBtn}
             onPress={() => navigation.goBack()}
-            disabled={uploading}
+            disabled={showDocsLoading}
             activeOpacity={0.7}
           >
             <Text style={s.cancelBtnText}>Cancelar</Text>
@@ -448,48 +459,13 @@ export const VerifyIdentityScreen = () => {
 
       </ScrollView>
 
-      {/* ── Modal de éxito ──────────────────────────────────────────────── */}
-      {showSuccess && (
-        <Animated.View style={[s.successOverlay, { opacity: overlayFade }]}>
-          <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
-          <Animated.View style={[s.successCard, { transform: [{ scale: cardScale }, { translateY: cardSlide }] }]}>
-            <Animated.View style={[s.successCircle, { transform: [{ scale: circleScale }] }]}>
-              <View style={s.successRing} />
-              <Animated.View style={{ transform: [{ scale: checkScale }], opacity: checkOpacity }}>
-                <Ionicons name="checkmark" size={42} color="#ffffff" />
-              </Animated.View>
-            </Animated.View>
+      {/* ── Animación de envío (igual que login/logout) ──────────────── */}
+      <DocsLoadingOverlay
+        visible={showDocsLoading}
+        onComplete={handleAnimationComplete}
+      />
 
-            <Text style={s.successTitle}>¡Documentos Enviados!</Text>
-            <Text style={s.successSubtitle}>
-              {'Nuestro equipo revisará tu identidad\ny te notificará cuando esté verificada.\nGeneralmente toma menos de 10 minutos.'}
-            </Text>
-
-            <TouchableOpacity
-              style={s.successBtn}
-              onPress={async () => {
-                try { await refreshClient(); } catch {}
-                // Fade out suave antes de navegar
-                Animated.timing(screenOpacity, {
-                  toValue: 0,
-                  duration: 420,
-                  easing: Easing.out(Easing.quad),
-                  useNativeDriver: true,
-                }).start(() => {
-                  setShowSuccess(false);
-                  navigation.goBack();
-                });
-              }}
-              activeOpacity={0.82}
-            >
-              <Text style={s.successBtnText}>Entendido</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </Animated.View>
-      )}
-
-    </ImageBackground>
-    </Animated.View>
+    </View>
   );
 };
 
@@ -498,100 +474,132 @@ export default VerifyIdentityScreen;
 const s = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: '#F5F7FA',
   },
-  // ── Fixed header
+
+  // ── Header
   fixedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 14,
-    backgroundColor: 'transparent',
+    backgroundColor: '#F5F7FA',
     zIndex: 20,
   },
   backBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
     fontSize: 17,
     fontWeight: '700',
-    color: '#ffffff',
-    letterSpacing: 0.2,
+    color: '#0D1117',
+    letterSpacing: 0.1,
   },
-  headerRight: {
-    width: 38,
-  },
+  headerRight: { width: 38 },
 
   // ── Scroll
   scroll: {
     paddingHorizontal: 20,
+    paddingTop: 4,
   },
 
-  // ── Info card
-  infoCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(251,191,36,0.18)',
-    backgroundColor: 'rgba(251,191,36,0.04)',
-    padding: 16,
-    marginBottom: 14,
-  },
-  infoRow: {
+  // ── Status badge
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: 8,
-    marginBottom: 8,
+    backgroundColor: '#2563EB',
+    borderRadius: 100,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginBottom: 18,
   },
-  infoTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#fbbf24',
+  statusDotWrap: {
+    width: 10,
+    height: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  infoBody: {
-    fontSize: 12.5,
-    color: 'rgba(255,255,255,0.52)',
-    lineHeight: 20,
-    paddingLeft: 24,
+  statusDotRing: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
 
   // ── Cards
   card: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderColor: 'rgba(0,0,0,0.07)',
     marginBottom: 14,
     padding: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     marginBottom: 14,
   },
   cardIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: 'rgba(99,179,237,0.1)',
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
   },
   cardTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#ffffff',
-    flex: 1,
+    color: '#0D1117',
+    marginBottom: 2,
+  },
+  cardSubtitle: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '400',
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(0,0,0,0.07)',
+    marginBottom: 14,
   },
 
   // ── Card section
@@ -603,7 +611,7 @@ const s = StyleSheet.create({
   },
   cardLabel: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.42)',
+    color: '#9CA3AF',
     flex: 1,
   },
   clearBtn: { padding: 2 },
@@ -611,40 +619,42 @@ const s = StyleSheet.create({
   // ── Upload zone
   uploadZone: {
     borderWidth: 1.5,
-    borderColor: 'rgba(99,179,237,0.22)',
+    borderColor: 'rgba(0,0,0,0.10)',
     borderStyle: 'dashed',
     borderRadius: 14,
-    paddingVertical: 26,
+    paddingVertical: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(99,179,237,0.03)',
+    backgroundColor: '#F9FAFB',
     gap: 8,
   },
   uploadIconWrap: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: 'rgba(99,179,237,0.1)',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.07)',
     marginBottom: 4,
   },
   uploadZoneText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#63b3ed',
+    color: '#0D1117',
   },
   uploadZoneSub: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.32)',
+    color: '#9CA3AF',
   },
 
   // ── Preview
   previewWrap: {
-    borderRadius: 14,
+    borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.3)',
+    borderColor: 'rgba(0,0,0,0.08)',
   },
   previewImage: {
     width: '100%',
@@ -655,27 +665,33 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 14,
-    paddingVertical: 9,
-    backgroundColor: 'rgba(34,197,94,0.08)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(34,197,94,0.18)',
+    paddingVertical: 10,
+    backgroundColor: '#0D1117',
   },
   previewBadgeText: {
     fontSize: 12,
-    color: '#22c55e',
+    color: '#FFFFFF',
     fontWeight: '600',
   },
 
   // ── PDF preview
   pdfPreview: {
-    paddingVertical: 28,
+    paddingVertical: 24,
     alignItems: 'center',
     gap: 10,
-    backgroundColor: 'rgba(239,68,68,0.05)',
+    backgroundColor: '#FFF5F5',
+  },
+  pdfIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pdfName: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.55)',
+    color: '#6B7280',
     textAlign: 'center',
     paddingHorizontal: 16,
   },
@@ -685,135 +701,56 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#22c55e',
+    backgroundColor: '#0D1117',
     borderRadius: 16,
     paddingVertical: 17,
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.3)',
-    shadowColor: '#22c55e',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
+    shadowOpacity: 0.18,
     shadowRadius: 14,
     elevation: 8,
   },
   submitBtnDisabled: {
-    backgroundColor: '#1A3D58',
-    borderColor: 'rgba(99,179,237,0.2)',
-    shadowColor: '#1A3D58',
-    opacity: 0.38,
+    backgroundColor: '#E5E7EB',
     shadowOpacity: 0,
+    elevation: 0,
   },
   submitBtnText: {
     fontSize: 16,
     fontWeight: '700',
     color: '#ffffff',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   waBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(37,211,102,0.07)',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    paddingVertical: 17,
+    paddingVertical: 16,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: 'rgba(37,211,102,0.25)',
+    borderColor: '#BBF7D0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
   },
   waBtnText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#25D366',
-    letterSpacing: 0.2,
+    fontWeight: '600',
+    color: '#16A34A',
+    letterSpacing: 0.1,
   },
   cancelBtn: {
     alignItems: 'center',
-    paddingVertical: 16,
-    marginTop: 4,
+    paddingVertical: 18,
   },
   cancelBtnText: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.38)',
+    color: '#9CA3AF',
     fontWeight: '500',
   },
 
-  // ── Success modal
-  successOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 28,
-    zIndex: 100,
-  },
-  successCard: {
-    width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.18)',
-    paddingHorizontal: 28,
-    paddingTop: 40,
-    paddingBottom: 32,
-    alignItems: 'center',
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 28,
-    elevation: 20,
-  },
-  successCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: '#22c55e',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 28,
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.5,
-    shadowRadius: 18,
-    elevation: 12,
-  },
-  successRing: {
-    position: 'absolute',
-    width: 116,
-    height: 116,
-    borderRadius: 58,
-    borderWidth: 2,
-    borderColor: 'rgba(34,197,94,0.28)',
-  },
-  successTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#ffffff',
-    textAlign: 'center',
-    marginBottom: 14,
-    letterSpacing: 0.2,
-  },
-  successSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 32,
-  },
-  successBtn: {
-    width: '100%',
-    backgroundColor: '#22c55e',
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  successBtnText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: 0.3,
-  },
 });

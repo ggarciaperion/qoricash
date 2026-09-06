@@ -21,8 +21,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotiView } from 'moti';
 import * as Haptics from 'expo-haptics';
-import { Audio } from 'expo-av';
+import { createAudioPlayer } from 'expo-audio';
 import { useAuth } from '../contexts/AuthContext';
+import { Calculator } from '../components/Calculator';
 import { operationsApi } from '../api/operations';
 import { CreateOperationForm, BankAccount } from '../types';
 import { formatCurrency, calculateAmount, formatExchangeRate } from '../utils/formatters';
@@ -32,10 +33,10 @@ import { useBackground } from '../hooks/useBackground';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const GREEN        = '#22c55e';
-const GREEN_DIM    = 'rgba(34,197,94,0.14)';
-const GREEN_BORDER = 'rgba(34,197,94,0.3)';
-const GLASS_BG     = 'rgba(255,255,255,0.08)';
-const GLASS_BORDER = 'rgba(255,255,255,0.15)';
+const GREEN_DIM    = 'rgba(34,197,94,0.10)';
+const GREEN_BORDER = 'rgba(34,197,94,0.25)';
+const GLASS_BG     = '#FFFFFF';
+const GLASS_BORDER = 'rgba(0,0,0,0.08)';
 const RED          = '#3b82f6';
 
 // ─── Banks ─────────────────────────────────────────────────────────────────────
@@ -64,237 +65,454 @@ const Seg: React.FC<{
   </View>
 );
 
-// ─── Creating overlay styles ───────────────────────────────────────────────────
-const ov = StyleSheet.create({
-  root:  { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
-  layer: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
-
-  // ── Loader
-  orbitWrap: { width: 112, height: 112, justifyContent: 'center', alignItems: 'center' },
-  outerRing: {              // lento, contrarrotante, muy sutil
-    position: 'absolute',
-    width: 112, height: 112, borderRadius: 56,
-    borderWidth: 1,
-    borderColor:        'rgba(255,255,255,0.07)',
-    borderTopColor:     'rgba(255,255,255,0.28)',
-    borderRightColor:   'rgba(255,255,255,0.12)',
-  },
-  trackRing: {              // pista estática para el arco interior
-    position: 'absolute',
-    width: 74, height: 74, borderRadius: 37,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  innerArc: {               // arco giratorio rápido
-    position: 'absolute',
-    width: 74, height: 74, borderRadius: 37,
-    borderWidth: 1.5,
-    borderColor:       'transparent',
-    borderTopColor:    '#ffffff',
-    borderRightColor:  'rgba(255,255,255,0.3)',
-  },
-  centerDot: {              // punto central que respira
-    width: 5, height: 5, borderRadius: 2.5,
-    backgroundColor: '#fff',
-  },
-  loadingLabel: {
-    marginTop: 44,
-    fontSize: 10,
-    fontWeight: '300',
-    color: 'rgba(255,255,255,0.3)',
-    letterSpacing: 5,
-    textTransform: 'uppercase',
-  },
-
-  // ── Check
-  checkRing: {
-    width: 76, height: 76, borderRadius: 38,
-    borderWidth: 1.5,
-    borderColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ripple: {                 // anillos expansivos (shockwave)
-    position: 'absolute',
-    width: 76, height: 76, borderRadius: 38,
-    borderWidth: 1,
-    borderColor: '#ffffff',
-  },
-  successLabel: {
-    marginTop: 30,
-    fontSize: 11,
-    fontWeight: '300',
-    color: '#ffffff',
-    letterSpacing: 5,
-    textTransform: 'uppercase',
-  },
-});
-
 // ─── Creating overlay ──────────────────────────────────────────────────────────
+const DARK      = '#0D1117';
+const DARK_GLOW = 'rgba(0,0,0,0.06)';
+const ORBIT_R_A = 57;
+const ORBIT_R_B = 42;
+const DOT_A     = 4.5;
+const DOT_B     = 3.5;
+const SPIN_CTR  = 65;
+const CONF_R    = 70;
+const CONF_N    = 8;
+const CONF_ANGLES = Array.from({ length: CONF_N }, (_, i) => (i * 360) / CONF_N);
+
+const OvDot: React.FC<{ anim: Animated.Value }> = ({ anim }) => {
+  const scale = anim.interpolate({ inputRange:[0,0.5,1], outputRange:[0.5,1.5,0.5] });
+  const op    = anim.interpolate({ inputRange:[0,0.5,1], outputRange:[0.15,1,0.15] });
+  const ty    = anim.interpolate({ inputRange:[0,0.5,1], outputRange:[0,-5,0] });
+  return <Animated.View style={[ov.dot, { transform:[{scale},{translateY:ty}], opacity:op }]} />;
+};
+
+const OvArc: React.FC<{
+  size:number; stroke:number;
+  colorActive:string; colorDim:string;
+  spin: Animated.AnimatedInterpolation<string>;
+}> = ({ size, stroke, colorActive, colorDim, spin }) => (
+  <Animated.View style={[{
+    position:'absolute', width:size, height:size, borderRadius:size/2,
+    borderWidth:stroke, borderColor:colorDim,
+    borderTopColor:colorActive, borderRightColor:colorActive,
+  }, { transform:[{rotate:spin}] }]} />
+);
+
 const CreatingOverlay: React.FC<{ visible: boolean; success: boolean }> = ({ visible, success }) => {
-  // overlay
-  const overlayOp   = useRef(new Animated.Value(0)).current;
-  // loader
-  const loaderOp    = useRef(new Animated.Value(0)).current;
-  const outerRot    = useRef(new Animated.Value(0)).current;
-  const innerRot    = useRef(new Animated.Value(0)).current;
-  const dotPulse    = useRef(new Animated.Value(1)).current;
-  // check
-  const checkOp     = useRef(new Animated.Value(0)).current;
-  const checkScale  = useRef(new Animated.Value(0.25)).current;
-  const markOp      = useRef(new Animated.Value(0)).current;
-  const markY       = useRef(new Animated.Value(6)).current;
-  const textOp      = useRef(new Animated.Value(0)).current;
-  const textY       = useRef(new Animated.Value(14)).current;
-  // ripples
-  const r1s = useRef(new Animated.Value(1)).current;
-  const r1o = useRef(new Animated.Value(0)).current;
-  const r2s = useRef(new Animated.Value(1)).current;
-  const r2o = useRef(new Animated.Value(0)).current;
-  const r3s = useRef(new Animated.Value(1)).current;
-  const r3o = useRef(new Animated.Value(0)).current;
+  const [shouldRender, setShouldRender] = useState(false);
+  const [phase, setPhase] = useState<'loading'|'success'>('loading');
 
-  const outerRef = useRef<Animated.CompositeAnimation>();
-  const innerRef = useRef<Animated.CompositeAnimation>();
-  const dotRef   = useRef<Animated.CompositeAnimation>();
+  const loopsRef = useRef<Animated.CompositeAnimation | null>(null);
 
-  const reset = () => {
-    outerRef.current?.stop();
-    innerRef.current?.stop();
-    dotRef.current?.stop();
-    overlayOp.setValue(0);  loaderOp.setValue(0);
-    outerRot.setValue(0);   innerRot.setValue(0);  dotPulse.setValue(1);
-    checkOp.setValue(0);    checkScale.setValue(0.25);
-    markOp.setValue(0);     markY.setValue(6);
-    textOp.setValue(0);     textY.setValue(14);
-    r1s.setValue(1); r1o.setValue(0);
-    r2s.setValue(1); r2o.setValue(0);
-    r3s.setValue(1); r3o.setValue(0);
+  // Entry
+  const overlayFade = useRef(new Animated.Value(0)).current;
+  const cardFade    = useRef(new Animated.Value(0)).current;
+  const cardY       = useRef(new Animated.Value(22)).current;
+  const logoFade    = useRef(new Animated.Value(0)).current;
+  const logoY       = useRef(new Animated.Value(-14)).current;
+  const logoScale   = useRef(new Animated.Value(0.88)).current;
+  const textFade    = useRef(new Animated.Value(0)).current;
+  const subtextFade = useRef(new Animated.Value(0)).current;
+
+  // Loops
+  const spin1     = useRef(new Animated.Value(0)).current;
+  const spin2     = useRef(new Animated.Value(0)).current;
+  const spin3     = useRef(new Animated.Value(0)).current;
+  const orbitA    = useRef(new Animated.Value(0)).current;
+  const orbitB    = useRef(new Animated.Value(0)).current;
+  const orbitFade = useRef(new Animated.Value(1)).current;
+  const glowOp    = useRef(new Animated.Value(0.3)).current;
+  const glowSc    = useRef(new Animated.Value(0.85)).current;
+  const logoFloat = useRef(new Animated.Value(0)).current;
+  const d0 = useRef(new Animated.Value(0)).current;
+  const d1 = useRef(new Animated.Value(0)).current;
+  const d2 = useRef(new Animated.Value(0)).current;
+
+  // Success
+  const ringsFade  = useRef(new Animated.Value(1)).current;
+  const dotsFade   = useRef(new Animated.Value(1)).current;
+  const checkScale = useRef(new Animated.Value(0)).current;
+  const checkFade  = useRef(new Animated.Value(0)).current;
+  const checkGlow  = useRef(new Animated.Value(0)).current;
+  const r1Scale = useRef(new Animated.Value(0.3)).current;
+  const r1Fade  = useRef(new Animated.Value(0)).current;
+  const r2Scale = useRef(new Animated.Value(0.3)).current;
+  const r2Fade  = useRef(new Animated.Value(0)).current;
+  const r3Scale = useRef(new Animated.Value(0.3)).current;
+  const r3Fade  = useRef(new Animated.Value(0)).current;
+  const successText = useRef(new Animated.Value(0)).current;
+
+  // Confetti
+  const confX  = useRef(CONF_ANGLES.map(() => new Animated.Value(0))).current;
+  const confY  = useRef(CONF_ANGLES.map(() => new Animated.Value(0))).current;
+  const confOp = useRef(CONF_ANGLES.map(() => new Animated.Value(0))).current;
+
+  const resetAll = () => {
+    overlayFade.setValue(0); cardFade.setValue(0); cardY.setValue(22);
+    logoFade.setValue(0); logoY.setValue(-14); logoScale.setValue(0.88);
+    textFade.setValue(0); subtextFade.setValue(0);
+    spin1.setValue(0); spin2.setValue(0); spin3.setValue(0);
+    orbitA.setValue(0); orbitB.setValue(0); orbitFade.setValue(1);
+    glowOp.setValue(0.3); glowSc.setValue(0.85); logoFloat.setValue(0);
+    d0.setValue(0); d1.setValue(0); d2.setValue(0);
+    ringsFade.setValue(1); dotsFade.setValue(1);
+    checkScale.setValue(0); checkFade.setValue(0); checkGlow.setValue(0);
+    r1Scale.setValue(0.3); r1Fade.setValue(0);
+    r2Scale.setValue(0.3); r2Fade.setValue(0);
+    r3Scale.setValue(0.3); r3Fade.setValue(0);
+    successText.setValue(0);
+    confX.forEach(v => v.setValue(0));
+    confY.forEach(v => v.setValue(0));
+    confOp.forEach(v => v.setValue(0));
+    setPhase('loading');
   };
 
-  useEffect(() => {
-    if (!visible) { reset(); return; }
+  const startLoops = () => {
+    const loop = (v: Animated.Value, dur: number) =>
+      Animated.loop(Animated.timing(v, { toValue:1, duration:dur, useNativeDriver:true, easing:Easing.linear }));
 
-    // Fade in overlay + loader
-    Animated.timing(overlayOp, { toValue: 1, duration: 320, useNativeDriver: true }).start();
-    setTimeout(() => {
-      Animated.timing(loaderOp, { toValue: 1, duration: 400, useNativeDriver: true }).start();
-    }, 80);
+    const glowLoop = Animated.loop(Animated.sequence([
+      Animated.parallel([
+        Animated.timing(glowOp, { toValue:1,    duration:860, useNativeDriver:true, easing:Easing.inOut(Easing.sin) }),
+        Animated.timing(glowSc, { toValue:1.22, duration:860, useNativeDriver:true, easing:Easing.inOut(Easing.sin) }),
+      ]),
+      Animated.parallel([
+        Animated.timing(glowOp, { toValue:0.18, duration:860, useNativeDriver:true, easing:Easing.inOut(Easing.sin) }),
+        Animated.timing(glowSc, { toValue:0.80, duration:860, useNativeDriver:true, easing:Easing.inOut(Easing.sin) }),
+      ]),
+    ]));
 
-    // Outer ring — lento, contrarrotante
-    outerRef.current = Animated.loop(
-      Animated.timing(outerRot, { toValue: -1, duration: 3800, easing: Easing.linear, useNativeDriver: true })
-    );
-    outerRef.current.start();
+    const floatLoop = Animated.loop(Animated.sequence([
+      Animated.timing(logoFloat, { toValue:-5, duration:1300, useNativeDriver:true, easing:Easing.inOut(Easing.sin) }),
+      Animated.timing(logoFloat, { toValue:5,  duration:1300, useNativeDriver:true, easing:Easing.inOut(Easing.sin) }),
+    ]));
 
-    // Inner arc — rápido
-    innerRef.current = Animated.loop(
-      Animated.timing(innerRot, { toValue: 1, duration: 820, easing: Easing.linear, useNativeDriver: true })
-    );
-    innerRef.current.start();
+    const dot = (a: Animated.Value, delay: number) =>
+      Animated.loop(Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(a, { toValue:1, duration:370, useNativeDriver:true, easing:Easing.out(Easing.quad) }),
+        Animated.timing(a, { toValue:0, duration:370, useNativeDriver:true, easing:Easing.in(Easing.quad) }),
+        Animated.delay(740 - delay),
+      ]));
 
-    // Dot pulse — respiración lenta
-    dotRef.current = Animated.loop(
+    loopsRef.current = Animated.parallel([
+      loop(spin1, 1100), loop(spin2, 1750), loop(spin3, 2600),
+      loop(orbitA, 2900), loop(orbitB, 4400),
+      glowLoop, floatLoop,
+      dot(d0, 0), dot(d1, 210), dot(d2, 420),
+    ]);
+    loopsRef.current.start();
+  };
+
+  const makeRipple = (scale: Animated.Value, fade: Animated.Value, delay: number) =>
+    Animated.sequence([
+      Animated.delay(delay),
+      Animated.parallel([
+        Animated.timing(scale, { toValue:4.8, duration:780, useNativeDriver:true, easing:Easing.out(Easing.cubic) }),
+        Animated.sequence([
+          Animated.timing(fade, { toValue:0.9, duration:70,  useNativeDriver:true }),
+          Animated.timing(fade, { toValue:0,   duration:710, useNativeDriver:true, easing:Easing.out(Easing.quad) }),
+        ]),
+      ]),
+    ]);
+
+  const launchConfetti = () => {
+    CONF_ANGLES.forEach((angle, i) => {
+      const rad = (angle * Math.PI) / 180;
       Animated.sequence([
-        Animated.timing(dotPulse, { toValue: 2.2, duration: 800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(dotPulse, { toValue: 1,   duration: 800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ])
-    );
-    dotRef.current.start();
-  }, [visible]);
-
-  useEffect(() => {
-    if (!success || !visible) return;
-    outerRef.current?.stop();
-    innerRef.current?.stop();
-    dotRef.current?.stop();
-
-    // Loader desaparece
-    Animated.timing(loaderOp, { toValue: 0, duration: 220, easing: Easing.out(Easing.ease), useNativeDriver: true }).start();
-
-    // Check ring entra después del fade-out del loader
-    setTimeout(() => {
-      // Fade in capa check
-      Animated.timing(checkOp, { toValue: 1, duration: 180, useNativeDriver: true }).start();
-
-      // Check ring pop — spring controlado (sin oscilación infinita)
-      Animated.spring(checkScale, { toValue: 1, tension: 160, friction: 11, useNativeDriver: true }).start();
-
-      // Shockwave: 3 ripples con stagger
-      r1o.setValue(0.45); r2o.setValue(0.28); r3o.setValue(0.15);
-      Animated.stagger(100, [
+        Animated.delay(i * 14),
         Animated.parallel([
-          Animated.timing(r1s, { toValue: 2.5, duration: 600, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-          Animated.timing(r1o, { toValue: 0,   duration: 600, useNativeDriver: true }),
-        ]),
-        Animated.parallel([
-          Animated.timing(r2s, { toValue: 3.1, duration: 720, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-          Animated.timing(r2o, { toValue: 0,   duration: 720, useNativeDriver: true }),
-        ]),
-        Animated.parallel([
-          Animated.timing(r3s, { toValue: 3.8, duration: 860, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-          Animated.timing(r3o, { toValue: 0,   duration: 860, useNativeDriver: true }),
+          Animated.timing(confX[i], { toValue: CONF_R * Math.cos(rad), duration:640, useNativeDriver:true, easing:Easing.out(Easing.cubic) }),
+          Animated.timing(confY[i], { toValue: CONF_R * Math.sin(rad), duration:640, useNativeDriver:true, easing:Easing.out(Easing.cubic) }),
+          Animated.sequence([
+            Animated.timing(confOp[i], { toValue:1, duration:75,  useNativeDriver:true }),
+            Animated.timing(confOp[i], { toValue:0, duration:565, useNativeDriver:true, easing:Easing.in(Easing.cubic) }),
+          ]),
         ]),
       ]).start();
+    });
+  };
 
-      // Checkmark aparece
-      setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(markOp, { toValue: 1, duration: 200, useNativeDriver: true }),
-          Animated.timing(markY,  { toValue: 0, duration: 280, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-        ]).start();
-      }, 120);
+  // ── Visible change ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!visible) {
+      loopsRef.current?.stop();
+      setShouldRender(false);
+      resetAll();
+      return;
+    }
 
-      // Texto sube
-      setTimeout(() => {
+    resetAll();
+    setShouldRender(true);
+
+    Animated.parallel([
+      Animated.timing(overlayFade, { toValue:1, duration:340, useNativeDriver:true, easing:Easing.out(Easing.quad) }),
+      Animated.timing(cardFade,    { toValue:1, duration:300, useNativeDriver:true }),
+      Animated.timing(cardY,       { toValue:0, duration:480, useNativeDriver:true, easing:Easing.out(Easing.cubic) }),
+      Animated.timing(logoY,       { toValue:0, duration:500, useNativeDriver:true, easing:Easing.out(Easing.back(1.4)) }),
+      Animated.timing(logoFade,    { toValue:1, duration:460, useNativeDriver:true }),
+      Animated.timing(logoScale,   { toValue:1, duration:500, useNativeDriver:true, easing:Easing.out(Easing.back(1.2)) }),
+      Animated.sequence([
+        Animated.delay(220),
+        Animated.timing(textFade, { toValue:1, duration:340, useNativeDriver:true }),
+      ]),
+      Animated.sequence([
+        Animated.delay(340),
+        Animated.timing(subtextFade, { toValue:1, duration:320, useNativeDriver:true }),
+      ]),
+    ]).start(() => startLoops());
+  }, [visible]);
+
+  // ── Success change ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!success || !visible) return;
+    loopsRef.current?.stop();
+    setPhase('success');
+    launchConfetti();
+
+    Animated.parallel([
+      Animated.timing(ringsFade, { toValue:0, duration:200, useNativeDriver:true }),
+      Animated.timing(orbitFade, { toValue:0, duration:180, useNativeDriver:true }),
+      Animated.timing(dotsFade,  { toValue:0, duration:160, useNativeDriver:true }),
+      makeRipple(r1Scale, r1Fade, 0),
+      makeRipple(r2Scale, r2Fade, 140),
+      makeRipple(r3Scale, r3Fade, 280),
+      Animated.sequence([
         Animated.parallel([
-          Animated.timing(textOp, { toValue: 1, duration: 320, useNativeDriver: true }),
-          Animated.timing(textY,  { toValue: 0, duration: 320, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-        ]).start();
-      }, 300);
-    }, 230);
+          Animated.timing(glowOp, { toValue:1.5, duration:150, useNativeDriver:true }),
+          Animated.timing(glowSc, { toValue:1.8, duration:150, useNativeDriver:true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(glowOp, { toValue:0.65, duration:520, useNativeDriver:true }),
+          Animated.timing(glowSc, { toValue:1.12, duration:520, useNativeDriver:true }),
+        ]),
+      ]),
+      Animated.sequence([
+        Animated.delay(95),
+        Animated.parallel([
+          Animated.spring(checkScale, { toValue:1, tension:185, friction:5, useNativeDriver:true }),
+          Animated.timing(checkFade,  { toValue:1, duration:180, useNativeDriver:true }),
+          Animated.timing(checkGlow,  { toValue:1, duration:500, useNativeDriver:true }),
+        ]),
+      ]),
+      Animated.sequence([
+        Animated.delay(280),
+        Animated.timing(successText, { toValue:1, duration:360, useNativeDriver:true, easing:Easing.out(Easing.cubic) }),
+      ]),
+    ]).start();
   }, [success]);
 
-  const outerSpin = outerRot.interpolate({ inputRange: [-1, 0], outputRange: ['-360deg', '0deg'] });
-  const innerSpin = innerRot.interpolate({ inputRange: [0, 1],  outputRange: ['0deg', '360deg'] });
+  if (!shouldRender) return null;
+
+  const r1 = spin1.interpolate({ inputRange:[0,1], outputRange:['0deg','360deg'] });
+  const r2 = spin2.interpolate({ inputRange:[0,1], outputRange:['360deg','0deg'] });
+  const r3 = spin3.interpolate({ inputRange:[0,1], outputRange:['0deg','360deg'] });
+  const rA = orbitA.interpolate({ inputRange:[0,1], outputRange:['0deg','360deg'] });
+  const rB = orbitB.interpolate({ inputRange:[0,1], outputRange:['360deg','0deg'] });
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={() => {}}>
-      <Animated.View style={[ov.root, { opacity: overlayOp }]}>
+      <Animated.View style={[ov.root, { opacity: overlayFade }]}>
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor:'#FFFFFF', opacity: overlayFade }]} />
 
-        {/* ── Loader ── */}
-        <Animated.View style={[ov.layer, { opacity: loaderOp }]}>
-          <View style={ov.orbitWrap}>
-            <Animated.View style={[ov.outerRing, { transform: [{ rotate: outerSpin }] }]} />
-            <View style={ov.trackRing} />
-            <Animated.View style={[ov.innerArc,  { transform: [{ rotate: innerSpin }] }]} />
-            <Animated.View style={[ov.centerDot, { transform: [{ scale: dotPulse }] }]} />
-          </View>
-          <Text style={ov.loadingLabel}>Procesando</Text>
-        </Animated.View>
+        <Animated.View style={{ opacity:cardFade, transform:[{translateY:cardY}], width:'100%', alignItems:'center' }}>
 
-        {/* ── Check ── */}
-        <Animated.View style={[ov.layer, { opacity: checkOp }]}>
-          {/* Ripples */}
-          <Animated.View style={[ov.ripple, { opacity: r1o, transform: [{ scale: r1s }] }]} />
-          <Animated.View style={[ov.ripple, { opacity: r2o, transform: [{ scale: r2s }] }]} />
-          <Animated.View style={[ov.ripple, { opacity: r3o, transform: [{ scale: r3s }] }]} />
-          {/* Círculo check */}
-          <Animated.View style={[ov.checkRing, { transform: [{ scale: checkScale }] }]}>
-            <Animated.View style={{ opacity: markOp, transform: [{ translateY: markY }] }}>
-              <Ionicons name="checkmark" size={32} color="#fff" />
-            </Animated.View>
+          {/* ── Logo + badge de operación ── */}
+          <Animated.View style={{
+            opacity: logoFade,
+            transform:[{ translateY: Animated.add(logoY, logoFloat) }, { scale: logoScale }],
+            marginBottom: 30,
+            alignItems: 'center',
+            gap: 10,
+          }}>
+            <Image source={require('../../assets/qc.png')} style={ov.logo} resizeMode="contain" />
+            <View style={ov.opBadge}>
+              <Ionicons name="swap-horizontal-outline" size={14} color={DARK} />
+              <Text style={ov.opBadgeText}>Nueva operación</Text>
+            </View>
           </Animated.View>
-          {/* Texto */}
-          <Animated.Text style={[ov.successLabel, { opacity: textOp, transform: [{ translateY: textY }] }]}>
-            Operación creada
-          </Animated.Text>
-        </Animated.View>
 
+          {/* ── Spinner area ── */}
+          <View style={ov.spinWrap}>
+            <Animated.View style={[ov.glow, { opacity:glowOp, transform:[{scale:glowSc}] }]} />
+
+            {/* Confetti */}
+            {CONF_ANGLES.map((_, i) => (
+              <Animated.View key={`cf${i}`} style={[ov.confettiDot, {
+                opacity: confOp[i],
+                transform:[{ translateX:confX[i] }, { translateY:confY[i] }],
+              }]} />
+            ))}
+
+            {/* Triple ripple */}
+            {([
+              [r1Scale, r1Fade, DARK],
+              [r2Scale, r2Fade, 'rgba(0,0,0,0.50)'],
+              [r3Scale, r3Fade, 'rgba(0,0,0,0.28)'],
+            ] as [Animated.Value, Animated.Value, string][]).map(([scale, fade, color], i) => (
+              <Animated.View key={`rp${i}`} style={[ov.ripple, {
+                opacity: fade, transform:[{scale}], borderColor:color,
+              }]} />
+            ))}
+
+            {/* Órbita A */}
+            <Animated.View style={[StyleSheet.absoluteFillObject, { opacity:orbitFade, transform:[{rotate:rA}] }]}>
+              {[0, 120, 240].map((angle, i) => {
+                const rad = (angle * Math.PI) / 180;
+                return (
+                  <View key={i} style={[ov.orbitDotA, {
+                    left: SPIN_CTR + ORBIT_R_A * Math.cos(rad) - DOT_A / 2,
+                    top:  SPIN_CTR + ORBIT_R_A * Math.sin(rad) - DOT_A / 2,
+                  }]} />
+                );
+              })}
+            </Animated.View>
+
+            {/* Órbita B */}
+            <Animated.View style={[StyleSheet.absoluteFillObject, { opacity:orbitFade, transform:[{rotate:rB}] }]}>
+              {[60, 180, 300].map((angle, i) => {
+                const rad = (angle * Math.PI) / 180;
+                return (
+                  <View key={i} style={[ov.orbitDotB, {
+                    left: SPIN_CTR + ORBIT_R_B * Math.cos(rad) - DOT_B / 2,
+                    top:  SPIN_CTR + ORBIT_R_B * Math.sin(rad) - DOT_B / 2,
+                  }]} />
+                );
+              })}
+            </Animated.View>
+
+            {/* 3 arcos */}
+            <Animated.View style={{ opacity:ringsFade, alignItems:'center', justifyContent:'center' }}>
+              <OvArc size={114} stroke={2.5} colorActive={DARK}              colorDim="rgba(0,0,0,0.08)" spin={r1} />
+              <OvArc size={86}  stroke={2}   colorActive="rgba(0,0,0,0.55)" colorDim="rgba(0,0,0,0.05)" spin={r2} />
+              <OvArc size={60}  stroke={1.5} colorActive="rgba(0,0,0,0.30)" colorDim="transparent"      spin={r3} />
+            </Animated.View>
+
+            {/* Checkmark */}
+            <Animated.View style={[ov.checkWrap, { opacity:checkFade, transform:[{scale:checkScale}] }]}>
+              <Animated.View style={[ov.checkGlowRing, { opacity:checkGlow }]} />
+              <View style={ov.checkCircle}>
+                <Ionicons name="checkmark" size={38} color="#fff" />
+              </View>
+              <View style={ov.swapBadge}>
+                <Ionicons name="swap-horizontal" size={11} color="#fff" />
+              </View>
+            </Animated.View>
+          </View>
+
+          {/* ── Textos ── */}
+          <View style={ov.textBlock}>
+            <Animated.View style={[StyleSheet.absoluteFill, {
+              opacity: Animated.subtract(textFade, successText),
+              alignItems:'center', justifyContent:'center',
+            }]}>
+              <Text style={ov.title}>Creando <Text style={ov.accent}>operación</Text></Text>
+              <Animated.Text style={[ov.sub, { opacity: subtextFade }]}>
+                Un momento, por favor...
+              </Animated.Text>
+            </Animated.View>
+            <Animated.View style={[StyleSheet.absoluteFill, {
+              opacity: successText,
+              alignItems:'center', justifyContent:'center',
+              transform:[{ translateY: successText.interpolate({ inputRange:[0,1], outputRange:[12,0] }) }],
+            }]}>
+              <Text style={ov.title}>¡Operación <Text style={ov.accent}>creada!</Text></Text>
+              <Text style={ov.sub}>Redirigiendo al siguiente paso</Text>
+            </Animated.View>
+          </View>
+
+          {/* ── Dots indicadores ── */}
+          <Animated.View style={[ov.dotsRow, { opacity:dotsFade }]}>
+            <OvDot anim={d0} />
+            <OvDot anim={d1} />
+            <OvDot anim={d2} />
+          </Animated.View>
+
+        </Animated.View>
       </Animated.View>
     </Modal>
   );
 };
+
+const ov = StyleSheet.create({
+  root: {
+    flex:1, justifyContent:'center', alignItems:'center',
+  },
+  logo: { width:130, height:33 },
+  opBadge: {
+    flexDirection:'row', alignItems:'center', gap:5,
+    backgroundColor:'#F3F4F6',
+    borderWidth:1, borderColor:'rgba(0,0,0,0.07)',
+    borderRadius:100, paddingHorizontal:10, paddingVertical:5,
+  },
+  opBadgeText: {
+    fontSize:11, fontWeight:'600', color:DARK, letterSpacing:0.1,
+  },
+  spinWrap: {
+    width:130, height:130,
+    alignItems:'center', justifyContent:'center',
+    marginBottom:26,
+  },
+  glow: {
+    position:'absolute', width:86, height:86, borderRadius:43,
+    backgroundColor:DARK_GLOW,
+    shadowColor:'#000', shadowOffset:{width:0,height:0},
+    shadowOpacity:0.15, shadowRadius:24,
+  },
+  orbitDotA: {
+    position:'absolute', width:DOT_A, height:DOT_A, borderRadius:DOT_A/2,
+    backgroundColor:'rgba(0,0,0,0.55)',
+    shadowColor:'#000', shadowOffset:{width:0,height:0},
+    shadowOpacity:0.4, shadowRadius:3,
+  },
+  orbitDotB: {
+    position:'absolute', width:DOT_B, height:DOT_B, borderRadius:DOT_B/2,
+    backgroundColor:'rgba(0,0,0,0.30)',
+  },
+  ripple: {
+    position:'absolute', width:90, height:90, borderRadius:45, borderWidth:1.5,
+  },
+  confettiDot: {
+    position:'absolute', width:6, height:6, borderRadius:3,
+    backgroundColor:DARK,
+    shadowColor:'#000', shadowOffset:{width:0,height:0},
+    shadowOpacity:0.3, shadowRadius:4,
+    left: SPIN_CTR - 3, top: SPIN_CTR - 3,
+  },
+  checkWrap: {
+    position:'absolute', alignItems:'center', justifyContent:'center',
+  },
+  checkGlowRing: {
+    position:'absolute', width:90, height:90, borderRadius:45,
+    backgroundColor:'rgba(0,0,0,0.06)',
+    shadowColor:'#000', shadowOffset:{width:0,height:0},
+    shadowOpacity:0.18, shadowRadius:22,
+  },
+  checkCircle: {
+    width:68, height:68, borderRadius:34,
+    backgroundColor:DARK,
+    alignItems:'center', justifyContent:'center',
+    shadowColor:'#000', shadowOffset:{width:0,height:8},
+    shadowOpacity:0.22, shadowRadius:18, elevation:14,
+  },
+  swapBadge: {
+    position:'absolute', top:-4, right:-4,
+    width:20, height:20, borderRadius:10,
+    backgroundColor:'#2563EB',
+    alignItems:'center', justifyContent:'center',
+    borderWidth:2, borderColor:'#FFFFFF',
+  },
+  textBlock: { height:54, width:'100%', position:'relative', marginBottom:4 },
+  title: {
+    fontSize:19, fontWeight:'800', color:DARK,
+    textAlign:'center', marginBottom:5, letterSpacing:0.1,
+  },
+  accent: { color:DARK, fontWeight:'800' },
+  sub: {
+    fontSize:12.5, color:'#6B7280',
+    textAlign:'center', letterSpacing:0.2,
+  },
+  dotsRow: { flexDirection:'row', gap:10, alignItems:'center', marginTop:16 },
+  dot: { width:7, height:7, borderRadius:3.5, backgroundColor:DARK },
+});
 
 // ─── Glass modal wrapper ────────────────────────────────────────────────────────
 const GlassModal: React.FC<{
@@ -306,19 +524,12 @@ const GlassModal: React.FC<{
 }> = ({ visible, onClose, title, children, footer }) => (
   <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      {/* Backdrop */}
-      <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
-      <TouchableOpacity
-        style={StyleSheet.absoluteFill}
-        activeOpacity={1}
-        onPress={onClose}
-      />
-      {/* Contenido centrado — pointerEvents="box-none" deja pasar toques al backdrop excepto los de los hijos */}
+      {/* Backdrop oscuro sólido */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.65)' }]} />
+      <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+      {/* Card blanca centrada */}
       <View style={s.modalOuter} pointerEvents="box-none">
         <View style={s.modalBox}>
-          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
-          <View style={s.modalBorder} />
           <Text style={s.modalTitle}>{title}</Text>
           <View style={s.modalDivider} />
           <ScrollView style={{ width: '100%' }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -468,6 +679,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
   const hasImprovement = initialBaseRate !== null &&
     Math.abs(initialExchangeRate - initialBaseRate) > 0.0005;
 
+  const REFERRAL_IMPROVEMENT = 0.002;
   const [operationType,      setOperationType]      = useState<'Compra'|'Venta'>(initialOperationType);
   const [amountUsd,          setAmountUsd]          = useState(initialAmount);
   const [exchangeRate,       setExchangeRate]       = useState(initialExchangeRate.toString());
@@ -495,10 +707,36 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
   const [sourceDialogVisible, setSourceDialogVisible]      = useState(false);
   const [destDialogVisible,   setDestDialogVisible]        = useState(false);
 
+  // ── Coupon ─────────────────────────────────────────────────────────────────
+  const [clientPips,         setClientPips]         = useState(0);
+  const [pipsLoading,        setPipsLoading]        = useState(false);
+  const [generatedRewardCode,setGeneratedRewardCode] = useState<string | null>(null);
+  const [couponCode,         setCouponCode]         = useState('');
+  const [couponApplied,      setCouponApplied]      = useState<string | null>(null);
+  const [couponRates,        setCouponRates]        = useState<{compra:number; venta:number} | null>(null);
+  const [couponValidating,   setCouponValidating]   = useState(false);
+  const [couponModalVisible, setCouponModalVisible] = useState(false);
+
+  const toastAnim = useRef(new Animated.Value(0)).current;
+  const stepSpin  = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(stepSpin, { toValue: 1, duration: 1600, useNativeDriver: true, easing: Easing.linear })
+    ).start();
+  }, []);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showMinAmountToast = () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    Animated.spring(toastAnim, { toValue: 1, useNativeDriver: true, damping: 18, stiffness: 200 }).start();
+    toastTimer.current = setTimeout(() => {
+      Animated.timing(toastAnim, { toValue: 0, duration: 260, useNativeDriver: true, easing: Easing.in(Easing.ease) }).start();
+    }, 3000);
+  };
+
   const accountsPEN = client?.bank_accounts?.filter(a => a && a.account_number && a.currency === 'S/') || [];
   const accountsUSD = client?.bank_accounts?.filter(a => a && a.account_number && a.currency === '$')  || [];
 
-  // ── Fetch rates ────────────────────────────────────────────────────────────
+  // ── Fetch rates + pips disponibles ─────────────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
@@ -515,6 +753,13 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
         }
       } catch {}
     })();
+    // Cargar pips disponibles del cliente
+    if (client?.dni) {
+      fetch(`${API_CONFIG.BASE_URL}/api/referrals/stats/${client.dni}`)
+        .then(r => r.json())
+        .then(d => { if (d.success) setClientPips(d.pips_available || 0); })
+        .catch(() => {});
+    }
   }, []);
 
   useEffect(() => {
@@ -543,6 +788,9 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
   const amountToReceive = operationType === 'Compra' ? calculatePEN() : parseFloat(amountUsd) || 0;
 
   const renderAccountOption = (acc: BankAccount) =>
+    `${acc.bank_name} (${acc.currency}) ****${acc.account_number.slice(-4)}`;
+
+  const renderAccountOptionFull = (acc: BankAccount) =>
     `${acc.bank_name} · ${acc.account_type} (${acc.currency}) · ****${acc.account_number.slice(-4)}`;
 
   const getSourceText = () => {
@@ -563,6 +811,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
   const validate = () => {
     const e: any = {};
     if (!amountUsd || parseFloat(amountUsd) <= 0) e.amountUsd = 'Ingrese un monto válido';
+    else if (parseFloat(amountUsd) < 50) { showMinAmountToast(); return false; }
     if (!exchangeRate || parseFloat(exchangeRate) <= 0) e.exchangeRate = 'Ingrese un tipo de cambio válido';
     if (!sourceAccount)      e.sourceAccount      = 'Seleccione cuenta de origen';
     if (!destinationAccount) e.destinationAccount = 'Seleccione cuenta de destino';
@@ -621,6 +870,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
           destination_account: destinationAccount,
           terms_accepted: termsAccepted,
           notes: '',
+          ...(generatedRewardCode ? { coupon_code: generatedRewardCode } : {}),
         };
         const op = await operationsApi.createOperation(client!.dni, operationData);
         return { op };
@@ -652,12 +902,9 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
     await delay(1200);
     // Sonido de confirmación en el último instante de la animación
     try {
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      const { sound } = await Audio.Sound.createAsync(
-        require('../../assets/sounds/payment_success.mp3'),
-        { shouldPlay: true, volume: 0.8 }
-      );
-      sound.setOnPlaybackStatusUpdate(s => { if (s.isLoaded && s.didJustFinish) sound.unloadAsync(); });
+      const player = createAudioPlayer(require('../../assets/sounds/payment_success.mp3'));
+      player.volume = 0.8;
+      player.play();
     } catch {}
     await delay(400);
     navigation.replace('Transfer', { operation: result.op });
@@ -683,6 +930,68 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
   const closeAddAccount = () => {
     setBankMenuVisible(false);
     setAddAccountVisible(false);
+  };
+
+  // ── Validate coupon ────────────────────────────────────────────────────────
+  const handleValidateCoupon = async () => {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) return;
+    setCouponValidating(true);
+    try {
+      const res = await fetch(`${API_CONFIG.BASE_URL}/api/referrals/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, client_dni: client?.dni }),
+      });
+      const data = await res.json();
+      if (data.is_valid) {
+        const improvedCompra = realExchangeRates.compra + REFERRAL_IMPROVEMENT;
+        const improvedVenta  = realExchangeRates.venta  - REFERRAL_IMPROVEMENT;
+        setCouponApplied(code);
+        setCouponRates({ compra: improvedCompra, venta: improvedVenta });
+        const improved = operationType === 'Compra' ? improvedCompra : improvedVenta;
+        setExchangeRate(improved.toFixed(3));
+        setCouponModalVisible(false);
+      } else {
+        Alert.alert('Cupón inválido', data.message || 'El código no es válido');
+      }
+    } catch {
+      Alert.alert('Error', 'No se pudo validar el cupón. Intenta nuevamente.');
+    } finally {
+      setCouponValidating(false);
+    }
+  };
+
+  // ── Aplicar pips directamente ──────────────────────────────────────────────
+  const handleUsePips = async () => {
+    if (!client || pipsLoading || couponApplied) return;
+    setPipsLoading(true);
+    try {
+      const res = await fetch(`${API_CONFIG.BASE_URL}/api/referrals/generate-reward-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_dni: client.dni }),
+      });
+      const data = await res.json();
+      if (data.success && data.improvement && data.reward_code) {
+        const pip = data.improvement as number;
+        const improvedCompra = realExchangeRates.compra + pip;
+        const improvedVenta  = realExchangeRates.venta  - pip;
+        const pipsDisplay = Math.round(pip * 10000);
+        setGeneratedRewardCode(data.reward_code.code);
+        setCouponApplied(`★ ${pipsDisplay} pips`);
+        setCouponRates({ compra: improvedCompra, venta: improvedVenta });
+        const improved = operationType === 'Compra' ? improvedCompra : improvedVenta;
+        setExchangeRate(improved.toFixed(3));
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Alert.alert('Sin pips', data.message || 'No se pudieron aplicar los pips');
+      }
+    } catch {
+      Alert.alert('Error', 'No se pudo conectar. Intenta nuevamente.');
+    } finally {
+      setPipsLoading(false);
+    }
   };
 
   const getAvailableBanks = () => newAccountOrigen === 'Lima' ? BANKS_LIMA : BANKS_PROVINCIA;
@@ -723,17 +1032,16 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <View style={s.root}>
-      <ImageBackground source={bg} style={StyleSheet.absoluteFill} resizeMode="cover" />
-      <View style={[StyleSheet.absoluteFill, s.overlay]} pointerEvents="none" />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#F5F7FA' }]} pointerEvents="none" />
 
       {/* ── Header fijo ── */}
       <View style={[s.pageHeader, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.75}>
-          <Ionicons name="chevron-back" size={20} color="#fff" />
+          <Ionicons name="chevron-back" size={20} color="#0D1117" />
         </TouchableOpacity>
         <View style={s.headerCenter}>
           <View style={{ alignItems: 'center' }}>
-            <Image source={require('../../assets/logo.png')} style={s.headerLogo} resizeMode="contain" />
+            <Image source={require('../../assets/qc.png')} style={s.headerLogo} resizeMode="contain" />
             {isLegalEntity && (
               <Text style={s.corporateLabel}>corporate</Text>
             )}
@@ -756,149 +1064,149 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             transition={{ type: 'spring', delay: 65, damping: 24, stiffness: 220 }}
           >
             <View style={s.stepperWrap}>
-              {(['Cotiza', 'Transfiere', 'Recibe'] as const).map((label, i) => (
-                <React.Fragment key={label}>
-                  <View style={s.step}>
-                    <View style={[s.stepDot, i === 0 && s.stepDotActive]}>
-                      {i === 0
-                        ? <Ionicons name="checkmark" size={12} color="#fff" />
-                        : <Text style={s.stepNum}>{i + 1}</Text>
-                      }
-                    </View>
-                    <Text style={[s.stepLabel, i === 0 && s.stepLabelActive]}>{label}</Text>
+              {/* Paso 1 — activo: Cotiza */}
+              <View style={s.step}>
+                <View style={s.stepDotActiveWrap}>
+                  <View style={s.stepArcTrack} />
+                  <Animated.View style={[s.stepArcSpin, {
+                    transform: [{ rotate: stepSpin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
+                  }]} />
+                  <View style={[s.stepDot, s.stepDotActive]}>
+                    <Ionicons name="receipt-outline" size={12} color="#fff" />
                   </View>
-                  {i < 2 && <View style={s.stepLine} />}
-                </React.Fragment>
-              ))}
+                </View>
+                <Text style={[s.stepLabel, s.stepLabelActive]}>Cotiza</Text>
+              </View>
+              <View style={s.stepLine} />
+              {/* Paso 2 — pendiente: Transfiere */}
+              <View style={s.step}>
+                <View style={s.stepDot}>
+                  <Ionicons name="swap-horizontal" size={12} color="#9CA3AF" />
+                </View>
+                <Text style={s.stepLabel}>Transfiere</Text>
+              </View>
+              <View style={s.stepLine} />
+              {/* Paso 3 — pendiente: Recibe */}
+              <View style={s.step}>
+                <View style={s.stepDot}>
+                  <Ionicons name="gift-outline" size={12} color="#9CA3AF" />
+                </View>
+                <Text style={s.stepLabel}>Recibe</Text>
+              </View>
             </View>
           </MotiView>
 
-          {/* ── Trading card (toggle + TC hero) ── */}
+          {/* ── Calculadora ── */}
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
             transition={{ type: 'spring', delay: 90, damping: 22, stiffness: 200 }}
           >
-            <View style={s.tradingCard}>
-              <BlurView intensity={60} tint="dark" style={[StyleSheet.absoluteFill, { borderRadius: 20 }]} />
-              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.30)' }]} />
-              <View style={[StyleSheet.absoluteFill, {
-                borderRadius: 20, borderWidth: 1,
-                borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.40)' : 'rgba(59,130,246,0.40)',
-              }]} />
-
-              {/* ── Tipo de operación (solo lectura) ── */}
-              <View style={[s.opTypeBadge, {
-                backgroundColor: operationType === 'Compra' ? 'rgba(34,197,94,0.12)' : 'rgba(59,130,246,0.10)',
-              }]}>
-<Text style={s.bsBtnLabel}>
-                  <Text style={s.opTypeSubLabel}>Tipo de operación: </Text>
-                  <Text style={{ color: operationType === 'Compra' ? GREEN : RED }}>
-                    {operationType === 'Compra' ? 'Qoricash compra' : 'Qoricash vende'}
-                  </Text>
-                </Text>
-              </View>
-
-              {/* ── Divider ── */}
-              <View style={s.tradingCardDivider} />
-
-              {/* ── T.C. row (label izq / valor der) ── */}
-              <View style={s.tcRow}>
-                <View style={s.tcRowLeft}>
-                  <Text style={s.tcHeroLabel}>TIPO DE CAMBIO</Text>
-                  <Text style={s.tcHeroCurr}>
-                    {operationType === 'Compra' ? 'USD → PEN' : 'PEN → USD'}
-                  </Text>
-                  {hasImprovement && (
-                    <View style={[s.tcHeroPipBadge, { marginTop: 6, alignSelf: 'flex-start' }]}>
-                      <Text style={s.tcHeroPipText}>✦ PRECIO MEJORADO</Text>
-                    </View>
-                  )}
-                </View>
-                <View style={s.tcRowRight}>
-                  {hasImprovement && (
-                    <Text style={s.tcHeroBaseValue}>{initialBaseRate!.toFixed(4)}</Text>
-                  )}
-                  <Text style={[s.tcHeroValue, { color: operationType === 'Compra' ? GREEN : RED }]}>
-                    {parseFloat(exchangeRate).toFixed(4)}
-                  </Text>
-                </View>
-              </View>
-
-              {/* ── BID / ASK reference ── */}
-              <View style={s.tcRefRow}>
-                <View style={s.tcRefPair}>
-                  <LivePairBadge />
-                  <Text style={s.tickerPairTxt}>USD/PEN</Text>
-                </View>
-                <View style={s.tcRefRates}>
-                  <View style={s.tcRefItem}>
-                    <Text style={s.tcRefLabel}>BID</Text>
-                    <Text style={s.tcRefValue}>{realExchangeRates.compra.toFixed(4)}</Text>
-                  </View>
-                  <View style={s.tcRefSep} />
-                  <View style={s.tcRefItem}>
-                    <Text style={s.tcRefLabel}>ASK</Text>
-                    <Text style={s.tcRefValue}>{realExchangeRates.venta.toFixed(4)}</Text>
-                  </View>
-                </View>
-              </View>
+            <View style={s.calcCard}>
+              <Calculator
+                externalOperationType={operationType}
+                onOperationTypeChange={(tipo) => {
+                  setOperationType(tipo);
+                  setSourceAccount('');
+                  setDestinationAccount('');
+                }}
+                onAmountChange={(_isReady, tipo, amount, rate) => {
+                  setAmountUsd(amount);
+                  setExchangeRate(rate.toString());
+                  if (tipo !== operationType) {
+                    setOperationType(tipo);
+                    setSourceAccount('');
+                    setDestinationAccount('');
+                  }
+                }}
+                overrideRates={couponApplied && couponRates ? couponRates : hasImprovement ? {
+                  compra: initialOperationType === 'Compra' ? initialExchangeRate : realExchangeRates.compra,
+                  venta:  initialOperationType === 'Venta'  ? initialExchangeRate : realExchangeRates.venta,
+                } : null}
+                showStrikeRate={hasImprovement || !!couponApplied}
+              />
             </View>
           </MotiView>
 
-          {/* ── Order flow card ── */}
+          {/* ── Cupón ── */}
           <MotiView
-            from={{ opacity: 0, translateY: 16, scale: 0.97 }}
-            animate={{ opacity: 1, translateY: 0, scale: 1 }}
-            transition={{ type: 'spring', delay: 210, damping: 22, stiffness: 180 }}
+            from={{ opacity: 0, translateY: 6 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', delay: 160, damping: 22, stiffness: 200 }}
           >
-            <View style={s.orderCard}>
-              <BlurView intensity={60} tint="dark" style={[StyleSheet.absoluteFill, { borderRadius: 20 }]} />
-              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.30)' }]} />
-              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, borderWidth: 1, borderColor: GLASS_BORDER }]} />
-
-              {/* Envías */}
-              <View style={s.orderRow}>
-                <View style={s.orderCurrTag}>
-                  <Text style={s.orderCurrTxt}>{inputCurrency}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.orderRowLabel}>
-                    {operationType === 'Compra' ? 'Usted envía dólares' : 'Usted envía soles'}
-                  </Text>
-                  <Text style={s.orderAmount}>
-                    {formatCurrency(amountToSend, inputCurrency === 'USD' ? 'USD' : 'PEN')}
+            {couponApplied ? (
+              <View style={s.couponAppliedRow}>
+                <View style={s.couponAppliedBadge}>
+                  <Ionicons name="pricetag" size={11} color="#16a34a" />
+                  <Text style={s.couponAppliedTxt}>
+                    {couponApplied?.startsWith('★')
+                      ? `${couponApplied} aplicados`
+                      : `Cupón ${couponApplied} · mejora aplicada`}
                   </Text>
                 </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setCouponApplied(null);
+                    setCouponRates(null);
+                    setCouponCode('');
+                    setGeneratedRewardCode(null);
+                    const baseRate = operationType === 'Compra' ? realExchangeRates.compra : realExchangeRates.venta;
+                    setExchangeRate(baseRate.toString());
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close-circle" size={16} color="#9CA3AF" />
+                </TouchableOpacity>
               </View>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={s.couponBtn}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setCouponModalVisible(true); }}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name="pricetag-outline" size={13} color="#6B7280" />
+                  <Text style={s.couponBtnTxt}>¿Tienes un cupón de descuento?</Text>
+                  <Ionicons name="chevron-forward" size={12} color="rgba(0,0,0,0.25)" style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
+                {clientPips > 0 && (
+                  <View style={s.pipsRow}>
+                    <TouchableOpacity
+                      style={[s.pipsBtn, { flex: 1 }]}
+                      onPress={handleUsePips}
+                      disabled={pipsLoading}
+                      activeOpacity={0.75}
+                    >
+                      <Ionicons name="star" size={13} color="#fff" />
+                      <Text style={s.pipsBtnTxt}>
+                        {Math.round(clientPips * 10000)} pips disponibles
+                      </Text>
+                      <View style={s.pipsBtnAction}>
+                        {pipsLoading
+                          ? <ActivityIndicator size="small" color="#fff" style={{ width: 36 }} />
+                          : <Text style={s.pipsBtnActionTxt}>Aplicar</Text>
+                        }
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={s.pipsInfoBtn}
+                      onPress={() => Alert.alert(
+                        '¿Qué son los pips?',
+                        `Tienes ${Math.round(clientPips * 10000)} pips acumulados como premio por referir clientes a Qoricash.
 
-              {/* Separador */}
-              <View style={s.orderSepRow}>
-                <View style={s.orderSepLine} />
-                <View style={[s.orderSepIcon, { borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.3)' : 'rgba(59,130,246,0.3)' }]}>
-                  <Ionicons name="swap-vertical" size={14} color={operationType === 'Compra' ? GREEN : RED} />
-                </View>
-                <View style={s.orderSepLine} />
-              </View>
+Puedes canjearlos sin importar la cantidad que tengas. El máximo aplicable por operación es de 30 pips.
 
-              {/* Recibes */}
-              <View style={s.orderRow}>
-                <View style={[s.orderCurrTag, {
-                  borderColor: operationType === 'Compra' ? 'rgba(34,197,94,0.35)' : 'rgba(59,130,246,0.35)',
-                  backgroundColor: operationType === 'Compra' ? 'rgba(34,197,94,0.1)' : 'rgba(59,130,246,0.1)',
-                }]}>
-                  <Text style={[s.orderCurrTxt, { color: operationType === 'Compra' ? GREEN : RED }]}>{outputCurrency}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.orderRowLabel}>
-                    {operationType === 'Compra' ? 'Usted recibe soles' : 'Usted recibe dólares'}
-                  </Text>
-                  <Text style={[s.orderAmount, { color: operationType === 'Compra' ? GREEN : RED }]}>
-                    {formatCurrency(amountToReceive, outputCurrency === 'USD' ? 'USD' : 'PEN')}
-                  </Text>
-                </View>
-              </View>
-            </View>
+Si tienes más de 30, el excedente queda disponible para tu próxima operación.`,
+                        [{ text: 'Entendido' }]
+                      )}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="help-circle-outline" size={20} color="#6B7280" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            )}
           </MotiView>
 
           {/* ── Cuentas ── */}
@@ -907,10 +1215,8 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             animate={{ opacity: 1, translateY: 0 }}
             transition={{ type: 'spring', delay: 280, damping: 22, stiffness: 180 }}
           >
+            <Text style={s.sectionLabel}>Selecciona tus cuentas bancarias</Text>
             <View style={s.accountsCard}>
-              <BlurView intensity={60} tint="dark" style={[StyleSheet.absoluteFill, { borderRadius: 20 }]} />
-              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.30)' }]} />
-              <View style={[StyleSheet.absoluteFill, { borderRadius: 20, borderWidth: 1, borderColor: GLASS_BORDER }]} />
 
               {/* Cuenta cargo */}
               <View style={s.accountBlock}>
@@ -923,15 +1229,15 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
                   onPress={() => setSourceDialogVisible(true)}
                   activeOpacity={0.78}
                 >
-                  <Ionicons name="card-outline" size={14} color={getSourceText() ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.2)'} />
+                  <Ionicons name="card-outline" size={14} color={getSourceText() ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.25)'} />
                   {getSourceText()
                     ? <Text style={s.accountSelectorTxt} numberOfLines={1}>{getSourceText()}</Text>
                     : <Text style={s.accountSelectorPh}>Seleccionar cuenta...</Text>
                   }
-                  <Ionicons name="chevron-down" size={13} color="rgba(255,255,255,0.25)" />
+                  <Ionicons name="chevron-down" size={13} color="rgba(0,0,0,0.30)" />
                 </TouchableOpacity>
                 <TouchableOpacity style={s.addMicroBtn} onPress={() => openAddAccount('source')} activeOpacity={0.75}>
-                  <Ionicons name="add" size={14} color={GREEN} />
+                  <Ionicons name="add" size={14} color="#fff" />
                 </TouchableOpacity>
               </View>
               {errors.sourceAccount && <Text style={s.errorTxt}>{errors.sourceAccount}</Text>}
@@ -949,15 +1255,15 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
                   onPress={() => setDestDialogVisible(true)}
                   activeOpacity={0.78}
                 >
-                  <Ionicons name="card-outline" size={14} color={getDestText() ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.2)'} />
+                  <Ionicons name="card-outline" size={14} color={getDestText() ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.25)'} />
                   {getDestText()
                     ? <Text style={s.accountSelectorTxt} numberOfLines={1}>{getDestText()}</Text>
                     : <Text style={s.accountSelectorPh}>Seleccionar cuenta...</Text>
                   }
-                  <Ionicons name="chevron-down" size={13} color="rgba(255,255,255,0.25)" />
+                  <Ionicons name="chevron-down" size={13} color="rgba(0,0,0,0.30)" />
                 </TouchableOpacity>
                 <TouchableOpacity style={s.addMicroBtn} onPress={() => openAddAccount('destination')} activeOpacity={0.75}>
-                  <Ionicons name="add" size={14} color={GREEN} />
+                  <Ionicons name="add" size={14} color="#fff" />
                 </TouchableOpacity>
               </View>
               {errors.destinationAccount && <Text style={s.errorTxt}>{errors.destinationAccount}</Text>}
@@ -994,11 +1300,10 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             <TouchableOpacity
               style={[
                 s.execBtn,
-                { backgroundColor: operationType === 'Compra' ? GREEN : RED, shadowColor: operationType === 'Compra' ? GREEN : RED },
-                (!termsAccepted || loading) && s.execBtnDim,
+                !(amountUsd && sourceAccount && destinationAccount && termsAccepted) && s.execBtnDim,
               ]}
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); handleSubmit(); }}
-              disabled={loading || !termsAccepted}
+              disabled={loading || !amountUsd || !sourceAccount || !destinationAccount || !termsAccepted}
               activeOpacity={0.82}
             >
               {loading
@@ -1107,9 +1412,9 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
             autoCapitalize="none"
           />
 
-          <View style={[s.infoBox, { marginTop: 16 }]}>
-            <Ionicons name="wallet-outline" size={14} color={GREEN} />
-            <Text style={[s.infoBoxTxt, { color: GREEN }]}>
+          <View style={[s.infoBox, { marginTop: 16, backgroundColor: '#fff', borderColor: 'rgba(0,0,0,0.12)' }]}>
+            <Ionicons name="wallet-outline" size={14} color="#0D1117" />
+            <Text style={[s.infoBoxTxt, { color: '#0D1117' }]}>
               Moneda:{' '}
               {(operationType === 'Compra' && addAccountType === 'source') ||
                (operationType === 'Venta'  && addAccountType === 'destination')
@@ -1145,9 +1450,9 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSourceAccount(acc.account_number); setErrors({ ...errors, sourceAccount: '' }); setSourceDialogVisible(false); }}
                 activeOpacity={0.75}
               >
-                <Ionicons name="card-outline" size={16} color={sourceAccount === acc.account_number ? GREEN : 'rgba(255,255,255,0.45)'} />
+                <Ionicons name="card-outline" size={16} color={sourceAccount === acc.account_number ? GREEN : 'rgba(0,0,0,0.35)'} />
                 <Text style={[s.bankItemTxt, sourceAccount === acc.account_number && { color: GREEN }]} numberOfLines={1}>
-                  {renderAccountOption(acc)}
+                  {renderAccountOptionFull(acc)}
                 </Text>
                 {sourceAccount === acc.account_number && <Ionicons name="checkmark" size={16} color={GREEN} style={{ marginLeft: 'auto' }} />}
               </TouchableOpacity>
@@ -1180,9 +1485,9 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDestinationAccount(acc.account_number); setErrors({ ...errors, destinationAccount: '' }); setDestDialogVisible(false); }}
                 activeOpacity={0.75}
               >
-                <Ionicons name="card-outline" size={16} color={destinationAccount === acc.account_number ? GREEN : 'rgba(255,255,255,0.45)'} />
+                <Ionicons name="card-outline" size={16} color={destinationAccount === acc.account_number ? GREEN : 'rgba(0,0,0,0.35)'} />
                 <Text style={[s.bankItemTxt, destinationAccount === acc.account_number && { color: GREEN }]} numberOfLines={1}>
-                  {renderAccountOption(acc)}
+                  {renderAccountOptionFull(acc)}
                 </Text>
                 {destinationAccount === acc.account_number && <Ionicons name="checkmark" size={16} color={GREEN} style={{ marginLeft: 'auto' }} />}
               </TouchableOpacity>
@@ -1191,8 +1496,68 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
       </GlassModal>
 
+      {/* ══ Modal: Cupón ═════════════════════════════════════════════════════ */}
+      <Modal
+        visible={couponModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCouponModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: 'rgba(0,0,0,0.55)' }}
+        >
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setCouponModalVisible(false)} />
+          <View style={s.couponModal}>
+            <View style={s.couponModalHeader}>
+              <View style={s.couponModalIconWrap}>
+                <Ionicons name="pricetag-outline" size={18} color="#FFFFFF" />
+              </View>
+              <Text style={s.couponModalTitle}>Ingresa tu cupón</Text>
+              <TouchableOpacity onPress={() => setCouponModalVisible(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={20} color="rgba(255,255,255,0.6)" />
+              </TouchableOpacity>
+            </View>
+            <View style={s.couponModalBody}>
+              <Text style={s.couponModalSub}>
+                Ingresa tu cupón o código de referido para desbloquear una mejora exclusiva en tu tipo de cambio.
+              </Text>
+              <TextInput
+                style={s.couponModalInput}
+                value={couponCode}
+                onChangeText={t => setCouponCode(t.toUpperCase())}
+                placeholder="Ej: ABC123"
+                placeholderTextColor="#C4C9D4"
+                autoCapitalize="characters"
+                maxLength={8}
+              />
+              <TouchableOpacity
+                style={[s.couponModalBtn, (!couponCode.trim() || couponValidating) && { opacity: 0.4 }]}
+                onPress={handleValidateCoupon}
+                disabled={!couponCode.trim() || couponValidating}
+                activeOpacity={0.85}
+              >
+                <Text style={s.couponModalBtnTxt}>{couponValidating ? 'Validando...' : 'Aplicar código'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* ══ Creating operation overlay ═════════════════════════════════════ */}
       <CreatingOverlay visible={creatingVisible} success={creatingSuccess} />
+
+      {/* ── Toast importe mínimo ── */}
+      <Animated.View
+        style={[s.minToast, {
+          opacity: toastAnim,
+          transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
+        }]}
+        pointerEvents="none"
+      >
+        <Ionicons name="information-circle" size={17} color="#FFFFFF" />
+        <Text style={s.minToastTxt}>Para operar el importe mínimo es de $ 50.00</Text>
+      </Animated.View>
 
     </View>
   );
@@ -1201,7 +1566,15 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
 // ─── Styles ────────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   root:    { flex: 1 },
-  overlay: { backgroundColor: 'transparent' },
+  minToast: {
+    position: 'absolute', bottom: 100, alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#0D1117', borderRadius: 14,
+    paddingVertical: 12, paddingHorizontal: 18,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22, shadowRadius: 12, elevation: 10,
+  },
+  minToastTxt: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
   scroll:  { paddingHorizontal: 18 },
   noScrollContent: { flex: 1, paddingHorizontal: 18, paddingTop: 8 },
 
@@ -1217,16 +1590,28 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   stepDotActive: {
-    backgroundColor: GREEN, borderColor: GREEN,
-    shadowColor: GREEN, shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5, shadowRadius: 8,
+    backgroundColor: '#0D1117', borderColor: '#0D1117',
   },
-  stepNum:        { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.3)' },
-  stepLabel:      { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.28)', letterSpacing: 0.3 },
-  stepLabelActive:{ color: GREEN, fontWeight: '700' },
+  stepDotActiveWrap: {
+    width: 34, height: 34,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  stepArcTrack: {
+    position: 'absolute', width: 34, height: 34, borderRadius: 17,
+    borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.12)',
+  },
+  stepArcSpin: {
+    position: 'absolute', width: 34, height: 34, borderRadius: 17,
+    borderWidth: 1.5,
+    borderTopColor: '#0D1117', borderRightColor: '#0D1117',
+    borderBottomColor: '#0D1117', borderLeftColor: 'transparent',
+  },
+  stepNum:        { fontSize: 11, fontWeight: '700', color: '#9CA3AF' },
+  stepLabel:      { fontSize: 10, fontWeight: '600', color: '#9CA3AF', letterSpacing: 0.3 },
+  stepLabelActive:{ color: '#0D1117', fontWeight: '700' },
   stepLine: {
     flex: 1, height: 1,
-    backgroundColor: GLASS_BORDER,
+    backgroundColor: 'rgba(0,0,0,0.08)',
     marginHorizontal: 6, marginBottom: 18,
   },
 
@@ -1240,32 +1625,51 @@ const s = StyleSheet.create({
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: GLASS_BG, borderWidth: 1, borderColor: GLASS_BORDER,
+    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
     alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
-  pageTitle: { fontSize: 14, fontWeight: '700', color: '#fff', letterSpacing: 0.3 },
+  pageTitle: { fontSize: 14, fontWeight: '700', color: '#0D1117', letterSpacing: 0.3 },
   headerCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  headerLogo: { width: 110, height: 26 },
+  headerLogo: { width: 105, height: 26 },
   corporateLabel: {
     fontSize: 9,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.35)',
+    color: '#9CA3AF',
     letterSpacing: 2.5,
     marginTop: 2,
     marginLeft: 18,
   },
 
+  // ── Calculator card wrapper ──
+  calcCard: {
+    marginBottom: 4,
+  },
+  calcError: {
+    fontSize: 12,
+    color: '#EF4444',
+    marginTop: 6,
+    marginHorizontal: 4,
+  },
+
   // ── Trading card (toggle + TC hero) ──
   tradingCard: {
-    borderRadius: 20, overflow: 'hidden',
-    marginBottom: 10,
+    backgroundColor: '#0D1117',
+    borderRadius: 24, overflow: 'hidden',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 10,
   },
   opTypeBadge: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, paddingVertical: 10, paddingHorizontal: 16,
   },
   opTypeSubLabel: {
-    fontSize: 9, fontWeight: '500', color: 'rgba(255,255,255,0.35)',
+    fontSize: 9, fontWeight: '500', color: 'rgba(255,255,255,0.4)',
     letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 2,
   },
   bsWrap: {
@@ -1282,11 +1686,11 @@ const s = StyleSheet.create({
   bsBtnSell: {
     backgroundColor: 'rgba(59,130,246,0.1)',
   },
-  bsBtnLabel: { fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
+  bsBtnLabel: { fontSize: 13, fontWeight: '700', letterSpacing: 0.3, color: '#FFFFFF' },
   bsRadio: {
     width: 18, height: 18, borderRadius: 9,
-    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.2)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.15)',
+    backgroundColor: '#F3F4F6',
     alignItems: 'center', justifyContent: 'center',
   },
   bsRadioDot: {
@@ -1309,11 +1713,11 @@ const s = StyleSheet.create({
     gap: 2,
   },
   tcHeroLabel: {
-    fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.28)',
+    fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.4)',
     letterSpacing: 2.5, textTransform: 'uppercase',
   },
   tcHeroBaseValue: {
-    fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.28)',
+    fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.35)',
     letterSpacing: -0.2, textDecorationLine: 'line-through',
   },
   tcHeroValue: {
@@ -1329,7 +1733,7 @@ const s = StyleSheet.create({
     letterSpacing: 1.5, textTransform: 'uppercase',
   },
   tcHeroCurr: {
-    fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.28)',
+    fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.4)',
     letterSpacing: 1,
   },
   tcRefRow: {
@@ -1339,89 +1743,111 @@ const s = StyleSheet.create({
   tcRefPair:  { flexDirection: 'row', alignItems: 'center', gap: 5 },
   tcRefRates: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   tcRefItem:  { alignItems: 'center' },
-  tcRefLabel: { fontSize: 8, fontWeight: '700', color: 'rgba(255,255,255,0.28)', letterSpacing: 1.5, marginBottom: 2 },
-  tcRefValue: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.65)' },
-  tcRefSep:   { width: 1, height: 20, backgroundColor: GLASS_BORDER },
+  tcRefLabel: { fontSize: 8, fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: 1.5, marginBottom: 2 },
+  tcRefValue: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.85)' },
+  tcRefSep:   { width: 1, height: 20, backgroundColor: 'rgba(255,255,255,0.12)' },
 
   // ── Ticker remnants used inside trading card ──
   tickerDot:     { width: 5, height: 5, borderRadius: 2.5, backgroundColor: GREEN },
-  tickerPairTxt: { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.32)', letterSpacing: 1 },
+  tickerPairTxt: { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: 1 },
 
   // ── Order card ──
   orderCard: {
-    borderRadius: 20, overflow: 'hidden',
-    padding: 20, marginBottom: 10,
+    backgroundColor: '#0D1117',
+    borderRadius: 24, overflow: 'hidden',
+    padding: 20, marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 10,
   },
   orderRow:    { flexDirection: 'row', alignItems: 'center', gap: 14 },
   orderCurrTag: {
     width: 46, height: 46, borderRadius: 13,
     backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1, borderColor: GLASS_BORDER,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center', justifyContent: 'center',
   },
-  orderCurrTxt:  { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.55)', letterSpacing: 0.5 },
-  orderRowLabel: { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.28)', letterSpacing: 2, marginBottom: 4 },
-  orderAmount:   { fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
+  orderCurrTxt:  { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.6)', letterSpacing: 0.5 },
+  orderRowLabel: { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: 2, marginBottom: 4 },
+  orderAmount:   { fontSize: 28, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5 },
   orderSepRow:   { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
-  orderSepLine:  { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.07)' },
+  orderSepLine:  { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.08)' },
   orderSepIcon:  {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center', justifyContent: 'center',
     marginHorizontal: 12,
   },
 
+  sectionLabel: {
+    fontSize: 13, fontWeight: '700', color: '#0D1117',
+    letterSpacing: 0.1, marginBottom: 10, marginLeft: 2,
+  },
+
   // ── Accounts card ──
   accountsCard: {
-    borderRadius: 20, overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24, overflow: 'hidden',
     paddingHorizontal: 18, paddingVertical: 16,
-    marginBottom: 10,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
   },
   accountBlock:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
   accountMeta:      { width: 78 },
-  accountRoleLabel: { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.5)', letterSpacing: 0.3 },
-  accountRoleSub:   { fontSize: 9, color: 'rgba(255,255,255,0.22)', marginTop: 2, fontWeight: '500' },
+  accountRoleLabel: { fontSize: 9, fontWeight: '700', color: '#0D1117', letterSpacing: 0.3 },
+  accountRoleSub:   { fontSize: 9, color: '#0D1117', marginTop: 2, fontWeight: '500' },
   accountSelector: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 7,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)',
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.07)',
     borderRadius: 12, paddingHorizontal: 11, paddingVertical: 10,
   },
-  accountSelectorErr: { borderColor: 'rgba(248,113,113,0.45)' },
-  accountSelectorTxt: { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
-  accountSelectorPh:  { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.2)', fontStyle: 'italic' },
+  accountSelectorErr: { borderColor: 'rgba(239,68,68,0.45)' },
+  accountSelectorTxt: { flex: 1, fontSize: 12, color: '#0D1117', fontWeight: '500' },
+  accountSelectorPh:  { flex: 1, fontSize: 12, color: 'rgba(0,0,0,0.28)', fontStyle: 'italic' },
   addMicroBtn: {
     width: 30, height: 30, borderRadius: 10,
-    backgroundColor: GREEN_DIM, borderWidth: 1, borderColor: GREEN_BORDER,
+    backgroundColor: '#0D1117', borderWidth: 1, borderColor: '#0D1117',
     alignItems: 'center', justifyContent: 'center',
   },
-  accountDivider: { height: StyleSheet.hairlineWidth, backgroundColor: GLASS_BORDER, marginVertical: 14 },
+  accountDivider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(0,0,0,0.08)', marginVertical: 14 },
   errorTxt:       { fontSize: 11, color: '#f87171', marginTop: 5 },
 
   // ── Declaration ──
   declarationRow: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1, borderColor: GLASS_BORDER,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.07)',
     borderRadius: 14, padding: 14, marginBottom: 12,
   },
   checkbox: {
     width: 20, height: 20, borderRadius: 10,
-    borderWidth: 1.5, borderColor: GLASS_BORDER,
-    backgroundColor: GLASS_BG, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.15)',
+    backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center',
     flexShrink: 0, marginTop: 1,
   },
   checkboxOn:    { backgroundColor: GREEN, borderColor: GREEN },
-  declarationTxt:{ flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.42)', lineHeight: 18 },
+  declarationTxt:{ flex: 1, fontSize: 12, color: '#6B7280', lineHeight: 18 },
 
   // ── Execute button ──
   execBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     borderRadius: 18, paddingVertical: 17,
-    shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 16,
+    backgroundColor: '#0D1117',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.22, shadowRadius: 16,
+    elevation: 8,
   },
-  execBtnDim: { opacity: 0.32 },
+  execBtnDim: { opacity: 0.30 },
   execTxt:    { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: 1.4 },
 
   // ── Modals ──
@@ -1429,53 +1855,123 @@ const s = StyleSheet.create({
   modalBox: {
     width: '100%', maxHeight: '85%', borderRadius: 28, overflow: 'hidden',
     alignItems: 'center', paddingTop: 28, paddingBottom: 24, paddingHorizontal: 24,
-    backgroundColor: 'transparent',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.25,
     shadowRadius: 28,
     elevation: 20,
   },
-  modalBorder:  { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 28, borderWidth: 1, borderColor: 'rgba(34,197,94,0.18)' },
-  modalTitle:   { fontSize: 17, fontWeight: '800', color: '#fff', marginBottom: 16, letterSpacing: 0.1 },
-  modalDivider: { width: '100%', height: StyleSheet.hairlineWidth, backgroundColor: GLASS_BORDER, marginBottom: 18 },
+  modalTitle:   { fontSize: 17, fontWeight: '800', color: '#0D1117', marginBottom: 16, letterSpacing: 0.1 },
+  modalDivider: { width: '100%', height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(0,0,0,0.07)', marginBottom: 18 },
   modalBody:    { width: '100%', gap: 2 },
   modalFooter:  { flexDirection: 'row', gap: 10, width: '100%', marginTop: 18 },
-  modalBtnSec:  { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: GLASS_BG, borderWidth: 1, borderColor: GLASS_BORDER, alignItems: 'center' },
-  modalBtnSecTxt: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.65)' },
-  modalBtnPri:  { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: GREEN_DIM, borderWidth: 1, borderColor: GREEN_BORDER, alignItems: 'center', justifyContent: 'center' },
-  modalBtnPriTxt: { fontSize: 14, fontWeight: '700', color: GREEN },
+  modalBtnSec:  { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: 'rgba(0,0,0,0.07)', alignItems: 'center' },
+  modalBtnSecTxt: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  modalBtnPri:  { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: '#0D1117', borderWidth: 1, borderColor: '#0D1117', alignItems: 'center', justifyContent: 'center' },
+  modalBtnPriTxt: { fontSize: 14, fontWeight: '700', color: '#fff' },
 
   // ── Form inputs ──
-  inputLabel: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 14, marginBottom: 6 },
-  inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: GLASS_BG, borderWidth: 1, borderColor: GLASS_BORDER, borderRadius: 13, paddingHorizontal: 14, paddingVertical: 12 },
-  inputField: { flex: 1, color: '#fff', fontSize: 14 },
+  inputLabel: { fontSize: 11, fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 14, marginBottom: 6 },
+  inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)', borderRadius: 13, paddingHorizontal: 14, paddingVertical: 12 },
+  inputField: { flex: 1, color: '#0D1117', fontSize: 14 },
   textInputStandalone: {
-    backgroundColor: GLASS_BG, borderWidth: 1, borderColor: GLASS_BORDER,
+    backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
     borderRadius: 13, paddingHorizontal: 14, paddingVertical: 13,
-    color: '#fff', fontSize: 14, width: '100%',
+    color: '#0D1117', fontSize: 14, width: '100%',
   },
 
   // ── Inline dropdown ──
-  inlineMenu: { backgroundColor: 'rgba(8,18,32,0.97)', borderWidth: 1, borderColor: GLASS_BORDER, borderRadius: 14, marginTop: 4, overflow: 'hidden' },
-  inlineMenuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: GLASS_BORDER },
-  inlineMenuTxt: { fontSize: 14, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
+  inlineMenu: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)', borderRadius: 14, marginTop: 4, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
+  inlineMenuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.07)' },
+  inlineMenuTxt: { fontSize: 14, color: '#374151', fontWeight: '500' },
 
   // ── Bank items ──
-  bankItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 13, paddingHorizontal: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: GLASS_BORDER },
+  bankItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 13, paddingHorizontal: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.07)' },
   bankItemActive: { },
-  bankItemTxt: { fontSize: 14, color: 'rgba(255,255,255,0.75)', fontWeight: '500', flex: 1 },
+  bankItemTxt: { fontSize: 14, color: '#374151', fontWeight: '500', flex: 1 },
 
   // ── Info box ──
   infoBox:    { flexDirection: 'row', gap: 8, alignItems: 'center', padding: 12, backgroundColor: 'rgba(251,191,36,0.08)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(251,191,36,0.2)', marginTop: 10 },
   infoBoxTxt: { flex: 1, fontSize: 12, color: '#fbbf24', lineHeight: 17 },
 
-  emptyTxt: { fontSize: 13, color: 'rgba(255,255,255,0.35)', textAlign: 'center', paddingVertical: 24 },
+  emptyTxt: { fontSize: 13, color: '#9CA3AF', textAlign: 'center', paddingVertical: 24 },
+
+  // ── Coupon ──
+  couponBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.07)',
+    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 11,
+    marginBottom: 10, marginTop: 2,
+  },
+  couponBtnTxt: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
+  couponAppliedRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 4, marginBottom: 10, marginTop: 2,
+  },
+  couponAppliedBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(22,163,74,0.10)',
+    borderWidth: 1, borderColor: 'rgba(22,163,74,0.25)',
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
+  },
+  couponAppliedTxt: { fontSize: 12, fontWeight: '600', color: '#16a34a' },
+  couponModal: {
+    width: '100%', borderRadius: 20, overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25, shadowRadius: 28, elevation: 20,
+  },
+  couponModalHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#0D1117', paddingHorizontal: 20, paddingVertical: 16,
+  },
+  couponModalIconWrap: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  couponModalTitle: { flex: 1, fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
+  couponModalBody: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 },
+  couponModalSub: { fontSize: 13, color: '#6B7280', lineHeight: 20, marginBottom: 16 },
+  couponModalInput: {
+    backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: 'rgba(0,0,0,0.10)',
+    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
+    fontSize: 20, fontWeight: '700', color: '#0D1117',
+    textAlign: 'center', letterSpacing: 4, marginBottom: 14,
+  },
+  couponModalBtn: {
+    backgroundColor: '#0D1117', borderRadius: 14, paddingVertical: 15,
+    alignItems: 'center',
+  },
+  couponModalBtnTxt: { fontSize: 15, fontWeight: '700', color: '#fff', letterSpacing: 0.3 },
+
+  // ── Pips ──
+  pipsRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  pipsInfoBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  pipsBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: '#16a34a',
+    borderWidth: 0, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 11,
+  },
+  pipsBtnTxt: { fontSize: 13, color: '#fff', fontWeight: '600', flex: 1 },
+  pipsBtnAction: {
+    backgroundColor: 'rgba(255,255,255,0.20)', borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 5,
+    minWidth: 60, alignItems: 'center',
+  },
+  pipsBtnActionTxt: { fontSize: 12, fontWeight: '700', color: '#fff' },
 
   // ── Segmented (used in modals) ──
   seg:           { flexDirection: 'row', gap: 6 },
-  segBtn:        { flex: 1, paddingVertical: 11, borderRadius: 12, alignItems: 'center', backgroundColor: GLASS_BG, borderWidth: 1, borderColor: GLASS_BORDER },
-  segBtnActive:  { backgroundColor: GREEN_DIM, borderColor: GREEN_BORDER },
-  segBtnTxt:     { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.38)' },
-  segBtnTxtActive: { color: GREEN, fontWeight: '700' },
+  segBtn:        { flex: 1, paddingVertical: 11, borderRadius: 12, alignItems: 'center', backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: 'rgba(0,0,0,0.07)' },
+  segBtnActive:  { backgroundColor: '#0D1117', borderColor: '#0D1117' },
+  segBtnTxt:     { fontSize: 13, fontWeight: '600', color: '#9CA3AF' },
+  segBtnTxtActive: { color: '#fff', fontWeight: '700' },
 });

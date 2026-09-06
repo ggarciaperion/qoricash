@@ -28,6 +28,8 @@ import Reanimated, {
   withTiming,
   interpolate,
   Easing as REasing,
+  cancelAnimation,
+  runOnJS,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -36,6 +38,7 @@ import { CommonActions } from '@react-navigation/native';
 import axios from 'axios';
 import socketService from '../services/socketService';
 import { useAuth } from '../contexts/AuthContext';
+import { useLoginLoading } from '../contexts/LoginLoadingContext';
 import { Calculator } from '../components/Calculator';
 import { API_CONFIG } from '../constants/config';
 import { Operation } from '../types';
@@ -66,23 +69,20 @@ const ClockIcon: React.FC = () => {
   }));
   return (
     <Reanimated.View style={style}>
-      <Ionicons name="time-outline" size={18} color="#60a5fa" />
+      <Ionicons name="time-outline" size={18} color="#FFFFFF" />
     </Reanimated.View>
   );
 };
-const GLASS_BG     = 'rgba(255,255,255,0.25)';
-const GLASS_BORDER = 'rgba(255,255,255,0.17)';
-const GREEN        = '#22c55e';
 
-const STICKY_THRESHOLD = 90;   // px scroll antes de que aparece el sticky header
-const TAB_BAR_H        = 72;   // altura del CustomTabBar (incluye safe area)
+const GREEN        = '#22c55e';
+const TAB_BAR_H   = 72;
 
 interface HomeScreenProps { navigation: any }
 
 const capitalize = (s: string) =>
   s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
 
-// ─── ActiveOpCard — reloj animado + arco giratorio ────────────────────────────
+// ─── ActiveOpCard ─────────────────────────────────────────────────────────────
 interface ActiveOpCardProps {
   op: Operation;
   onPress: () => void;
@@ -134,39 +134,36 @@ const ActiveOpCard: React.FC<ActiveOpCardProps> = ({
       onPress={onPress}
       activeOpacity={0.8}
     >
-      {/* Animated glow border overlay */}
       <Reanimated.View style={[StyleSheet.absoluteFill, s.activeOpGlowBorder, { borderColor: accentColor }, glowStyle]} pointerEvents="none" />
-
-      {/* Icon with spinning arc */}
       <View style={s.activeOpIconWrap}>
         <Reanimated.View style={[s.activeOpSpinArc, { borderTopColor: accentColor }, spinStyle]} />
         <Reanimated.View style={[s.activeOpIcon, { backgroundColor: `${accentColor}1A` }, iconStyle]}>
           <Ionicons name="time-outline" size={16} color={accentColor} />
         </Reanimated.View>
       </View>
-
-      {/* Content */}
       <View style={s.activeOpContent}>
         <Text style={s.activeOpId}>{op.operation_id}</Text>
         <Text style={s.activeOpDetail}>
           {op.operation_type} · ${op.amount_usd.toFixed(2)} · S/ {op.amount_pen.toFixed(2)}
         </Text>
+        <Text style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.5)', marginTop: 2, fontWeight: '500' }}>
+          T.C. {op.exchange_rate.toFixed(4)}
+          {op.destination_bank_name ? `  ·  ${op.destination_bank_name} ****${(op.destination_account || '').slice(-4)}` : ''}
+        </Text>
       </View>
-
-      {/* Status pill + chevron */}
       <View style={s.activeOpRight}>
-        <View style={[s.activeOpPill, { backgroundColor: `${accentColor}18`, borderColor: `${accentColor}33` }]}>
-          <Text style={[s.activeOpPillText, { color: accentColor }]}>
+        <View style={[s.activeOpPill, { backgroundColor: 'rgba(255,255,255,0.18)', borderColor: 'rgba(255,255,255,0.35)' }]}>
+          <Text style={[s.activeOpPillText, { color: '#fff' }]}>
             {isEnProceso ? 'En proceso' : 'Pendiente'}
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={13} color="rgba(255,255,255,0.25)" style={{ marginTop: 2 }} />
+        <Ionicons name="chevron-forward" size={13} color="rgba(255,255,255,0.4)" style={{ marginTop: 2 }} />
       </View>
     </TouchableOpacity>
   );
 };
 
-// ─── LiveDot — respiración + onda expansiva ───────────────────────────────────
+// ─── LiveDot ──────────────────────────────────────────────────────────────────
 const LiveDot: React.FC = () => {
   const scale  = useSharedValue(1);
   const ringOp = useSharedValue(0);
@@ -214,8 +211,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const bg = useBackground();
   const insets = useSafeAreaInsets();
   const { client, refreshClient } = useAuth();
+  const { setShowLogoutLoading } = useLoginLoading();
   const isLegalEntity = client?.document_type === 'RUC';
   const [refreshing, setRefreshing] = useState(false);
+
+  // ── Menú hamburguesa ──
+  const [menuVisible, setMenuVisible] = useState(false);
+
+  // ── Cambiar contraseña ──
+  const [changePasswordVisible, setChangePasswordVisible] = useState(false);
+  const [currentPassword,  setCurrentPassword]  = useState('');
+  const [newPassword,      setNewPassword]      = useState('');
+  const [confirmPassword,  setConfirmPassword]  = useState('');
+  const [showCurrentPwd,   setShowCurrentPwd]   = useState(false);
+  const [showNewPwd,       setShowNewPwd]       = useState(false);
+  const [showConfirmPwd,   setShowConfirmPwd]   = useState(false);
   const [activeOps, setActiveOps] = useState<Operation[]>([]);
 
   const fetchActiveOps = async () => {
@@ -236,23 +246,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   useEffect(() => { fetchActiveOps(); }, [client?.dni]);
 
-  // Teclado: auto-scroll para revelar calculadora cuando el teclado aparece
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   useEffect(() => {
     const showEv = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEv = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSub = Keyboard.addListener(showEv, e => {
-      setKeyboardHeight(e.endCoordinates.height);
-      scrollViewRef.current?.scrollTo({ y: ratesTopY.current, animated: true });
-    });
-    const hideSub = Keyboard.addListener(hideEv, () => {
-      setKeyboardHeight(0);
-      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-    });
+    const showSub = Keyboard.addListener(showEv, e => setKeyboardHeight(e.endCoordinates.height));
+    const hideSub = Keyboard.addListener(hideEv, () => setKeyboardHeight(0));
     return () => { showSub.remove(); hideSub.remove(); };
   }, []);
 
-  // Socket: actualizar widget en tiempo real cuando cambia el estado de una operación
   useEffect(() => {
     if (!client?.dni) return;
     socketService.joinClientRoom(client.dni);
@@ -294,7 +296,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     };
   }, [client?.dni]);
 
-  // ── Modal KYC aprobado ─────────────────────────────────────────────────────
   const [showKycModal, setShowKycModal] = useState(false);
   const kycScale   = useSharedValue(0.82);
   const kycOpacity = useSharedValue(0);
@@ -312,6 +313,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [showBlockModal,   setShowBlockModal]   = useState(false);
   const blockScale   = useSharedValue(0.86);
   const blockOpacity = useSharedValue(0);
+  const clockSpin    = useSharedValue(0);
 
   const [showMinAmountModal, setShowMinAmountModal] = useState(false);
   const minScale   = useSharedValue(0.86);
@@ -323,6 +325,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       blockOpacity.value = 0;
       blockScale.value   = withSpring(1, { damping: 16, stiffness: 260 });
       blockOpacity.value = withTiming(1, { duration: 180 });
+      clockSpin.value    = 0;
+      clockSpin.value    = withRepeat(withTiming(1, { duration: 2000, easing: REasing.linear }), -1, false);
+    } else {
+      cancelAnimation(clockSpin);
     }
   }, [showBlockModal]);
 
@@ -335,9 +341,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [calcOperationType, setCalcOperationType] = useState<'Compra' | 'Venta'>('Compra');
   const [calcRates, setCalcRates] = useState<{ compra: number; venta: number } | null>(null);
 
-  // ── Corporate rate improvement (10 pips over base) ────────────────────────
-  const EMPRESA_IMPROVEMENT = 0.0010; // 10 pips
-  const EMPRESA_STRIKE_DIFF = 0.0030; // 30 pips below displayed rate
+  const EMPRESA_IMPROVEMENT = 0.0010;
+  const EMPRESA_STRIKE_DIFF = 0.0030;
 
   const empresaRates = useMemo(
     () => calcRates && isLegalEntity
@@ -345,21 +350,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       : null,
     [calcRates, isLegalEntity],
   );
-  const empresaStrike = useMemo(
-    () => empresaRates
-      ? { compra: empresaRates.compra - EMPRESA_STRIKE_DIFF, venta: empresaRates.venta + EMPRESA_STRIKE_DIFF }
-      : null,
-    [empresaRates],
-  );
 
-  // ── Referral code ──────────────────────────────────────────────────────────
-  const REFERRAL_IMPROVEMENT = 0.002; // 20 pips (0.0001 cada uno)
+  const REFERRAL_IMPROVEMENT = 0.002;
   const [referralModalVisible, setReferralModalVisible] = useState(false);
   const [referralInput,        setReferralInput]        = useState('');
   const [referralValidating,   setReferralValidating]   = useState(false);
-  const [referralApplied,      setReferralApplied]      = useState<string | null>(null); // código validado
+  const [referralApplied,      setReferralApplied]      = useState<string | null>(null);
 
-  // ── Volume-based pip improvement (mirrors wa_bot.py) ──────────────────────
   const getVolumePips = (usdAmount: number): number => {
     if (usdAmount >= 10000) return 0.0020;
     if (usdAmount >= 5000)  return 0.0015;
@@ -383,11 +380,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       : null,
     [effectivePips, calcRates],
   );
-  const pipLabel = effectivePips > 0 ? `+${Math.round(effectivePips * 10000)} pips` : null;
-
-  const improvedRates = referralApplied && calcRates
-    ? { compra: calcRates.compra + REFERRAL_IMPROVEMENT, venta: calcRates.venta - REFERRAL_IMPROVEMENT }
-    : null;
 
   const closeReferralModal = () => { setReferralModalVisible(false); setReferralInput(''); };
 
@@ -415,25 +407,60 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   };
 
-  // Scroll Y para sticky header
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      Alert.alert('Error', 'Por favor completa todos los campos'); return;
+    }
+    if (newPassword.length < 8) {
+      Alert.alert('Error', 'La nueva contraseña debe tener al menos 8 caracteres'); return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Error', 'Las contraseñas no coinciden'); return;
+    }
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/client/change-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dni: client?.dni, current_password: currentPassword, new_password: newPassword }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.message || 'Error al cambiar contraseña');
+      Alert.alert('Contraseña Actualizada', 'Tu contraseña ha sido cambiada exitosamente', [{
+        text: 'Entendido', onPress: () => {
+          setChangePasswordVisible(false);
+          setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+        },
+      }]);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'No se pudo cambiar la contraseña');
+    }
+  };
+
   const scrollViewRef = useRef<ScrollView>(null);
   const ratesTopY     = useRef(0);
 
+  const refreshSpin = useRef(new Animated.Value(0)).current;
+  const refreshAnim = useRef<Animated.CompositeAnimation | null>(null);
 
   const onRefresh = async () => {
     setRefreshing(true);
+    refreshSpin.setValue(0);
+    refreshAnim.current = Animated.loop(
+      Animated.timing(refreshSpin, { toValue: 1, duration: 700, useNativeDriver: true })
+    );
+    refreshAnim.current.start();
     await Promise.all([refreshClient(), fetchActiveOps()]);
+    refreshAnim.current?.stop();
     setRefreshing(false);
   };
+
+  const refreshRotate = refreshSpin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   const handleInitiateOperation = (
     operationType: 'Compra' | 'Venta',
     amountUSD: string,
     exchangeRate: number,
   ) => {
-    // Validar monto mínimo en USD
-    // pendingUSD ya calcula correctamente el equivalente en USD sin importar qué casilla
-    // usó el cliente ("cuánto envías" o "entonces recibes")
     const inputVal  = parseFloat(amountUSD) || 0;
     const usdAmount = pendingUSD > 0
       ? pendingUSD
@@ -453,14 +480,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       return;
     }
     if (!client?.has_complete_documents) {
-      const isEmpresa = client?.document_type === 'RUC';
-      Alert.alert(
-        'Validación de Identidad Requerida',
-        isEmpresa
-          ? 'Necesitamos validar la identidad de tu empresa.\n\nPor favor, adjunta tu Ficha RUC.'
-          : 'Necesitamos validar tu DNI antes de iniciar una operación.\n\nPor favor, sube las fotos de tu DNI.',
-        [{ text: 'Entendido' }],
-      );
+      Alert.alert('Validación Requerida', 'Completa tu verificación de identidad primero.', [{ text: 'Entendido' }]);
       return;
     }
     const baseRate = calcRates
@@ -472,6 +492,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       exchangeRate,
       baseExchangeRate: baseRate,
     });
+  };
+
+  const handleNuevaOperacion = () => {
+    if (activeOps.length > 0) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); setShowBlockModal(true); return; }
+    if (!client?.has_complete_documents) {
+      Alert.alert('Validación Requerida', 'Completa tu verificación de identidad primero.', [{ text: 'Entendido' }]); return;
+    }
+    const rate = (empresaRates ?? displayRates ?? calcRates)?.compra ?? 0;
+    navigation.navigate('NewOperation', { operationType: 'Compra', amountUSD: '0', exchangeRate: rate, baseExchangeRate: calcRates?.compra ?? rate });
   };
 
   if (!client) {
@@ -487,6 +516,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     transform: [{ scale: blockScale.value }],
   }));
 
+  const clockSpinStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${interpolate(clockSpin.value, [0, 1], [0, 360])}deg` }],
+  }));
+
   const minModalStyle = useAnimatedStyle(() => ({
     opacity:   minOpacity.value,
     transform: [{ scale: minScale.value }],
@@ -498,120 +531,141 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     return '';
   })();
 
+  const displayedRates = empresaRates ?? displayRates ?? calcRates;
+
+  // ── Grid tiles ──
+  const gridTiles = [
+    { icon: 'swap-horizontal-outline' as const, label: 'Nueva operación', onPress: handleNuevaOperacion },
+    { icon: 'receipt-outline'         as const, label: 'Historial',       onPress: () => navigation.dispatch(CommonActions.navigate({ name: 'HistoryTab', params: { initialTab: 'completed' } })) },
+    { icon: 'bar-chart-outline'       as const, label: 'Mercado',         onPress: () => navigation.dispatch(CommonActions.navigate({ name: 'MarketTab' })) },
+    { icon: 'person-outline'          as const, label: 'Perfil',          onPress: () => navigation.dispatch(CommonActions.navigate({ name: 'ProfileTab' })) },
+  ];
+
+  // ── Quick actions ──
+  const quickActions = [
+    { icon: 'swap-horizontal-outline' as const, label: 'Operar',    onPress: handleNuevaOperacion },
+    { icon: 'time-outline'            as const, label: 'Historial', onPress: () => navigation.dispatch(CommonActions.navigate({ name: 'HistoryTab', params: { initialTab: 'completed' } })) },
+    { icon: 'trending-up-outline'     as const, label: 'Mercado',   onPress: () => navigation.dispatch(CommonActions.navigate({ name: 'MarketTab' })) },
+  ];
+
   return (
     <View style={s.root}>
 
-      {/* ── Fondo ── */}
-      <ImageBackground
-        source={bg}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-        pointerEvents="none"
-      />
-      <View style={[StyleSheet.absoluteFill, s.overlay]} pointerEvents="none" />
-
-      {/* ── Encabezado fijo: saludo + logo ── */}
-      <View style={[s.fixedGreeting, { paddingTop: insets.top + 16 }]}>
-        <View style={s.headerRow}>
-          <View>
-            <Text style={s.greetingLabel}>Bienvenido,</Text>
-            <Text style={s.greetingName}>{firstName}</Text>
-          </View>
-          <View style={{ alignItems: 'center', width: 110 }}>
-            <Image source={require('../../assets/logo.png')} style={s.logo} resizeMode="contain" />
-            {isLegalEntity && (
-              <Text style={s.corporateLabel}>corporate</Text>
-            )}
-          </View>
-        </View>
-        <View style={s.fixedGreetingHairline} />
-      </View>
+      {/* ── Fondo blanco ── */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#F5F7FA' }]} pointerEvents="none" />
 
       {/* ── Scroll ── */}
       <ScrollView
         ref={scrollViewRef}
         style={s.scroll}
-        contentContainerStyle={[
-          s.content,
-          { paddingTop: 8, paddingBottom: insets.bottom + TAB_BAR_H + 16 + keyboardHeight },
-        ]}
-        scrollEnabled={true}
+        contentContainerStyle={[s.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 80 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="rgba(255,255,255,0.5)"
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0D1117" />
         }
       >
+        <View style={s.centerWrap}>
 
-        {/* ══ User info strip — oculto cuando hay operación activa ══ */}
-        {activeOps.length === 0 && (
-          <MotiView
-            from={{ opacity: 0, translateY: 16, scale: 0.97 }}
-            animate={{ opacity: 1, translateY: 0, scale: 1 }}
-            transition={{ type: 'spring', delay: 80, damping: 20, stiffness: 180 }}
-            style={s.userStrip}
+        {/* ══ Saludo ══ */}
+        <MotiView
+          from={{ opacity: 0, translateY: 10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'spring', delay: 60, damping: 22, stiffness: 180 }}
+          style={s.greetingRow}
+        >
+          <TouchableOpacity
+            style={s.menuBtn}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setMenuVisible(true); }}
+            activeOpacity={0.75}
           >
-            <View style={s.stripItem}>
-              <Text style={s.stripLabel}>Documento</Text>
-              <Text style={s.stripValue}>{client.dni}</Text>
+            <Ionicons name="menu-outline" size={22} color="#0D1117" />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={s.greetingSub}>¡Hola,</Text>
+            <Text style={s.greetingName}>{firstName}! 👋</Text>
+          </View>
+          <TouchableOpacity style={s.refreshBtn} onPress={onRefresh}>
+            <Animated.View style={refreshing ? { transform: [{ rotate: refreshRotate }] } : undefined}>
+              <Ionicons name="refresh-outline" size={20} color="#0D1117" />
+            </Animated.View>
+          </TouchableOpacity>
+        </MotiView>
+
+        {/* ══ Card negra — Tipo de Cambio ══ */}
+        <MotiView
+          from={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', delay: 120, damping: 22, stiffness: 160 }}
+          style={s.heroCard}
+        >
+          {/* Card top row */}
+          <View style={s.heroCardTopRow}>
+            <Text style={s.heroCardTitle}>Tipo de Cambio</Text>
+            <View style={s.liveRow}>
+              <LiveDot />
+              <Text style={s.liveLabel}>En vivo</Text>
             </View>
-            <View style={s.stripDivider} />
-            <View style={s.stripItem}>
-              <Text style={s.stripLabel}>Estado</Text>
-              <View style={s.statusRow}>
-                <Text style={s.statusText}>{capitalize(client.status)}</Text>
-              </View>
-            </View>
-            <View style={s.stripDivider} />
-            <View style={s.stripItem}>
-              <Text style={s.stripLabel}>Tipo</Text>
-              <Text style={s.stripValue}>
-                {(client as any).client_type === 'juridico' ? 'Empresa' : 'Natural'}
+          </View>
+
+          {/* Rates */}
+          <View style={s.heroRatesRow}>
+            <View style={s.heroRateItem}>
+              <Text style={s.heroRateLabel}>Compramos S/</Text>
+              <Text style={s.heroRateValue} numberOfLines={1} adjustsFontSizeToFit>
+                {displayedRates?.compra.toFixed(4) ?? '—'}
               </Text>
+              <Text style={s.heroRateDir}>USD → PEN</Text>
             </View>
-          </MotiView>
-        )}
+            <View style={s.heroRateDivider} />
+            <View style={s.heroRateItem}>
+              <Text style={s.heroRateLabel}>Vendemos S/</Text>
+              <Text style={s.heroRateValue} numberOfLines={1} adjustsFontSizeToFit>
+                {displayedRates?.venta.toFixed(4) ?? '—'}
+              </Text>
+              <Text style={s.heroRateDir}>PEN → USD</Text>
+            </View>
+          </View>
+
+          {isLegalEntity && (
+            <View style={s.corporateBadge}>
+              <Ionicons name="business-outline" size={11} color="rgba(255,255,255,0.6)" />
+              <Text style={s.corporateBadgeText}>Tarifa Corporativa</Text>
+            </View>
+          )}
+
+        </MotiView>
 
         {/* ══ Banners de verificación ══ */}
         {!client.has_complete_documents && (
           <MotiView
-            from={{ opacity: 0, translateY: 12 }}
+            from={{ opacity: 0, translateY: 10 }}
             animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', delay: 140, damping: 20, stiffness: 160 }}
+            transition={{ type: 'spring', delay: 260, damping: 20 }}
           >
             {(isLegalEntity ? !client.ficha_ruc_url : (!client.dni_front_url || !client.dni_back_url)) && (
               <TouchableOpacity
-                style={s.warningBanner}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  navigation.navigate('VerifyIdentity');
-                }}
+                style={s.bannerWarning}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('VerifyIdentity'); }}
                 activeOpacity={0.82}
               >
-                <View style={[s.bannerIcon, { backgroundColor: 'rgba(251,191,36,0.12)' }]}>
-                  <Ionicons name="shield-outline" size={18} color="#fbbf24" />
+                <View style={[s.bannerIcon, { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
+                  <Ionicons name="shield-outline" size={18} color="#fff" />
                 </View>
                 <View style={s.bannerBody}>
-                  <Text style={s.warningTitle}>Validación pendiente</Text>
-                  <Text style={s.bannerSub}>Necesitamos validar tu identidad para que puedas operar.</Text>
+                  <Text style={s.bannerTitleWarn}>Validación pendiente</Text>
+                  <Text style={s.bannerSubWarn}>Necesitamos validar tu identidad para operar.</Text>
                 </View>
-                <View style={s.bannerChevron}>
-                  <Ionicons name="chevron-forward" size={16} color="rgba(251,191,36,0.6)" />
-                </View>
+                <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.6)" />
               </TouchableOpacity>
             )}
-
             {(isLegalEntity ? !!client.ficha_ruc_url : (client.dni_front_url && client.dni_back_url)) && (
-              <View style={s.infoBanner}>
-                <View style={[s.bannerIcon, { backgroundColor: 'rgba(96,165,250,0.12)' }]}>
+              <View style={s.bannerInfo}>
+                <View style={[s.bannerIcon, { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
                   <ClockIcon />
                 </View>
                 <View style={s.bannerBody}>
-                  <Text style={s.infoTitle}>Validación en proceso</Text>
+                  <Text style={s.bannerTitleInfo}>Validación en proceso</Text>
                   <Text style={s.bannerSub}>⏱ Aprox. 10 min — te notificaremos.</Text>
                 </View>
               </View>
@@ -619,99 +673,59 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </MotiView>
         )}
 
-        {/* ══ Live indicator ══ */}
+        {/* ══ Grid 2×2 ══ */}
         <MotiView
-          from={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ type: 'timing', delay: 200, duration: 420 }}
-          style={s.liveRow}
-          onLayout={e => { ratesTopY.current = e.nativeEvent.layout.y; }}
+          from={{ opacity: 0, translateY: 16 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'spring', delay: 300, damping: 22, stiffness: 160 }}
+          style={s.gridWrap}
         >
-          <LiveDot />
-          <Text style={s.liveLabel}>Tipo de cambio en vivo</Text>
+          {gridTiles.map(({ icon, label, onPress }) => (
+            <TouchableOpacity key={label} style={s.gridTile} onPress={onPress} activeOpacity={0.75}>
+              <View style={s.gridIconWrap}>
+                <Ionicons name={icon} size={26} color="#0D1117" />
+              </View>
+              <Text style={s.gridLabel}>{label}</Text>
+            </TouchableOpacity>
+          ))}
         </MotiView>
 
-        {/* ══ Tarjetas de tipo de cambio (independientes) ══ */}
-        <MotiView
-          from={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', delay: 210, damping: 22, stiffness: 160 }}
-          style={s.ratesRow}
-        >
-          <TouchableOpacity
-            onPress={() => setCalcOperationType('Compra')}
-            activeOpacity={0.82}
-            style={[s.rateTab, calcOperationType === 'Compra' && s.rateTabActiveCompra]}
+        {/* ══ Operaciones activas ══ */}
+        {activeOps.length > 0 && (
+          <MotiView
+            from={{ opacity: 0, translateY: 10 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', delay: 360, damping: 22 }}
+            style={s.activeOpsWrap}
           >
-            <View style={[StyleSheet.absoluteFill, {
-              backgroundColor: calcOperationType === 'Compra' ? '#1A56A8' : '#163F7A',
-            }]} />
-            <Text style={s.rateTabLabel}>Qoricash compra</Text>
-            {isLegalEntity && empresaRates ? (
-              <View style={s.rateImprovedWrap}>
-                <Text style={s.rateTabValueStrike}>S/ {empresaStrike?.compra.toFixed(4)}</Text>
-                <Text style={[s.rateTabValue, { color: '#FFFFFF' }]}>S/ {empresaRates.compra.toFixed(4)}</Text>
-              </View>
-            ) : displayRates ? (
-              <View style={s.rateImprovedWrap}>
-                <Text style={s.rateTabValueStrike}>S/ {calcRates?.compra.toFixed(4)}</Text>
-                <Text style={[s.rateTabValue, s.rateImprovedValue]}>S/ {displayRates.compra.toFixed(4)}</Text>
-              </View>
-            ) : calcRates ? (
-              <View style={s.rateImprovedWrap}>
-                <Text style={s.rateTabValueStrike}>S/ {(calcRates.compra - 0.003).toFixed(4)}</Text>
-                <Text style={[s.rateTabValue, { color: '#FFFFFF' }, calcOperationType !== 'Compra' && s.rateTabValueDim]}>S/ {calcRates.compra.toFixed(4)}</Text>
-              </View>
-            ) : (
-              <Text style={[s.rateTabValue, { color: '#FFFFFF' }]}>—</Text>
-            )}
-            <View style={s.rateTabPill}>
-              {pipLabel && <Text style={s.ratePipBadge}>{pipLabel}</Text>}
-              <Text style={[s.rateTabPillText, { color: 'rgba(255,255,255,0.90)' }]}>USD → PEN</Text>
+            <View style={s.activeOpsHeader}>
+              <View style={s.activeOpsDot} />
+              <Text style={s.activeOpsLabel}>
+                {activeOps.length === 1 ? 'Operación en curso' : `${activeOps.length} operaciones en curso`}
+              </Text>
             </View>
-          </TouchableOpacity>
+            {activeOps.map(op => {
+              const isEnProceso = op.status === 'en_proceso';
+              return (
+                <ActiveOpCard
+                  key={op.id}
+                  op={op}
+                  isEnProceso={isEnProceso}
+                  accentColor={isEnProceso ? '#60a5fa' : '#f59e0b'}
+                  bgColor={isEnProceso ? '#1d4ed8' : '#1d4ed8'}
+                  borderColor={isEnProceso ? '#3b82f6' : '#3b82f6'}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigation.dispatch(CommonActions.navigate({ name: isEnProceso ? 'Receive' : 'Transfer', params: { operation: op } }));
+                  }}
+                />
+              );
+            })}
+          </MotiView>
+        )}
 
-          <TouchableOpacity
-            onPress={() => setCalcOperationType('Venta')}
-            activeOpacity={0.82}
-            style={[s.rateTab, calcOperationType === 'Venta' && s.rateTabActiveVenta]}
-          >
-            <View style={[StyleSheet.absoluteFill, {
-              backgroundColor: calcOperationType === 'Venta' ? '#16A34A' : '#166534',
-            }]} />
-            <Text style={s.rateTabLabel}>Qoricash vende</Text>
-            {isLegalEntity && empresaRates ? (
-              <View style={s.rateImprovedWrap}>
-                <Text style={s.rateTabValueStrike}>S/ {empresaStrike?.venta.toFixed(4)}</Text>
-                <Text style={[s.rateTabValue, s.rateImprovedValue]}>S/ {empresaRates.venta.toFixed(4)}</Text>
-              </View>
-            ) : displayRates ? (
-              <View style={s.rateImprovedWrap}>
-                <Text style={s.rateTabValueStrike}>S/ {calcRates?.venta.toFixed(4)}</Text>
-                <Text style={[s.rateTabValue, s.rateImprovedValue]}>S/ {displayRates.venta.toFixed(4)}</Text>
-              </View>
-            ) : calcRates ? (
-              <View style={s.rateImprovedWrap}>
-                <Text style={s.rateTabValueStrike}>S/ {(calcRates.venta + 0.003).toFixed(4)}</Text>
-                <Text style={[s.rateTabValue, { color: '#FFFFFF' }, calcOperationType !== 'Venta' && s.rateTabValueDim]}>S/ {calcRates.venta.toFixed(4)}</Text>
-              </View>
-            ) : (
-              <Text style={[s.rateTabValue, { color: '#FFFFFF' }]}>—</Text>
-            )}
-            <View style={s.rateTabPill}>
-              {pipLabel && <Text style={s.ratePipBadge}>{pipLabel}</Text>}
-              <Text style={[s.rateTabPillText, { color: 'rgba(255,255,255,0.90)' }]}>PEN → USD</Text>
-            </View>
-          </TouchableOpacity>
-        </MotiView>
-
-        {/* ══ Calculadora ══ */}
-        <MotiView
-          from={{ opacity: 0, translateY: 20, scale: 0.96 }}
-          animate={{ opacity: 1, translateY: 0, scale: 1 }}
-          transition={{ type: 'spring', delay: 240, damping: 22, stiffness: 160 }}
-          style={s.calcCard}
-        >
+        {/* Calculator oculto — necesario para obtener tasas en tiempo real */}
+        <View style={{ height: 0, overflow: 'hidden' }} pointerEvents="none">
           <Calculator
             onOperationReady={handleInitiateOperation}
             onAmountChange={(ready, operationType, amountUSD, rate) =>
@@ -724,219 +738,79 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             showStrikeRate={!isLegalEntity}
             hideTabs
           />
+        </View>
 
-        </MotiView>
-
-        {/* ══ Botón iniciar operación (fuera de la card) ══ */}
-        <MotiView
-          from={{ opacity: 0, translateY: 10 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'spring', delay: 300, damping: 22, stiffness: 160 }}
-          style={s.initiateWrap}
-        >
-          <TouchableOpacity
-            style={[s.initiateBtn, !pendingOp.ready && s.initiateBtnDisabled]}
-            onPress={() => {
-              if (pendingOp.ready) {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                handleInitiateOperation(pendingOp.operationType, pendingOp.amountUSD, pendingOp.rate);
-              }
-            }}
-            disabled={!pendingOp.ready}
-            activeOpacity={0.82}
-          >
-            <Text style={[s.initiateBtnText, !pendingOp.ready && s.initiateBtnTextDisabled]}>
-              INICIAR OPERACIÓN
-            </Text>
-            <Ionicons name="arrow-forward" size={16} color={pendingOp.ready ? '#fff' : 'rgba(255,255,255,0.3)'} />
-          </TouchableOpacity>
-        </MotiView>
-
-        {/* ══ Código de referido ══ */}
-        <MotiView
-          from={{ opacity: 0, translateY: 8 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'spring', delay: 320, damping: 22, stiffness: 160 }}
-        >
-          <TouchableOpacity
-            style={[s.referralRow, referralApplied && s.referralRowActive]}
-            onPress={() => referralApplied ? null : setReferralModalVisible(true)}
-            activeOpacity={referralApplied ? 1 : 0.78}
-          >
-            <Ionicons name="pricetag-outline" size={15} color={referralApplied ? GREEN : 'rgba(255,255,255,0.4)'} />
-            <Text style={[s.referralRowText, referralApplied && { color: '#fff' }]}>
-              {referralApplied ? `Cupón ${referralApplied} aplicado` : 'Tengo un cupón'}
-            </Text>
-            {referralApplied ? (
-              <View style={s.referralBadge}>
-                <Text style={s.referralBadgeText}>+20 pips</Text>
-              </View>
-            ) : null}
-            {referralApplied && (
-              <TouchableOpacity onPress={() => { setReferralApplied(null); setReferralInput(''); }} style={{ padding: 4 }}>
-                <Ionicons name="close-circle" size={16} color="rgba(255,255,255,0.35)" />
-              </TouchableOpacity>
-            )}
-          </TouchableOpacity>
-        </MotiView>
-
-        {/* ══ Operaciones activas ══ */}
-        {activeOps.length > 0 && (
-          <MotiView
-            from={{ opacity: 0, translateY: 10 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', delay: 360, damping: 22, stiffness: 160 }}
-            style={s.activeOpsWrap}
-          >
-            <View style={s.activeOpsHeader}>
-              <View style={s.activeOpsDot} />
-              <Text style={s.activeOpsLabel}>
-                {activeOps.length === 1 ? 'Operación en curso' : `${activeOps.length} operaciones en curso`}
-              </Text>
-            </View>
-
-            {activeOps.map(op => {
-              const isEnProceso = op.status === 'en_proceso';
-              const accentColor = isEnProceso ? GREEN : '#f59e0b';
-              const bgColor     = isEnProceso ? 'rgba(34,197,94,0.10)' : 'rgba(245,158,11,0.10)';
-              const borderColor = isEnProceso ? 'rgba(34,197,94,0.22)' : 'rgba(245,158,11,0.22)';
-
-              return (
-                <ActiveOpCard
-                  key={op.id}
-                  op={op}
-                  isEnProceso={isEnProceso}
-                  accentColor={accentColor}
-                  bgColor={bgColor}
-                  borderColor={borderColor}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    const screen = isEnProceso ? 'Receive' : 'Transfer';
-                    navigation.dispatch(CommonActions.navigate({ name: screen, params: { operation: op } }));
-                  }}
-                />
-              );
-            })}
-          </MotiView>
-        )}
-
+        </View>{/* /centerWrap */}
       </ScrollView>
 
       {/* ── Modal: operación activa bloqueante ── */}
-      <Modal
-        visible={showBlockModal}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setShowBlockModal(false)}
-      >
+      <Modal visible={showBlockModal} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setShowBlockModal(false)}>
         <BlurView intensity={55} tint="dark" style={s.blockModalBackdrop}>
           <Reanimated.View style={[s.blockModalCard, blockModalStyle]}>
-
-            {/* Icono */}
             <View style={s.blockModalIconWrap}>
-              <Ionicons name="time-outline" size={32} color="#f59e0b" />
+              <Reanimated.View style={clockSpinStyle}>
+                <Ionicons name="time-outline" size={32} color="#1d4ed8" />
+              </Reanimated.View>
             </View>
-
-            {/* Texto */}
             <Text style={s.blockModalTitle}>Tienes una operación activa</Text>
             <Text style={s.blockModalBody}>
               Solo puedes tener una operación en curso a la vez. Completa o cancela tu operación actual antes de iniciar una nueva.
             </Text>
-
-            {/* Botón primario: ir a la op activa */}
-            <TouchableOpacity
-              style={s.blockModalBtnPrimary}
-              activeOpacity={0.82}
+            <TouchableOpacity style={s.blockModalBtnPrimary} activeOpacity={0.82}
               onPress={() => {
                 setShowBlockModal(false);
                 const op = activeOps[0];
                 const isEnProceso = op.status === 'en_proceso';
-                const screen = isEnProceso ? 'Receive' : 'Transfer';
-                navigation.dispatch(CommonActions.navigate({ name: screen, params: { operation: op } }));
-              }}
-            >
+                navigation.dispatch(CommonActions.navigate({ name: isEnProceso ? 'Receive' : 'Transfer', params: { operation: op } }));
+              }}>
               <Ionicons name="arrow-forward-circle-outline" size={17} color="#fff" />
               <Text style={s.blockModalBtnPrimaryText}>Ver operación en curso</Text>
             </TouchableOpacity>
-
-            {/* Botón secundario: cerrar */}
-            <TouchableOpacity
-              style={s.blockModalBtnSecondary}
-              activeOpacity={0.7}
-              onPress={() => setShowBlockModal(false)}
-            >
+            <TouchableOpacity style={s.blockModalBtnSecondary} activeOpacity={0.7} onPress={() => setShowBlockModal(false)}>
               <Text style={s.blockModalBtnSecondaryText}>Entendido</Text>
             </TouchableOpacity>
-
           </Reanimated.View>
         </BlurView>
       </Modal>
 
       {/* ── Modal: monto mínimo ── */}
-      <Modal
-        visible={showMinAmountModal}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setShowMinAmountModal(false)}
-      >
+      <Modal visible={showMinAmountModal} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setShowMinAmountModal(false)}>
         <BlurView intensity={55} tint="dark" style={s.blockModalBackdrop}>
           <Reanimated.View style={[s.blockModalCard, s.minModalCard, minModalStyle]}>
-
             <View style={s.minModalIconWrap}>
               <Ionicons name="alert-circle-outline" size={32} color="#f59e0b" />
             </View>
-
             <Text style={s.blockModalTitle}>Monto mínimo no alcanzado</Text>
             <Text style={s.blockModalBody}>
               El importe mínimo para realizar una operación es de{' '}
               <Text style={s.minModalHighlight}>$50 dólares</Text>.{'\n\n'}
               Ajusta el monto e intenta nuevamente.
             </Text>
-
-            <TouchableOpacity
-              style={s.minModalBtnClose}
-              activeOpacity={0.7}
-              onPress={() => setShowMinAmountModal(false)}
-            >
+            <TouchableOpacity style={s.minModalBtnClose} activeOpacity={0.7} onPress={() => setShowMinAmountModal(false)}>
               <Text style={s.blockModalBtnSecondaryText}>Entendido</Text>
             </TouchableOpacity>
-
           </Reanimated.View>
         </BlurView>
       </Modal>
 
-      {/* ══ Modal: Código de referido ══════════════════════════════════════ */}
-      <Modal
-        visible={referralModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={closeReferralModal}
-      >
-        <KeyboardAvoidingView
-          style={s.referralModalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
+      {/* ── Modal: Código de referido ── */}
+      <Modal visible={referralModalVisible} transparent animationType="fade" onRequestClose={closeReferralModal}>
+        <KeyboardAvoidingView style={s.referralModalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeReferralModal} />
           <View style={s.referralModalSheet}>
-            {/* Header */}
             <View style={s.referralModalHeader}>
               <View style={s.referralModalIcon}>
                 <Ionicons name="gift-outline" size={20} color={GREEN} />
               </View>
-              <Text style={s.referralModalTitle}>Ingresa tu cupón aquí</Text>
+              <Text style={s.referralModalTitle}>Ingresa tu cupón</Text>
               <TouchableOpacity onPress={closeReferralModal} style={s.referralModalClose}>
                 <Ionicons name="close" size={20} color="rgba(255,255,255,0.5)" />
               </TouchableOpacity>
             </View>
-
             <Text style={s.referralModalSub}>
-              Ingresa tu cupón, código de referido o código de campaña para desbloquear mejoras exclusivas en tu tipo de cambio.
+              Ingresa tu cupón o código de referido para desbloquear mejoras exclusivas en tu tipo de cambio.
             </Text>
-
-            {/* Input */}
             <TextInput
               style={s.referralModalInput}
               value={referralInput}
@@ -946,39 +820,32 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               autoCapitalize="characters"
               maxLength={8}
             />
-
-            {/* Botón validar */}
             <TouchableOpacity
               style={[s.referralModalBtn, (!referralInput.trim() || referralValidating) && s.referralModalBtnDisabled]}
               onPress={handleValidateReferral}
               disabled={!referralInput.trim() || referralValidating}
               activeOpacity={0.85}
             >
-              {referralValidating
-                ? <Text style={s.referralModalBtnText}>Validando...</Text>
-                : <Text style={s.referralModalBtnText}>Aplicar código</Text>
-              }
+              <Text style={s.referralModalBtnText}>{referralValidating ? 'Validando...' : 'Aplicar código'}</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ══ Modal: Identidad verificada (KYC aprobado) ═══════════════════ */}
-      <Modal
-        visible={showKycModal}
-        transparent
-        animationType="none"
-        statusBarTranslucent
-      >
+      {/* ── Modal: KYC aprobado ── */}
+      <Modal visible={showKycModal} transparent animationType="none" statusBarTranslucent>
         <Reanimated.View style={[s.kycOverlay, kycOverlayStyle]}>
-          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
-
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.40)' }]} />
           <Reanimated.View style={[s.kycCard, kycCardStyle]}>
 
-            {/* Círculo verde animado */}
+            {/* Ícono principal */}
             <Reanimated.View style={[s.kycCircle, kycCircleStyle]}>
               <View style={s.kycRing} />
               <Ionicons name="shield-checkmark" size={44} color="#ffffff" />
+              {/* Badge checkmark */}
+              <View style={s.kycCheckBadge}>
+                <Ionicons name="checkmark" size={11} color="#fff" />
+              </View>
             </Reanimated.View>
 
             <Text style={s.kycTitle}>¡Identidad Verificada!</Text>
@@ -986,33 +853,161 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               {'Tu cuenta ha sido activada exitosamente.\nYa puedes realizar operaciones\nde cambio de divisas con Qoricash.'}
             </Text>
 
-            {/* Badges de estado */}
+            {/* Badges */}
             <View style={s.kycBadgesRow}>
               <View style={s.kycBadge}>
-                <Ionicons name="checkmark-circle" size={14} color="#22c55e" />
+                <Ionicons name="checkmark-circle" size={14} color="#0D1117" />
                 <Text style={s.kycBadgeText}>Cuenta Activa</Text>
               </View>
               <View style={s.kycBadge}>
-                <Ionicons name="checkmark-circle" size={14} color="#22c55e" />
+                <Ionicons name="checkmark-circle" size={14} color="#0D1117" />
                 <Text style={s.kycBadgeText}>KYC Aprobado</Text>
               </View>
             </View>
+
+            {/* Divider */}
+            <View style={s.kycDivider} />
 
             <TouchableOpacity
               style={s.kycBtn}
               onPress={() => {
                 kycOpacity.value = withTiming(0, { duration: 380, easing: REasing.out(REasing.quad) });
-                kycScale.value   = withTiming(0.92, { duration: 380, easing: REasing.out(REasing.quad) }, () => {
-                  setShowKycModal(false);
+                kycScale.value   = withTiming(0.92, { duration: 380, easing: REasing.out(REasing.quad) }, (finished) => {
+                  if (finished) runOnJS(setShowKycModal)(false);
                 });
               }}
               activeOpacity={0.85}
             >
-              <Text style={s.kycBtnText}>¡Empezar a Operar!</Text>
+              <Ionicons name="arrow-forward" size={16} color="#fff" />
+              <Text style={s.kycBtnText}>Empezar a operar</Text>
             </TouchableOpacity>
-
           </Reanimated.View>
         </Reanimated.View>
+      </Modal>
+
+      {/* ── Logo pie de página ── */}
+      <View style={[s.footerLogo, { paddingBottom: insets.bottom + 16 }]}>
+        <Image source={require('../../assets/qc.png')} style={s.footerLogoImg} resizeMode="contain" />
+      </View>
+
+      {/* ══ Dropdown menú hamburguesa ════════════════════════════════════════ */}
+      <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)} statusBarTranslucent>
+        <TouchableOpacity style={s.menuBackdrop} activeOpacity={1} onPress={() => setMenuVisible(false)}>
+          <TouchableOpacity activeOpacity={1} style={[s.menuDropdown, { top: insets.top + 86, left: 16, right: 16 }]}>
+
+            {/* Triángulo conector con el ícono */}
+            <View style={s.menuArrow} />
+
+            {/* Mi cuenta */}
+            <TouchableOpacity style={s.menuItem} activeOpacity={0.7} onPress={() => {
+              setMenuVisible(false);
+              navigation.dispatch(CommonActions.navigate({ name: 'ProfileTab' }));
+            }}>
+              <View style={s.menuItemIcon}><Ionicons name="person-outline" size={19} color="#0D1117" /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.menuItemTitle}>Mi cuenta</Text>
+                <Text style={s.menuItemSub}>Ver y editar tu perfil</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="rgba(0,0,0,0.22)" />
+            </TouchableOpacity>
+
+            <View style={s.menuDivider} />
+
+            {/* Mis operaciones */}
+            <TouchableOpacity style={s.menuItem} activeOpacity={0.7} onPress={() => {
+              setMenuVisible(false);
+              navigation.dispatch(CommonActions.navigate({ name: 'HistoryTab', params: { initialTab: 'completed' } }));
+            }}>
+              <View style={s.menuItemIcon}><Ionicons name="receipt-outline" size={19} color="#0D1117" /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.menuItemTitle}>Mis operaciones</Text>
+                <Text style={s.menuItemSub}>Historial finalizadas</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="rgba(0,0,0,0.22)" />
+            </TouchableOpacity>
+
+            <View style={s.menuDivider} />
+
+            {/* Cambiar contraseña */}
+            <TouchableOpacity style={s.menuItem} activeOpacity={0.7} onPress={() => {
+              setMenuVisible(false);
+              setTimeout(() => setChangePasswordVisible(true), 300);
+            }}>
+              <View style={s.menuItemIcon}><Ionicons name="lock-closed-outline" size={19} color="#0D1117" /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.menuItemTitle}>Cambiar contraseña</Text>
+                <Text style={s.menuItemSub}>Actualiza tu acceso</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="rgba(0,0,0,0.22)" />
+            </TouchableOpacity>
+
+            <View style={s.menuDivider} />
+
+            {/* Cerrar sesión */}
+            <TouchableOpacity style={s.menuItem} activeOpacity={0.7} onPress={() => {
+              setMenuVisible(false);
+              setTimeout(() => {
+                Alert.alert('Cerrar Sesión', '¿Estás seguro que deseas cerrar sesión?', [
+                  { text: 'Cancelar', style: 'cancel' },
+                  { text: 'Cerrar Sesión', style: 'destructive', onPress: () => setShowLogoutLoading(true) },
+                ]);
+              }, 200);
+            }}>
+              <View style={[s.menuItemIcon, s.menuItemIconDanger]}><Ionicons name="log-out-outline" size={19} color="#f87171" /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.menuItemTitle, { color: '#f87171' }]}>Cerrar sesión</Text>
+                <Text style={s.menuItemSub}>Salir de tu cuenta</Text>
+              </View>
+            </TouchableOpacity>
+
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ══ Modal: Cambiar Contraseña ════════════════════════════════════════ */}
+      <Modal visible={changePasswordVisible} transparent animationType="fade" onRequestClose={() => setChangePasswordVisible(false)} statusBarTranslucent>
+        <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
+        <TouchableOpacity style={s.cpBackdrop} activeOpacity={1} onPress={() => setChangePasswordVisible(false)} />
+        <View style={[s.cpSheet, { paddingBottom: insets.bottom + 16 }]}>
+          <View style={s.menuHandle} />
+          <Text style={s.cpTitle}>Cambiar Contraseña</Text>
+
+          {/* Contraseña actual */}
+          <Text style={s.cpLabel}>Contraseña actual</Text>
+          <View style={s.cpInputRow}>
+            <TextInput style={s.cpInput} value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry={!showCurrentPwd} placeholder="••••••••" placeholderTextColor="rgba(255,255,255,0.25)" />
+            <TouchableOpacity onPress={() => setShowCurrentPwd(!showCurrentPwd)}>
+              <Ionicons name={showCurrentPwd ? 'eye-off-outline' : 'eye-outline'} size={18} color="rgba(255,255,255,0.4)" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Nueva contraseña */}
+          <Text style={s.cpLabel}>Nueva contraseña</Text>
+          <View style={s.cpInputRow}>
+            <TextInput style={s.cpInput} value={newPassword} onChangeText={setNewPassword} secureTextEntry={!showNewPwd} placeholder="Mínimo 8 caracteres" placeholderTextColor="rgba(255,255,255,0.25)" />
+            <TouchableOpacity onPress={() => setShowNewPwd(!showNewPwd)}>
+              <Ionicons name={showNewPwd ? 'eye-off-outline' : 'eye-outline'} size={18} color="rgba(255,255,255,0.4)" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Confirmar contraseña */}
+          <Text style={s.cpLabel}>Confirmar contraseña</Text>
+          <View style={s.cpInputRow}>
+            <TextInput style={s.cpInput} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!showConfirmPwd} placeholder="Repite la nueva contraseña" placeholderTextColor="rgba(255,255,255,0.25)" />
+            <TouchableOpacity onPress={() => setShowConfirmPwd(!showConfirmPwd)}>
+              <Ionicons name={showConfirmPwd ? 'eye-off-outline' : 'eye-outline'} size={18} color="rgba(255,255,255,0.4)" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={s.cpActions}>
+            <TouchableOpacity style={s.cpBtnCancel} onPress={() => setChangePasswordVisible(false)} activeOpacity={0.7}>
+              <Text style={s.cpBtnCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.cpBtnSave} onPress={handleChangePassword} activeOpacity={0.85}>
+              <Text style={s.cpBtnSaveText}>Guardar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
     </View>
@@ -1021,759 +1016,601 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-  overlay: {
-    backgroundColor: 'transparent',
-  },
-  loadWrap: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0a1a2e',
-  },
-  loadText: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 14,
-  },
-  scroll: { flex: 1 },
-  content: {
-    flexGrow: 1,
-    paddingHorizontal: 20,
-  },
+  root: { flex: 1 },
 
-  // ── Fixed greeting header ──
-  fixedGreeting: {
+  loadWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F7FA' },
+  loadText: { color: '#6B7280', fontSize: 14 },
+
+  // ── Fixed header ──
+  fixedHeader: {
     paddingHorizontal: 20,
-    paddingBottom: 14,
+    paddingBottom: 12,
+    backgroundColor: '#F5F7FA',
     zIndex: 20,
   },
-  fixedGreetingHairline: {
-    marginTop: 14,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-  },
-
-  // ── Header row ──
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
+    height: 44,
+  },
+  logo: { width: 105, height: 26 },
+  footerLogo: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  footerLogoImg: { width: 105, height: 26 },
+  refreshBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+
+  scroll: { flex: 1 },
+  content: { flexGrow: 1, paddingHorizontal: 20 },
+  centerWrap: { flex: 1, justifyContent: 'center' },
+
+  // ── Greeting ──
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 14,
+    marginBottom: 22,
   },
-  logo: {
-    width: 110,
-    height: 26,
-  },
-  corporateLabel: {
-    fontSize: 9,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.35)',
-    letterSpacing: 2.5,
-    marginTop: 2,
-    marginLeft: 18,
-  },
-  greetingLabel: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
-    fontWeight: '400',
-    marginBottom: 2,
-    letterSpacing: 0.2,
-  },
-  greetingName: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.6,
-  },
-
-  // ── User strip ──
-  userStrip: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.25)',
+  menuBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
-    borderRadius: 20,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    marginBottom: 18,
+    borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  stripItem: {
+  greetingSub: { fontSize: 13, color: '#9CA3AF', fontWeight: '400' },
+  greetingName: { fontSize: 22, fontWeight: '800', color: '#0D1117', letterSpacing: -0.4 },
+
+  // ── Menú hamburguesa (dropdown) ──
+  menuBackdrop: {
     flex: 1,
-    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.22)',
   },
-  stripLabel: {
-    fontSize: 9.5,
-    color: 'rgba(255,255,255,0.38)',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.7,
-    marginBottom: 6,
+  menuDropdown: {
+    position: 'absolute',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.16,
+    shadowRadius: 28,
+    elevation: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.07)',
+    overflow: 'visible',
   },
-  stripValue: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.82)',
-    fontWeight: '600',
+  // Triángulo conector — cuadrado rotado 45° alineado al botón hamburguesa
+  menuArrow: {
+    position: 'absolute',
+    top: -7,
+    left: 19,
+    width: 14,
+    height: 14,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: 'rgba(0,0,0,0.07)',
+    transform: [{ rotate: '45deg' }],
+    borderTopLeftRadius: 3,
+    zIndex: 1,
   },
-  stripDivider: {
-    width: StyleSheet.hairlineWidth * 2,
-    backgroundColor: GLASS_BORDER,
-    marginVertical: 2,
-  },
-  statusRow: {
+  menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 13,
+    paddingVertical: 15,
+    paddingHorizontal: 16,
   },
-  statusText: {
-    fontSize: 13,
-    color: GREEN,
-    fontWeight: '700',
-  },
-
-  // ── Live dot ──
-  dotWrap: {
-    width: 11,
-    height: 11,
+  menuItemIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dotPulse: {
-    position: 'absolute',
-    width: 11,
-    height: 11,
-    borderRadius: 5.5,
-    borderWidth: 1.5,
-    borderColor: '#4ade80',
+  menuItemIconDanger: {
+    backgroundColor: 'rgba(248,113,113,0.10)',
   },
-  dotCore: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#4ade80',
+  menuItemTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0D1117',
+    marginBottom: 2,
+  },
+  menuItemSub: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '400',
+  },
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(0,0,0,0.07)',
+    marginHorizontal: 16,
+  },
+
+  // ── Cambiar contraseña ──
+  cpBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  cpSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#0d1f2d',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+  },
+  cpTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  cpLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: '500',
+    marginBottom: 6,
+    letterSpacing: 0.3,
+  },
+  cpInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
+    gap: 10,
+  },
+  cpInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#FFFFFF',
+    padding: 0,
+  },
+  cpActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  cpBtnCancel: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+  },
+  cpBtnCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.6)',
+  },
+  cpBtnSave: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+  },
+  cpBtnSaveText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0D1117',
+  },
+
+  // ── Hero card (negra) ──
+  heroCard: {
+    backgroundColor: '#0D1117',
+    borderRadius: 28,
+    padding: 28,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.28,
+    shadowRadius: 32,
+    elevation: 20,
+  },
+  heroCardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  heroCardTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.55)',
+    letterSpacing: 0.3,
+  },
+  liveRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  liveLabel: { fontSize: 11, color: '#4ade80', fontWeight: '600' },
+
+  heroRatesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  heroRateItem: { flex: 1, alignItems: 'center', overflow: 'hidden' },
+  heroRateLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  heroRateValue: {
+    fontSize: 50,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -1,
+    marginBottom: 4,
+    width: '100%',
+    textAlign: 'center',
+  },
+  heroRateDir: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.35)',
+    fontWeight: '500',
+  },
+  heroRateDivider: {
+    width: 1,
+    height: 56,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginHorizontal: 16,
+  },
+  corporateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 16,
+  },
+  corporateBadgeText: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.6)',
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  newOpBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 20,
+    gap: 8,
+  },
+  newOpBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0D1117',
+    letterSpacing: 0.2,
   },
 
   // ── Banners ──
-  warningBanner: {
+  bannerWarning: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(251,191,36,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(251,191,36,0.22)',
+    backgroundColor: '#1D4ED8',
+    borderWidth: 0,
     borderRadius: 16,
     padding: 14,
     marginBottom: 14,
     gap: 12,
   },
-  infoBanner: {
+  bannerInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(96,165,250,0.08)',
+    backgroundColor: '#2563EB',
     borderWidth: 1,
-    borderColor: 'rgba(96,165,250,0.22)',
+    borderColor: '#1D4ED8',
     borderRadius: 16,
     padding: 14,
     marginBottom: 14,
     gap: 12,
   },
-  bannerIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
+  bannerIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   bannerBody: { flex: 1 },
-  bannerChevron: {
-    width: 20,
+  bannerTitleWarn: { fontSize: 12.5, fontWeight: '700', color: '#FFFFFF', marginBottom: 2 },
+  bannerTitleInfo: { fontSize: 12.5, fontWeight: '700', color: '#FFFFFF', marginBottom: 2 },
+  bannerSubWarn: { fontSize: 11.5, color: 'rgba(255,255,255,0.75)', lineHeight: 16 },
+  bannerSub: { fontSize: 11.5, color: 'rgba(255,255,255,0.75)', lineHeight: 16 },
+
+  // ── Grid 2×2 ──
+  gridWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+    marginBottom: 22,
+  },
+  gridTile: {
+    width: (W - 40 - 14) / 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingVertical: 22,
+    paddingHorizontal: 20,
+    alignItems: 'flex-start',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  gridIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  warningTitle: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#fbbf24',
-    marginBottom: 1,
-  },
-  infoTitle: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#60a5fa',
-    marginBottom: 1,
-  },
-  bannerSub: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.45)',
-    lineHeight: 16,
-  },
-
-  // ── Live row ──
-  liveRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    marginBottom: 12,
-  },
-  liveLabel: {
-    fontSize: 11.5,
-    color: 'rgba(255,255,255,0.68)',
-    letterSpacing: 0.3,
-    fontWeight: '500',
-  },
-
-  // ── Rate cards (independientes) ──
-  ratesRow: {
-    flexDirection: 'row',
-    gap: 10,
     marginBottom: 14,
   },
-  rateTab: {
-    flex: 1,
-    paddingVertical: 20,
-    paddingHorizontal: 18,
-    gap: 6,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: GLASS_BORDER,
-    borderRadius: 22,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.28,
-    shadowRadius: 14,
-    elevation: 8,
-  },
-  rateTabActive: {
-    backgroundColor: 'rgba(34,197,94,0.13)',
-    borderColor: GREEN,
-  },
-  rateTabActiveCompra: {
-    borderColor: '#38bdf8',
-  },
-  rateTabActiveVenta: {
-    borderColor: '#22c55e',
-  },
-  rateTabLabel: {
-    fontSize: 11,
-    color: '#FFFFFF',
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
-    fontWeight: '400',
-  },
-  rateTabValue: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
-    lineHeight: 32,
-  },
-  rateTabValueDim: {
-    opacity: 0.42,
-  },
-  rateTabPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.20)',
-    borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginTop: 2,
-  },
-  rateTabPillText: {
-    fontSize: 9.5,
-    color: 'rgba(255,255,255,0.90)',
-    letterSpacing: 0.3,
-  },
-  // ── Calculator card ──
-  calcCard: {
-    paddingTop: 20,
-  },
+  gridLabel: { fontSize: 14, fontWeight: '700', color: '#0D1117' },
 
-  // ── Initiate button (outside card) ──
-  initiateWrap: {
-    marginTop: 6,
-  },
-  initiateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: GREEN,
-    borderRadius: 18,
-    paddingVertical: 17,
-    gap: 10,
-    shadowColor: GREEN,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 8,
-  },
-  initiateBtnDisabled: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  initiateBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: 1.2,
-  },
-  initiateBtnTextDisabled: {
-    color: 'rgba(255,255,255,0.30)',
-  },
+  // ── Active operations ──
+  activeOpsWrap: { marginBottom: 16 },
+  activeOpsHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  activeOpsDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: GREEN },
+  activeOpsLabel: { fontSize: 13, fontWeight: '700', color: '#0D1117' },
 
-  // ── Active ops widget ──
-  activeOpsWrap: {
-    marginTop: 16,
-    gap: 8,
-  },
-  activeOpsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    marginBottom: 4,
-    paddingHorizontal: 2,
-  },
-  activeOpsDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: GREEN,
-    opacity: 0.7,
-  },
-  activeOpsLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.38)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
   activeOpCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderRadius: 16,
     borderWidth: 1,
-    borderRadius: 14,
-    paddingVertical: 11,
-    paddingHorizontal: 13,
-    gap: 11,
-    overflow: 'hidden',
+    padding: 14,
+    gap: 12,
+    marginBottom: 10,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   activeOpGlowBorder: {
-    borderRadius: 14,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: 1.5,
   },
-  activeOpIconWrap: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
+  activeOpIconWrap: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   activeOpSpinArc: {
     position: 'absolute',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderTopColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: 'transparent',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   activeOpIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  activeOpContent: {
-    flex: 1,
-    gap: 3,
-  },
-  activeOpId: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.88)',
-    letterSpacing: 0.2,
-  },
-  activeOpDetail: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.4)',
-    fontWeight: '400',
-  },
-  activeOpRight: {
-    alignItems: 'flex-end',
-    gap: 4,
-    flexShrink: 0,
-  },
+  activeOpContent: { flex: 1 },
+  activeOpId: { fontSize: 13, fontWeight: '700', color: '#fff', marginBottom: 2 },
+  activeOpDetail: { fontSize: 11.5, color: 'rgba(255,255,255,0.65)' },
+  activeOpRight: { alignItems: 'flex-end', gap: 4 },
   activeOpPill: {
-    borderWidth: 1,
     borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
   },
-  activeOpPillText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
+  activeOpPillText: { fontSize: 10.5, fontWeight: '700' },
 
-  // ── Block modal (operación activa) ──
-  blockModalBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
+  // ── Live dot ──
+  dotWrap: { width: 10, height: 10, alignItems: 'center', justifyContent: 'center' },
+  dotPulse: { position: 'absolute', width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: '#4ade80' },
+  dotCore: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ade80' },
+
+  // ── Modales ──
+  blockModalBackdrop: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28 },
   blockModalCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.13)',
+    backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    paddingVertical: 32,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-  },
-  blockModalIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(245,158,11,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(245,158,11,0.25)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 28,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.5,
+    shadowRadius: 40,
+    elevation: 30,
+  },
+  minModalCard: {},
+  blockModalIconWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(29,78,216,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(29,78,216,0.2)',
   },
-  blockModalTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#fff',
-    textAlign: 'center',
-    letterSpacing: -0.2,
-    marginBottom: 10,
+  minModalIconWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(245,158,11,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.22)',
   },
-  blockModalBody: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.52)',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 28,
-  },
+  blockModalTitle: { fontSize: 18, fontWeight: '800', color: '#0D1117', textAlign: 'center', marginBottom: 10 },
+  blockModalBody: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   blockModalBtnPrimary: {
+    width: '100%',
+    backgroundColor: '#0D1117',
+    borderRadius: 14,
+    paddingVertical: 15,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    width: '100%',
-    backgroundColor: '#f59e0b',
-    borderRadius: 14,
-    paddingVertical: 14,
     marginBottom: 10,
-    shadowColor: '#f59e0b',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 6,
   },
-  blockModalBtnPrimaryText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#fff',
-    letterSpacing: 0.2,
-  },
+  blockModalBtnPrimaryText: { fontSize: 15, fontWeight: '700', color: '#fff' },
   blockModalBtnSecondary: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-  },
-  blockModalBtnSecondaryText: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.38)',
-    fontWeight: '500',
-  },
-  minModalCard: {
-    borderColor: 'rgba(245,158,11,0.22)',
-  },
-  minModalIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(245,158,11,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(245,158,11,0.25)',
+    width: '100%',
+    paddingVertical: 13,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
+    borderRadius: 14,
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: '#0D1117',
   },
-  minModalHighlight: {
-    color: '#f59e0b',
-    fontWeight: '700',
-  },
+  blockModalBtnSecondaryText: { fontSize: 14, fontWeight: '600', color: '#0D1117' },
+  minModalHighlight: { color: '#f59e0b', fontWeight: '700' },
   minModalBtnClose: {
     width: '100%',
     paddingVertical: 13,
+    alignItems: 'center',
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
 
-  // ── Referral ──────────────────────────────────────────────────────────────
-  referralRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginHorizontal: 20,
-    marginTop: 10,
-    paddingVertical: 4,
-  },
-  referralRowActive: {},
-  referralRowText: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
-    fontWeight: '500',
-  },
-  referralBadge: {
-    backgroundColor: 'rgba(34,197,94,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.3)',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  referralBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: GREEN,
-  },
-  rateImprovedWrap: {
-    alignItems: 'flex-start',
-    gap: 1,
-  },
-  rateTabValueStrike: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.55)',
-    textDecorationLine: 'line-through',
-  },
-  rateImprovedValue: {
-    color: '#FFFFFF',
-  },
-  ratePipBadge: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 2,
-  },
-  volumeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(251,191,36,0.10)',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(251,191,36,0.22)',
-  },
-  volumeBadgeText: {
-    fontSize: 11,
-    color: '#fbbf24',
-    fontWeight: '600',
-  },
-
-  // ── Referral modal ────────────────────────────────────────────────────────
-  referralModalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
+  // Referral modal
+  referralModalOverlay: { flex: 1, justifyContent: 'flex-end' },
   referralModalSheet: {
-    width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 24,
-    overflow: 'hidden',
+    backgroundColor: '#1A1A2E',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     borderWidth: 1,
     borderColor: 'rgba(34,197,94,0.18)',
     padding: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
+    shadowOffset: { width: 0, height: -12 },
     shadowOpacity: 0.4,
     shadowRadius: 28,
     elevation: 20,
   },
-  referralModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-  },
+  referralModalHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   referralModalIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 38, height: 38, borderRadius: 19,
     backgroundColor: 'rgba(34,197,94,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(34,197,94,0.25)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  referralModalTitle: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  referralModalClose: {
-    padding: 4,
-  },
-  referralModalSub: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
-    lineHeight: 20,
-    marginBottom: 20,
-  },
+  referralModalTitle: { flex: 1, fontSize: 17, fontWeight: '700', color: '#fff' },
+  referralModalClose: { padding: 4 },
+  referralModalSub: { fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 20, marginBottom: 20 },
   referralModalInput: {
     backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
     borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-    textAlign: 'center',
-    letterSpacing: 4,
-    marginBottom: 16,
+    paddingHorizontal: 16, paddingVertical: 14,
+    fontSize: 20, fontWeight: '700',
+    color: '#fff', textAlign: 'center', letterSpacing: 4, marginBottom: 16,
   },
   referralModalBtn: {
     backgroundColor: GREEN,
-    borderRadius: 14,
-    paddingVertical: 15,
+    borderRadius: 14, paddingVertical: 15,
     alignItems: 'center',
     shadowColor: GREEN,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOpacity: 0.4, shadowRadius: 12, elevation: 6,
   },
-  referralModalBtnDisabled: {
-    backgroundColor: 'rgba(34,197,94,0.2)',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  referralModalBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#fff',
-    letterSpacing: 0.3,
-  },
+  referralModalBtnDisabled: { backgroundColor: 'rgba(34,197,94,0.2)', shadowOpacity: 0, elevation: 0 },
+  referralModalBtnText: { fontSize: 15, fontWeight: '700', color: '#fff', letterSpacing: 0.3 },
 
-  // ── Modal KYC aprobado ─────────────────────────────────────────────────────
-  kycOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 28,
-    zIndex: 200,
-  },
+  // KYC modal
+  kycOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28 },
   kycCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.18)',
-    paddingHorizontal: 28,
-    paddingTop: 44,
-    paddingBottom: 32,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28, borderWidth: 1, borderColor: 'rgba(0,0,0,0.07)',
+    paddingHorizontal: 28, paddingTop: 44, paddingBottom: 32,
     alignItems: 'center',
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 28,
-    elevation: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 32, elevation: 20,
   },
   kycCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#22c55e',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 100, height: 100, borderRadius: 50,
+    backgroundColor: '#0D1117',
+    alignItems: 'center', justifyContent: 'center',
     marginBottom: 28,
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.55,
-    shadowRadius: 22,
-    elevation: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 18, elevation: 16,
   },
-  kycRing: {
-    position: 'absolute',
-    width: 122,
-    height: 122,
-    borderRadius: 61,
-    borderWidth: 2,
-    borderColor: 'rgba(34,197,94,0.28)',
+  kycRing: { position: 'absolute', width: 122, height: 122, borderRadius: 61, borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.08)' },
+  kycCheckBadge: {
+    position: 'absolute', bottom: -2, right: -2,
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: '#2563EB',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: '#FFFFFF',
   },
-  kycTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#ffffff',
-    textAlign: 'center',
-    letterSpacing: 0.2,
-    marginBottom: 14,
-  },
-  kycSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  kycBadgesRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 28,
-  },
+  kycTitle: { fontSize: 22, fontWeight: '800', color: '#0D1117', textAlign: 'center', letterSpacing: 0.1, marginBottom: 10 },
+  kycSubtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 22, marginBottom: 22 },
+  kycBadgesRow: { flexDirection: 'row', gap: 8, marginBottom: 22 },
   kycBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(34,197,94,0.1)',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.25)',
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: '#F3F4F6', borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.07)',
   },
-  kycBadgeText: {
-    fontSize: 12,
-    color: '#22c55e',
-    fontWeight: '700',
-  },
+  kycBadgeText: { fontSize: 12, color: '#0D1117', fontWeight: '600' },
+  kycDivider: { width: '100%', height: 1, backgroundColor: 'rgba(0,0,0,0.06)', marginBottom: 22 },
   kycBtn: {
-    width: '100%',
-    backgroundColor: '#22c55e',
-    borderRadius: 16,
-    paddingVertical: 17,
-    alignItems: 'center',
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 10,
+    width: '100%', backgroundColor: '#0D1117',
+    borderRadius: 16, paddingVertical: 17,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 10, elevation: 8,
   },
-  kycBtnText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: 0.3,
-  },
+  kycBtnText: { fontSize: 16, fontWeight: '700', color: '#ffffff', letterSpacing: 0.2 },
 });

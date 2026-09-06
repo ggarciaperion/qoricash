@@ -725,6 +725,10 @@ def cancel_operation(operation_id):
         NotificationService.notify_dashboard_update()
         NotificationService.notify_position_update()
 
+        # Notificar al cliente móvil en tiempo real si es operación de canal app
+        if operation.client:
+            NotificationService.notify_operation_canceled_to_mobile_client(operation, reason)
+
         # Enviar correo de cancelación
         try:
             from app.services.email_service import EmailService
