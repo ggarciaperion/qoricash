@@ -29,6 +29,30 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
+      - name: Run Expo Prebuild
+        run: npx expo prebuild --platform android --non-interactive
+
+      - name: Fix release signing in build.gradle
+        run: |
+          python3 - <<'PYEOF'
+          with open('android/app/build.gradle', 'r') as f:
+              c = f.read()
+          # Add release signingConfig block before debug block
+          if 'MYAPP_STORE_FILE' not in c:
+              c = c.replace(
+                  'signingConfigs {\n        debug {',
+                  'signingConfigs {\n        release {\n            storeFile file(project.findProperty("MYAPP_STORE_FILE") ?: "debug.keystore")\n            storePassword (project.findProperty("MYAPP_STORE_PASSWORD") ?: "android")\n            keyAlias (project.findProperty("MYAPP_KEY_ALIAS") ?: "androiddebugkey")\n            keyPassword (project.findProperty("MYAPP_KEY_PASSWORD") ?: "android")\n        }\n        debug {'
+              )
+          # Replace debug signing in release buildType (unique context: followed by def enableShrinkResources)
+          c = c.replace(
+              'signingConfig signingConfigs.debug\n            def enableShrinkResources',
+              'signingConfig signingConfigs.release\n            def enableShrinkResources'
+          )
+          with open('android/app/build.gradle', 'w') as f:
+              f.write(c)
+          print('build.gradle signing fixed')
+          PYEOF
+
       - name: Decode keystore
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
