@@ -1,11 +1,14 @@
-name: Build Android AAB
+name: Build & Submit Android
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - master
 
 jobs:
   build:
-    name: Build Android Release
+    name: Build & Submit Android Release
     runs-on: ubuntu-latest
 
     steps:
@@ -34,16 +37,15 @@ jobs:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           python3 -c "import base64,os; open('android/app/qoricash-release.jks','wb').write(base64.urlsafe_b64decode(os.environ['KEYSTORE_B64']))"
-          echo "Keystore size: $(wc -c < android/app/qoricash-release.jks) bytes"
-          xxd android/app/qoricash-release.jks | head -2
+          echo "Keystore decoded: $(wc -c < android/app/qoricash-release.jks) bytes"
 
-      - name: Verify keystore with keytool
+      - name: Verify keystore
         run: |
           keytool -list -keystore android/app/qoricash-release.jks \
             -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
             -storetype JKS 2>&1 || true
 
-      - name: Configure release signing in gradle.properties
+      - name: Configure release signing
         run: |
           echo "" >> android/gradle.properties
           echo "MYAPP_STORE_FILE=qoricash-release.jks" >> android/gradle.properties
@@ -53,48 +55,42 @@ jobs:
 
       - name: Patch build.gradle for release signing
         run: |
-          sed -i 's/signingConfig signingConfigs.debug \/\/ release/signingConfig signingConfigs.release/' android/app/build.gradle || true
           python3 - <<'EOF'
-          import re
-
           with open('android/app/build.gradle', 'r') as f:
               content = f.read()
 
-          release_signing = '''
-              release {
-                  storeFile file(MYAPP_STORE_FILE)
-                  storePassword MYAPP_STORE_PASSWORD
-                  keyAlias MYAPP_KEY_ALIAS
-                  keyPassword MYAPP_KEY_PASSWORD
-              }
-          '''
-
-          # Add release signing config if not already there
           if 'MYAPP_STORE_FILE' not in content:
               content = content.replace(
                   'signingConfigs {\n        debug {',
                   'signingConfigs {\n        release {\n            storeFile file(project.findProperty("MYAPP_STORE_FILE") ?: "debug.keystore")\n            storePassword project.findProperty("MYAPP_STORE_PASSWORD") ?: "android"\n            keyAlias project.findProperty("MYAPP_KEY_ALIAS") ?: "androiddebugkey"\n            keyPassword project.findProperty("MYAPP_KEY_PASSWORD") ?: "android"\n        }\n        debug {'
               )
-              # Update release buildType to use release signingConfig
               content = content.replace(
                   'release {\n            // Caution!',
                   'release {\n            signingConfig signingConfigs.release\n            // Caution!'
               )
               with open('android/app/build.gradle', 'w') as f:
                   f.write(content)
-              print("build.gradle patched successfully")
+              print("build.gradle patched")
           else:
               print("build.gradle already patched")
           EOF
 
       - name: Build Android Bundle (AAB)
-        run: |
-          cd android
-          ./gradlew bundleRelease
+        run: cd android && ./gradlew bundleRelease
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: qoricash-release-v7.aab
+          name: qoricash-release-v8.aab
           path: android/app/build/outputs/bundle/release/app-release.aab
-          retention-days: 7
+          retention-days: 14
+
+      - name: Submit to Google Play (Production)
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          packageName: com.qoricash.app
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          track: production
+          status: completed
+          whatsNewDirectory: distribution/whatsnew

@@ -164,7 +164,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     try {
-      socketService.disconnect();
       await authApi.logout();
     } catch (error) {
       console.error('[AUTH] Error en logout:', error);

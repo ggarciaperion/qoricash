@@ -9,6 +9,7 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import axios from 'axios';
+import { API_CONFIG } from '../constants/config';
 
 // Detectar si estamos en Expo Go (push notifications no disponibles desde SDK 53)
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
@@ -23,9 +24,6 @@ if (!isExpoGo) {
     }),
   });
 }
-
-// URL del backend
-const API_URL = 'https://qoricash-trading-v2.onrender.com';
 
 export const notificationService = {
   /**
@@ -80,7 +78,7 @@ export const notificationService = {
       // Enviar token al backend
       try {
         const response = await axios.post(
-          `${API_URL}/api/client/register-push-token`,
+          `${API_CONFIG.BASE_URL}/api/client/register-push-token`,
           {
             dni: dni,
             push_token: token,

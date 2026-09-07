@@ -101,7 +101,7 @@ export const operationsApi = {
   getHistory: async (clientDni: string): Promise<Operation[]> => {
     const operations = await operationsApi.getOperations(clientDni);
     return operations.filter(
-      (op) => op.status !== 'Pendiente' && op.status !== 'En proceso'
+      (op) => op.status !== 'pendiente' && op.status !== 'en_proceso'
     );
   },
 

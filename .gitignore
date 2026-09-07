@@ -102,3 +102,6 @@ package-lock.json
 
 # ── Scripts locales ───────────────────────────────────────────────────────────
 seed_local.py
+
+# Google Play service account key (credentials - never commit)
+android-service-account.json

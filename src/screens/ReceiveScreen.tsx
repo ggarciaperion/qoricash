@@ -21,7 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Operation, BankAccount } from '../types';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
 import { STORAGE_KEYS } from '../constants/config';
-import socketService from '../services/socket';
+import socketService from '../services/socketService';
 import { BlurView } from 'expo-blur';
 import { useBackground } from '../hooks/useBackground';
 import { useAuth } from '../contexts/AuthContext';
@@ -124,7 +124,7 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
 
     const joinRoom = () => {
       if (clientDni) {
-        socketService.emit('join_client_room', { dni: clientDni });
+        socketService.joinClientRoom(clientDni);
         console.log(`✅ [ReceiveScreen] join_client_room → DNI: ${clientDni}`);
       }
     };

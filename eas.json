@@ -33,12 +33,7 @@
     "production": {
       "android": {
         "serviceAccountKeyPath": "./android-service-account.json",
-        "track": "internal"
-      },
-      "ios": {
-        "appleId": "info@qoricash.pe",
-        "ascAppId": "PENDING",
-        "appleTeamId": "PENDING"
+        "track": "production"
       }
     }
   }

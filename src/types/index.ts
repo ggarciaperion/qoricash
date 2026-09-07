@@ -93,7 +93,7 @@ export interface Operation {
   destination_account?: string;
   source_bank_name?: string;
   destination_bank_name?: string;
-  status: 'pendiente' | 'En proceso' | 'Completada' | 'Cancelado';
+  status: 'pendiente' | 'en_proceso' | 'completado' | 'cancelado' | 'expirado';
   created_at: string;
   updated_at?: string;
   completed_at?: string;

@@ -3,7 +3,7 @@
     "name": "QoriCash",
     "slug": "qoricash-app",
     "scheme": "com.qoricash.app",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -29,7 +29,7 @@
         "backgroundColor": "#1976D2"
       },
       "package": "com.qoricash.app",
-      "versionCode": 7,
+      "versionCode": 8,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",

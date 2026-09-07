@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -675,11 +675,48 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
   const initialAmount        = params.amountUSD        || '';
   const initialExchangeRate  = params.exchangeRate     || realExchangeRates.compra;
   const initialBaseRate      = params.baseExchangeRate || null;
+  // Tasas mejoradas completas pasadas desde HomeScreen (evita inconsistencias por fetch propio)
+  const paramRatesCompra     = params.ratesCompra      || null;
+  const paramRatesVenta      = params.ratesVenta       || null;
+  // ── Pips dinámicos por volumen ─────────────────────────────────────────────
+  const CORPORATE_BASE_PIPS = 0.0010;
+  const REFERRAL_IMPROVEMENT = 0.002;
+
+  const [liveAmountUSD, setLiveAmountUSD] = useState(parseFloat(initialAmount) || 0);
+
+  const getVolumePips = (usd: number): number => {
+    if (usd >= 15000) return isLegalEntity ? 0.0020 : 0.0015;
+    if (usd >= 5000)  return 0.0010;
+    return 0;
+  };
+
+  const corporatePips = isLegalEntity ? CORPORATE_BASE_PIPS : 0;
+  const volumePips    = getVolumePips(liveAmountUSD);
+
+  // Haptic al cruzar umbral de mejora (sin animación de escala para evitar conflicto con flip clock)
+  const prevPipTier = useRef(volumePips);
+  useEffect(() => {
+    if (volumePips !== prevPipTier.current) {
+      prevPipTier.current = volumePips;
+      if (volumePips > 0) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, [volumePips]);
+
+  // Memoizado para que Calculator solo reciba un nuevo objeto cuando los valores realmente cambian
+  const memoOverrideRates = useMemo(() => {
+    if (couponApplied && couponRates) return couponRates;
+    const totalPips = corporatePips + Math.max(volumePips, 0);
+    if (totalPips === 0) return null;
+    return {
+      compra: realExchangeRates.compra + totalPips,
+      venta:  realExchangeRates.venta  - totalPips,
+    };
+  }, [couponApplied, couponRates, corporatePips, volumePips, realExchangeRates.compra, realExchangeRates.venta]);
+
   // Si hay mejora de precio, showImprovement = true
   const hasImprovement = initialBaseRate !== null &&
     Math.abs(initialExchangeRate - initialBaseRate) > 0.0005;
 
-  const REFERRAL_IMPROVEMENT = 0.002;
   const [operationType,      setOperationType]      = useState<'Compra'|'Venta'>(initialOperationType);
   const [amountUsd,          setAmountUsd]          = useState(initialAmount);
   const [exchangeRate,       setExchangeRate]       = useState(initialExchangeRate.toString());
@@ -745,8 +782,8 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
         );
         if (res.data.success) {
           setRealExchangeRates(res.data.rates);
-          // Si se llegó desde la calculadora con un rate mejorado, preservarlo
-          if (!params.exchangeRate) {
+          // Solo actualizar la tasa si no vienen tasas mejoradas desde HomeScreen
+          if (!paramRatesCompra && !paramRatesVenta && !params.exchangeRate) {
             const rate = initialOperationType === 'Compra' ? res.data.rates.compra : res.data.rates.venta;
             setExchangeRate(rate.toString());
           }
@@ -763,11 +800,12 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
   }, []);
 
   useEffect(() => {
-    // Preservar rate mejorado si fue pasado desde la calculadora
-    if (!params.exchangeRate) {
-      const rate = operationType === 'Compra' ? realExchangeRates.compra : realExchangeRates.venta;
-      setExchangeRate(rate.toString());
-    }
+    // Usar tasas de HomeScreen si están disponibles (garantiza consistencia visual)
+    // Si no, usar fetch propio
+    const compra = paramRatesCompra ?? realExchangeRates.compra;
+    const venta  = paramRatesVenta  ?? realExchangeRates.venta;
+    const rate   = operationType === 'Compra' ? compra : venta;
+    setExchangeRate(rate.toString());
     setSourceAccount('');
     setDestinationAccount('');
   }, [operationType, realExchangeRates]);
@@ -950,7 +988,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
         setCouponApplied(code);
         setCouponRates({ compra: improvedCompra, venta: improvedVenta });
         const improved = operationType === 'Compra' ? improvedCompra : improvedVenta;
-        setExchangeRate(improved.toFixed(3));
+        setExchangeRate(improved.toFixed(4));
         setCouponModalVisible(false);
       } else {
         Alert.alert('Cupón inválido', data.message || 'El código no es válido');
@@ -982,7 +1020,7 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
         setCouponApplied(`★ ${pipsDisplay} pips`);
         setCouponRates({ compra: improvedCompra, venta: improvedVenta });
         const improved = operationType === 'Compra' ? improvedCompra : improvedVenta;
-        setExchangeRate(improved.toFixed(3));
+        setExchangeRate(improved.toFixed(4));
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
         Alert.alert('Sin pips', data.message || 'No se pudieron aplicar los pips');
@@ -1113,17 +1151,15 @@ export const NewOperationScreen: React.FC<Props> = ({ navigation, route }) => {
                 onAmountChange={(_isReady, tipo, amount, rate) => {
                   setAmountUsd(amount);
                   setExchangeRate(rate.toString());
+                  setLiveAmountUSD(parseFloat(amount) || 0);
                   if (tipo !== operationType) {
                     setOperationType(tipo);
                     setSourceAccount('');
                     setDestinationAccount('');
                   }
                 }}
-                overrideRates={couponApplied && couponRates ? couponRates : hasImprovement ? {
-                  compra: initialOperationType === 'Compra' ? initialExchangeRate : realExchangeRates.compra,
-                  venta:  initialOperationType === 'Venta'  ? initialExchangeRate : realExchangeRates.venta,
-                } : null}
-                showStrikeRate={hasImprovement || !!couponApplied}
+                overrideRates={memoOverrideRates}
+                showStrikeRate={corporatePips > 0 || volumePips > 0 || !!couponApplied}
               />
             </View>
           </MotiView>

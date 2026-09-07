@@ -157,11 +157,10 @@ class SocketService {
   }
 
   // Manejar tipos de cambio actualizados
-  private async handleExchangeRatesUpdated(data: any) {
-    await this.showNotification(
-      '💱 Tipos de Cambio Actualizados',
-      `Compra: S/ ${data.compra.toFixed(3)} | Venta: S/ ${data.venta.toFixed(3)}`
-    );
+  private handleExchangeRatesUpdated(data: any) {
+    // Solo propagamos el evento a los componentes suscritos (Calculator, HomeScreen, etc.)
+    // No enviamos push notification: el TC se actualiza constantemente y sería spam invasivo.
+    this.eventEmitter.emit('tipos_cambio_actualizados', data);
   }
 
   // Manejar documentos aprobados

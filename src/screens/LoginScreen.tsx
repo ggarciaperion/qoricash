@@ -63,6 +63,10 @@ export const LoginScreen = () => {
   const [errIsAuth,      setErrIsAuth]      = useState(false);
   const isLocked = failedAttempts >= MAX_ATTEMPTS;
 
+  // Validación de documento en tiempo real
+  const [dniError,    setDniError]    = useState('');
+  const [dniChecking, setDniChecking] = useState(false);
+
   // Forgot password modal
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [resetDni,        setResetDni]        = useState('');
@@ -109,6 +113,25 @@ export const LoginScreen = () => {
   }, []);
 
 
+  // Verificar si el número de documento existe en el sistema
+  useEffect(() => {
+    if (!documentType) { setDniError(''); return; }
+    let cancelled = false;
+    setDniError('');
+    setDniChecking(true);
+    fetch(`${API_CONFIG.BASE_URL}/api/client/verify/${dni}`)
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return;
+        if (!data.success || !data.exists) {
+          setDniError('Este número de documento no está registrado en Qoricash');
+        }
+      })
+      .catch(() => { /* error de red: no mostrar nada, el login lo manejará */ })
+      .finally(() => { if (!cancelled) setDniChecking(false); });
+    return () => { cancelled = true; };
+  }, [documentType, dni]);
+
   const handleGoBack = () => {
     if (navigation.canGoBack()) {
       Animated.parallel([
@@ -136,6 +159,7 @@ export const LoginScreen = () => {
   const handleDniChange = (text: string) => {
     const cleaned = text.replace(/\D/g, '').slice(0, 11);
     setDni(cleaned);
+    setDniError('');
     setDocumentType(detectDocType(cleaned));
     if (rememberMe) {
       AsyncStorage.setItem(REMEMBER_KEY, JSON.stringify({ number: cleaned }));
@@ -307,13 +331,20 @@ export const LoginScreen = () => {
                   keyboardType="numeric"
                   maxLength={11}
                   left={<TextInput.Icon icon="card-account-details-outline" iconColor="#9CA3AF" />}
+                  right={dniChecking ? <TextInput.Icon icon={() => <ActivityIndicator size={16} color="#9CA3AF" />} /> : undefined}
                   style={styles.input}
                   outlineStyle={styles.inputOutline}
-                  outlineColor={GLASS_BORDER}
-                  activeOutlineColor="#0D1117"
+                  outlineColor={dniError ? '#ef4444' : GLASS_BORDER}
+                  activeOutlineColor={dniError ? '#ef4444' : '#0D1117'}
                   textColor="#0D1117"
                   theme={{ colors: { onSurfaceVariant: '#6B7280', background: '#FFFFFF' } }}
                 />
+                {!!dniError && (
+                  <View style={styles.dniErrorRow}>
+                    <Ionicons name="alert-circle" size={13} color="#ef4444" />
+                    <Text style={styles.dniErrorText}>{dniError}</Text>
+                  </View>
+                )}
               </Animated.View>
 
               {/* Password */}
@@ -645,6 +676,19 @@ const styles = StyleSheet.create({
   // ── Inputs ────────────────────────────────────────────────────────────────
   inputWrap: {
     marginBottom: 14,
+  },
+  dniErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 6,
+    paddingHorizontal: 4,
+  },
+  dniErrorText: {
+    fontSize: 12,
+    color: '#ef4444',
+    fontWeight: '500',
+    flex: 1,
   },
   input: {
     backgroundColor: INPUT_BG,

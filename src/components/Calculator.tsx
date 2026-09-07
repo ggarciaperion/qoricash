@@ -20,12 +20,71 @@ import Reanimated, {
   interpolateColor,
   interpolate,
   Easing,
+  runOnJS,
 } from 'react-native-reanimated';
 import axios from 'axios';
 import { Colors } from '../constants/colors';
 import { API_CONFIG } from '../constants/config';
 import { formatInputAmount } from '../utils/formatters';
 import socketService from '../services/socketService';
+
+// ── Ticker/odómetro: solo los últimos 2 decimales ruedan como un contador ──
+// El valor actual sale por arriba, el nuevo entra desde abajo.
+// Solo translateY — sin 3D, sin layout shifts, sin repintado en siblings.
+const TICKER_H = 36; // debe coincidir con rateTabValue.lineHeight
+
+const FlipRate: React.FC<{ rate: number | undefined; animTextStyle?: any }> = ({ rate, animTextStyle }) => {
+  const formatted = rate?.toFixed(4) ?? null;
+  const prefix    = formatted ? `S/ ${formatted.slice(0, -2)}` : 'S/ —';
+  const suffix    = formatted ? formatted.slice(-2)            : '';
+
+  const [dispPrefix, setDispPrefix] = useState(prefix);
+  const [suffixA, setSuffixA]       = useState(suffix); // actualmente visible
+  const [suffixB, setSuffixB]       = useState(suffix); // entrante (debajo del clip)
+  const prevFormatted               = useRef(formatted);
+
+  const yA = useSharedValue(0);          // A: en ventana
+  const yB = useSharedValue(TICKER_H);   // B: debajo, fuera del clip
+
+  const styleA = useAnimatedStyle(() => ({ transform: [{ translateY: yA.value }] }));
+  const styleB = useAnimatedStyle(() => ({ transform: [{ translateY: yB.value }] }));
+
+  // Paso 2: B tiene nuevo contenido → animar
+  useEffect(() => {
+    if (suffixB === suffixA) return;
+    yA.value = withTiming(-TICKER_H, { duration: 200, easing: Easing.out(Easing.cubic) });
+    yB.value = withTiming(0,         { duration: 200, easing: Easing.out(Easing.cubic) }, (done) => {
+      'worklet';
+      if (done) runOnJS(setSuffixA)(suffixB);
+    });
+  }, [suffixB]);
+
+  // Paso 3: A actualizado → resetear posiciones (snap sin animación)
+  useEffect(() => {
+    yA.value = 0;
+    yB.value = TICKER_H;
+  }, [suffixA]);
+
+  // Paso 1: rate cambia → actualizar prefix (instantáneo) y encolar animación de suffix
+  useEffect(() => {
+    if (formatted === prevFormatted.current) return;
+    prevFormatted.current = formatted;
+    setDispPrefix(prefix);
+    setSuffixB(suffix);
+  }, [formatted]);
+
+  return (
+    <View style={{ flexDirection: 'row' }}>
+      <Reanimated.Text style={animTextStyle}>{dispPrefix}</Reanimated.Text>
+      {/* Ventana de clip fija — solo los 2 últimos decimales se deslizan */}
+      <View style={{ height: TICKER_H, overflow: 'hidden' }}>
+        <Reanimated.Text style={[animTextStyle, styleA]}>{suffixA}</Reanimated.Text>
+        <Reanimated.Text style={[animTextStyle, { position: 'absolute', top: 0 }, styleB]}>{suffixB}</Reanimated.Text>
+      </View>
+    </View>
+  );
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface CalculatorProps {
   onOperationReady?: (operationType: 'Compra' | 'Venta', amountUSD: string, exchangeRate: number) => void;
@@ -134,14 +193,15 @@ export const Calculator: React.FC<CalculatorProps> = ({
     opacity: interpolate(tabProgress.value, [0, 1], [0, 1]),
   }));
 
-  // Estilos animados para tasa tachada (original) — verde en ambos tabs
-  const animCompraStrikeStyle = useAnimatedStyle(() => ({
-    color: '#22c55e',
-    opacity: interpolate(tabProgress.value, [0, 1], [1, 0.75]),
-  }));
-  const animVentaStrikeStyle = useAnimatedStyle(() => ({
-    color: '#22c55e',
-    opacity: interpolate(tabProgress.value, [0, 1], [0.75, 1]),
+  // Animación de aparición del precio tachado — sin condicional para evitar layout shift
+  const strikeActive = showStrikeRate && !!overrideRates;
+  const strikeAnim   = useSharedValue(strikeActive ? 1 : 0);
+  useEffect(() => {
+    strikeAnim.value = withTiming(strikeActive ? 1 : 0, { duration: 200 });
+  }, [strikeActive]);
+  const strikeContainerStyle = useAnimatedStyle(() => ({
+    height:  strikeAnim.value * 22,
+    opacity: strikeAnim.value,
   }));
 
   // TC efectivo: usa la mejora por volumen/cupón si está disponible
@@ -369,14 +429,15 @@ export const Calculator: React.FC<CalculatorProps> = ({
               <Ionicons name="checkmark-circle" size={15} color="#FFFFFF" />
             </Reanimated.View>
           </View>
-          {showStrikeRate && overrideRates && (
-            <Reanimated.Text style={[styles.strikeRateSmall, animCompraStrikeStyle]}>
-              S/ {exchangeRates?.compra.toFixed(3) || '—'}
+          <Reanimated.View style={[{ overflow: 'hidden' }, strikeContainerStyle]}>
+            <Reanimated.Text style={[styles.strikeRateSmall, { color: '#22c55e' }]}>
+              S/ {exchangeRates?.compra.toFixed(4) || '—'}
             </Reanimated.Text>
-          )}
-          <Reanimated.Text style={[styles.rateTabValue, animCompraValueStyle]}>
-            S/ {(showStrikeRate && overrideRates ? effectiveRates?.compra : exchangeRates?.compra)?.toFixed(3) || '—'}
-          </Reanimated.Text>
+          </Reanimated.View>
+          <FlipRate
+            rate={showStrikeRate && overrideRates ? effectiveRates?.compra : exchangeRates?.compra}
+            animTextStyle={[styles.rateTabValue, animCompraValueStyle]}
+          />
           <Reanimated.View style={[styles.rateTabPill, animCompraPillStyle]}>
             <Reanimated.Text style={[styles.rateTabPillText, animCompraPillTextStyle]}>USD → PEN</Reanimated.Text>
           </Reanimated.View>
@@ -393,14 +454,15 @@ export const Calculator: React.FC<CalculatorProps> = ({
               <Ionicons name="checkmark-circle" size={15} color="#FFFFFF" />
             </Reanimated.View>
           </View>
-          {showStrikeRate && overrideRates && (
-            <Reanimated.Text style={[styles.strikeRateSmall, animVentaStrikeStyle]}>
-              S/ {exchangeRates?.venta.toFixed(3) || '—'}
+          <Reanimated.View style={[{ overflow: 'hidden' }, strikeContainerStyle]}>
+            <Reanimated.Text style={[styles.strikeRateSmall, { color: '#22c55e' }]}>
+              S/ {exchangeRates?.venta.toFixed(4) || '—'}
             </Reanimated.Text>
-          )}
-          <Reanimated.Text style={[styles.rateTabValue, animVentaValueStyle]}>
-            S/ {(showStrikeRate && overrideRates ? effectiveRates?.venta : exchangeRates?.venta)?.toFixed(3) || '—'}
-          </Reanimated.Text>
+          </Reanimated.View>
+          <FlipRate
+            rate={showStrikeRate && overrideRates ? effectiveRates?.venta : exchangeRates?.venta}
+            animTextStyle={[styles.rateTabValue, animVentaValueStyle]}
+          />
           <Reanimated.View style={[styles.rateTabPill, animVentaPillStyle]}>
             <Reanimated.Text style={[styles.rateTabPillText, animVentaPillTextStyle]}>PEN → USD</Reanimated.Text>
           </Reanimated.View>
