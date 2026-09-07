@@ -29,9 +29,6 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Run Expo Prebuild
-        run: npx expo prebuild --platform android --non-interactive
-
       - name: Decode keystore
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -52,28 +49,6 @@ jobs:
           echo "MYAPP_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> android/gradle.properties
           echo "MYAPP_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/gradle.properties
           echo "MYAPP_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/gradle.properties
-
-      - name: Patch build.gradle for release signing
-        run: |
-          python3 - <<'EOF'
-          with open('android/app/build.gradle', 'r') as f:
-              content = f.read()
-
-          if 'MYAPP_STORE_FILE' not in content:
-              content = content.replace(
-                  'signingConfigs {\n        debug {',
-                  'signingConfigs {\n        release {\n            storeFile file(project.findProperty("MYAPP_STORE_FILE") ?: "debug.keystore")\n            storePassword project.findProperty("MYAPP_STORE_PASSWORD") ?: "android"\n            keyAlias project.findProperty("MYAPP_KEY_ALIAS") ?: "androiddebugkey"\n            keyPassword project.findProperty("MYAPP_KEY_PASSWORD") ?: "android"\n        }\n        debug {'
-              )
-              content = content.replace(
-                  'release {\n            // Caution!',
-                  'release {\n            signingConfig signingConfigs.release\n            // Caution!'
-              )
-              with open('android/app/build.gradle', 'w') as f:
-                  f.write(content)
-              print("build.gradle patched")
-          else:
-              print("build.gradle already patched")
-          EOF
 
       - name: Build Android Bundle (AAB)
         run: cd android && ./gradlew bundleRelease
