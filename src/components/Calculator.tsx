@@ -75,30 +75,73 @@ export const Calculator: React.FC<CalculatorProps> = ({
   const tabProgress = useSharedValue(0);   // 0 = Compra, 1 = Venta
   const swapScale   = useSharedValue(1);
 
-  // Fondo animado de cada tarjeta (verde sólido cuando está activa)
+  // Fondo animado de cada tarjeta (tinte suave cuando está activa)
+  // Fondo del tab activo: oscuro; inactivo: transparente
   const animCompraTabStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(
       tabProgress.value, [0, 1],
-      ['rgba(34,197,94,0.22)', 'transparent'],
+      ['#0D1117', 'transparent'],
     ),
   }));
   const animVentaTabStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(
       tabProgress.value, [0, 1],
-      ['transparent', 'rgba(34,197,94,0.22)'],
+      ['transparent', '#0D1117'],
     ),
   }));
 
-  // Opacidad del valor: lleno cuando activo, atenuado cuando inactivo
+  // Color del label: blanco cuando activo, gris oscuro cuando inactivo
+  const animCompraLabelStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(tabProgress.value, [0, 1], ['rgba(255,255,255,0.55)', 'rgba(0,0,0,0.40)']),
+  }));
+  const animVentaLabelStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(tabProgress.value, [0, 1], ['rgba(0,0,0,0.40)', 'rgba(255,255,255,0.55)']),
+  }));
+
+  // Color del valor: blanco activo, oscuro inactivo
   const animCompraValueStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(tabProgress.value, [0, 1], [1, 0.42]),
+    color: interpolateColor(tabProgress.value, [0, 1], ['#FFFFFF', '#0D1117']),
+    opacity: interpolate(tabProgress.value, [0, 1], [1, 0.55]),
   }));
   const animVentaValueStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(tabProgress.value, [0, 1], [0.42, 1]),
+    color: interpolateColor(tabProgress.value, [0, 1], ['#0D1117', '#FFFFFF']),
+    opacity: interpolate(tabProgress.value, [0, 1], [0.55, 1]),
   }));
 
   const animSwapStyle = useAnimatedStyle(() => ({
     transform: [{ scale: swapScale.value }],
+  }));
+
+  // Pill: claro cuando activo, oscuro cuando inactivo
+  const animCompraPillStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(tabProgress.value, [0, 1], ['rgba(255,255,255,0.20)', 'rgba(0,0,0,0.07)']),
+  }));
+  const animVentaPillStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(tabProgress.value, [0, 1], ['rgba(0,0,0,0.07)', 'rgba(255,255,255,0.20)']),
+  }));
+  const animCompraPillTextStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(tabProgress.value, [0, 1], ['rgba(255,255,255,0.70)', 'rgba(0,0,0,0.40)']),
+  }));
+  const animVentaPillTextStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(tabProgress.value, [0, 1], ['rgba(0,0,0,0.40)', 'rgba(255,255,255,0.70)']),
+  }));
+
+  // Check badge: visible en tab activo, oculto en inactivo
+  const animCompraCheckStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(tabProgress.value, [0, 1], [1, 0]),
+  }));
+  const animVentaCheckStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(tabProgress.value, [0, 1], [0, 1]),
+  }));
+
+  // Estilos animados para tasa tachada (original) — verde en ambos tabs
+  const animCompraStrikeStyle = useAnimatedStyle(() => ({
+    color: '#22c55e',
+    opacity: interpolate(tabProgress.value, [0, 1], [1, 0.75]),
+  }));
+  const animVentaStrikeStyle = useAnimatedStyle(() => ({
+    color: '#22c55e',
+    opacity: interpolate(tabProgress.value, [0, 1], [0.75, 1]),
   }));
 
   // TC efectivo: usa la mejora por volumen/cupón si está disponible
@@ -320,13 +363,23 @@ export const Calculator: React.FC<CalculatorProps> = ({
         {/* Card Compra */}
         <TouchableOpacity onPress={() => switchTab('Compra')} activeOpacity={0.82} style={styles.rateTab}>
           <Reanimated.View style={[StyleSheet.absoluteFill, animCompraTabStyle]} />
-          <Text style={[styles.rateTabLabel, lightMode && styles.rateTabLabelLight]}>Qoricash compra</Text>
-          <Reanimated.Text style={[styles.rateTabValue, lightMode && styles.rateTabValueLight, animCompraValueStyle]}>
-            S/ {exchangeRates?.compra.toFixed(3) || '—'}
-          </Reanimated.Text>
-          <View style={styles.rateTabPill}>
-            <Text style={styles.rateTabPillText}>USD → PEN</Text>
+          <View style={styles.rateTabLabelRow}>
+            <Reanimated.Text style={[styles.rateTabLabel, animCompraLabelStyle]}>Qoricash compra</Reanimated.Text>
+            <Reanimated.View style={animCompraCheckStyle}>
+              <Ionicons name="checkmark-circle" size={15} color="#FFFFFF" />
+            </Reanimated.View>
           </View>
+          {showStrikeRate && overrideRates && (
+            <Reanimated.Text style={[styles.strikeRateSmall, animCompraStrikeStyle]}>
+              S/ {exchangeRates?.compra.toFixed(3) || '—'}
+            </Reanimated.Text>
+          )}
+          <Reanimated.Text style={[styles.rateTabValue, animCompraValueStyle]}>
+            S/ {(showStrikeRate && overrideRates ? effectiveRates?.compra : exchangeRates?.compra)?.toFixed(3) || '—'}
+          </Reanimated.Text>
+          <Reanimated.View style={[styles.rateTabPill, animCompraPillStyle]}>
+            <Reanimated.Text style={[styles.rateTabPillText, animCompraPillTextStyle]}>USD → PEN</Reanimated.Text>
+          </Reanimated.View>
         </TouchableOpacity>
 
         <View style={styles.rateTabDivider} />
@@ -334,13 +387,23 @@ export const Calculator: React.FC<CalculatorProps> = ({
         {/* Card Venta */}
         <TouchableOpacity onPress={() => switchTab('Venta')} activeOpacity={0.82} style={styles.rateTab}>
           <Reanimated.View style={[StyleSheet.absoluteFill, animVentaTabStyle]} />
-          <Text style={[styles.rateTabLabel, lightMode && styles.rateTabLabelLight]}>Qoricash vende</Text>
-          <Reanimated.Text style={[styles.rateTabValue, lightMode && styles.rateTabValueLight, animVentaValueStyle]}>
-            S/ {exchangeRates?.venta.toFixed(3) || '—'}
-          </Reanimated.Text>
-          <View style={styles.rateTabPill}>
-            <Text style={styles.rateTabPillText}>PEN → USD</Text>
+          <View style={styles.rateTabLabelRow}>
+            <Reanimated.Text style={[styles.rateTabLabel, animVentaLabelStyle]}>Qoricash vende</Reanimated.Text>
+            <Reanimated.View style={animVentaCheckStyle}>
+              <Ionicons name="checkmark-circle" size={15} color="#FFFFFF" />
+            </Reanimated.View>
           </View>
+          {showStrikeRate && overrideRates && (
+            <Reanimated.Text style={[styles.strikeRateSmall, animVentaStrikeStyle]}>
+              S/ {exchangeRates?.venta.toFixed(3) || '—'}
+            </Reanimated.Text>
+          )}
+          <Reanimated.Text style={[styles.rateTabValue, animVentaValueStyle]}>
+            S/ {(showStrikeRate && overrideRates ? effectiveRates?.venta : exchangeRates?.venta)?.toFixed(3) || '—'}
+          </Reanimated.Text>
+          <Reanimated.View style={[styles.rateTabPill, animVentaPillStyle]}>
+            <Reanimated.Text style={[styles.rateTabPillText, animVentaPillTextStyle]}>PEN → USD</Reanimated.Text>
+          </Reanimated.View>
         </TouchableOpacity>
       </View>}
 
@@ -405,29 +468,6 @@ export const Calculator: React.FC<CalculatorProps> = ({
           </View>
         </View>
 
-        {/* Tip mejora TC */}
-        <Text style={styles.tcTip}>✦ Mejora tu tipo de cambio para importes mayores a $3,000</Text>
-
-        {/* Información adicional */}
-        {amountPEN && (
-          <View style={styles.infoRow}>
-            <Text style={[styles.infoText, lightMode && styles.infoTextLight]}>
-              Ahorro estimado: S/ {formatInputAmount(String(calculateSavings()))}
-            </Text>
-            <View style={{ alignItems: 'flex-end' }}>
-              {showStrikeRate && currentRate > 0 && (
-                <Text style={styles.strikeRateText}>
-                  {activeOperationType === 'Compra'
-                    ? (currentRate - 0.003).toFixed(4)
-                    : (currentRate + 0.003).toFixed(4)}
-                </Text>
-              )}
-              <Text style={[styles.infoText, lightMode && styles.infoTextLight]}>
-                TC: {currentRate.toFixed(4)}
-              </Text>
-            </View>
-          </View>
-        )}
       </View>
 
 
@@ -471,9 +511,9 @@ const styles = StyleSheet.create({
   },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.09)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.17)',
+    borderColor: 'rgba(255,255,255,0.12)',
     borderRadius: 22,
     marginBottom: 24,
     overflow: 'hidden',
@@ -485,9 +525,13 @@ const styles = StyleSheet.create({
     gap: 6,
     overflow: 'hidden',
   },
+  rateTabLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
   rateTabLabel: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.52)',
     letterSpacing: 1.4,
     textTransform: 'uppercase',
     fontWeight: '400',
@@ -496,18 +540,17 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
   },
   rateTabValue: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontSize: 30,
+    fontWeight: '800',
     letterSpacing: -0.5,
-    lineHeight: 32,
+    lineHeight: 36,
   },
   rateTabValueLight: {
     color: '#0D1B2A',
   },
   rateTabPill: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(0,0,0,0.07)',
     borderRadius: 20,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -515,16 +558,15 @@ const styles = StyleSheet.create({
   },
   rateTabPillText: {
     fontSize: 9.5,
-    color: 'rgba(255,255,255,0.55)',
     letterSpacing: 0.3,
   },
   rateTabDivider: {
     width: 1,
-    backgroundColor: 'rgba(255,255,255,0.17)',
+    backgroundColor: 'rgba(0,0,0,0.10)',
     marginVertical: 16,
   },
   calculatorContainer: {
-    marginBottom: 20,
+    marginBottom: 8,
     marginHorizontal: 8,
   },
   calculatorRow: {
@@ -534,9 +576,9 @@ const styles = StyleSheet.create({
   },
   inputBox: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: '#0D1117',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.17)',
+    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 20,
     padding: 16,
     marginRight: 10,
@@ -561,9 +603,9 @@ const styles = StyleSheet.create({
   },
   currencyBox: {
     width: 95,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: '#0D1117',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.17)',
+    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 20,
     padding: 16,
     alignItems: 'center',
@@ -601,7 +643,7 @@ const styles = StyleSheet.create({
   },
   tcTip: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.32)',
+    color: 'rgba(0,0,0,0.45)',
     textAlign: 'center',
     letterSpacing: 0.2,
     marginTop: 10,
@@ -622,6 +664,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: 'rgba(255,255,255,0.38)',
     textDecorationLine: 'line-through',
+    marginBottom: 1,
+  },
+  strikeRateSmall: {
+    fontSize: 12,
+    fontWeight: '500',
+    textDecorationLine: 'line-through',
+    letterSpacing: -0.2,
     marginBottom: 1,
   },
   continueButton: {

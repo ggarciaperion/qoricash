@@ -10,7 +10,7 @@ export const operationsApi = {
     operationData: CreateOperationForm
   ): Promise<Operation> => {
     try {
-      const payload = {
+      const payload: Record<string, any> = {
         client_dni: clientDni,
         operation_type: operationData.operation_type,
         amount_usd: parseFloat(operationData.amount_usd),
@@ -19,6 +19,7 @@ export const operationsApi = {
         destination_account: operationData.destination_account,
         notes: operationData.notes || '',
       };
+      if (operationData.coupon_code) payload.reward_code = operationData.coupon_code;
 
       const response = await apiClient.post<{ success: boolean; operation: Operation }>(
         '/api/client/create-operation',

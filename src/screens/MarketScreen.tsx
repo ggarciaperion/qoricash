@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   Text,
+  Animated,
   TouchableOpacity,
   RefreshControl,
   ImageBackground,
@@ -197,16 +198,120 @@ const LivePulse: React.FC<{ color?: string }> = ({ color = GREEN }) => {
   );
 };
 
-const SectionHeader: React.FC<{ title: string; subtitle?: string }> = ({ title, subtitle }) => (
+const EqBar: React.FC<{ minH: number; maxH: number; dur1: number; dur2: number }> = ({ minH, maxH, dur1, dur2 }) => {
+  const h = useSharedValue(minH);
+  useEffect(() => {
+    h.value = withRepeat(
+      withSequence(
+        withTiming(maxH, { duration: dur1, easing: REasing.inOut(REasing.quad) }),
+        withTiming(minH, { duration: dur2, easing: REasing.inOut(REasing.quad) }),
+      ), -1, false,
+    );
+  }, []);
+  const style = useAnimatedStyle(() => ({ height: h.value }));
+  return <Reanimated.View style={[{ width: 3.5, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.85)' }, style]} />;
+};
+
+const AnimatedContextIcon: React.FC = () => (
+  <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 22, paddingBottom: 1 }}>
+    <EqBar minH={5}  maxH={14} dur1={1100} dur2={1000} />
+    <EqBar minH={8}  maxH={22} dur1={1400} dur2={1200} />
+    <EqBar minH={4}  maxH={18} dur1={900}  dur2={1100} />
+    <EqBar minH={10} maxH={20} dur1={1250} dur2={1050} />
+  </View>
+);
+
+const LiveDot: React.FC = () => {
+  const op = useSharedValue(1);
+
+  useEffect(() => {
+    op.value = withRepeat(
+      withTiming(0.2, { duration: 900, easing: REasing.inOut(REasing.quad) }),
+      -1,
+      true,
+    );
+  }, []);
+
+  const dotStyle = useAnimatedStyle(() => ({ opacity: op.value }));
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      <Reanimated.View style={[{
+        width: 6, height: 6, borderRadius: 3, backgroundColor: GREEN,
+      }, dotStyle]} />
+      <Text style={{ fontSize: 9, fontWeight: '700', color: GREEN, letterSpacing: 0.8 }}>EN VIVO</Text>
+    </View>
+  );
+};
+
+const SectionHeader: React.FC<{ title: string; subtitle?: string; live?: boolean }> = ({ title, subtitle, live }) => (
   <View style={s.sectionHeader}>
-    <Text style={s.sectionTitle}>{title}</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <Text style={s.sectionTitle}>{title}</Text>
+      {live && <LiveDot />}
+    </View>
     {subtitle ? <Text style={s.sectionSub}>{subtitle}</Text> : null}
   </View>
 );
 
-const IndicatorCard: React.FC<{ item: MarketIndicator; delay: number }> = ({ item, delay }) => {
-  const icon = INDICATOR_ICONS[item.key] ?? 'analytics-outline';
+const IndicatorCard: React.FC<{ item: MarketIndicator; delay: number; liveIndex: number }> = ({ item, delay, liveIndex }) => {
+  const icon  = INDICATOR_ICONS[item.key] ?? 'analytics-outline';
   const color = chgColor(item.chg);
+
+  const [delta, setDelta] = useState(0);
+  const slideY = useRef(new Animated.Value(0)).current;
+  const fade   = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (item.value === null) return;
+    const abs  = Math.abs(item.value);
+    const unit = abs >= 1000 ? 0.01 : 0.0001;
+    const maxD = unit * 15; // ±15 units en los últimos decimales
+
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      timer = setTimeout(() => {
+        const d  = (Math.random() * 2 - 1) * maxD;
+        const up = d >= 0;
+        Animated.parallel([
+          Animated.timing(slideY, { toValue: up ? -5 : 5, duration: 100, useNativeDriver: true }),
+          Animated.timing(fade,   { toValue: 0.05,        duration: 100, useNativeDriver: true }),
+        ]).start(() => {
+          setDelta(d);
+          slideY.setValue(up ? 5 : -5);
+          Animated.parallel([
+            Animated.timing(slideY, { toValue: 0, duration: 200, useNativeDriver: true }),
+            Animated.timing(fade,   { toValue: 1, duration: 200, useNativeDriver: true }),
+          ]).start();
+        });
+        tick();
+      }, 2200 + Math.random() * 3800);
+    };
+
+    const start = setTimeout(tick, liveIndex * 2200 + Math.random() * 3000);
+    return () => { clearTimeout(timer); clearTimeout(start); };
+  }, [item.value, liveIndex]);
+
+  // Separar parte estable de los últimos 2 decimales animados
+  const { head, tail } = useMemo(() => {
+    const liveVal = item.value !== null ? item.value + delta : null;
+    const full = fmtValue(liveVal, item.prefix, item.suffix);
+    const dotIdx = full.lastIndexOf('.');
+    if (dotIdx === -1) return { head: full, tail: '' };
+    const suffixLen = item.suffix ? item.suffix.length : 0;
+    const withoutSuffix = suffixLen ? full.slice(0, -suffixLen) : full;
+    const decPart = withoutSuffix.slice(dotIdx + 1);
+    if (decPart.length <= 2) {
+      return { head: withoutSuffix.slice(0, dotIdx + 1), tail: decPart + (item.suffix ?? '') };
+    }
+    const stableLen = decPart.length - 2;
+    const stableEnd = dotIdx + 1 + stableLen;
+    return {
+      head: withoutSuffix.slice(0, stableEnd),
+      tail: withoutSuffix.slice(stableEnd) + (item.suffix ?? ''),
+    };
+  }, [delta, item.value, item.prefix, item.suffix]);
+
   return (
     <MotiView
       from={{ opacity: 0, scale: 0.94 }}
@@ -218,9 +323,14 @@ const IndicatorCard: React.FC<{ item: MarketIndicator; delay: number }> = ({ ite
         <Ionicons name={icon} size={11} color="rgba(255,255,255,0.5)" />
         <Text style={s.indicatorLabel} numberOfLines={1}>{item.label}</Text>
       </View>
-      <Text style={s.indicatorValue} numberOfLines={1}>
-        {fmtValue(item.value, item.prefix, item.suffix)}
-      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', overflow: 'hidden' }}>
+        <Text style={s.indicatorValue} numberOfLines={1}>{head}</Text>
+        {tail ? (
+          <Animated.Text style={[s.indicatorValue, { transform: [{ translateY: slideY }], opacity: fade }]}>
+            {tail}
+          </Animated.Text>
+        ) : null}
+      </View>
       {item.chg !== null && (
         <Text style={[s.indicatorChg, { color }]}>{fmtChg(item.chg)}</Text>
       )}
@@ -343,12 +453,7 @@ export const MarketScreen: React.FC = () => {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <View style={s.root}>
-      <ImageBackground
-        source={bg}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-      />
-      <View style={[StyleSheet.absoluteFill, s.overlay]} pointerEvents="none" />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#F5F7FA' }]} pointerEvents="none" />
 
       <ScrollView
         style={s.scroll}
@@ -376,7 +481,7 @@ export const MarketScreen: React.FC = () => {
         {/* ── Loading ── */}
         {loading && (
           <View style={s.loadWrap}>
-            <ActivityIndicator size="large" color={GREEN} />
+            <ActivityIndicator size="large" color="#0D1117" />
             <Text style={s.loadText}>Cargando datos de mercado...</Text>
           </View>
         )}
@@ -400,37 +505,30 @@ export const MarketScreen: React.FC = () => {
                 from={{ opacity: 0, translateY: -10 }}
                 animate={{ opacity: 1, translateY: 0 }}
                 transition={{ type: 'spring', delay: 0, damping: 22, stiffness: 200 }}
-                style={[s.signalCard, { borderColor: `${sigCfg.color}40` }]}
+                style={s.signalCard}
               >
-                <View style={[s.signalIcon, { backgroundColor: `${sigCfg.color}18` }]}>
-                  <Ionicons name={sigCfg.icon} size={22} color={sigCfg.color} />
+                <View style={s.signalIcon}>
+                  <AnimatedContextIcon />
                 </View>
                 <View style={s.signalBody}>
                   <View style={s.signalTop}>
-                    <Text style={[s.signalLabel, { color: sigCfg.color }]}>
-                      Señal {sigCfg.label}
-                    </Text>
-                    <View style={[s.confBadge, { backgroundColor: `${sigCfg.color}18` }]}>
-                      <Text style={[s.confText, { color: sigCfg.color }]}>
-                        {signal.confidence}% confianza
-                      </Text>
-                    </View>
+                    <Text style={[s.signalLabel, { color: '#FFFFFF' }]}>Contexto de Mercado</Text>
                   </View>
                   {signal.title ? (
-                    <Text style={s.signalTitle}>{signal.title}</Text>
+                    <Text style={[s.signalTitle, { color: 'rgba(255,255,255,0.65)' }]}>{signal.title}</Text>
                   ) : null}
+                  <Text style={s.signalDisclaimer}>Solo informativo · No constituye asesoramiento financiero</Text>
                 </View>
-                <LivePulse color={sigCfg.color} />
               </MotiView>
             )}
 
             {/* ── Market indicators ── */}
             {data.indicators.length > 0 && (
               <>
-                <SectionHeader title="Indicadores de Mercado" subtitle="Precios en tiempo real" />
+                <SectionHeader title="Indicadores de Mercado" subtitle="Precios en tiempo real" live />
                 <View style={s.indicatorsGrid}>
                   {data.indicators.map((item, i) => (
-                    <IndicatorCard key={item.key} item={item} delay={i * 40} />
+                    <IndicatorCard key={item.key} item={item} delay={i * 40} liveIndex={i} />
                   ))}
                 </View>
               </>
@@ -461,7 +559,10 @@ export const MarketScreen: React.FC = () => {
                   {/* Header + filtros */}
                   <View style={s.newsHeaderRow}>
                     <View>
-                      <Text style={s.sectionTitle}>Noticias Financieras</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={s.sectionTitle}>Noticias Financieras</Text>
+                        <LiveDot />
+                      </View>
                       <Text style={s.sectionSub}>Últimas 48 horas</Text>
                     </View>
                     <View style={s.newsFilters}>
@@ -513,7 +614,6 @@ export const MarketScreen: React.FC = () => {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   root: { flex: 1 },
-  overlay: { backgroundColor: 'transparent' },
   scroll: { flex: 1 },
   content: { flexGrow: 1, paddingHorizontal: 18 },
 
@@ -522,12 +622,12 @@ const s = StyleSheet.create({
   pageTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0D1117',
     letterSpacing: -0.5,
   },
   pageSubtitle: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.42)',
+    color: '#9CA3AF',
     marginTop: 4,
     letterSpacing: 0.2,
   },
@@ -560,7 +660,7 @@ const s = StyleSheet.create({
   },
   loadText: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
+    color: '#6B7280',
   },
   errorWrap: {
     paddingVertical: 60,
@@ -569,19 +669,19 @@ const s = StyleSheet.create({
   },
   errorText: {
     fontSize: 13.5,
-    color: 'rgba(255,255,255,0.5)',
+    color: '#6B7280',
     textAlign: 'center',
   },
   retryBtn: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(0,0,0,0.08)',
   },
   retryText: {
-    color: '#FFFFFF',
+    color: '#0D1117',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -590,12 +690,18 @@ const s = StyleSheet.create({
   signalCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#0D1117',
     borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 18,
     padding: 16,
     marginBottom: 24,
     gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   signalIcon: {
     width: 44,
@@ -604,6 +710,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   signalBody: { flex: 1, gap: 4 },
   signalTop: {
@@ -629,8 +736,14 @@ const s = StyleSheet.create({
   },
   signalTitle: {
     fontSize: 12.5,
-    color: 'rgba(255,255,255,0.62)',
+    color: '#374151',
     lineHeight: 18,
+  },
+  signalDisclaimer: {
+    fontSize: 10.5,
+    color: 'rgba(255,255,255,0.35)',
+    marginTop: 2,
+    fontStyle: 'italic',
   },
 
   // Section header
@@ -641,12 +754,12 @@ const s = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0D1117',
     letterSpacing: -0.2,
   },
   sectionSub: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.38)',
+    color: '#9CA3AF',
     letterSpacing: 0.3,
   },
 
@@ -659,12 +772,17 @@ const s = StyleSheet.create({
   },
   indicatorCard: {
     width: '31%',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: 'rgba(0,0,0,0.06)',
     borderRadius: 14,
     padding: 10,
     gap: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   indicatorTop: {
     flexDirection: 'row',
@@ -674,7 +792,7 @@ const s = StyleSheet.create({
   },
   indicatorLabel: {
     fontSize: 9,
-    color: 'rgba(255,255,255,0.48)',
+    color: '#9CA3AF',
     letterSpacing: 0.3,
     textTransform: 'uppercase',
     flex: 1,
@@ -682,7 +800,7 @@ const s = StyleSheet.create({
   indicatorValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0D1117',
     letterSpacing: -0.2,
   },
   indicatorChg: {
@@ -693,12 +811,17 @@ const s = StyleSheet.create({
 
   // Macro
   macroCard: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: 'rgba(0,0,0,0.06)',
     borderRadius: 18,
     marginBottom: 28,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   macroRow: {
     flexDirection: 'row',
@@ -710,12 +833,12 @@ const s = StyleSheet.create({
   macroLeft: { flex: 1, gap: 2 },
   macroLabel: {
     fontSize: 13.5,
-    color: 'rgba(255,255,255,0.82)',
+    color: '#374151',
     fontWeight: '500',
   },
   macroPeriod: {
     fontSize: 10.5,
-    color: 'rgba(255,255,255,0.35)',
+    color: '#9CA3AF',
     letterSpacing: 0.3,
   },
   macroRight: {
@@ -726,7 +849,7 @@ const s = StyleSheet.create({
   macroValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0D1117',
   },
   macroArrow: {
     fontSize: 16,
@@ -736,7 +859,7 @@ const s = StyleSheet.create({
   },
   macroDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: GLASS_BORDER,
+    backgroundColor: 'rgba(0,0,0,0.06)',
     marginHorizontal: 16,
   },
 
@@ -744,12 +867,17 @@ const s = StyleSheet.create({
   newsList: { gap: 10, marginBottom: 8 },
   newsCard: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: 'rgba(0,0,0,0.06)',
     borderRadius: 16,
     overflow: 'hidden',
     alignItems: 'stretch',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   newsImpactBar: {
     width: 4,
@@ -768,14 +896,14 @@ const s = StyleSheet.create({
   },
   newsSource: {
     fontSize: 10.5,
-    color: 'rgba(255,255,255,0.42)',
+    color: '#6B7280',
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   newsTime: {
     fontSize: 10.5,
-    color: 'rgba(255,255,255,0.3)',
+    color: '#9CA3AF',
   },
   dirBadge: {
     borderWidth: 1,
@@ -790,13 +918,13 @@ const s = StyleSheet.create({
   },
   newsTitle: {
     fontSize: 13.5,
-    color: 'rgba(255,255,255,0.88)',
+    color: '#0D1117',
     fontWeight: '600',
     lineHeight: 19,
   },
   newsSummary: {
     fontSize: 11.5,
-    color: 'rgba(255,255,255,0.42)',
+    color: '#6B7280',
     lineHeight: 17,
   },
   newsLink: {
@@ -813,7 +941,7 @@ const s = StyleSheet.create({
   },
   emptyText: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.35)',
+    color: '#9CA3AF',
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -836,21 +964,21 @@ const s = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: '#FFFFFF',
   },
   filterChipActive: {
-    borderColor: GREEN,
-    backgroundColor: 'rgba(34,197,94,0.14)',
+    borderColor: '#0D1117',
+    backgroundColor: '#0D1117',
   },
   filterChipText: {
     fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.45)',
+    color: '#6B7280',
     letterSpacing: 0.2,
   },
   filterChipTextActive: {
-    color: GREEN,
+    color: '#FFFFFF',
   },
   filterEmptyWrap: {
     paddingVertical: 32,
@@ -858,7 +986,7 @@ const s = StyleSheet.create({
   },
   filterEmptyText: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.35)',
+    color: '#9CA3AF',
     textAlign: 'center',
   },
 });

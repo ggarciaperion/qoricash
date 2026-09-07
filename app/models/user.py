@@ -156,8 +156,8 @@ class User(UserMixin, db.Model):
     _TRADING_DESK_DNIS = {'73085751'}
 
     def is_trading_desk(self):
-        """Acceso al Trading Monitor y edición de widget: Master/Presidente + usuarios con permiso excepcional."""
-        return self.is_master() or self.dni in self._TRADING_DESK_DNIS
+        """Acceso al Trading Monitor: Master + todos los Trader."""
+        return self.is_master() or self.is_trader()
 
     @property
     def is_demo(self):

@@ -61,7 +61,10 @@
       ],
       "expo-asset",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-status-bar",
+      "expo-audio",
+      "expo-splash-screen"
     ],
     "extra": {
       "eas": {

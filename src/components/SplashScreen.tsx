@@ -1,324 +1,241 @@
+/**
+ * QoriCash — Splash Screen "Draw-On"
+ * Concepto: el anillo de la Q se dibuja sobre sí mismo (strokeDashoffset),
+ * letras aparecen con pop elástico (scale overshoot), salida des-dibuja la Q.
+ */
 import React, { useEffect } from 'react';
-import { View, Image, StyleSheet, Dimensions } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, StyleSheet, Dimensions } from 'react-native';
+import Svg, { Circle, Line } from 'react-native-svg';
 import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedProps,
   withTiming,
+  withDelay,
   withSequence,
   withSpring,
   Easing,
+  runOnJS,
 } from 'react-native-reanimated';
 
-const { width: SCREEN_W } = Dimensions.get('window');
+const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
+const AnimatedLine   = Reanimated.createAnimatedComponent(Line);
 
-const LOGO_SIZE = 150;
-const SHIM_W    = 60;
-const TAIL_W    = 190;  // longitud de la cola de cometa
-const TAIL_H    = 48;   // grosor de la cola
+const { width: W, height: H } = Dimensions.get('window');
 
-// ─── Timing (ms) ─────────────────────────────────────────────────────────────
-//   0        ingreso: logo entra desde la derecha
-//   620      rotación + destello
-//   3100     salida: reversa exacta del ingreso
-//   ~3860    onFinish
-// ─────────────────────────────────────────────────────────────────────────────
+const FONT_SIZE = 50;
+const Q_H       = FONT_SIZE * 1.45;
+const LINE_W    = W * 0.72;
+const STAGGER   = 40;
+
+// Geometría SVG (viewBox "-10 -8 120 141")
+const CIRC     = 2 * Math.PI * 38;                  // perímetro anillo ≈ 238.76
+const TAIL_LEN = Math.hypot(80 - 51, 103 - 60);     // longitud cola  ≈ 51.87
+
+const LETTERS = ['o', 'r', 'i', 'c', 'a', 's', 'h'];
+
+// ── Q con draw-on animado ────────────────────────────────────────────────────
+const AnimatedQ: React.FC<{
+  ringProg: Reanimated.SharedValue<number>;
+  tailProg: Reanimated.SharedValue<number>;
+  size: number;
+}> = ({ ringProg, tailProg, size }) => {
+
+  const ringProps = useAnimatedProps(() => ({
+    strokeDashoffset: CIRC * (1 - ringProg.value),
+  }));
+
+  const tailProps = useAnimatedProps(() => ({
+    strokeDashoffset: TAIL_LEN * (1 - tailProg.value),
+  }));
+
+  return (
+    <Svg width={size * 0.82} height={size} viewBox="-10 -8 120 141">
+      <AnimatedCircle
+        cx="50" cy="43" r="38"
+        stroke="#FFF" strokeWidth="15" fill="none"
+        strokeDasharray={CIRC}
+        animatedProps={ringProps}
+      />
+      <AnimatedLine
+        x1="51" y1="60" x2="80" y2="103"
+        stroke="#FFF" strokeWidth="12" strokeLinecap="square"
+        strokeDasharray={TAIL_LEN}
+        animatedProps={tailProps}
+      />
+    </Svg>
+  );
+};
+
+// ── Letra individual con pop spring ──────────────────────────────────────────
+const AnimLetter: React.FC<{
+  char: string;
+  opOut: Reanimated.SharedValue<number>;
+  scOut: Reanimated.SharedValue<number>;
+}> = ({ char, opOut, scOut }) => {
+  const style = useAnimatedStyle(() => ({
+    opacity: opOut.value,
+    transform: [{ scale: scOut.value }],
+  }));
+  return (
+    <Reanimated.Text style={[styles.tailText, style]}>
+      {char}
+    </Reanimated.Text>
+  );
+};
 
 interface Props { onFinish: () => void }
 
 export const SplashScreen: React.FC<Props> = ({ onFinish }) => {
 
-  // ── valores de animación ──────────────────────────────────────────────────
-  const logoX   = useSharedValue(SCREEN_W + LOGO_SIZE); // off-screen derecha
-  const logoY   = useSharedValue(24);
-  const logoOp  = useSharedValue(0);
-  const logoSc  = useSharedValue(0.82);
-  const logoRot = useSharedValue(0);
+  const rootOp = useSharedValue(1);
 
-  const glowOp  = useSharedValue(0);
-  const glowSc  = useSharedValue(0.3);
-  const ringOp  = useSharedValue(0);
-  const ringSc  = useSharedValue(0.5);
-  const shimX   = useSharedValue(-SHIM_W);
+  // Q — draw-on + pulse al completar
+  const ringProg = useSharedValue(0);
+  const tailProg = useSharedValue(0);
+  const qSc      = useSharedValue(1);
 
-  // Cola de cometa — ingreso (derecha del logo) y salida (izquierda del logo)
-  const tailEnterOp = useSharedValue(0);
-  const tailExitOp  = useSharedValue(0);
+  // Letras — opacity + scale (pop elástico)
+  const lOp = [
+    useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0),
+    useSharedValue(0), useSharedValue(0), useSharedValue(0),
+  ];
+  const lSc = [
+    useSharedValue(0.55), useSharedValue(0.55), useSharedValue(0.55), useSharedValue(0.55),
+    useSharedValue(0.55), useSharedValue(0.55), useSharedValue(0.55),
+  ];
 
-  const rootOp  = useSharedValue(1);
+  // Línea + respiración conjunto
+  const lineW  = useSharedValue(0);
+  const lineOp = useSharedValue(0);
+  const wordSc = useSharedValue(1);
 
-  // ── estilos animados ──────────────────────────────────────────────────────
   const rootStyle = useAnimatedStyle(() => ({ opacity: rootOp.value }));
+  const qScStyle  = useAnimatedStyle(() => ({ transform: [{ scale: qSc.value }] }));
+  const wordStyle = useAnimatedStyle(() => ({ transform: [{ scale: wordSc.value }] }));
+  const lineStyle = useAnimatedStyle(() => ({ width: lineW.value, opacity: lineOp.value }));
 
-  const logoStyle = useAnimatedStyle(() => ({
-    opacity: logoOp.value,
-    transform: [
-      { translateX: logoX.value },
-      { translateY: logoY.value },
-      { rotate: `${logoRot.value}deg` },
-      { scale: logoSc.value },
-    ],
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glowOp.value,
-    transform: [{ scale: glowSc.value }],
-  }));
-
-  const ringStyle = useAnimatedStyle(() => ({
-    opacity: ringOp.value,
-    transform: [{ scale: ringSc.value }],
-  }));
-
-  const shimStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: shimX.value }],
-  }));
-
-  const tailEnterStyle = useAnimatedStyle(() => ({ opacity: tailEnterOp.value }));
-  const tailExitStyle  = useAnimatedStyle(() => ({ opacity: tailExitOp.value }));
-
-  // ── secuencia ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    const t: ReturnType<typeof setTimeout>[] = [];
+    const E = Easing;
 
-    // ════════════════════════════════════════════════════════
-    // INGRESO (0–620ms) — logo entra desde la derecha
-    // ════════════════════════════════════════════════════════
-    logoOp.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) });
-    logoX.value  = withTiming(0, { duration: 620, easing: Easing.out(Easing.cubic) });
-    logoY.value  = withSpring(0, { damping: 16, stiffness: 120 });
-    logoSc.value = withSpring(1, { damping: 12, stiffness: 90 });
+    // ── 1. Anillo se dibuja (0–740ms) ─────────────────────────────────────────
+    ringProg.value = withTiming(1, { duration: 740, easing: E.inOut(E.cubic) });
 
-    // Cola de cometa — ingreso (aparece de inmediato, se desvanece al frenar)
-    tailEnterOp.value = withTiming(0.72, { duration: 160, easing: Easing.out(Easing.quad) });
-    t.push(setTimeout(() => {
-      tailEnterOp.value = withTiming(0, { duration: 480, easing: Easing.out(Easing.cubic) });
-    }, 160));
+    // ── 2. Cola se dibuja (320–700ms) ─────────────────────────────────────────
+    tailProg.value = withDelay(320, withTiming(1, { duration: 400, easing: E.out(E.cubic) }));
 
-    // ════════════════════════════════════════════════════════
-    // ROTACIÓN + DESTELLO (620–1 380ms)
-    // ════════════════════════════════════════════════════════
-    t.push(setTimeout(() => {
-      logoRot.value = withTiming(360, { duration: 760, easing: Easing.inOut(Easing.cubic) });
+    // ── 3. Pulse al completar la Q (720ms) ────────────────────────────────────
+    qSc.value = withDelay(720, withSequence(
+      withSpring(1.08, { damping: 4, stiffness: 340, mass: 0.5 }),
+      withSpring(1.00, { damping: 12, stiffness: 180, mass: 0.9 }),
+    ));
 
-      glowOp.value  = withTiming(0.55, { duration: 350, easing: Easing.out(Easing.quad) });
-      glowSc.value  = withTiming(1.0,  { duration: 420, easing: Easing.out(Easing.cubic) });
+    // ── 4. Letras: pop elástico escalonado (780ms+) ───────────────────────────
+    LETTERS.forEach((_, i) => {
+      const d = 780 + i * STAGGER;
+      lOp[i].value = withDelay(d, withTiming(1, { duration: 130, easing: E.out(E.cubic) }));
+      lSc[i].value = withDelay(d, withSpring(1, { damping: 7, stiffness: 360, mass: 0.4 }));
+    });
 
-      ringSc.value  = withTiming(2.6, { duration: 700, easing: Easing.out(Easing.cubic) });
-      ringOp.value  = withSequence(
-        withTiming(0.5, { duration: 80 }),
-        withTiming(0,   { duration: 620, easing: Easing.out(Easing.quad) }),
-      );
+    // ── 5. Línea crece (1 280ms) ──────────────────────────────────────────────
+    lineOp.value = withDelay(1280, withTiming(1, { duration: 100 }));
+    lineW.value  = withDelay(1280, withTiming(LINE_W, { duration: 520, easing: E.out(E.cubic) }));
 
-      shimX.value   = withTiming(LOGO_SIZE + SHIM_W, {
-        duration: 500,
-        easing: Easing.out(Easing.cubic),
-      });
-    }, 620));
+    // ── 6. Respiración suave (2 000–3 300ms) ─────────────────────────────────
+    wordSc.value = withDelay(2000, withSequence(
+      withTiming(1.013, { duration: 650, easing: E.inOut(E.sin) }),
+      withTiming(1.000, { duration: 650, easing: E.inOut(E.sin) }),
+    ));
 
-    // ════════════════════════════════════════════════════════
-    // GLOW PULSO SUAVE (1 420ms)
-    // ════════════════════════════════════════════════════════
-    t.push(setTimeout(() => {
-      glowOp.value = withSequence(
-        withTiming(0.28, { duration: 700, easing: Easing.inOut(Easing.quad) }),
-        withTiming(0.16, { duration: 700, easing: Easing.inOut(Easing.quad) }),
-      );
-      glowSc.value = withTiming(1.1, { duration: 1200, easing: Easing.inOut(Easing.quad) });
-    }, 1420));
+    // ── 7. Salida (3 200ms+) ──────────────────────────────────────────────────
+    // Línea se contrae
+    lineW.value  = withDelay(3200, withTiming(0, { duration: 300, easing: E.in(E.cubic) }));
+    lineOp.value = withDelay(3460, withTiming(0, { duration: 80 }));
 
-    // ════════════════════════════════════════════════════════
-    // SALIDA (3 100ms) — reversa exacta del ingreso
-    // ════════════════════════════════════════════════════════
-    t.push(setTimeout(() => {
+    // Letras: scale→0.8 + fade, stagger suave
+    LETTERS.forEach((_, i) => {
+      const d = 3200 + i * 24;
+      lSc[i].value = withDelay(d, withTiming(0.8, { duration: 240, easing: E.in(E.cubic) }));
+      lOp[i].value = withDelay(d, withTiming(0,   { duration: 240, easing: E.in(E.cubic) }));
+    });
 
-      // Mismos valores de ingreso, pero en sentido inverso
-      // Easing.in(cubic) = inversa de Easing.out(cubic)
-      logoX.value  = withTiming(SCREEN_W + LOGO_SIZE, {
-        duration: 620,
-        easing: Easing.in(Easing.cubic),
-      });
-      logoY.value  = withTiming(24, { duration: 580, easing: Easing.in(Easing.quad) });
-      logoSc.value = withTiming(0.82, { duration: 620, easing: Easing.in(Easing.cubic) });
-      logoOp.value = withTiming(0, { duration: 540, easing: Easing.in(Easing.quad) });
-      glowOp.value = withTiming(0, { duration: 380, easing: Easing.in(Easing.quad) });
+    // Q se des-dibuja (cola primero, luego anillo retrocede)
+    tailProg.value = withDelay(3310, withTiming(0, { duration: 200, easing: E.in(E.cubic) }));
+    ringProg.value = withDelay(3360, withTiming(0, { duration: 400, easing: E.in(E.cubic) }));
 
-      // Cola de cometa — salida (izquierda del logo, crece con aceleración)
-      // Easing.in = logo empieza lento y acelera, cola crece gradualmente
-      tailExitOp.value = withTiming(0.18, { duration: 300, easing: Easing.in(Easing.quad) });
-    }, 3100));
+    // Fondo se apaga
+    rootOp.value = withDelay(3650, withTiming(0, { duration: 300, easing: E.in(E.quad) },
+      (finished) => { if (finished) runOnJS(onFinish)(); }
+    ));
 
-    // Cola de salida alcanza su pico cuando el logo tiene máxima velocidad
-    t.push(setTimeout(() => {
-      tailExitOp.value = withTiming(0.75, { duration: 180, easing: Easing.out(Easing.quad) });
-    }, 3100 + 380));
-
-    t.push(setTimeout(() => {
-      tailExitOp.value = withTiming(0, { duration: 200, easing: Easing.in(Easing.quad) });
-    }, 3100 + 560));
-
-    // Fondo se va a negro ligeramente después del logo (se ve la salida)
-    t.push(setTimeout(() => {
-      rootOp.value = withTiming(0, { duration: 380, easing: Easing.in(Easing.quad) });
-    }, 3300));
-
-    // Fin
-    t.push(setTimeout(onFinish, 3780));
-
-    return () => t.forEach(clearTimeout);
   }, []);
 
   return (
-    <Reanimated.View style={[StyleSheet.absoluteFillObject, styles.root, rootStyle]}>
-      <View style={styles.center}>
+    <Reanimated.View style={[styles.root, rootStyle]} pointerEvents="none">
 
-        {/* Anillo expansivo */}
-        <Reanimated.View pointerEvents="none" style={[styles.ring, ringStyle]} />
+      <Reanimated.View style={[styles.wordRow, wordStyle]}>
 
-        {/* Resplandor central */}
-        <Reanimated.View pointerEvents="none" style={[styles.glow, glowStyle]} />
-
-        {/*
-          outerWrapper: aplica las transformaciones del logo.
-          Las colas viven dentro y se posicionan absolutamente fuera de los
-          límites del logoWrapper — overflow visible por defecto en RN.
-        */}
-        <Reanimated.View style={[styles.outerWrapper, logoStyle]}>
-
-          {/* Cola de cometa — ingreso (se extiende hacia la derecha) */}
-          <Reanimated.View
-            pointerEvents="none"
-            style={[styles.tailEnter, tailEnterStyle]}
-          >
-            <LinearGradient
-              colors={['rgba(255,255,255,0.55)', 'rgba(255,255,255,0.18)', 'transparent']}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
-              style={StyleSheet.absoluteFillObject}
-            />
-          </Reanimated.View>
-
-          {/* Cola de cometa — salida (se extiende hacia la izquierda) */}
-          <Reanimated.View
-            pointerEvents="none"
-            style={[styles.tailExit, tailExitStyle]}
-          >
-            <LinearGradient
-              colors={['transparent', 'rgba(255,255,255,0.18)', 'rgba(255,255,255,0.55)']}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
-              style={StyleSheet.absoluteFillObject}
-            />
-          </Reanimated.View>
-
-          {/* Logo con shimmer */}
-          <View style={styles.logoWrapper}>
-            <Image
-              source={require('../../assets/xx.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-
-            <View style={styles.shimClip} pointerEvents="none">
-              <Reanimated.View style={[styles.shimStripe, shimStyle]}>
-                <LinearGradient
-                  colors={['transparent', 'rgba(255,255,255,0.45)', 'transparent']}
-                  start={{ x: 0, y: 0.5 }}
-                  end={{ x: 1, y: 0.5 }}
-                  style={StyleSheet.absoluteFillObject}
-                />
-              </Reanimated.View>
-            </View>
-          </View>
-
+        {/* Q con draw-on + pulse */}
+        <Reanimated.View style={qScStyle}>
+          <AnimatedQ ringProg={ringProg} tailProg={tailProg} size={Q_H} />
         </Reanimated.View>
+
+        {/* Letras con pop elástico */}
+        <View style={styles.lettersRow}>
+          {LETTERS.map((char, i) => (
+            <AnimLetter key={i} char={char} opOut={lOp[i]} scOut={lSc[i]} />
+          ))}
+        </View>
+
+      </Reanimated.View>
+
+      {/* Línea decorativa */}
+      <View style={styles.lineWrap}>
+        <Reanimated.View style={[styles.line, lineStyle]} />
       </View>
+
     </Reanimated.View>
   );
 };
 
 const styles = StyleSheet.create({
   root: {
+    position: 'absolute',
+    top: 0, left: 0,
+    width: W, height: H,
     backgroundColor: '#000000',
-  },
-  center: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 9999,
   },
-
-  // Glow
-  glow: {
-    position: 'absolute',
-    width: LOGO_SIZE * 2.2,
-    height: LOGO_SIZE * 2.2,
-    borderRadius: LOGO_SIZE * 1.1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    shadowColor: '#FFFFFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 80,
-  },
-
-  // Anillo expansivo
-  ring: {
-    position: 'absolute',
-    width: LOGO_SIZE * 1.4,
-    height: LOGO_SIZE * 1.4,
-    borderRadius: LOGO_SIZE * 0.7,
-    borderWidth: 1.2,
-    borderColor: 'rgba(255,255,255,0.55)',
-  },
-
-  // Contenedor principal (aplica las transformaciones del logo)
-  outerWrapper: {
-    width: LOGO_SIZE,
-    height: LOGO_SIZE,
+  wordRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // Cola de cometa — ingreso (derecha del logo, logo venía de la derecha)
-  tailEnter: {
-    position: 'absolute',
-    left: LOGO_SIZE,                        // comienza en el borde derecho del logo
-    top: (LOGO_SIZE - TAIL_H) / 2,
-    width: TAIL_W,
-    height: TAIL_H,
-    borderRadius: TAIL_H / 2,
-  },
-
-  // Cola de cometa — salida (izquierda del logo, logo sale hacia la derecha)
-  tailExit: {
-    position: 'absolute',
-    left: -TAIL_W,                          // comienza TAIL_W a la izquierda
-    top: (LOGO_SIZE - TAIL_H) / 2,
-    width: TAIL_W,
-    height: TAIL_H,
-    borderRadius: TAIL_H / 2,
-  },
-
-  // Logo con clip del shimmer
-  logoWrapper: {
-    width: LOGO_SIZE,
-    height: LOGO_SIZE,
-    overflow: 'hidden',
+  lettersRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logo: {
-    width: '100%',
-    height: '100%',
-  },
-  shimClip: {
-    ...StyleSheet.absoluteFillObject,
+    marginLeft: 1,
     overflow: 'hidden',
   },
-  shimStripe: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    width: SHIM_W,
+  tailText: {
+    fontFamily: 'Sansation_Regular',
+    fontSize: FONT_SIZE,
+    color: '#FFFFFF',
+    includeFontPadding: false,
+    letterSpacing: 0.3,
+  },
+  lineWrap: {
+    marginTop: 10,
+    width: LINE_W,
+    height: 1,
+    overflow: 'hidden',
+    alignSelf: 'center',
+    alignItems: 'flex-start',
+  },
+  line: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.45)',
   },
 });

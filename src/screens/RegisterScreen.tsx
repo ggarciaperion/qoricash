@@ -5,7 +5,7 @@ import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Platform,
   ScrollView, TextInput, KeyboardAvoidingView, Modal, ActivityIndicator,
-  Animated, Easing, Image,
+  Animated, Image,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +13,6 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { authApi } from '../api/auth';
 import { API_CONFIG } from '../constants/config';
-import { Audio } from 'expo-av';
 
 const DOC_MAX: Record<string, number> = { DNI: 8, CE: 9, RUC: 11 };
 
@@ -95,104 +94,10 @@ export const RegisterScreen: React.FC = () => {
   const [paso, setPaso]               = useState(1);
   const [displayedPaso, setDisplayedPaso] = useState(1);
   const [loading, setLoading]         = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
 
   // Animación de transición entre pasos
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim  = useRef(new Animated.Value(1)).current;
-
-  // Animaciones del modal de éxito
-  const overlayFade       = useRef(new Animated.Value(0)).current;
-  const cardScale         = useRef(new Animated.Value(0.88)).current;
-  const cardSlide         = useRef(new Animated.Value(56)).current;
-  const spinValue         = useRef(new Animated.Value(0)).current;
-  const spinOpacity       = useRef(new Animated.Value(1)).current;
-  const processingOpacity = useRef(new Animated.Value(0)).current;
-  const circleScale       = useRef(new Animated.Value(0)).current;
-  const checkScale        = useRef(new Animated.Value(0)).current;
-  const checkOpacity      = useRef(new Animated.Value(0)).current;
-  const titleOpacity      = useRef(new Animated.Value(0)).current;
-  const titleSlide        = useRef(new Animated.Value(16)).current;
-  const subtitleOpacity   = useRef(new Animated.Value(0)).current;
-  const btnOpacity        = useRef(new Animated.Value(0)).current;
-  const btnSlide          = useRef(new Animated.Value(18)).current;
-  const spinnerLoop       = useRef<Animated.CompositeAnimation | null>(null);
-
-  const showSuccessModal = () => {
-    setShowSuccess(true);
-    // Reset
-    overlayFade.setValue(0);       cardScale.setValue(0.88);
-    cardSlide.setValue(56);        spinValue.setValue(0);
-    spinOpacity.setValue(1);       processingOpacity.setValue(0);
-    circleScale.setValue(0);       checkScale.setValue(0);
-    checkOpacity.setValue(0);      titleOpacity.setValue(0);
-    titleSlide.setValue(16);       subtitleOpacity.setValue(0);
-    btnOpacity.setValue(0);        btnSlide.setValue(18);
-
-    // ① Overlay + card entran
-    Animated.parallel([
-      Animated.timing(overlayFade, { toValue: 1, duration: 320, useNativeDriver: true }),
-      Animated.spring(cardScale,   { toValue: 1, tension: 180, friction: 18, useNativeDriver: true }),
-      Animated.spring(cardSlide,   { toValue: 0, tension: 180, friction: 18, useNativeDriver: true }),
-    ]).start(() => {
-
-      // ② "Procesando..." aparece
-      Animated.timing(processingOpacity, { toValue: 1, duration: 260, useNativeDriver: true }).start();
-
-      // ③ Spinner gira en loop
-      spinnerLoop.current = Animated.loop(
-        Animated.timing(spinValue, { toValue: 1, duration: 820, easing: Easing.linear, useNativeDriver: true })
-      );
-      spinnerLoop.current.start();
-
-      // ④ Tras 1.5s, detener spinner y hacer transición al check
-      setTimeout(() => {
-        spinnerLoop.current?.stop();
-
-        Animated.parallel([
-          Animated.timing(spinOpacity,       { toValue: 0, duration: 220, useNativeDriver: true }),
-          Animated.timing(processingOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
-        ]).start(() => {
-
-          // ⑤ Círculo verde hace pop
-          Animated.spring(circleScale, {
-            toValue: 1, tension: 220, friction: 9, useNativeDriver: true,
-          }).start(() => {
-
-            // ⑥ Check con bounce + sonido
-            Audio.setAudioModeAsync({ playsInSilentModeIOS: true }).catch(() => {});
-            Audio.Sound.createAsync(
-              require('../../assets/sounds/payment_success.mp3'),
-              { shouldPlay: true, volume: 0.75 }
-            ).then(({ sound }) => {
-              sound.setOnPlaybackStatusUpdate(st => { if (st.isLoaded && st.didJustFinish) sound.unloadAsync(); });
-            }).catch(() => {});
-            Animated.parallel([
-              Animated.spring(checkScale,   { toValue: 1, tension: 280, friction: 8, useNativeDriver: true }),
-              Animated.timing(checkOpacity, { toValue: 1, duration: 140, useNativeDriver: true }),
-            ]).start();
-
-            // ⑦ Título sube
-            setTimeout(() => {
-              Animated.parallel([
-                Animated.timing(titleOpacity, { toValue: 1, duration: 320, useNativeDriver: true }),
-                Animated.spring(titleSlide,   { toValue: 0, tension: 280, friction: 22, useNativeDriver: true }),
-              ]).start();
-
-              // ⑧ Subtítulo + botón
-              setTimeout(() => {
-                Animated.parallel([
-                  Animated.timing(subtitleOpacity, { toValue: 1, duration: 340, useNativeDriver: true }),
-                  Animated.timing(btnOpacity,      { toValue: 1, duration: 340, useNativeDriver: true }),
-                  Animated.spring(btnSlide,        { toValue: 0, tension: 260, friction: 22, useNativeDriver: true }),
-                ]).start();
-              }, 130);
-            }, 200);
-          });
-        });
-      }, 1480);
-    });
-  };
 
   const goToPaso = (next: number) => {
     const dir = next > paso ? 1 : -1;
@@ -201,7 +106,7 @@ export const RegisterScreen: React.FC = () => {
       Animated.timing(slideAnim, {
         toValue: -32 * dir,
         duration: 210,
-        easing: Easing.out(Easing.quad),
+        easing: (t: number) => 1 - (1 - t) * (1 - t),
         useNativeDriver: true,
       }),
       Animated.timing(fadeAnim, {
@@ -396,7 +301,7 @@ export const RegisterScreen: React.FC = () => {
           };
 
       await authApi.register(payload);
-      showSuccessModal();
+      navigation.navigate('RegisterSuccess' as never);
     } catch (err: any) {
       setError(err.message || 'Error al crear la cuenta');
     } finally {
@@ -412,7 +317,7 @@ export const RegisterScreen: React.FC = () => {
         onPress={() => { setError(''); paso > 1 ? goToPaso(paso - 1) : navigation.goBack(); }}
         activeOpacity={0.8}
       >
-        <Ionicons name="chevron-back" size={22} color="#ffffff" />
+        <Ionicons name="chevron-back" size={22} color="#0D1117" />
       </TouchableOpacity>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -428,7 +333,7 @@ export const RegisterScreen: React.FC = () => {
               {isNatural ? 'Persona\nNatural' : 'Empresa'}
             </Text>
           </Text>
-          <Text style={s.subtitle}>Únete a QoriCash en 3 simples pasos</Text>
+          <Text style={s.subtitle}>Únete a Qoricash en 3 simples pasos</Text>
 
           {/* Steps */}
           <View style={s.stepsRow}>
@@ -452,7 +357,7 @@ export const RegisterScreen: React.FC = () => {
           </View>
 
           {/* Card */}
-          <BlurView intensity={40} tint="dark" style={s.card}>
+          <View style={s.card}>
 
           {/* Contenido animado — desliza entre pasos */}
           <Animated.View style={{ transform: [{ translateX: slideAnim }], opacity: fadeAnim }}>
@@ -476,7 +381,7 @@ export const RegisterScreen: React.FC = () => {
                     <Ionicons
                       name={showTipoPicker ? 'chevron-up' : 'chevron-down'}
                       size={14}
-                      color="rgba(255,255,255,0.5)"
+                      color="rgba(0,0,0,0.4)"
                     />
                   )}
                 </View>
@@ -523,7 +428,7 @@ export const RegisterScreen: React.FC = () => {
                   onChangeText={t => setNumDoc(t.replace(/\D/g, '').slice(0, DOC_MAX[tipoDoc]))}
                   keyboardType="numeric"
                   maxLength={DOC_MAX[tipoDoc]}
-                  placeholderTextColor="rgba(255,255,255,0.2)"
+                  placeholderTextColor="rgba(0,0,0,0.2)"
                   selectionColor="#22c55e"
                 />
               </TouchableOpacity>
@@ -555,31 +460,39 @@ export const RegisterScreen: React.FC = () => {
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
+                  placeholderTextColor="rgba(0,0,0,0.2)"
                   selectionColor="#22c55e"
                 />
                 <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={s.eyeBtn}>
                   <Ionicons
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                     size={20}
-                    color="rgba(255,255,255,0.5)"
+                    color="rgba(0,0,0,0.35)"
                   />
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>
 
             {/* Términos */}
-            <TouchableOpacity style={s.checkRow} onPress={() => setAcceptTerms(v => !v)} activeOpacity={0.8}>
-              <View style={[s.checkbox, acceptTerms && s.checkboxActive]}>
-                {acceptTerms && <Ionicons name="checkmark" size={11} color="#fff" />}
-              </View>
+            <View style={s.checkRow}>
+              <TouchableOpacity onPress={() => setAcceptTerms(v => !v)} activeOpacity={0.8}>
+                <View style={[s.checkbox, acceptTerms && s.checkboxActive]}>
+                  {acceptTerms && <Ionicons name="checkmark" size={11} color="#fff" />}
+                </View>
+              </TouchableOpacity>
               <Text style={s.checkText}>
-                {'Acepto los '}
-                <Text style={s.greenLink}>Términos y Condiciones</Text>
-                {' y la '}
-                <Text style={s.greenLink}>Política de Privacidad</Text>
+                <Text onPress={() => setAcceptTerms(v => !v)}>{'Acepto los '}</Text>
+                <Text
+                  style={s.greenLink}
+                  onPress={() => navigation.navigate('WebView' as never, { url: `${require('../constants/config').API_CONFIG.BASE_URL}/legal/terms`, title: 'Términos y Condiciones' } as never)}
+                >Términos y Condiciones</Text>
+                <Text onPress={() => setAcceptTerms(v => !v)}>{' y la '}</Text>
+                <Text
+                  style={s.greenLink}
+                  onPress={() => navigation.navigate('WebView' as never, { url: `${require('../constants/config').API_CONFIG.BASE_URL}/legal/privacy`, title: 'Política de Privacidad' } as never)}
+                >Política de Privacidad</Text>
               </Text>
-            </TouchableOpacity>
+            </View>
 
             {/* reCAPTCHA */}
             <TouchableOpacity style={s.captchaBox} onPress={() => setNotRobot(v => !v)} activeOpacity={0.8}>
@@ -608,7 +521,7 @@ export const RegisterScreen: React.FC = () => {
                   value={nombres}
                   onChangeText={setNombres}
                   autoCapitalize="words"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
+                  placeholderTextColor="rgba(0,0,0,0.2)"
                   selectionColor="#22c55e"
                 />
               </TouchableOpacity>
@@ -622,21 +535,21 @@ export const RegisterScreen: React.FC = () => {
                   value={apellidoP}
                   onChangeText={setApellidoP}
                   autoCapitalize="words"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
+                  placeholderTextColor="rgba(0,0,0,0.2)"
                   selectionColor="#22c55e"
                 />
               </TouchableOpacity>
 
               {/* Apellido Materno */}
               <TouchableOpacity style={s.inputBox} onPress={() => apellidoMRef.current?.focus()} activeOpacity={1}>
-                <Text style={s.inputLabel}>Apellido Materno <Text style={s.optionalLabel}>(opcional)</Text></Text>
+                <Text style={s.inputLabel}>Apellido Materno</Text>
                 <TextInput
                   ref={apellidoMRef}
                   style={s.inputValue}
                   value={apellidoM}
                   onChangeText={setApellidoM}
                   autoCapitalize="words"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
+                  placeholderTextColor="rgba(0,0,0,0.2)"
                   selectionColor="#22c55e"
                 />
               </TouchableOpacity>
@@ -650,7 +563,7 @@ export const RegisterScreen: React.FC = () => {
                   value={razonSocial}
                   onChangeText={setRazonSocial}
                   autoCapitalize="characters"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
+                  placeholderTextColor="rgba(0,0,0,0.2)"
                   selectionColor="#22c55e"
                 />
               </TouchableOpacity>
@@ -664,7 +577,7 @@ export const RegisterScreen: React.FC = () => {
                   value={personaContacto}
                   onChangeText={setPersonaContacto}
                   autoCapitalize="words"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
+                  placeholderTextColor="rgba(0,0,0,0.2)"
                   selectionColor="#22c55e"
                 />
               </TouchableOpacity>
@@ -678,7 +591,7 @@ export const RegisterScreen: React.FC = () => {
                   value={relacionEmpresa}
                   onChangeText={setRelacionEmpresa}
                   autoCapitalize="words"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
+                  placeholderTextColor="rgba(0,0,0,0.2)"
                   selectionColor="#22c55e"
                 />
               </TouchableOpacity>
@@ -738,91 +651,31 @@ export const RegisterScreen: React.FC = () => {
 
           </Animated.View>
 
-            {/* Error */}
+            {/* Error (dentro de la card) */}
             {!!error && (
               <Text style={s.errorText}>{error}</Text>
             )}
 
-            {/* Separador */}
-            <View style={s.separator} />
+          </View>
 
-            {/* Botón principal */}
-            <TouchableOpacity
-              style={[s.continueBtn, isReady && s.continueBtnReady]}
-              onPress={paso === 1 ? handleContinuar : paso === 2 ? handleContinuarPaso2 : handleSubmit}
-              activeOpacity={0.75}
-              disabled={loading}
-            >
-              {loading
-                ? <ActivityIndicator color="#ffffff" size="small" />
-                : <Text style={[s.continueBtnText, isReady && s.continueBtnTextReady]}>
-                    {paso === 3 ? 'Crear Cuenta' : 'Continuar'}
-                  </Text>
-              }
-            </TouchableOpacity>
-
-          </BlurView>
+          {/* Botón — siempre fuera de la card */}
+          <TouchableOpacity
+            style={[s.continueBtn, s.continueBtnOutside, isReady && s.continueBtnReady]}
+            onPress={paso === 1 ? handleContinuar : paso === 2 ? handleContinuarPaso2 : handleSubmit}
+            activeOpacity={0.75}
+            disabled={loading}
+          >
+            {loading
+              ? <ActivityIndicator color="#ffffff" size="small" />
+              : <Text style={[s.continueBtnText, isReady && s.continueBtnTextReady]}>
+                  {paso === 3 ? 'Crear Cuenta' : 'Continuar'}
+                </Text>
+            }
+          </TouchableOpacity>
 
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* ── Modal de éxito ─────────────────────────────────────────────── */}
-      {showSuccess && (() => {
-        const spin = spinValue.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-        return (
-          <Animated.View style={[s.successOverlay, { opacity: overlayFade }]}>
-
-            {/* Logo + contenido centrados juntos */}
-            <Animated.View style={[s.successContent, { transform: [{ scale: cardScale }, { translateY: cardSlide }] }]}>
-              <Image
-                source={require('../../assets/logo.png')}
-                style={s.successLogo}
-                resizeMode="contain"
-              />
-
-              {/* Zona del ícono */}
-              <View style={s.successIconZone}>
-                <Animated.View style={[s.spinTrack, { opacity: spinOpacity }]} />
-                <Animated.View style={[s.spinArc, { opacity: spinOpacity, transform: [{ rotate: spin }] }]} />
-                <Animated.View style={[s.successCircle, { transform: [{ scale: circleScale }] }]}>
-                  <View style={s.successRing} />
-                  <Animated.View style={{ transform: [{ scale: checkScale }], opacity: checkOpacity }}>
-                    <Ionicons name="checkmark" size={44} color="#ffffff" />
-                  </Animated.View>
-                </Animated.View>
-              </View>
-
-              {/* "Creando tu cuenta..." */}
-              <Animated.Text style={[s.processingText, { opacity: processingOpacity }]}>
-                Creando tu cuenta...
-              </Animated.Text>
-
-              {/* Título */}
-              <Animated.Text style={[s.successTitle, { opacity: titleOpacity, transform: [{ translateY: titleSlide }] }]}>
-                ¡Cuenta creada!
-              </Animated.Text>
-
-              {/* Subtítulo */}
-              <Animated.Text style={[s.successSubtitle, { opacity: subtitleOpacity }]}>
-                {'Tu cuenta ha sido registrada correctamente.\nBienvenido a Qoricash.'}
-              </Animated.Text>
-
-              {/* Botón */}
-              <Animated.View style={[s.successBtnWrap, { opacity: btnOpacity, transform: [{ translateY: btnSlide }] }]}>
-                <TouchableOpacity
-                  style={s.successBtn}
-                  onPress={() => { setShowSuccess(false); navigation.navigate('Login' as never); }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={s.successBtnText}>Iniciar Sesión</Text>
-                  <Ionicons name="arrow-forward" size={15} color="#ffffff" style={{ marginLeft: 8 }} />
-                </TouchableOpacity>
-              </Animated.View>
-
-            </Animated.View>
-          </Animated.View>
-        );
-      })()}
     </View>
   );
 };
@@ -830,7 +683,7 @@ export const RegisterScreen: React.FC = () => {
 export default RegisterScreen;
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: 'transparent' },
+  root: { flex: 1, backgroundColor: '#F5F7FA' },
 
   scroll: {
     flexGrow: 1,
@@ -844,24 +697,36 @@ const s = StyleSheet.create({
     position: 'absolute',
     left: 20,
     zIndex: 10,
-    padding: 4,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
   // Título
   title: {
     fontSize: 30,
     fontWeight: '800',
-    color: '#ffffff',
+    color: '#0D1117',
     textAlign: 'center',
     marginBottom: 8,
     lineHeight: 36,
   },
   titleGreen: {
-    color: '#22c55e',
+    color: '#0D1117',
   },
   subtitle: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
+    color: '#6B7280',
     textAlign: 'center',
     marginBottom: 24,
   },
@@ -881,42 +746,43 @@ const s = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: '#F3F4F6',
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: 'rgba(0,0,0,0.10)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepCircleActive: {
-    backgroundColor: '#22c55e',
-    borderColor: '#22c55e',
+    backgroundColor: '#0D1117',
+    borderColor: '#0D1117',
   },
   stepNum: {
     fontSize: 14,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.5)',
+    color: '#9CA3AF',
   },
   stepNumActive: {
     color: '#ffffff',
   },
   stepLabel: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.45)',
+    color: '#9CA3AF',
     fontWeight: '600',
     marginTop: 5,
   },
   stepLabelActive: {
-    color: '#22c55e',
+    color: '#0D1117',
+    fontWeight: '700',
   },
   stepLine: {
     flex: 1,
     height: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(0,0,0,0.10)',
     marginTop: 17,
     marginHorizontal: 6,
   },
   stepLineActive: {
-    backgroundColor: '#22c55e',
+    backgroundColor: '#0D1117',
   },
 
   // Card
@@ -924,8 +790,14 @@ const s = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: '#FFFFFF',
     paddingTop: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
   },
 
   // Inputs
@@ -937,13 +809,14 @@ const s = StyleSheet.create({
   },
   inputBox: {
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
+    borderColor: 'rgba(0,0,0,0.10)',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingTop: 8,
     paddingBottom: 10,
     marginBottom: 12,
     marginHorizontal: 16,
+    backgroundColor: '#F9FAFB',
   },
   tipoBox: {
     flex: 0,
@@ -961,14 +834,14 @@ const s = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 10,
-    color: 'rgba(255,255,255,0.55)',
+    color: '#9CA3AF',
     fontWeight: '600',
     marginBottom: 4,
     letterSpacing: 0.2,
   },
   inputValue: {
     fontSize: 15,
-    color: '#ffffff',
+    color: '#0D1117',
     fontWeight: '500',
     padding: 0,
   },
@@ -986,12 +859,17 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   tipoPickerModal: {
-    backgroundColor: '#1a2a3a',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(0,0,0,0.08)',
     overflow: 'hidden',
     minWidth: 160,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.10,
+    shadowRadius: 12,
+    elevation: 6,
   },
   tipoOption: {
     flexDirection: 'row',
@@ -1000,14 +878,14 @@ const s = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   tipoOptionSelected: {
-    backgroundColor: 'rgba(34,197,94,0.1)',
+    backgroundColor: 'rgba(34,197,94,0.08)',
   },
   tipoOptionText: {
     fontSize: 15,
-    color: 'rgba(255,255,255,0.85)',
+    color: '#374151',
     fontWeight: '500',
   },
   tipoOptionActive: {
@@ -1037,19 +915,20 @@ const s = StyleSheet.create({
     height: 18,
     borderRadius: 3,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.4)',
+    borderColor: 'rgba(0,0,0,0.18)',
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
   },
   checkboxActive: {
-    backgroundColor: '#22c55e',
-    borderColor: '#22c55e',
+    backgroundColor: '#0D1117',
+    borderColor: '#0D1117',
   },
   checkText: {
     flex: 1,
     fontSize: 13,
-    color: 'rgba(255,255,255,0.8)',
+    color: '#374151',
     lineHeight: 19,
   },
   greenLink: {
@@ -1064,16 +943,17 @@ const s = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(0,0,0,0.10)',
     borderRadius: 10,
     paddingVertical: 14,
     paddingHorizontal: 14,
     gap: 12,
+    backgroundColor: '#F9FAFB',
   },
   captchaText: {
     flex: 1,
     fontSize: 14,
-    color: 'rgba(255,255,255,0.85)',
+    color: '#374151',
     fontWeight: '500',
   },
   captchaLogoWrap: {
@@ -1099,7 +979,7 @@ const s = StyleSheet.create({
   // Paso 2 helper
   optionalLabel: {
     fontSize: 9,
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(0,0,0,0.3)',
     fontWeight: '400',
   },
 
@@ -1112,7 +992,7 @@ const s = StyleSheet.create({
   summaryTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.55)',
+    color: '#9CA3AF',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     marginBottom: 16,
@@ -1126,163 +1006,48 @@ const s = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.45)',
+    color: '#9CA3AF',
     fontWeight: '600',
     flex: 0.45,
   },
   summaryValue: {
     fontSize: 13,
-    color: '#ffffff',
+    color: '#0D1117',
     fontWeight: '500',
     flex: 0.55,
     textAlign: 'right',
   },
 
-  // Modal de éxito — fondo negro puro, sin card
-  successOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-    zIndex: 100,
-  },
-  // Logo superior
-  successLogo: {
-    width: 140,
-    height: 44,
-    marginBottom: 48,
-  },
-  // Contenido central (sin card, sin borde, sin fondo)
-  successContent: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  // Zona del ícono (spinner → check)
-  successIconZone: {
-    width: 92,
-    height: 92,
-    marginBottom: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // Track tenue del spinner
-  spinTrack: {
-    position: 'absolute',
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    borderWidth: 2.5,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  // Arco giratorio del spinner
-  spinArc: {
-    position: 'absolute',
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    borderWidth: 2.5,
-    borderTopColor: '#22c55e',
-    borderRightColor: 'rgba(34,197,94,0.3)',
-    borderBottomColor: 'transparent',
-    borderLeftColor: 'transparent',
-  },
-  // Círculo verde del check
-  successCircle: {
-    position: 'absolute',
-    width: 82,
-    height: 82,
-    borderRadius: 41,
-    backgroundColor: '#22c55e',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 22,
-    elevation: 12,
-  },
-  successRing: {
-    position: 'absolute',
-    width: 102,
-    height: 102,
-    borderRadius: 51,
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.2)',
-  },
-  // Texto "Creando tu cuenta..."
-  processingText: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.4)',
-    fontWeight: '400',
-    letterSpacing: 0.4,
-    marginBottom: 28,
-    height: 22,
-  },
-  successTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#ffffff',
-    textAlign: 'center',
-    marginBottom: 12,
-    letterSpacing: 0.1,
-  },
-  successSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.45)',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 48,
-    fontWeight: '400',
-  },
-  successBtnWrap: {
-    width: '100%',
-  },
-  successBtn: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 14,
-    paddingVertical: 16,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  successBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#ffffff',
-    letterSpacing: 0.3,
-  },
-
   // Separador + botón
   separator: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(0,0,0,0.08)',
     marginTop: 4,
   },
   continueBtn: {
     paddingVertical: 18,
     alignItems: 'center',
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(0,0,0,0.06)',
   },
   continueBtnReady: {
-    backgroundColor: '#22c55e',
-    shadowColor: '#22c55e',
+    backgroundColor: '#0D1117',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.18,
     shadowRadius: 10,
     elevation: 6,
   },
   continueBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.4)',
+    color: 'rgba(0,0,0,0.25)',
     letterSpacing: 0.3,
   },
   continueBtnTextReady: {
     color: '#ffffff',
+  },
+  continueBtnOutside: {
+    marginTop: 16,
   },
 });

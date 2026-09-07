@@ -17,8 +17,8 @@ const TAB_COUNT = 4;
 const TAB_W     = SCREEN_W / TAB_COUNT;
 const PILL_W    = 62;
 const PILL_H    = 50;
-const GREEN     = '#22c55e';
-const DIM       = 'rgba(255,255,255,0.62)';
+const ACTIVE    = '#0D1117';
+const DIM       = '#9CA3AF';
 
 const TABS = [
   { key: 'HomeTab',    label: 'Inicio',    icon: 'home-outline'         as const, iconFocused: 'home'          as const },
@@ -89,8 +89,9 @@ export const CustomTabBar: React.FC<Props> = ({ state, navigation }) => {
   return (
     <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 6) }]}>
 
-      {/* Blur glass background */}
-      <BlurView intensity={82} tint="dark" style={StyleSheet.absoluteFill} />
+      {/* Fondo blanco con blur suave */}
+      <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.92)' }]} />
 
       {/* Hairline border top */}
       <View style={styles.hairline} />
@@ -116,7 +117,7 @@ export const CustomTabBar: React.FC<Props> = ({ state, navigation }) => {
                   <Ionicons
                     name={iconName}
                     size={22}
-                    color={focused ? GREEN : 'rgba(255,255,255,0.85)'}
+                    color={focused ? ACTIVE : '#6B7280'}
                   />
                 </Animated.View>
                 <Animated.Text
@@ -147,7 +148,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: StyleSheet.hairlineWidth * 2,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(0,0,0,0.08)',
   },
   pill: {
     position: 'absolute',
@@ -155,9 +156,9 @@ const styles = StyleSheet.create({
     width: PILL_W,
     height: PILL_H,
     borderRadius: PILL_H / 2,
-    backgroundColor: 'rgba(34,197,94,0.13)',
+    backgroundColor: 'rgba(13,17,23,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.28)',
+    borderColor: 'rgba(13,17,23,0.12)',
   },
   row: {
     flexDirection: 'row',
@@ -179,7 +180,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   labelOn: {
-    color: GREEN,
+    color: ACTIVE,
     fontWeight: '700',
   },
 });

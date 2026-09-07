@@ -10,6 +10,7 @@ import {
   Modal,
   TouchableWithoutFeedback,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { MotiView } from 'moti';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
@@ -239,11 +240,12 @@ export const PublicCalculatorScreen: React.FC<Props> = ({ navigation }) => {
     },
   ] as const;
 
-  const compra = rates ? `S/ ${rates.compra.toFixed(3)}` : '— —';
-  const venta  = rates ? `S/ ${rates.venta.toFixed(3)}` : '— —';
+  const compra = rates ? rates.compra.toFixed(4) : '—';
+  const venta  = rates ? rates.venta.toFixed(4)  : '—';
 
   return (
     <View style={styles.bg}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
       <ScrollView
         style={styles.scroll}
@@ -256,7 +258,7 @@ export const PublicCalculatorScreen: React.FC<Props> = ({ navigation }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="rgba(255,255,255,0.5)"
+            tintColor="#9CA3AF"
           />
         }
       >
@@ -272,7 +274,7 @@ export const PublicCalculatorScreen: React.FC<Props> = ({ navigation }) => {
         >
           {/* Logo absoluto — no empuja el contenido sin importar su tamaño */}
           <Image
-            source={require('../../assets/logo.png')}
+            source={require('../../assets/qc.png')}
             style={styles.brandLogo}
             resizeMode="contain"
           />
@@ -300,7 +302,7 @@ export const PublicCalculatorScreen: React.FC<Props> = ({ navigation }) => {
               }}
             >
               <View style={styles.benefitIconWrap}>
-                <Ionicons name={item.icon} size={15} color="rgba(255,255,255,0.92)" />
+                <Ionicons name={item.icon} size={15} color="#374151" />
               </View>
               <Text style={styles.benefitLabel}>{item.label}</Text>
             </Pressable>
@@ -308,65 +310,48 @@ export const PublicCalculatorScreen: React.FC<Props> = ({ navigation }) => {
         </MotiView>
 
         {/* ══════════════════════════════════════════════
-            LIVE INDICATOR
+            HERO CARD — Live + TC + Ingresar
         ══════════════════════════════════════════════ */}
-        <MotiView
-          from={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ type: 'timing', duration: 380, delay: 180 }}
-          style={styles.liveRow}
-        >
+        {/* Live indicator — encima de la card */}
+        <View style={styles.liveRow}>
           <LiveDot />
           <Text style={styles.liveLabel}>Tipo de cambio en vivo</Text>
-        </MotiView>
+        </View>
 
-        {/* ══════════════════════════════════════════════
-            RATE CARDS — Compra / Venta
-        ══════════════════════════════════════════════ */}
         <MotiView
           from={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: 'spring', delay: 140, damping: 18, stiffness: 130 }}
-          style={styles.ratesRow}
+          style={styles.ratesCard}
         >
-          {/* Card Compra */}
-          <View style={styles.rateCard}>
-            <Text style={styles.rateCardLabel}>Qoricash compra</Text>
-            <RateValue value={compra} style={[styles.rateCardValue, { color: '#38bdf8' }]} />
-            <View style={[styles.ratePill, {
-              backgroundColor: 'transparent',
-              borderWidth: 0,
-            }]}>
-              <Text style={[styles.ratePillText, { color: '#38bdf8' }]}>USD → PEN</Text>
+          {/* Rate columns */}
+          <View style={styles.ratesRow}>
+            <View style={styles.rateCard}>
+              <Text style={styles.rateCardLabel}>Compramos S/</Text>
+              <RateValue value={compra} style={styles.rateCardValue} />
+              <Text style={styles.ratePillText}>USD → PEN</Text>
+            </View>
+
+            <View style={styles.ratesDivider} />
+
+            <View style={styles.rateCard}>
+              <Text style={styles.rateCardLabel}>Vendemos S/</Text>
+              <RateValue value={venta} style={styles.rateCardValue} />
+              <Text style={styles.ratePillText}>PEN → USD</Text>
             </View>
           </View>
 
-          <View style={styles.ratesDivider} />
-
-          {/* Card Venta */}
-          <View style={styles.rateCard}>
-            <Text style={styles.rateCardLabel}>Qoricash vende</Text>
-            <RateValue value={venta} style={[styles.rateCardValue, { color: '#22c55e' }]} />
-            <View style={[styles.ratePill, {
-              backgroundColor: 'transparent',
-              borderWidth: 0,
-            }]}>
-              <Text style={[styles.ratePillText, { color: '#22c55e' }]}>PEN → USD</Text>
-            </View>
-          </View>
         </MotiView>
 
         {/* ══════════════════════════════════════════════
-            LOGIN
+            INGRESAR — botón principal fuera de la card
         ══════════════════════════════════════════════ */}
         <MotiView
-          from={{ opacity: 0, translateY: 14 }}
+          from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 400, delay: 220 }}
-          style={styles.loginSection}
+          transition={{ type: 'timing', duration: 380, delay: 200 }}
+          style={styles.loginBtnWrap}
         >
-          <Text style={styles.sectionMeta}>Para operar</Text>
-
           <Pressable
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -375,7 +360,7 @@ export const PublicCalculatorScreen: React.FC<Props> = ({ navigation }) => {
             style={({ pressed }) => [styles.loginBtn, pressed && styles.btnPressed]}
           >
             <Text style={styles.loginBtnText}>Ingresar</Text>
-            <Ionicons name="arrow-forward" size={17} color="#0a1a2e" />
+            <Ionicons name="arrow-forward" size={17} color="#FFFFFF" />
           </Pressable>
         </MotiView>
 
@@ -406,8 +391,8 @@ export const PublicCalculatorScreen: React.FC<Props> = ({ navigation }) => {
             style={({ pressed }) => [styles.glassBtn, styles.googleBtn, pressed && styles.btnPressed, googleLoading && styles.btnDisabled]}
           >
             {googleLoading
-              ? <ActivityIndicator size="small" color="rgba(255,255,255,0.88)" />
-              : <FontAwesome name="google" size={15} color="rgba(255,255,255,0.88)" />
+              ? <ActivityIndicator size="small" color="#374151" />
+              : <FontAwesome name="google" size={15} color="#DB4437" />
             }
             <Text style={styles.glassBtnText}>
               {googleLoading ? 'Conectando...' : 'Continuar con Google'}
@@ -462,12 +447,10 @@ export const PublicCalculatorScreen: React.FC<Props> = ({ navigation }) => {
 // ─────────────────────────────────────────────────────────────────
 // Estilos
 // ─────────────────────────────────────────────────────────────────
-const GLASS_BG     = 'rgba(255, 255, 255, 0.09)';
-const GLASS_BORDER = 'rgba(255, 255, 255, 0.17)';
-
 const styles = StyleSheet.create({
   bg: {
     flex: 1,
+    backgroundColor: '#F5F7FA',
   },
   scroll: {
     flex: 1,
@@ -484,14 +467,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   brandLogo: {
-    width: 180,
-    height: 36,
+    width: 105,
+    height: 26,
     marginBottom: 10,
   },
   tagline: {
     fontFamily: 'Inter_400Regular',
     fontSize: 10.5,
-    color: 'rgba(255,255,255,0.52)',
+    color: 'rgba(0,0,0,0.4)',
     letterSpacing: 2.8,
     textAlign: 'center',
   },
@@ -511,14 +494,14 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(0,0,0,0.06)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   benefitLabel: {
     fontFamily: 'Inter_500Medium',
     fontSize: 8.5,
-    color: 'rgba(255,255,255,0.78)',
+    color: '#374151',
     textAlign: 'center',
     letterSpacing: 0.1,
     lineHeight: 12,
@@ -578,9 +561,9 @@ const styles = StyleSheet.create({
   liveRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-start',
     gap: 9,
-    marginTop: 20,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   liveDotWrapper: {
     width: 12,
@@ -605,89 +588,86 @@ const styles = StyleSheet.create({
   liveLabel: {
     fontFamily: 'Inter_500Medium',
     fontSize: 12,
-    color: 'rgba(255,255,255,0.72)',
+    color: 'rgba(0,0,0,0.45)',
     letterSpacing: 0.2,
   },
 
-  // ── Rate cards ─────────────────────────────────────────────────
+  // ── Hero card (TC + live) ──────────────────────────────────────
+  ratesCard: {
+    backgroundColor: '#0D1117',
+    borderRadius: 28,
+    marginBottom: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.30,
+    shadowRadius: 28,
+    elevation: 18,
+  },
   ratesRow: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 1,
-    borderColor: GLASS_BORDER,
-    borderRadius: 22,
-    marginBottom: 28,
-    overflow: 'hidden',
+  },
+  ratesHorizDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   rateCard: {
     flex: 1,
-    paddingVertical: 22,
+    paddingVertical: 30,
     paddingHorizontal: 18,
-    gap: 6,
+    gap: 10,
+    alignItems: 'center',
   },
   ratesDivider: {
     width: 1,
-    backgroundColor: GLASS_BORDER,
-    marginVertical: 18,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    marginVertical: 22,
   },
   rateCardLabel: {
     fontFamily: 'Inter_400Regular',
     fontSize: 11,
-    color: 'rgba(255,255,255,0.52)',
+    color: 'rgba(255,255,255,0.5)',
     letterSpacing: 1.4,
     textTransform: 'uppercase',
   },
   rateCardValue: {
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 32,
+    fontSize: 46,
     color: '#FFFFFF',
-    letterSpacing: -0.5,
-    lineHeight: 38,
+    letterSpacing: -1.5,
+    lineHeight: 52,
   },
   ratePill: {
     alignSelf: 'flex-start',
     backgroundColor: 'transparent',
     borderRadius: 20,
-    paddingHorizontal: 8,
+    paddingHorizontal: 0,
     paddingVertical: 3,
-    marginTop: 8,
   },
   ratePillText: {
     fontFamily: 'Inter_400Regular',
     fontSize: 9.5,
-    color: 'rgba(255,255,255,0.55)',
+    color: 'rgba(255,255,255,0.35)',
     letterSpacing: 0.3,
   },
 
-  // ── Login section ──────────────────────────────────────────────
-  loginSection: {
-    gap: 12,
-    marginBottom: 24,
-  },
-  sectionMeta: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 11.5,
-    color: 'rgba(255,255,255,0.45)',
-    letterSpacing: 0.3,
+  // ── Botón Ingresar (fuera de la card) ──────────────────────────
+  loginBtnWrap: {
+    marginBottom: 20,
   },
   loginBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0D1117',
     borderRadius: 16,
     paddingVertical: 17,
     gap: 9,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-    elevation: 8,
   },
   loginBtnText: {
     fontFamily: 'Inter_700Bold',
-    fontSize: 15.5,
-    color: '#0a1a2e',
+    fontSize: 16,
+    color: '#FFFFFF',
     letterSpacing: 0.2,
   },
 
@@ -699,7 +679,7 @@ const styles = StyleSheet.create({
   registerPrompt: {
     fontFamily: 'Inter_400Regular',
     fontSize: 11.5,
-    color: 'rgba(255,255,255,0.45)',
+    color: 'rgba(0,0,0,0.4)',
     letterSpacing: 0.3,
     marginBottom: 2,
   },
@@ -707,15 +687,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: GLASS_BG,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: 'rgba(0,0,0,0.09)',
     borderRadius: 16,
     paddingVertical: 15,
     gap: 9,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   googleBtn: {
-    // mismo glass, solo añade gap con el ícono
+    // mismo estilo
   },
   btnDisabled: {
     opacity: 0.6,
@@ -729,7 +714,7 @@ const styles = StyleSheet.create({
   glassBtnText: {
     fontFamily: 'Inter_500Medium',
     fontSize: 14.5,
-    color: 'rgba(255,255,255,0.88)',
+    color: '#0D1117',
     letterSpacing: 0.1,
   },
 
@@ -743,7 +728,7 @@ const styles = StyleSheet.create({
   footer: {
     fontFamily: 'Inter_400Regular',
     fontSize: 10,
-    color: 'rgba(255,255,255,0.28)',
+    color: 'rgba(0,0,0,0.3)',
     textAlign: 'center',
     letterSpacing: 0.4,
   },

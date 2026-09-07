@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Platform,
+  View, Text, StyleSheet, TouchableOpacity, Platform, StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -12,12 +12,13 @@ export const ClientTypeSelectionScreen = () => {
 
   return (
     <View style={s.root}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       {/* Body */}
       <View style={s.body}>
 
         {/* Title */}
         <TouchableOpacity style={[s.backBtn, { top: insets.top + 16 }]} onPress={() => navigation.goBack()} activeOpacity={0.8}>
-          <Ionicons name="chevron-back" size={22} color="#ffffff" />
+          <Ionicons name="chevron-back" size={22} color="#0D1117" />
         </TouchableOpacity>
 
         <Text style={s.title}>
@@ -42,7 +43,7 @@ export const ClientTypeSelectionScreen = () => {
           >
             <View style={s.card}>
               <View style={s.iconCircle}>
-                <Ionicons name="person-outline" size={28} color="#22c55e" />
+                <Ionicons name="person-outline" size={28} color="#FFFFFF" />
               </View>
               <Text style={s.cardTitle}>Persona Natural</Text>
               <Text style={s.cardDesc}>DNI · Carnet de{'\n'}Extranjería</Text>
@@ -57,7 +58,7 @@ export const ClientTypeSelectionScreen = () => {
           >
             <View style={s.card}>
               <View style={s.iconCircle}>
-                <Ionicons name="receipt-outline" size={28} color="#22c55e" />
+                <Ionicons name="receipt-outline" size={28} color="#FFFFFF" />
               </View>
               <Text style={s.cardTitle}>Empresa</Text>
               <Text style={s.cardDesc}>{'Ficha RUC'}</Text>
@@ -81,6 +82,7 @@ export const ClientTypeSelectionScreen = () => {
 const s = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: '#F5F7FA',
   },
   bottomRow: {
     flexDirection: 'row',
@@ -89,12 +91,12 @@ const s = StyleSheet.create({
     marginBottom: Platform.OS === 'ios' ? 100 : 80,
   },
   topText: {
-    color: 'rgba(255,255,255,0.85)',
+    color: 'rgba(0,0,0,0.4)',
     fontSize: 13,
     fontWeight: '500',
   },
   topLink: {
-    color: '#22c55e',
+    color: '#0D1117',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -102,7 +104,19 @@ const s = StyleSheet.create({
     position: 'absolute',
     left: 20,
     zIndex: 10,
-    padding: 4,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   body: {
     flex: 1,
@@ -118,14 +132,14 @@ const s = StyleSheet.create({
     marginBottom: 10,
   },
   titleWhite: {
-    color: '#ffffff',
+    color: '#0D1117',
   },
   titleGreen: {
-    color: '#22c55e',
+    color: '#0D1117',
   },
   subtitle: {
     fontSize: 15,
-    color: 'rgba(255,255,255,0.85)',
+    color: '#6B7280',
     textAlign: 'center',
     marginBottom: 28,
     fontWeight: '400',
@@ -133,7 +147,7 @@ const s = StyleSheet.create({
   sectionLabel: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#ffffff',
+    color: '#0D1117',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -147,7 +161,13 @@ const s = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.45)',
+    borderColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   card: {
     height: 170,
@@ -159,7 +179,7 @@ const s = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'rgba(34,197,94,0.2)',
+    backgroundColor: '#0D1117',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
@@ -167,13 +187,13 @@ const s = StyleSheet.create({
   cardTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#ffffff',
+    color: '#0D1117',
     textAlign: 'center',
     marginBottom: 6,
   },
   cardDesc: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.65)',
+    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 17,
   },

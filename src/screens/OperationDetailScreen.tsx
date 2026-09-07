@@ -11,7 +11,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
-  ImageBackground,
   ActivityIndicator,
   TextInput,
 } from 'react-native';
@@ -25,7 +24,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { operationsApi } from '../api/operations';
 import { Operation } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { useBackground } from '../hooks/useBackground';
 import {
   formatCurrency,
   formatDateTime,
@@ -67,7 +65,6 @@ interface Props { route: any; navigation: any }
 // ─── Component ────────────────────────────────────────────────────────────────
 export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const insets = useSafeAreaInsets();
-  const bg = useBackground();
   const { client } = useAuth();
   const { operationId } = route.params;
 
@@ -207,8 +204,6 @@ export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) =>
   if (loading) {
     return (
       <View style={s.fullCenter}>
-        <ImageBackground source={bg} style={StyleSheet.absoluteFill} resizeMode="cover" />
-        <View style={[StyleSheet.absoluteFill, s.overlay]} />
         <ActivityIndicator size="large" color={GREEN} />
         <Text style={s.loadText}>Cargando operación...</Text>
       </View>
@@ -218,9 +213,7 @@ export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) =>
   if (!operation) {
     return (
       <View style={s.fullCenter}>
-        <ImageBackground source={bg} style={StyleSheet.absoluteFill} resizeMode="cover" />
-        <View style={[StyleSheet.absoluteFill, s.overlay]} />
-        <Ionicons name="alert-circle-outline" size={40} color="rgba(255,255,255,0.3)" />
+        <Ionicons name="alert-circle-outline" size={40} color="#9CA3AF" />
         <Text style={s.loadText}>Operación no encontrada</Text>
       </View>
     );
@@ -234,114 +227,79 @@ export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) =>
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <View style={s.root}>
-      <ImageBackground
-        source={bg}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-      />
-      <View style={[StyleSheet.absoluteFill, s.overlay]} pointerEvents="none" />
-
       <ScrollView
         style={s.scroll}
         contentContainerStyle={[s.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgba(255,255,255,0.5)" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgba(0,0,0,0.3)" />
         }
       >
         {/* ── Header ── */}
         <View style={s.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} activeOpacity={0.75}>
-            <Ionicons name="chevron-back" size={22} color="#fff" />
+            <Ionicons name="chevron-back" size={22} color="#0D1117" />
           </TouchableOpacity>
           <Text style={s.headerTitle}>Detalle de Operación</Text>
           <View style={s.headerSpacer} />
         </View>
 
-        {/* ── ID + Fecha + Estado ── */}
+        {/* ── Hero Card (ID + Montos) ── */}
         <MotiView
-          from={{ opacity: 0, translateY: -12 }}
-          animate={{ opacity: 1, translateY: 0 }}
+          from={{ opacity: 0, translateY: -12, scale: 0.97 }}
+          animate={{ opacity: 1, translateY: 0, scale: 1 }}
           transition={{ type: 'spring', delay: 380, damping: 22, stiffness: 200 }}
-          style={s.card}
+          style={s.heroCard}
         >
-          <View style={s.idRow}>
+          {/* ID + Estado */}
+          <View style={s.heroIdRow}>
             <View style={{ flex: 1 }}>
-              <Text style={s.labelXs}>ID de Operación</Text>
-              <Text style={s.operationId}>{operation.operation_id || 'N/A'}</Text>
-              <Text style={s.dateText}>
+              <Text style={s.heroLabelXs}>ID de Operación</Text>
+              <Text style={s.heroOperationId}>{operation.operation_id || 'N/A'}</Text>
+              <Text style={s.heroDate}>
                 {operation.created_at ? formatDateTime(operation.created_at) : 'N/A'}
               </Text>
             </View>
-            <View style={[s.statusBadge, { backgroundColor: statusCfg.color + '22', borderColor: statusCfg.color + '55' }]}>
-              <View style={[s.statusDot, { backgroundColor: statusCfg.color }]} />
-              <Text style={[s.statusText, { color: statusCfg.color }]}>{displayStatus}</Text>
+            <View style={[s.heroStatusBadge, { backgroundColor: statusCfg.color + '28', borderColor: statusCfg.color + '60' }]}>
+              <View style={[s.heroStatusDot, { backgroundColor: statusCfg.color }]} />
+              <Text style={[s.heroStatusText, { color: statusCfg.color }]}>{displayStatus}</Text>
             </View>
           </View>
-        </MotiView>
 
-        {/* ── Tipo + Montos ── */}
-        <MotiView
-          from={{ opacity: 0, translateY: 16, scale: 0.97 }}
-          animate={{ opacity: 1, translateY: 0, scale: 1 }}
-          transition={{ type: 'spring', delay: 440, damping: 22, stiffness: 180 }}
-          style={s.card}
-        >
-          {/* Badge compra/venta */}
-          <View style={s.typePillRow}>
-            <View style={[s.typePill, operation.operation_type === 'Compra' ? s.typePillCompra : s.typePillVenta]}>
-              <Ionicons
-                name={operation.operation_type === 'Compra' ? 'arrow-down-circle' : 'arrow-up-circle'}
-                size={14}
-                color={operation.operation_type === 'Compra' ? GREEN : BLUE}
-              />
-              <Text style={[s.typeText, { color: operation.operation_type === 'Compra' ? GREEN : BLUE }]}>
-                {operation.operation_type === 'Compra' ? 'Qoricash Compra' : 'Qoricash Vende'}
+          {/* Divider */}
+          <View style={s.heroDivider} />
+
+          {/* Enviaste | TC | Recibiste — horizontal */}
+          <View style={s.heroAmountsRow}>
+
+            {/* Enviaste */}
+            <View style={[s.heroAmountCol, { alignItems: 'flex-start' }]}>
+              <Text style={s.heroAmountLabel}>
+                {operation.operation_type === 'Compra' ? 'Enviaste' : 'Pagaste'}
               </Text>
-            </View>
-          </View>
-
-          {/* Enviando */}
-          <View style={s.amountBlock}>
-            <Text style={s.amountBlockLabel}>
-              {operation.operation_type === 'Compra' ? 'Enviaste' : 'Pagaste'}
-            </Text>
-            <View style={s.amountBlockInner}>
-              <Text style={s.amountValue}>
+              <Text style={s.heroAmountValue}>
                 {operation.operation_type === 'Compra'
                   ? formatCurrency(operation.amount_usd || 0, 'USD')
                   : formatCurrency(operation.amount_pen || 0, 'PEN')}
               </Text>
-              <View style={s.currencyTag}>
-                <Text style={s.currencyTagText}>{inputCurrency === 'USD' ? 'Dólares' : 'Soles'}</Text>
-              </View>
             </View>
-          </View>
 
-          {/* Tipo de cambio */}
-          <View style={s.tcRow}>
-            <View style={s.tcDash} />
-            <View style={s.tcPill}>
-              <Ionicons name="swap-vertical" size={12} color={GREEN} />
-              <Text style={s.tcLabel}>TC</Text>
-              <Text style={s.tcValue}>{formatExchangeRate(operation.exchange_rate || 0)}</Text>
+            {/* TC — center */}
+            <View style={s.heroTcCol}>
+              <Ionicons name="swap-horizontal" size={14} color={GREEN} />
+              <Text style={s.heroTcValue}>{formatExchangeRate(operation.exchange_rate || 0)}</Text>
             </View>
-            <View style={s.tcDash} />
-          </View>
 
-          {/* Recibiendo */}
-          <View style={s.amountBlock}>
-            <Text style={s.amountBlockLabel}>Recibiste</Text>
-            <View style={s.amountBlockInner}>
-              <Text style={[s.amountValue, { color: GREEN }]}>
+            {/* Recibiste */}
+            <View style={[s.heroAmountCol, { alignItems: 'flex-end' }]}>
+              <Text style={[s.heroAmountLabel, { textAlign: 'right' }]}>Recibiste</Text>
+              <Text style={[s.heroAmountValue, { color: GREEN, textAlign: 'right' }]}>
                 {operation.operation_type === 'Compra'
                   ? formatCurrency(operation.amount_pen || 0, 'PEN')
                   : formatCurrency(operation.amount_usd || 0, 'USD')}
               </Text>
-              <View style={[s.currencyTag, { backgroundColor: GREEN + '20', borderColor: GREEN + '40' }]}>
-                <Text style={[s.currencyTagText, { color: GREEN }]}>{outputCurrency === 'USD' ? 'Dólares' : 'Soles'}</Text>
-              </View>
             </View>
+
           </View>
         </MotiView>
 
@@ -358,7 +316,7 @@ export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) =>
             {operation.source_account && (
               <View style={s.bankRow}>
                 <View style={s.bankIconWrap}>
-                  <Ionicons name="business-outline" size={18} color="rgba(255,255,255,0.6)" />
+                  <Ionicons name="business-outline" size={18} color="#9CA3AF" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.bankLabel}>Cuenta Origen ({getSourceCurrency(operation)})</Text>
@@ -399,7 +357,7 @@ export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) =>
             {operation.client_deposits.map((dep: any, i: number) => (
               <View key={i} style={[s.proofRow, i < operation.client_deposits!.length - 1 && s.proofRowBorder]}>
                 <View style={s.proofIconWrap}>
-                  <Ionicons name="document-text-outline" size={18} color="rgba(255,255,255,0.55)" />
+                  <Ionicons name="document-text-outline" size={18} color="#9CA3AF" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.proofLabel}>Abono {i + 1}</Text>
@@ -463,7 +421,7 @@ export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) =>
               <View key={i}>
                 <View style={s.invoiceRow}>
                   <View style={s.proofIconWrap}>
-                    <Ionicons name="receipt-outline" size={18} color="rgba(255,255,255,0.55)" />
+                    <Ionicons name="receipt-outline" size={18} color="#9CA3AF" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={s.proofValue}>{inv?.invoice_number || 'N/A'}</Text>
@@ -669,14 +627,14 @@ export const OperationDetailScreen: React.FC<Props> = ({ route, navigation }) =>
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  root:    { flex: 1 },
+  root:    { flex: 1, backgroundColor: '#F5F7FA' },
   overlay: { backgroundColor: 'transparent' },
   scroll:  { flex: 1 },
   content: { flexGrow: 1, paddingHorizontal: 18 },
 
   // Loading / error
-  fullCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
-  loadText:   { color: 'rgba(255,255,255,0.5)', fontSize: 14 },
+  fullCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, backgroundColor: '#F5F7FA' },
+  loadText:   { color: '#6B7280', fontSize: 14 },
 
   // Header
   header: {
@@ -688,30 +646,151 @@ const s = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: GLASS_BG,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: 'rgba(0,0,0,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   headerTitle: {
     flex: 1,
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0D1117',
     letterSpacing: -0.3,
   },
   headerSpacer: { width: 36 },
 
+  // ── Hero card (black) ────────────────────────────────────────────────────
+  heroCard: {
+    backgroundColor: '#0D1117',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  heroIdRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 16,
+  },
+  heroLabelXs: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.38)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  heroOperationId: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.4,
+    marginBottom: 3,
+  },
+  heroDate: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.42)',
+  },
+  heroStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  heroStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  heroStatusText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  heroDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    marginBottom: 18,
+  },
+  heroAmountsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  heroAmountCol: {
+    flex: 1,
+    gap: 5,
+  },
+  heroAmountLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.42)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  heroAmountValue: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: -0.8,
+  },
+  heroCurrencyTag: {
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    alignSelf: 'flex-start',
+  },
+  heroCurrencyText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.65)',
+    letterSpacing: 0.5,
+  },
+  heroTcCol: {
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+  },
+  heroTcValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: GREEN,
+    letterSpacing: 0.2,
+  },
+
   // Card base
   card: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: 'rgba(0,0,0,0.07)',
     borderRadius: 22,
     padding: 18,
     marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   // ID + status row
@@ -723,7 +802,7 @@ const s = StyleSheet.create({
   labelXs: {
     fontSize: 10,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.38)',
+    color: '#9CA3AF',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 4,
@@ -731,13 +810,13 @@ const s = StyleSheet.create({
   operationId: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0D1117',
     letterSpacing: -0.5,
     marginBottom: 4,
   },
   dateText: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.42)',
+    color: '#9CA3AF',
   },
   statusBadge: {
     flexDirection: 'row',
@@ -790,7 +869,7 @@ const s = StyleSheet.create({
   amountBlockLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.38)',
+    color: '#9CA3AF',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 6,
@@ -799,7 +878,9 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -807,13 +888,13 @@ const s = StyleSheet.create({
   amountValue: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0D1117',
     letterSpacing: -0.3,
   },
   currencyTag: {
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: '#F1F5F9',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(0,0,0,0.08)',
     borderRadius: 10,
     paddingHorizontal: 9,
     paddingVertical: 4,
@@ -821,7 +902,7 @@ const s = StyleSheet.create({
   currencyTagText: {
     fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.7)',
+    color: '#6B7280',
     letterSpacing: 0.2,
   },
 
@@ -834,7 +915,7 @@ const s = StyleSheet.create({
   tcDash: {
     flex: 1,
     height: StyleSheet.hairlineWidth * 2,
-    backgroundColor: GLASS_BORDER,
+    backgroundColor: 'rgba(0,0,0,0.08)',
   },
   tcPill: {
     flexDirection: 'row',
@@ -850,7 +931,7 @@ const s = StyleSheet.create({
   tcLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.5)',
+    color: '#9CA3AF',
     letterSpacing: 0.5,
   },
   tcValue: {
@@ -861,9 +942,9 @@ const s = StyleSheet.create({
 
   // Section title
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.55)',
+    color: '#9CA3AF',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     marginBottom: 14,
@@ -880,7 +961,7 @@ const s = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -888,7 +969,7 @@ const s = StyleSheet.create({
   bankLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.38)',
+    color: '#9CA3AF',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 2,
@@ -896,17 +977,17 @@ const s = StyleSheet.create({
   bankName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#0D1117',
     marginBottom: 2,
   },
   bankAccount: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.52)',
+    color: '#6B7280',
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   bankDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: GLASS_BORDER,
+    backgroundColor: 'rgba(0,0,0,0.06)',
     marginVertical: 14,
   },
 
@@ -919,13 +1000,13 @@ const s = StyleSheet.create({
   },
   proofRowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: GLASS_BORDER,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   proofIconWrap: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -933,7 +1014,7 @@ const s = StyleSheet.create({
   proofLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.38)',
+    color: '#9CA3AF',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 2,
@@ -941,11 +1022,11 @@ const s = StyleSheet.create({
   proofValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0D1117',
   },
   proofCode: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.45)',
+    color: '#6B7280',
     marginTop: 2,
   },
   downloadBtn: {
@@ -962,21 +1043,23 @@ const s = StyleSheet.create({
   // Operador comments
   commentsWrap: {
     marginTop: 12,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
     borderRadius: 12,
     padding: 12,
   },
   commentsLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.38)',
+    color: '#9CA3AF',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 6,
   },
   commentsText: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.72)',
+    color: '#374151',
     lineHeight: 19,
   },
 
@@ -1009,7 +1092,7 @@ const s = StyleSheet.create({
   // Notes
   notesText: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.72)',
+    color: '#374151',
     lineHeight: 21,
   },
 
@@ -1050,18 +1133,23 @@ const s = StyleSheet.create({
   },
   backBtnBottom: {
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: 'rgba(0,0,0,0.08)',
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: GLASS_BG,
+    backgroundColor: '#FFFFFF',
     marginTop: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   backBtnBottomText: {
     fontSize: 14,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.65)',
+    color: '#6B7280',
     letterSpacing: 1,
   },
 

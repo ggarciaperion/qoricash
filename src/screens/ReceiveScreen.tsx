@@ -25,6 +25,7 @@ import socketService from '../services/socket';
 import { BlurView } from 'expo-blur';
 import { useBackground } from '../hooks/useBackground';
 import { useAuth } from '../contexts/AuthContext';
+import { shownCancelAlerts } from '../utils/cancelAlertDedup';
 
 const BANK_LOGOS: Record<string, any> = {
   'BCP':        require('../../assets/banks/bcp.png'),
@@ -37,9 +38,9 @@ const BANK_LOGOS: Record<string, any> = {
 };
 
 const GREEN  = '#22c55e';
-const GLASS  = 'rgba(255,255,255,0.08)';
-const BORDER = 'rgba(255,255,255,0.14)';
-const DIM    = 'rgba(255,255,255,0.5)';
+const GLASS  = '#FFFFFF';
+const BORDER = 'rgba(0,0,0,0.08)';
+const DIM    = '#6B7280';
 
 interface ReceiveScreenProps {
   navigation: any;
@@ -181,6 +182,9 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
 
     const handleCanceledByAdmin = (data: any) => {
       if (data.operation_id === operation.operation_id) {
+        const key = `cancel_${data.operation_id}`;
+        shownCancelAlerts.add(key);
+        setTimeout(() => shownCancelAlerts.delete(key), 5000);
         Alert.alert(
           '❌ Operación Cancelada',
           `Tu operación ${data.operation_id} fue cancelada por el equipo Qoricash.\n\n` +
@@ -252,12 +256,7 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <View style={s.root}>
-      <ImageBackground
-        source={bg}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-      />
-      <View style={[StyleSheet.absoluteFill, s.overlay]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#F5F7FA' }]} pointerEvents="none" />
 
       {/* ── Header ── */}
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
@@ -267,13 +266,13 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
           activeOpacity={0.7}
         >
           <View style={s.backBtnInner}>
-            <Ionicons name="chevron-back" size={20} color="#fff" />
+            <Ionicons name="chevron-back" size={20} color="#0D1117" />
           </View>
         </TouchableOpacity>
         <View style={s.headerCenter}>
           <View style={{ alignItems: 'center' }}>
           <Image
-            source={require('../../assets/logo.png')}
+            source={require('../../assets/qc.png')}
             style={s.headerLogo}
             resizeMode="contain"
           />
@@ -298,25 +297,25 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
           transition={{ type: 'timing', duration: 400, delay: 0 }}
         >
           <View style={s.timeline}>
-            {/* Paso 1 — completado */}
+            {/* Paso 1 — completado: Cotiza */}
             <View style={s.step}>
               <View style={[s.stepDot, s.stepDotDone]}>
-                <Ionicons name="checkmark" size={13} color="#fff" />
+                <Ionicons name="receipt-outline" size={13} color="#fff" />
               </View>
-              <Text style={[s.stepLabel, s.stepLabelDone]}>Cuentas</Text>
+              <Text style={[s.stepLabel, s.stepLabelDone]}>Cotiza</Text>
             </View>
             <View style={[s.stepLine, s.stepLineDone]} />
 
-            {/* Paso 2 — completado */}
+            {/* Paso 2 — completado: Transfiere */}
             <View style={s.step}>
               <View style={[s.stepDot, s.stepDotDone]}>
-                <Ionicons name="checkmark" size={13} color="#fff" />
+                <Ionicons name="swap-horizontal" size={13} color="#fff" />
               </View>
               <Text style={[s.stepLabel, s.stepLabelDone]}>Transfiere</Text>
             </View>
             <View style={[s.stepLine, s.stepLineDone]} />
 
-            {/* Paso 3 — activo */}
+            {/* Paso 3 — activo: Recibe */}
             <View style={s.step}>
               <View style={s.stepDotActiveWrap}>
                 <View style={s.stepArcTrack} />
@@ -339,8 +338,6 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
           transition={{ type: 'timing', duration: 400, delay: 80 }}
           style={s.card}
         >
-          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
           <View style={s.processingRow}>
             {/* Icono animado reloj ↔ check */}
             <View style={s.processingIconWrap}>
@@ -358,15 +355,6 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
             </View>
           </View>
 
-          {/* Barra de progreso sutil */}
-          <View style={s.progressBar}>
-            <MotiView
-              from={{ width: '0%' }}
-              animate={{ width: '65%' }}
-              transition={{ type: 'timing', duration: 2000, delay: 300 }}
-              style={s.progressFill}
-            />
-          </View>
         </MotiView>
 
         {/* ── Resumen de operación ── */}
@@ -374,45 +362,43 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
           from={{ opacity: 0, translateY: 22 }}
           animate={{ opacity: 1, translateY: 0 }}
           transition={{ type: 'timing', duration: 400, delay: 160 }}
-          style={s.card}
+          style={[s.card, { backgroundColor: '#0D1117', borderColor: '#0D1117' }]}
         >
-          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
           {/* Cabecera */}
           <View style={[s.cardHeaderRow, { justifyContent: 'space-between' }]}>
             <View style={[s.cardHeaderRow, { gap: 12 }]}>
-              <View style={s.cardIconWrap}>
-                <Ionicons name="receipt-outline" size={17} color={GREEN} />
+              <View style={[s.cardIconWrap, { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.15)' }]}>
+                <Ionicons name="receipt-outline" size={17} color="#fff" />
               </View>
-              <Text style={s.cardTitle}>Detalles de la operación</Text>
+              <Text style={[s.cardTitle, { color: '#fff' }]}>Detalles de la operación</Text>
             </View>
-            <Text style={s.opIdBadge}>{operation.operation_id}</Text>
+            <Text style={[s.opIdBadge, { color: 'rgba(255,255,255,0.6)', backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>{operation.operation_id}</Text>
           </View>
 
-          <View style={s.hairline} />
+          <View style={[s.hairline, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
           <View style={s.detailRow}>
-            <Text style={s.detailLabel}>Tipo</Text>
-            <Text style={s.detailValue}>
+            <Text style={[s.detailLabel, { color: 'rgba(255,255,255,0.45)' }]}>Tipo</Text>
+            <Text style={[s.detailValue, { color: '#fff' }]}>
               Qoricash {operation.operation_type === 'Compra' ? 'compra' : 'venta'}
             </Text>
           </View>
-          <View style={s.detailRow}>
-            <Text style={s.detailLabel}>Fecha</Text>
-            <Text style={s.detailValue}>{formatDateTime(operation.created_at)}</Text>
+          <View style={[s.detailRow, { borderBottomColor: 'rgba(255,255,255,0.07)' }]}>
+            <Text style={[s.detailLabel, { color: 'rgba(255,255,255,0.45)' }]}>Fecha</Text>
+            <Text style={[s.detailValue, { color: '#fff' }]}>{formatDateTime(operation.created_at)}</Text>
           </View>
 
-          <View style={s.hairline} />
+          <View style={[s.hairline, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
 
           {/* Montos */}
           <View style={s.amountsRow}>
-            <View style={s.amountBlock}>
+            <View style={{ flex: 1, alignItems: 'center', gap: 6 }}>
               <View style={s.amountHeader}>
                 <Text style={s.amountFlag}>
                   {operation.operation_type === 'Compra' ? '🇺🇸' : '🇵🇪'}
                 </Text>
-                <Text style={s.amountLabel}>{operation.operation_type === 'Compra' ? 'Enviaste dólares' : 'Enviaste soles'}</Text>
+                <Text style={[s.amountLabel, { color: 'rgba(255,255,255,0.5)' }]}>{operation.operation_type === 'Compra' ? 'Enviaste dólares' : 'Enviaste soles'}</Text>
               </View>
-              <Text style={s.amountValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+              <Text style={[s.amountValue, { color: '#fff' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
                 {operation.operation_type === 'Compra'
                   ? formatCurrency(operation.amount_usd, 'USD')
                   : formatCurrency(operation.amount_pen, 'PEN')}
@@ -420,16 +406,16 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
             </View>
 
             <View style={s.tcPill}>
-              <Ionicons name="swap-horizontal" size={11} color={DIM} />
-              <Text style={s.tcPillText}>{operation.exchange_rate.toFixed(3)}</Text>
+              <Ionicons name="swap-horizontal" size={11} color="rgba(255,255,255,0.4)" />
+              <Text style={[s.tcPillText, { color: 'rgba(255,255,255,0.5)' }]}>{operation.exchange_rate.toFixed(4)}</Text>
             </View>
 
-            <View style={s.amountBlock}>
+            <View style={{ flex: 1, alignItems: 'center', gap: 6 }}>
               <View style={s.amountHeader}>
                 <Text style={s.amountFlag}>
                   {operation.operation_type === 'Compra' ? '🇵🇪' : '🇺🇸'}
                 </Text>
-                <Text style={s.amountLabel}>{operation.operation_type === 'Compra' ? 'Recibirás soles' : 'Recibirás dólares'}</Text>
+                <Text style={[s.amountLabel, { color: 'rgba(255,255,255,0.5)' }]}>{operation.operation_type === 'Compra' ? 'Recibirás soles' : 'Recibirás dólares'}</Text>
               </View>
               <Text style={[s.amountValue, { color: GREEN }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
                 {operation.operation_type === 'Compra'
@@ -447,11 +433,9 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
           transition={{ type: 'timing', duration: 400, delay: 240 }}
           style={s.card}
         >
-          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
           <View style={s.cardHeaderRow}>
-            <View style={s.cardIconWrap}>
-              <Ionicons name="wallet-outline" size={17} color={GREEN} />
+            <View style={[s.cardIconWrap, { backgroundColor: '#0D1117', borderColor: '#0D1117' }]}>
+              <Ionicons name="wallet-outline" size={17} color="#fff" />
             </View>
             <Text style={s.cardTitle}>Cuenta de destino</Text>
           </View>
@@ -521,10 +505,6 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
 const s = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000',
-  },
-  overlay: {
-    backgroundColor: 'transparent',
   },
 
   // ── Header ──────────────────────────────────────────────────────────────────
@@ -544,11 +524,16 @@ const s = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
+    borderColor: 'rgba(0,0,0,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   headerCenter: {
     flex: 1,
@@ -558,7 +543,7 @@ const s = StyleSheet.create({
   corporateLabel: {
     fontSize: 9,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.35)',
+    color: '#9CA3AF',
     letterSpacing: 2.5,
     marginTop: 2,
     marginLeft: 18,
@@ -591,7 +576,7 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#F3F4F6',
     borderWidth: 1,
     borderColor: BORDER,
     alignItems: 'center',
@@ -602,14 +587,14 @@ const s = StyleSheet.create({
     borderColor: GREEN,
   },
   stepDotActive: {
-    backgroundColor: 'rgba(34,197,94,0.18)',
-    borderColor: GREEN,
+    backgroundColor: '#0D1117',
+    borderColor: '#0D1117',
     borderWidth: 1.5,
   },
   stepLine: {
     flex: 1,
     height: 2,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(0,0,0,0.08)',
     marginHorizontal: 8,
     marginBottom: 20,
   },
@@ -626,20 +611,24 @@ const s = StyleSheet.create({
     fontWeight: '600',
   },
   stepLabelActive: {
-    color: '#fff',
+    color: '#0D1117',
     fontWeight: '700',
   },
 
   // ── Cards ────────────────────────────────────────────────────────────────────
   card: {
-    backgroundColor: 'transparent',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: 'rgba(0,0,0,0.06)',
     borderRadius: 22,
     marginHorizontal: 16,
     marginBottom: 14,
     padding: 18,
-    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 6,
   },
   hairline: {
     height: 1,
@@ -664,7 +653,7 @@ const s = StyleSheet.create({
   cardTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#fff',
+    color: '#0D1117',
   },
   opIdBadge: {
     fontSize: 11,
@@ -699,7 +688,7 @@ const s = StyleSheet.create({
   processingTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#fff',
+    color: '#0D1117',
     marginBottom: 3,
   },
   processingTime: {
@@ -708,7 +697,7 @@ const s = StyleSheet.create({
   },
   progressBar: {
     height: 3,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(0,0,0,0.08)',
     borderRadius: 2,
     marginTop: 16,
     overflow: 'hidden',
@@ -726,7 +715,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 9,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: 'rgba(0,0,0,0.07)',
   },
   detailLabel: {
     fontSize: 13,
@@ -736,7 +725,7 @@ const s = StyleSheet.create({
   detailValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#fff',
+    color: '#0D1117',
     flex: 2,
     textAlign: 'right',
   },
@@ -756,7 +745,7 @@ const s = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     borderWidth: 2,
-    borderColor: 'rgba(34,197,94,0.18)',
+    borderColor: 'rgba(0,0,0,0.12)',
   },
   stepArcSpin: {
     position: 'absolute',
@@ -764,9 +753,9 @@ const s = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     borderWidth: 2,
-    borderTopColor: GREEN,
-    borderRightColor: GREEN,
-    borderBottomColor: GREEN,
+    borderTopColor: '#0D1117',
+    borderRightColor: '#0D1117',
+    borderBottomColor: '#0D1117',
     borderLeftColor: 'transparent',
   },
 
@@ -778,7 +767,7 @@ const s = StyleSheet.create({
   },
   amountBlock: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#F3F4F6',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -802,7 +791,7 @@ const s = StyleSheet.create({
   amountValue: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#fff',
+    color: '#0D1117',
     width: '100%',
     textAlign: 'center',
   },
@@ -823,18 +812,18 @@ const s = StyleSheet.create({
     gap: 10,
   },
   primaryBtn: {
-    backgroundColor: GREEN,
+    backgroundColor: '#0D1117',
     borderRadius: 16,
     paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: GREEN,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
   },
   primaryBtnText: {
     color: '#fff',
@@ -850,8 +839,8 @@ const s = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(37,211,102,0.3)',
-    backgroundColor: 'rgba(37,211,102,0.06)',
+    borderColor: 'rgba(0,0,0,0.20)',
+    backgroundColor: 'transparent',
   },
   supportBtnText: {
     fontSize: 14,

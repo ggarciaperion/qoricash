@@ -33,6 +33,39 @@ const GREEN        = '#22c55e';
 
 interface ProfileScreenProps { navigation: any }
 
+// ─── GlassModal — definido FUERA del componente para evitar remount en re-renders ─
+const GlassModal: React.FC<{
+  visible: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  footer: React.ReactNode;
+}> = ({ visible, onClose, title, children, footer }) => (
+  <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.62)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+        <View style={{ width: '100%', maxHeight: '88%', borderRadius: 20, overflow: 'hidden', backgroundColor: '#FFFFFF', shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.18, shadowRadius: 28, elevation: 20 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#0D1117', paddingHorizontal: 20, paddingVertical: 16 }}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.1 }}>{title}</Text>
+            <TouchableOpacity onPress={onClose} style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.10)', alignItems: 'center', justifyContent: 'center' }} activeOpacity={0.7}>
+              <Ionicons name="close" size={17} color="rgba(255,255,255,0.7)" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 }}
+          >
+            {children}
+            {footer}
+          </ScrollView>
+        </View>
+      </View>
+    </KeyboardAvoidingView>
+  </Modal>
+);
+
 const capitalize = (s: string) =>
   s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
 
@@ -52,7 +85,7 @@ const SectionRow: React.FC<{
     disabled={!onPress}
   >
     <View style={s.rowIcon}>
-      <Ionicons name={icon as any} size={16} color={danger ? '#f87171' : 'rgba(255,255,255,0.55)'} />
+      <Ionicons name={icon as any} size={16} color={danger ? '#f87171' : '#6B7280'} />
     </View>
     <View style={s.rowTexts}>
       <Text style={[s.rowTitle, danger && { color: '#f87171' }]}>{title}</Text>
@@ -270,36 +303,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     : client?.full_name?.charAt(0).toUpperCase() || 'U';
 
   // ── Helpers for modals ─────────────────────────────────────────────────────
-  const GlassModal: React.FC<{
-    visible: boolean;
-    onClose: () => void;
-    title: string;
-    children: React.ReactNode;
-    footer: React.ReactNode;
-  }> = ({ visible, onClose, title, children, footer }) => (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <TouchableOpacity style={s.modalBackdrop} activeOpacity={1} onPress={onClose}>
-          <TouchableOpacity activeOpacity={1} style={s.modalBox} onPress={e => e.stopPropagation()}>
-            <BlurView intensity={88} tint="dark" style={StyleSheet.absoluteFill} />
-            <View style={s.modalBorder} />
-            <Text style={s.modalTitle}>{title}</Text>
-            <View style={s.modalDivider} />
-            <ScrollView style={{ width: '100%' }} showsVerticalScrollIndicator={false}>
-              {children}
-            </ScrollView>
-            {footer}
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
+  // GlassModal se define a nivel de módulo para evitar remount en re-renders
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <View style={s.root}>
-      <ImageBackground source={bg} style={StyleSheet.absoluteFill} resizeMode="cover" />
-      <View style={[StyleSheet.absoluteFill, s.overlay]} pointerEvents="none" />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#F5F7FA' }]} pointerEvents="none" />
 
       {/* ══ Header fijo (no scrollea) ════════════════════════════════════ */}
       <View style={[s.fixedHeader, { paddingTop: insets.top + 12 }]}>
@@ -308,7 +317,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           <Text style={s.headerName}>
             {[client?.nombres?.split(' ')[0], client?.apellido_paterno].filter(Boolean).join(' ') || client?.full_name}
           </Text>
-          <Image source={require('../../assets/ju.png')} style={s.headerLogo} resizeMode="contain" />
+          <Image source={require('../../assets/dt.png')} style={[s.headerLogo, { backgroundColor: 'transparent' }]} resizeMode="contain" />
         </View>
       </View>
 
@@ -344,8 +353,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         {referralStats && (
           <View style={[s.card, s.referralCard]}>
             <View style={[s.cardHeader, { paddingTop: 12, paddingBottom: 8 }]}>
-              <Ionicons name="gift-outline" size={15} color="#a78bfa" />
-              <Text style={[s.cardTitle, { color: '#a78bfa' }]}>Programa de Referidos</Text>
+              <Ionicons name="gift-outline" size={15} color="#fff" />
+              <Text style={[s.cardTitle, { color: '#fff' }]}>Programa de Referidos</Text>
             </View>
 
             {/* Código */}
@@ -355,10 +364,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                 <Text style={s.referralCode}>{referralStats.referral_code}</Text>
               </View>
               <TouchableOpacity style={s.referralBtn} onPress={handleCopyCode} activeOpacity={0.75}>
-                <Ionicons name="copy-outline" size={16} color="#a78bfa" />
+                <Ionicons name="copy-outline" size={16} color="#fff" />
               </TouchableOpacity>
               <TouchableOpacity style={s.referralBtn} onPress={handleShareCode} activeOpacity={0.75}>
-                <Ionicons name="share-social-outline" size={16} color="#a78bfa" />
+                <Ionicons name="share-social-outline" size={16} color="#fff" />
               </TouchableOpacity>
             </View>
 
@@ -375,7 +384,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
               </View>
               <View style={s.referralStatDivider} />
               <View style={s.referralStat}>
-                <Text style={[s.referralStatValue, { color: '#a78bfa' }]}>{referralStats.pips_available}</Text>
+                <Text style={s.referralStatValue}>{referralStats.pips_available}</Text>
                 <Text style={s.referralStatLabel}>Pips disponibles</Text>
               </View>
             </View>
@@ -389,13 +398,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         {/* ══ Información Personal ════════════════════════════════════════ */}
         <View style={s.card}>
           <View style={s.cardHeader}>
-            <Ionicons name="person-outline" size={15} color={GREEN} />
+            <Ionicons name="person-outline" size={15} color="#0D1117" />
             <Text style={s.cardTitle}>Información Personal</Text>
             <TouchableOpacity
               style={s.editBtn}
               onPress={() => { setPhone(client?.phone || ''); setEmail(client?.email || ''); setEditInfoVisible(true); }}
             >
-              <Ionicons name="pencil-outline" size={14} color={GREEN} />
+              <Ionicons name="pencil-outline" size={14} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
           <SectionRow icon="call-outline"  title="Teléfono" subtitle={client?.phone || 'No registrado'} onPress={undefined} chevron={false} />
@@ -406,7 +415,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         {/* ══ Configuración ════════════════════════════════════════════════ */}
         <View style={s.card}>
           <View style={s.cardHeader}>
-            <Ionicons name="settings-outline" size={15} color={GREEN} />
+            <Ionicons name="settings-outline" size={15} color="#0D1117" />
             <Text style={s.cardTitle}>Configuración</Text>
           </View>
           <SectionRow icon="lock-closed-outline" title="Cambiar Contraseña" subtitle="Actualiza tu contraseña de acceso" onPress={() => setChangePasswordVisible(true)} />
@@ -417,10 +426,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         {/* ══ Cuentas Bancarias ════════════════════════════════════════════ */}
         <View style={s.card}>
           <View style={s.cardHeader}>
-            <Ionicons name="card-outline" size={15} color={GREEN} />
+            <Ionicons name="card-outline" size={15} color="#0D1117" />
             <Text style={s.cardTitle}>Cuentas Bancarias</Text>
             <TouchableOpacity style={s.editBtn} onPress={() => setEditingAccounts(e => !e)}>
-              <Ionicons name={editingAccounts ? 'checkmark' : 'pencil-outline'} size={14} color={GREEN} />
+              <Ionicons name={editingAccounts ? 'checkmark' : 'pencil-outline'} size={14} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
 
@@ -430,7 +439,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                 {i > 0 && <View style={s.rowLine} />}
                 <View style={s.bankRow}>
                   <View style={s.bankIcon}>
-                    <Ionicons name="business-outline" size={16} color="rgba(255,255,255,0.55)" />
+                    <Ionicons name="business-outline" size={16} color="#6B7280" />
                   </View>
                   <View style={s.bankTexts}>
                     <Text style={s.bankName}>{account.bank_name}</Text>
@@ -462,7 +471,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
               }}
               activeOpacity={0.78}
             >
-              <Ionicons name="add-circle-outline" size={16} color={GREEN} />
+              <Ionicons name="add-circle-outline" size={16} color="#FFFFFF" />
               <Text style={s.addBtnText}>Agregar cuenta</Text>
             </TouchableOpacity>
           )}
@@ -471,13 +480,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         {/* ══ Acerca de ════════════════════════════════════════════════════ */}
         <View style={s.card}>
           <View style={s.cardHeader}>
-            <Ionicons name="information-circle-outline" size={15} color={GREEN} />
+            <Ionicons name="information-circle-outline" size={15} color="#0D1117" />
             <Text style={s.cardTitle}>Acerca de</Text>
           </View>
-          <SectionRow icon="apps-outline"             title="Versión de la App" subtitle="1.0.0" onPress={undefined} chevron={false} />
-          <View style={s.rowLine} />
-          <SectionRow icon="document-text-outline"   title="Logs del Sistema"         subtitle="Ver registros de depuración"      onPress={() => navigation.navigate('Logs')} />
-          <View style={s.rowLine} />
           <SectionRow icon="reader-outline"          title="Términos y Condiciones"   subtitle="Lee nuestros términos de uso"     onPress={() => { const { API_CONFIG } = require('../constants/config'); navigation.navigate('WebView', { url: `${API_CONFIG.BASE_URL}/legal/terms`, title: 'Términos y Condiciones' }); }} />
           <View style={s.rowLine} />
           <SectionRow icon="shield-checkmark-outline" title="Política de Privacidad"  subtitle="Conoce cómo protegemos tus datos" onPress={() => { const { API_CONFIG } = require('../constants/config'); navigation.navigate('WebView', { url: `${API_CONFIG.BASE_URL}/legal/privacy`, title: 'Política de Privacidad' }); }} />
@@ -489,7 +494,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           <Text style={s.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
 
-        <Text style={s.footer}>QoriCash © 2025</Text>
+        <Text style={s.footer}>Qoricash © 2025</Text>
 
       </ScrollView>
 
@@ -556,14 +561,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         <View style={s.modalBody}>
           <Text style={s.inputLabel}>Teléfono</Text>
           <View style={s.inputRow}>
-            <Ionicons name="call-outline" size={16} color="rgba(255,255,255,0.4)" style={{ marginRight: 8 }} />
-            <TextInput style={s.inputField} value={phone} onChangeText={setPhone} keyboardType="phone-pad" maxLength={9} placeholder="9XXXXXXXX" placeholderTextColor="rgba(255,255,255,0.25)" />
+            <Ionicons name="call-outline" size={16} color="#9CA3AF" style={{ marginRight: 8 }} />
+            <TextInput style={s.inputField} value={phone} onChangeText={setPhone} keyboardType="phone-pad" maxLength={9} placeholder="9XXXXXXXX" placeholderTextColor="#C4C9D4" />
           </View>
 
           <Text style={s.inputLabel}>Email</Text>
           <View style={s.inputRow}>
-            <Ionicons name="mail-outline" size={16} color="rgba(255,255,255,0.4)" style={{ marginRight: 8 }} />
-            <TextInput style={s.inputField} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="correo@ejemplo.com" placeholderTextColor="rgba(255,255,255,0.25)" />
+            <Ionicons name="mail-outline" size={16} color="#9CA3AF" style={{ marginRight: 8 }} />
+            <TextInput style={s.inputField} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="correo@ejemplo.com" placeholderTextColor="#C4C9D4" />
           </View>
           <Text style={s.inputHint}>El teléfono debe tener 9 dígitos y comenzar con 9</Text>
         </View>
@@ -633,10 +638,26 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         <View style={s.modalBody}>
           {/* Origen */}
           <Text style={s.inputLabel}>Origen</Text>
-          <View style={s.segmented}>
+          <View style={{ flexDirection: 'row', gap: 20, marginBottom: 2, marginTop: 4 }}>
             {['Lima', 'Provincia'].map(o => (
-              <TouchableOpacity key={o} style={[s.segBtn, newAccountOrigen === o && s.segBtnActive]} onPress={() => { setNewAccountOrigen(o); setNewAccountBank(''); }}>
-                <Text style={[s.segBtnText, newAccountOrigen === o && s.segBtnTextActive]}>{o}</Text>
+              <TouchableOpacity
+                key={o}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                onPress={() => { setNewAccountOrigen(o); setNewAccountBank(''); }}
+                activeOpacity={0.7}
+              >
+                <View style={{
+                  width: 20, height: 20, borderRadius: 10,
+                  borderWidth: 2,
+                  borderColor: newAccountOrigen === o ? '#0D1117' : '#D1D5DB',
+                  backgroundColor: newAccountOrigen === o ? '#0D1117' : 'transparent',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {newAccountOrigen === o && (
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFFFFF' }} />
+                  )}
+                </View>
+                <Text style={{ fontSize: 14, fontWeight: '500', color: newAccountOrigen === o ? '#0D1117' : '#6B7280' }}>{o}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -644,15 +665,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           {/* Banco */}
           <Text style={s.inputLabel}>Banco</Text>
           <TouchableOpacity style={s.inputRow} onPress={() => setBankMenuVisible(!bankMenuVisible)}>
-            <TextInput style={s.inputField} value={newAccountBank || 'Seleccionar banco...'} editable={false} pointerEvents="none" placeholderTextColor="rgba(255,255,255,0.25)" />
-            <Ionicons name={bankMenuVisible ? 'chevron-up' : 'chevron-down'} size={16} color="rgba(255,255,255,0.4)" />
+            <TextInput style={s.inputField} value={newAccountBank || 'Seleccionar banco...'} editable={false} pointerEvents="none" placeholderTextColor="#C4C9D4" />
+            <Ionicons name={bankMenuVisible ? 'chevron-up' : 'chevron-down'} size={16} color="#9CA3AF" />
           </TouchableOpacity>
           {bankMenuVisible && (
             <View style={s.bankMenu}>
               {getAvailableBanks().map(bank => (
                 <TouchableOpacity key={bank} style={s.bankMenuItem} onPress={() => { setNewAccountBank(bank); setBankMenuVisible(false); }}>
-                  <Text style={[s.bankMenuText, newAccountBank === bank && { color: GREEN }]}>{bank}</Text>
-                  {newAccountBank === bank && <Ionicons name="checkmark" size={14} color={GREEN} />}
+                  <Text style={[s.bankMenuText, newAccountBank === bank && { color: "#0D1117" }]}>{bank}</Text>
+                  {newAccountBank === bank && <Ionicons name="checkmark" size={14} color="#0D1117" />}
                 </TouchableOpacity>
               ))}
             </View>
@@ -662,17 +683,33 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             <>
               <Text style={s.inputLabel}>Nombre del banco</Text>
               <View style={s.inputRow}>
-                <TextInput style={s.inputField} value={newAccountBankCustom} onChangeText={setNewAccountBankCustom} placeholder="Nombre del banco" placeholderTextColor="rgba(255,255,255,0.25)" />
+                <TextInput style={s.inputField} value={newAccountBankCustom} onChangeText={setNewAccountBankCustom} placeholder="Nombre del banco" placeholderTextColor="#C4C9D4" />
               </View>
             </>
           )}
 
           {/* Tipo */}
           <Text style={s.inputLabel}>Tipo de cuenta</Text>
-          <View style={s.segmented}>
+          <View style={{ flexDirection: 'row', gap: 20, marginBottom: 2, marginTop: 4 }}>
             {['Ahorro', 'Corriente'].map(t => (
-              <TouchableOpacity key={t} style={[s.segBtn, newAccountType === t && s.segBtnActive]} onPress={() => setNewAccountType(t)}>
-                <Text style={[s.segBtnText, newAccountType === t && s.segBtnTextActive]}>{t}</Text>
+              <TouchableOpacity
+                key={t}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                onPress={() => setNewAccountType(t)}
+                activeOpacity={0.7}
+              >
+                <View style={{
+                  width: 20, height: 20, borderRadius: 10,
+                  borderWidth: 2,
+                  borderColor: newAccountType === t ? '#0D1117' : '#D1D5DB',
+                  backgroundColor: newAccountType === t ? '#0D1117' : 'transparent',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {newAccountType === t && (
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFFFFF' }} />
+                  )}
+                </View>
+                <Text style={{ fontSize: 14, fontWeight: '500', color: newAccountType === t ? '#0D1117' : '#6B7280' }}>{t}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -692,14 +729,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             <>
               <Text style={s.inputLabel}>CCI (20 dígitos)</Text>
               <View style={s.inputRow}>
-                <TextInput style={s.inputField} value={newAccountCCI} onChangeText={setNewAccountCCI} keyboardType="numeric" maxLength={20} placeholder="00000000000000000000" placeholderTextColor="rgba(255,255,255,0.25)" />
+                <TextInput style={s.inputField} value={newAccountCCI} onChangeText={setNewAccountCCI} keyboardType="numeric" maxLength={20} placeholder="00000000000000000000" placeholderTextColor="#C4C9D4" />
               </View>
             </>
           ) : (
             <>
               <Text style={s.inputLabel}>Número de cuenta</Text>
               <View style={s.inputRow}>
-                <TextInput style={s.inputField} value={newAccountNumber} onChangeText={setNewAccountNumber} keyboardType="numeric" placeholder="Número de cuenta" placeholderTextColor="rgba(255,255,255,0.25)" />
+                <TextInput style={s.inputField} value={newAccountNumber} onChangeText={setNewAccountNumber} keyboardType="numeric" placeholder="Número de cuenta" placeholderTextColor="#C4C9D4" />
               </View>
             </>
           )}
@@ -717,7 +754,6 @@ const GREEN2 = '#22c55e';
 
 const s = StyleSheet.create({
   root:    { flex: 1 },
-  overlay: { backgroundColor: 'transparent' },
   scroll:  { flex: 1 },
   content: { paddingHorizontal: 20 },
 
@@ -725,11 +761,12 @@ const s = StyleSheet.create({
   fixedHeader: {
     paddingHorizontal: 20,
     paddingBottom: 14,
+    backgroundColor: '#F5F7FA',
   },
-  headerLabel: { fontSize: 12, fontWeight: '400', color: 'rgba(255,255,255,0.38)', letterSpacing: 0.2, marginBottom: 5 },
+  headerLabel: { fontSize: 12, fontWeight: '400', color: '#9CA3AF', letterSpacing: 0.2, marginBottom: 5 },
   headerRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' },
-  headerName:  { fontSize: 26, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
-  headerLogo:  { width: 36, height: 36 },
+  headerName:  { fontSize: 26, fontWeight: '800', color: '#0D1117', letterSpacing: -0.5 },
+  headerLogo:  { width: 28, height: 28 },
 
   // ── Strip wrapper ──
   stripWrap: { marginBottom: 24 },
@@ -738,33 +775,43 @@ const s = StyleSheet.create({
   strip: {
     flexDirection: 'row',
     width: '100%',
-    backgroundColor: GLASS_BG2,
-    borderWidth: 1, borderColor: GLASS_BORDER2,
+    backgroundColor: '#0D1117',
+    borderWidth: 1, borderColor: '#0D1117',
     borderRadius: 18,
     paddingVertical: 14, paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 2,
   },
   stripItem:   { flex: 1, alignItems: 'center' },
-  stripLabel:  { fontSize: 9.5, color: 'rgba(255,255,255,0.38)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 5 },
-  stripValue:  { fontSize: 12.5, color: 'rgba(255,255,255,0.82)', fontWeight: '600' },
-  stripDivider: { width: StyleSheet.hairlineWidth * 2, backgroundColor: GLASS_BORDER2, marginVertical: 2 },
+  stripLabel:  { fontSize: 9.5, color: 'rgba(255,255,255,0.45)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 5 },
+  stripValue:  { fontSize: 12.5, color: '#fff', fontWeight: '600' },
+  stripDivider: { width: StyleSheet.hairlineWidth * 2, backgroundColor: 'rgba(255,255,255,0.15)', marginVertical: 2 },
 
   // ── Cards ──
   card: {
-    backgroundColor: GLASS_BG2,
-    borderWidth: 1, borderColor: GLASS_BORDER2,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)',
     borderRadius: 20,
     marginBottom: 14,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12,
   },
-  cardTitle: { flex: 1, fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.88)' },
+  cardTitle: { flex: 1, fontSize: 14, fontWeight: '700', color: '#0D1117' },
   editBtn: {
     width: 30, height: 30, borderRadius: 15,
-    backgroundColor: 'rgba(34,197,94,0.1)',
-    borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)',
+    backgroundColor: '#0D1117',
+    borderWidth: 0,
     alignItems: 'center', justifyContent: 'center',
   },
 
@@ -772,106 +819,113 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
   rowIcon: {
     width: 32, height: 32, borderRadius: 10,
-    backgroundColor: GLASS_BG2,
-    borderWidth: 1, borderColor: GLASS_BORDER2,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)',
     alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,
   },
   rowTexts: { flex: 1 },
-  rowTitle:  { fontSize: 13.5, color: 'rgba(255,255,255,0.85)', fontWeight: '600', marginBottom: 2 },
-  rowSub:    { fontSize: 11.5, color: 'rgba(255,255,255,0.4)', lineHeight: 16 },
-  rowLine:   { height: StyleSheet.hairlineWidth, backgroundColor: GLASS_BORDER2, marginHorizontal: 16 },
+  rowTitle:  { fontSize: 13.5, color: '#374151', fontWeight: '600', marginBottom: 2 },
+  rowSub:    { fontSize: 11.5, color: '#9CA3AF', lineHeight: 16 },
+  rowLine:   { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(0,0,0,0.06)', marginHorizontal: 16 },
 
   // Bank rows
   bankRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
   bankIcon: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: GLASS_BG2, borderWidth: 1, borderColor: GLASS_BORDER2,
+    backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)',
     alignItems: 'center', justifyContent: 'center',
   },
   bankTexts: { flex: 1 },
-  bankName:   { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.85)', marginBottom: 2 },
-  bankDetail: { fontSize: 11, color: 'rgba(255,255,255,0.4)' },
+  bankName:   { fontSize: 13, fontWeight: '700', color: '#374151', marginBottom: 2 },
+  bankDetail: { fontSize: 11, color: '#9CA3AF' },
   bankDelete: { padding: 6 },
 
   // Empty / add
-  emptyText: { fontSize: 13, color: 'rgba(255,255,255,0.35)', textAlign: 'center', paddingVertical: 16, paddingHorizontal: 16 },
+  emptyText: { fontSize: 13, color: '#9CA3AF', textAlign: 'center', paddingVertical: 16, paddingHorizontal: 16 },
   addBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
     margin: 12, paddingVertical: 12,
-    backgroundColor: 'rgba(34,197,94,0.08)',
-    borderRadius: 12, borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)',
+    backgroundColor: '#0D1117',
+    borderRadius: 12, borderWidth: 0,
   },
-  addBtnText: { fontSize: 13, fontWeight: '600', color: GREEN2 },
+  addBtnText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
 
   // ── Logout ──
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9,
     paddingVertical: 16,
-    backgroundColor: 'rgba(248,113,113,0.1)',
-    borderWidth: 1, borderColor: 'rgba(248,113,113,0.25)',
+    backgroundColor: 'rgba(248,113,113,0.08)',
+    borderWidth: 1, borderColor: 'rgba(248,113,113,0.2)',
     borderRadius: 18,
     marginBottom: 18,
   },
   logoutText: { fontSize: 15, fontWeight: '700', color: '#f87171', letterSpacing: 0.2 },
 
-  footer: { fontSize: 10.5, color: 'rgba(255,255,255,0.2)', textAlign: 'center', marginBottom: 8 },
+  footer: { fontSize: 10.5, color: '#D1D5DB', textAlign: 'center', marginBottom: 8 },
 
   // ── Modal ──
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.62)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalBox: {
     width: '100%', maxHeight: '88%',
-    borderRadius: 28, overflow: 'hidden',
-    alignItems: 'center',
-    paddingTop: 28, paddingBottom: 24, paddingHorizontal: 24,
+    borderRadius: 20, overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.18, shadowRadius: 28, elevation: 20,
   },
-  modalBorder: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 28, borderWidth: 1, borderColor: GLASS_BORDER2 },
-  modalTitle:  { fontSize: 17, fontWeight: '800', color: '#fff', marginBottom: 16, letterSpacing: 0.1 },
-  modalDivider: { width: '100%', height: StyleSheet.hairlineWidth, backgroundColor: GLASS_BORDER2, marginBottom: 18 },
+  modalHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#0D1117', paddingHorizontal: 20, paddingVertical: 16,
+  },
+  modalTitle: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.1 },
+  modalCloseBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.10)', alignItems: 'center', justifyContent: 'center' },
+  modalBodyWrap: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 },
+  modalBorder: {},
+  modalDivider: { width: '100%', height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(0,0,0,0.07)', marginBottom: 18 },
   modalBody:   { width: '100%', gap: 4 },
   modalActions: { flexDirection: 'row', gap: 10, width: '100%', marginTop: 16 },
   modalBtnSecondary: {
     flex: 1, paddingVertical: 14, borderRadius: 14,
-    backgroundColor: GLASS_BG2, borderWidth: 1, borderColor: GLASS_BORDER2, alignItems: 'center',
+    backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', alignItems: 'center',
   },
-  modalBtnSecondaryText: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.65)' },
+  modalBtnSecondaryText: { fontSize: 14, fontWeight: '600', color: '#374151' },
   modalBtnPrimary: {
     flex: 1, paddingVertical: 14, borderRadius: 14,
-    backgroundColor: 'rgba(34,197,94,0.18)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.35)', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#0D1117', alignItems: 'center', justifyContent: 'center',
   },
-  modalBtnPrimaryText: { fontSize: 14, fontWeight: '700', color: GREEN2 },
+  modalBtnPrimaryText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
 
   // Form inputs
-  inputLabel: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 14, marginBottom: 6 },
+  inputLabel: { fontSize: 11, fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 14, marginBottom: 6 },
   inputRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: GLASS_BG2, borderWidth: 1, borderColor: GLASS_BORDER2,
+    backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
     borderRadius: 13, paddingHorizontal: 14, paddingVertical: 12,
   },
-  inputField: { flex: 1, color: '#fff', fontSize: 14 },
-  inputHint: { fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 8 },
+  inputField: { flex: 1, color: '#0D1117', fontSize: 14 },
+  inputHint: { fontSize: 11, color: '#9CA3AF', marginTop: 8 },
 
   // Segmented
   segmented: { flexDirection: 'row', gap: 6, marginBottom: 2 },
   segBtn: {
     flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center',
-    backgroundColor: GLASS_BG2, borderWidth: 1, borderColor: GLASS_BORDER2,
+    backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
   },
-  segBtnActive: { backgroundColor: 'rgba(34,197,94,0.14)', borderColor: 'rgba(34,197,94,0.3)' },
-  segBtnText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.4)' },
-  segBtnTextActive: { color: GREEN2, fontWeight: '700' },
+  segBtnActive: { backgroundColor: '#0D1117', borderColor: '#0D1117' },
+  segBtnText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
+  segBtnTextActive: { color: '#fff', fontWeight: '700' },
 
   // Bank menu
   bankMenu: {
-    backgroundColor: 'rgba(8,18,32,0.95)', borderWidth: 1, borderColor: GLASS_BORDER2,
+    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
     borderRadius: 14, marginTop: 4, overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
   },
   bankMenuItem: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: GLASS_BORDER2,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.06)',
   },
-  bankMenuText: { fontSize: 14, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
+  bankMenuText: { fontSize: 14, color: '#374151', fontWeight: '500' },
 
   // Help modal
   helpDesc: { fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 16 },
@@ -885,7 +939,8 @@ const s = StyleSheet.create({
 
   // ── Referral card ──
   referralCard: {
-    borderColor: 'rgba(167,139,250,0.25)',
+    backgroundColor: '#1d4ed8',
+    borderColor: '#2563eb',
   },
   referralCodeRow: {
     flexDirection: 'row',
@@ -897,16 +952,16 @@ const s = StyleSheet.create({
   },
   referralCodeWrap: {
     flex: 1,
-    backgroundColor: 'rgba(167,139,250,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.22)',
+    borderColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   referralCodeLabel: {
     fontSize: 9,
-    color: 'rgba(167,139,250,0.6)',
+    color: 'rgba(255,255,255,0.6)',
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -915,25 +970,25 @@ const s = StyleSheet.create({
   referralCode: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#a78bfa',
+    color: '#fff',
     letterSpacing: 3,
   },
   referralBtn: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: 'rgba(167,139,250,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.22)',
+    borderColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   referralStatsRow: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(167,139,250,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.14)',
+    borderColor: 'rgba(255,255,255,0.15)',
     marginHorizontal: 14,
     marginBottom: 10,
   },
@@ -944,7 +999,7 @@ const s = StyleSheet.create({
   },
   referralStatDivider: {
     width: 1,
-    backgroundColor: 'rgba(167,139,250,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     marginVertical: 8,
   },
   referralStatValue: {
@@ -955,13 +1010,13 @@ const s = StyleSheet.create({
   },
   referralStatLabel: {
     fontSize: 9,
-    color: 'rgba(255,255,255,0.4)',
+    color: 'rgba(255,255,255,0.6)',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
   referralHint: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(255,255,255,0.65)',
     lineHeight: 15,
     textAlign: 'center',
     paddingHorizontal: 14,

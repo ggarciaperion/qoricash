@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -26,6 +26,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../contexts/AuthContext';
 import { Operation } from '../types';
 import axios from 'axios';
+import { CancelOperationModal } from '../components/CancelOperationModal';
 import { API_CONFIG } from '../constants/config';
 import socketService from '../services/socketService';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
@@ -48,9 +49,9 @@ const getStatusConfig = (status: string) => {
     case 'en_proceso':
       return { color: '#60a5fa', icon: 'sync-outline' as const,        label: 'En Proceso' };
     case 'completado':
-      return { color: '#22c55e', icon: 'checkmark-circle-outline' as const, label: 'Completada' };
+      return { color: '#16a34a', icon: 'checkmark-circle-outline' as const, label: 'Completada' };
     case 'cancelado':
-      return { color: '#f87171', icon: 'close-circle-outline' as const, label: 'Cancelada' };
+      return { color: '#dc2626', icon: 'close-circle-outline' as const, label: 'Cancelada' };
     case 'expirado':
       return { color: '#9ca3af', icon: 'alert-circle-outline' as const, label: 'Expirada' };
     default:
@@ -132,27 +133,48 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
   const navigation = useNavigation<any>();
 
   const [operations,         setOperations]         = useState<Operation[]>([]);
-  const [filteredOperations, setFilteredOperations] = useState<Operation[]>([]);
   const [loading,            setLoading]            = useState(false);
   const [refreshing,         setRefreshing]         = useState(false);
   const [activeTab,          setActiveTab]          = useState<'pending'|'completed'>(
     route?.params?.initialTab || 'pending'
   );
+
+  useEffect(() => {
+    if (route?.params?.initialTab) {
+      const tab = route.params.initialTab as 'pending' | 'completed';
+      setActiveTab(tab);
+      slideAnim.setValue(tab === 'pending' ? 0 : tabWidth);
+    }
+  }, [route?.params?.initialTab]);
   const [currentTime,           setCurrentTime]           = useState(new Date());
   const [cancelDialogVisible,   setCancelDialogVisible]   = useState(false);
   const [cancelReason,          setCancelReason]          = useState('');
   const [operationToCancel,     setOperationToCancel]     = useState<Operation|null>(null);
   const [canceling,             setCanceling]             = useState(false);
+  const [searchQuery,           setSearchQuery]           = useState('');
+  const [dateFilter,            setDateFilter]            = useState<'all'|'7d'|'30d'|'90d'>('all');
 
-  // Tab pill animation
-  const pillX = useRef(new Animated.Value(0)).current;
+  // Tab animations
+  const [tabWidth, setTabWidth] = useState(0);
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim  = useRef(new Animated.Value(1)).current;
 
-  useEffect(() => {
-    Animated.spring(pillX, {
-      toValue: activeTab === 'pending' ? 0 : 1,
-      tension: 200, friction: 15, useNativeDriver: false,
+  const switchTab = useCallback((tab: 'pending' | 'completed') => {
+    if (tab === activeTab) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Slide pill
+    Animated.spring(slideAnim, {
+      toValue: tab === 'pending' ? 0 : tabWidth,
+      useNativeDriver: true,
+      tension: 320,
+      friction: 22,
     }).start();
-  }, [activeTab]);
+    // Fade content out → switch → fade in
+    Animated.timing(fadeAnim, { toValue: 0.4, duration: 90, useNativeDriver: true }).start(() => {
+      setActiveTab(tab);
+      Animated.timing(fadeAnim, { toValue: 1, duration: 160, useNativeDriver: true }).start();
+    });
+  }, [activeTab, tabWidth, slideAnim, fadeAnim]);
 
   // ── Data hooks (unchanged) ────────────────────────────────────────────────
   useEffect(() => { if (client) fetchHistory(); }, [client]);
@@ -203,15 +225,35 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
+  const filteredOperations = useMemo(() => {
     let filtered = operations;
+
     if (activeTab === 'pending') {
-      filtered = operations.filter(op => op.status === 'pendiente' || op.status === 'en_proceso');
-    } else {
-      filtered = operations.filter(op => op.status === 'completado' || op.status === 'cancelado' || op.status === 'expirado');
+      return filtered.filter(op => op.status === 'pendiente' || op.status === 'en_proceso');
     }
-    setFilteredOperations(filtered);
-  }, [operations, activeTab, currentTime]);
+
+    filtered = filtered.filter(op => op.status === 'completado' || op.status === 'cancelado' || op.status === 'expirado');
+
+    if (dateFilter !== 'all') {
+      const days = dateFilter === '7d' ? 7 : dateFilter === '30d' ? 30 : 90;
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      filtered = filtered.filter(op => new Date(op.created_at) >= cutoff);
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      filtered = filtered.filter(op =>
+        op.operation_id?.toLowerCase().includes(q) ||
+        String(op.amount_usd).includes(q) ||
+        String(op.amount_pen).includes(q) ||
+        formatCurrency(op.amount_usd, 'USD').toLowerCase().includes(q) ||
+        formatCurrency(op.amount_pen, 'PEN').toLowerCase().includes(q)
+      );
+    }
+
+    return filtered;
+  }, [operations, activeTab, searchQuery, dateFilter]);
 
   // ── API (unchanged) ───────────────────────────────────────────────────────
   const fetchHistory = async () => {
@@ -286,79 +328,153 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
 
   // ── Operation Card ────────────────────────────────────────────────────────
   const OperationCard: React.FC<{ operation: Operation }> = ({ operation }) => {
-    const sc     = getStatusConfig(operation.status);
-    const time   = operation.status === 'pendiente' ? calculateTimeRemaining(operation.created_at) : null;
+    const sc      = getStatusConfig(operation.status);
+    const time    = operation.status === 'pendiente' ? calculateTimeRemaining(operation.created_at) : null;
+    const isDark  = operation.status === 'pendiente' || operation.status === 'en_proceso';
 
     return (
       <TouchableOpacity
-        style={s.card}
+        style={[s.card, isDark && { backgroundColor: '#0D1117', borderColor: '#0D1117' }]}
         onPress={() => handleOperationPress(operation)}
         activeOpacity={0.82}
       >
-        {/* Header */}
-        <View style={s.cardTop}>
-          <View style={s.cardLeft}>
-            <Text style={s.cardId}>{operation.operation_id}</Text>
-            <Text style={s.cardAmount}>
-              {operation.operation_type === 'Compra'
-                ? formatCurrency(operation.amount_usd, 'USD')
-                : formatCurrency(operation.amount_pen, 'PEN')}
-            </Text>
-            <Text style={s.cardMeta}>
-              {operation.operation_type} · T.C. {operation.exchange_rate.toFixed(3)}
-            </Text>
-            <Text style={s.cardDate}>{formatDateTime(operation.created_at)}</Text>
-          </View>
-
-          <View style={s.cardRight}>
-            {operation.status === 'en_proceso' ? (
-              <PulsingBadge
-                color={sc.color}
-                baseStyle={[s.statusBadge, { borderWidth: 1 }]}
-              >
-                <SpinningSync color={sc.color} size={12} />
-                <Text style={[s.statusText, { color: sc.color }]}>{sc.label}</Text>
-              </PulsingBadge>
-            ) : (
-              <View style={[s.statusBadge, { backgroundColor: `${sc.color}1a`, borderColor: `${sc.color}40` }]}>
-                <Ionicons name={sc.icon} size={12} color={sc.color} />
-                <Text style={[s.statusText, { color: sc.color }]}>{sc.label}</Text>
-              </View>
-            )}
-            {time && !time.expired && (
-              <View style={s.countdown}>
-                <Ionicons name="timer-outline" size={10} color="#f87171" />
-                <Text style={s.countdownText}>{time.minutes}:{time.seconds.toString().padStart(2,'0')}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Cancel */}
-        {operation.status === 'pendiente' && (
+        {isDark ? (
+          /* ── DARK CARD (pendiente / en_proceso) ── */
           <>
+            <View style={{ padding: 22, gap: 18 }}>
+
+              {/* Fila 1: ID + badge */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff', letterSpacing: 0.6 }}>
+                  {operation.operation_id}
+                </Text>
+                {operation.status === 'en_proceso' ? (
+                  <PulsingBadge color={sc.color} baseStyle={[s.statusBadge, { borderWidth: 1 }]}>
+                    <SpinningSync color={sc.color} size={12} />
+                    <Text style={[s.statusText, { color: sc.color }]}>{sc.label}</Text>
+                  </PulsingBadge>
+                ) : (
+                  <View style={[s.statusBadge, { backgroundColor: `${sc.color}1a`, borderColor: `${sc.color}40` }]}>
+                    <Ionicons name={sc.icon} size={12} color={sc.color} />
+                    <Text style={[s.statusText, { color: sc.color }]}>{sc.label}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Fila 2: tipo de operación */}
+              <Text style={{ fontSize: 11, fontWeight: '500', color: '#fff', textTransform: 'uppercase', letterSpacing: 1 }}>
+                {operation.operation_type === 'Compra' ? '🇺🇸 Cambio de dólares a soles' : '🇵🇪 Cambio de soles a dólares'}
+              </Text>
+
+              {/* Fila 3: importes */}
+              <View style={{ gap: 6 }}>
+                <Text style={{ fontSize: 42, fontWeight: '900', color: '#fff', letterSpacing: -1.5 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                  {operation.operation_type === 'Compra'
+                    ? formatCurrency(operation.amount_usd, 'USD')
+                    : formatCurrency(operation.amount_pen, 'PEN')}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="arrow-forward" size={14} color={GREEN} />
+                  <Text style={{ fontSize: 22, fontWeight: '700', color: GREEN }}>
+                    {operation.operation_type === 'Compra'
+                      ? formatCurrency(operation.amount_pen, 'PEN')
+                      : formatCurrency(operation.amount_usd, 'USD')}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Fila 4: TC + fecha + countdown */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+                <View style={{ gap: 4 }}>
+                  <Text style={{ fontSize: 12, color: '#fff', fontWeight: '500' }}>
+                    T.C. {operation.exchange_rate.toFixed(4)}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: '#fff' }}>
+                    {formatDateTime(operation.created_at)}
+                  </Text>
+                </View>
+                {time && !time.expired && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(248,113,113,0.15)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7 }}>
+                    <Ionicons name="timer-outline" size={15} color="#f87171" />
+                    <Text style={{ fontSize: 18, fontWeight: '800', color: '#f87171' }}>
+                      {time.minutes}:{time.seconds.toString().padStart(2, '0')}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Acciones */}
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginHorizontal: 22 }} />
+            {operation.status === 'pendiente' ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity
+                  style={[s.cancelRow, { flex: 1, justifyContent: 'flex-start' }]}
+                  onPress={() => handleCancelOperation(operation)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close-circle-outline" size={15} color="#f87171" />
+                  <Text style={[s.cancelText, { fontSize: 13 }]}>Anular operación</Text>
+                </TouchableOpacity>
+                <View style={{ width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.15)' }} />
+                <View style={[s.detailRow, { flex: 1, justifyContent: 'flex-end' }]}>
+                  <Ionicons name="eye-outline" size={15} color={GREEN} />
+                  <Text style={[s.detailText, { fontSize: 13 }]}>Ver detalles</Text>
+                  <Ionicons name="chevron-forward" size={14} color={GREEN} />
+                </View>
+              </View>
+            ) : (
+              <View style={s.detailRow}>
+                <Ionicons name="eye-outline" size={15} color={GREEN} />
+                <Text style={[s.detailText, { fontSize: 13 }]}>Ver detalles</Text>
+                <Ionicons name="chevron-forward" size={14} color={GREEN} style={{ marginLeft: 'auto' }} />
+              </View>
+            )}
+            {operation.status === 'en_proceso' && <ShimmerBar color={sc.color} />}
+          </>
+        ) : (
+          /* ── LIGHT CARD (completado / cancelado / expirado) ── */
+          <>
+            <View style={s.cardTop}>
+              <View style={s.cardLeft}>
+                <Text style={s.cardId}>{operation.operation_id}</Text>
+                <Text style={s.cardAmount}>
+                  {operation.operation_type === 'Compra'
+                    ? formatCurrency(operation.amount_usd, 'USD')
+                    : formatCurrency(operation.amount_pen, 'PEN')}
+                </Text>
+                <Text style={s.cardMeta}>
+                  {operation.operation_type} · T.C. {operation.exchange_rate.toFixed(4)}
+                </Text>
+                <Text style={s.cardDate}>{formatDateTime(operation.created_at)}</Text>
+              </View>
+              <View style={s.cardRight}>
+                <View style={[
+                  s.statusBadge,
+                  (operation.status === 'completado' || operation.status === 'cancelado')
+                    ? { backgroundColor: sc.color, borderColor: sc.color }
+                    : { backgroundColor: `${sc.color}1a`, borderColor: `${sc.color}40` },
+                ]}>
+                  <Ionicons
+                    name={sc.icon}
+                    size={12}
+                    color={(operation.status === 'completado' || operation.status === 'cancelado') ? '#fff' : sc.color}
+                  />
+                  <Text style={[
+                    s.statusText,
+                    { color: (operation.status === 'completado' || operation.status === 'cancelado') ? '#fff' : sc.color },
+                  ]}>{sc.label}</Text>
+                </View>
+              </View>
+            </View>
             <View style={s.cardLine} />
-            <TouchableOpacity
-              style={s.cancelRow}
-              onPress={() => handleCancelOperation(operation)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="close-circle-outline" size={14} color="#f87171" />
-              <Text style={s.cancelText}>Cancelar operación</Text>
-            </TouchableOpacity>
+            <View style={s.detailRow}>
+              <Ionicons name="eye-outline" size={14} color={GREEN} />
+              <Text style={s.detailText}>Ver detalles</Text>
+              <Ionicons name="chevron-forward" size={13} color={GREEN} style={{ marginLeft: 'auto' }} />
+            </View>
           </>
         )}
-
-        {/* Detail */}
-        <View style={s.cardLine} />
-        <View style={s.detailRow}>
-          <Ionicons name="eye-outline" size={14} color={GREEN} />
-          <Text style={s.detailText}>Ver detalles</Text>
-          <Ionicons name="chevron-forward" size={13} color={GREEN} style={{ marginLeft: 'auto' }} />
-        </View>
-
-        {/* Activity shimmer — only for en_proceso */}
-        {operation.status === 'en_proceso' && <ShimmerBar color={sc.color} />}
       </TouchableOpacity>
     );
   };
@@ -368,38 +484,85 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
 
   return (
     <View style={s.root}>
-      <ImageBackground source={bg} style={StyleSheet.absoluteFill} resizeMode="cover" />
-      <View style={[StyleSheet.absoluteFill, s.overlay]} pointerEvents="none" />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#F5F7FA' }]} pointerEvents="none" />
 
       {/* ── Tab switcher ── */}
       <View style={[s.tabWrap, { paddingTop: insets.top + 14 }]}>
-        <View style={s.tabBar}>
-          <TouchableOpacity
-            style={[s.tabBtn, activeTab === 'pending' && s.tabBtnActive]}
-            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setActiveTab('pending'); }}
-            activeOpacity={0.82}
-          >
+        <View
+          style={s.tabBar}
+          onLayout={e => {
+            const w = e.nativeEvent.layout.width / 2;
+            setTabWidth(w);
+            slideAnim.setValue(activeTab === 'pending' ? 0 : w);
+          }}
+        >
+          {/* Sliding pill */}
+          <Animated.View
+            style={[s.tabPill, { width: tabWidth, transform: [{ translateX: slideAnim }] }]}
+            pointerEvents="none"
+          />
+
+          <TouchableOpacity style={s.tabBtn} onPress={() => switchTab('pending')} activeOpacity={0.82}>
             <Text style={[s.tabLabel, activeTab === 'pending' && s.tabLabelActive]}>
-              En Curso {pendingCount > 0 ? `(${pendingCount})` : ''}
+              En Curso{pendingCount > 0 ? ` (${pendingCount})` : ''}
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[s.tabBtn, activeTab === 'completed' && s.tabBtnActive]}
-            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setActiveTab('completed'); }}
-            activeOpacity={0.82}
-          >
+          <TouchableOpacity style={s.tabBtn} onPress={() => switchTab('completed')} activeOpacity={0.82}>
             <Text style={[s.tabLabel, activeTab === 'completed' && s.tabLabelActive]}>
-              Finalizadas {completedCount > 0 ? `(${completedCount})` : ''}
+              Finalizadas{completedCount > 0 ? ` (${completedCount})` : ''}
             </Text>
           </TouchableOpacity>
         </View>
       </View>
 
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+      {/* ── Búsqueda + Filtros (solo Finalizadas) ── */}
+      {activeTab === 'completed' && (
+        <View style={s.searchWrap}>
+          {/* Search input */}
+          <View style={s.searchBox}>
+            <Ionicons name="search-outline" size={16} color="#9CA3AF" />
+            <TextInput
+              style={s.searchInput}
+              placeholder="Buscar por ID, importe, T.C., etc..."
+              placeholderTextColor="#C4C9D4"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+              autoCorrect={false}
+              autoCapitalize="none"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} activeOpacity={0.7}>
+                <Ionicons name="close-circle" size={16} color="#C4C9D4" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Date chips */}
+          <View style={s.dateChips}>
+            {(['all', '7d', '30d', '90d'] as const).map(f => (
+              <TouchableOpacity
+                key={f}
+                style={[s.dateChip, dateFilter === f && s.dateChipActive]}
+                onPress={() => setDateFilter(f)}
+                activeOpacity={0.75}
+              >
+                <Text style={[s.dateChipText, dateFilter === f && s.dateChipTextActive]}>
+                  {f === 'all' ? 'Todo' : f === '7d' ? '7 días' : f === '30d' ? '30 días' : '3 meses'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
       {/* ── Loading ── */}
       {loading && operations.length === 0 ? (
         <View style={s.center}>
-          <ActivityIndicator size="large" color={GREEN} />
+          <ActivityIndicator size="large" color="#0D1117" />
           <Text style={s.loadText}>Cargando historial...</Text>
         </View>
       ) : (
@@ -422,60 +585,37 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
                 color="rgba(255,255,255,0.22)"
               />
               <Text style={s.emptyTitle}>
-                {activeTab === 'pending' ? 'Sin operaciones en curso' : 'Sin historial'}
+                {activeTab === 'pending'
+                  ? 'Sin operaciones en curso'
+                  : (searchQuery || dateFilter !== 'all') ? 'Sin resultados' : 'Sin historial'}
               </Text>
               <Text style={s.emptySubtitle}>
                 {activeTab === 'pending'
                   ? 'Inicia una nueva operación desde el inicio'
-                  : 'Aquí aparecerán tus operaciones completadas y canceladas'}
+                  : (searchQuery || dateFilter !== 'all')
+                    ? 'Prueba con otro término o amplía el rango de fechas'
+                    : 'Aquí aparecerán tus operaciones completadas y canceladas'}
               </Text>
             </View>
           }
         />
       )}
 
+      </Animated.View>
+
       {/* ── Cancel Modal ── */}
-      <Modal visible={cancelDialogVisible} transparent animationType="fade" onRequestClose={handleCloseCancelDialog}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          <TouchableOpacity style={s.modalBackdrop} activeOpacity={1} onPress={handleCloseCancelDialog}>
-            <TouchableOpacity activeOpacity={1} style={s.modalBox} onPress={e => e.stopPropagation()}>
-              <BlurView intensity={88} tint="dark" style={StyleSheet.absoluteFill} />
-              <View style={s.modalBorder} />
-
-              <Ionicons name="alert-circle-outline" size={40} color="#f87171" style={{ marginBottom: 14 }} />
-              <Text style={s.modalTitle}>Cancelar Operación</Text>
-              <Text style={s.modalSub}>Indica el motivo de la cancelación</Text>
-
-              <TextInput
-                style={s.modalInput}
-                placeholder="Escribe el motivo aquí..."
-                placeholderTextColor="rgba(255,255,255,0.3)"
-                value={cancelReason}
-                onChangeText={setCancelReason}
-                multiline
-                numberOfLines={4}
-                editable={!canceling}
-              />
-
-              <View style={s.modalActions}>
-                <TouchableOpacity style={s.modalBtnSecondary} onPress={handleCloseCancelDialog} disabled={canceling}>
-                  <Text style={s.modalBtnSecondaryText}>Volver</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[s.modalBtnDanger, (!cancelReason.trim() || canceling) && s.modalBtnDisabled]}
-                  onPress={handleConfirmCancel}
-                  disabled={canceling || !cancelReason.trim()}
-                >
-                  {canceling
-                    ? <ActivityIndicator color="#fff" size="small" />
-                    : <Text style={s.modalBtnDangerText}>Cancelar</Text>
-                  }
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
-      </Modal>
+      <CancelOperationModal
+        visible={cancelDialogVisible}
+        onClose={handleCloseCancelDialog}
+        operationId={operationToCancel?.id ?? 0}
+        operationCode={operationToCancel?.operation_id ?? ''}
+        clientDni={client?.dni ?? ''}
+        onSuccess={() => {
+          setCancelDialogVisible(false);
+          setOperationToCancel(null);
+          fetchHistory();
+        }}
+      />
     </View>
   );
 };
@@ -483,9 +623,61 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   root: { flex: 1 },
-  overlay: { backgroundColor: 'transparent' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
-  loadText: { color: 'rgba(255,255,255,0.5)', fontSize: 14 },
+  loadText: { color: '#6B7280', fontSize: 14 },
+
+  // ── Search ──
+  searchWrap: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    gap: 10,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.07)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0D1117',
+    padding: 0,
+  },
+  dateChips: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  dateChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+  },
+  dateChipActive: {
+    backgroundColor: '#0D1117',
+    borderColor: '#0D1117',
+  },
+  dateChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9CA3AF',
+  },
+  dateChipTextActive: {
+    color: '#FFFFFF',
+  },
 
   // ── Tabs ──
   tabWrap: {
@@ -494,32 +686,42 @@ const s = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: GLASS_BG,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: 'rgba(0,0,0,0.07)',
     borderRadius: 16,
     padding: 4,
-    gap: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  tabPill: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    left: 4,
+    backgroundColor: '#0D1117',
+    borderRadius: 12,
   },
   tabBtn: {
     flex: 1,
     paddingVertical: 10,
     borderRadius: 12,
     alignItems: 'center',
-  },
-  tabBtnActive: {
-    backgroundColor: 'rgba(34,197,94,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.3)',
+    zIndex: 1,
   },
   tabLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.38)',
+    color: '#9CA3AF',
     letterSpacing: 0.1,
   },
   tabLabelActive: {
-    color: GREEN,
+    color: '#FFFFFF',
     fontWeight: '700',
   },
 
@@ -542,24 +744,29 @@ const s = StyleSheet.create({
   emptyTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.6)',
+    color: '#374151',
     textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.35)',
+    color: '#9CA3AF',
     textAlign: 'center',
     lineHeight: 20,
   },
 
   // ── Card ──
   card: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: 'rgba(0,0,0,0.06)',
     borderRadius: 20,
     marginBottom: 12,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   cardTop: {
     flexDirection: 'row',
@@ -568,10 +775,10 @@ const s = StyleSheet.create({
     padding: 16,
   },
   cardLeft: { flex: 1, paddingRight: 12 },
-  cardId: { fontSize: 10.5, color: 'rgba(255,255,255,0.38)', fontWeight: '600', letterSpacing: 0.4, marginBottom: 4 },
-  cardAmount: { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.3, marginBottom: 3 },
-  cardMeta: { fontSize: 11.5, color: 'rgba(255,255,255,0.5)', marginBottom: 2 },
-  cardDate: { fontSize: 10.5, color: 'rgba(255,255,255,0.3)', letterSpacing: 0.1 },
+  cardId: { fontSize: 10.5, color: '#9CA3AF', fontWeight: '600', letterSpacing: 0.4, marginBottom: 4 },
+  cardAmount: { fontSize: 20, fontWeight: '800', color: '#0D1117', letterSpacing: -0.3, marginBottom: 3 },
+  cardMeta: { fontSize: 11.5, color: '#6B7280', marginBottom: 2 },
+  cardDate: { fontSize: 10.5, color: '#9CA3AF', letterSpacing: 0.1 },
   cardRight: { alignItems: 'flex-end', gap: 6 },
   statusBadge: {
     flexDirection: 'row',
@@ -590,7 +797,7 @@ const s = StyleSheet.create({
   },
   countdownText: { fontSize: 10, color: '#f87171', fontWeight: '700' },
 
-  cardLine: { height: StyleSheet.hairlineWidth, backgroundColor: GLASS_BORDER, marginHorizontal: 16 },
+  cardLine: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(0,0,0,0.06)', marginHorizontal: 16 },
 
   cancelRow: {
     flexDirection: 'row',
@@ -623,28 +830,26 @@ const s = StyleSheet.create({
     width: '100%',
     borderRadius: 24,
     overflow: 'hidden',
-    alignItems: 'center',
-    paddingTop: 36,
-    paddingBottom: 28,
-    paddingHorizontal: 24,
+    alignItems: 'stretch',
+    backgroundColor: '#fff',
   },
   modalBorder: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: 'rgba(0,0,0,0.08)',
   },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: '#fff', textAlign: 'center', marginBottom: 6 },
-  modalSub: { fontSize: 13, color: 'rgba(255,255,255,0.45)', textAlign: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#0D1117', textAlign: 'center', marginBottom: 6 },
+  modalSub: { fontSize: 13, color: '#6B7280', textAlign: 'center', marginBottom: 20 },
   modalInput: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#F9FAFB',
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: 'rgba(0,0,0,0.08)',
     borderRadius: 14,
     padding: 14,
-    color: '#fff',
+    color: '#0D1117',
     fontSize: 14,
     minHeight: 100,
     textAlignVertical: 'top',
@@ -655,12 +860,12 @@ const s = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: GLASS_BG,
+    backgroundColor: '#F3F4F6',
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: 'rgba(0,0,0,0.07)',
     alignItems: 'center',
   },
-  modalBtnSecondaryText: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.7)' },
+  modalBtnSecondaryText: { fontSize: 14, fontWeight: '600', color: '#374151' },
   modalBtnDanger: {
     flex: 1,
     paddingVertical: 14,

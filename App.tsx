@@ -1,5 +1,8 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { StatusBar } from 'react-native';
+import * as ExpoSplashScreen from 'expo-splash-screen';
+
+ExpoSplashScreen.preventAutoHideAsync().catch(() => {});
 import { Provider as PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -72,6 +75,10 @@ export default function App() {
     }).start();
   }, [contentOp]);
 
+  useEffect(() => {
+    ExpoSplashScreen.hideAsync().catch(() => {});
+  }, []);
+
   const [fontsLoaded] = useFonts({
     // Montserrat — wordmark institucional
     Montserrat_600SemiBold,
@@ -87,6 +94,9 @@ export default function App() {
     Poppins_500Medium,
     Poppins_600SemiBold,
     Poppins_700Bold,
+    // Sansation — logo splash
+    Sansation_Regular: require('./assets/fonts/Sansation_Regular.ttf'),
+    Sansation_Bold:    require('./assets/fonts/Sansation_Bold.ttf'),
   });
 
   useEffect(() => {
@@ -142,12 +152,12 @@ export default function App() {
               </AuthProvider>
             </Animated.View>
           </View>
-
-          {showSplash && (
-            <SplashScreen onFinish={handleSplashFinish} />
-          )}
         </PaperProvider>
       </SafeAreaProvider>
+
+      {showSplash && (
+        <SplashScreen onFinish={handleSplashFinish} />
+      )}
     </GestureHandlerRootView>
   );
 }

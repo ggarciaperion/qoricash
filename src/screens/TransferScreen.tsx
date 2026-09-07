@@ -28,6 +28,7 @@ import { formatCurrency, formatDateTime } from '../utils/formatters';
 import apiClient from '../api/client';
 import socketService from '../services/socketService';
 import { logger } from '../utils/logger';
+import { shownCancelAlerts } from '../utils/cancelAlertDedup';
 import { useAuth } from '../contexts/AuthContext';
 import { useBackground } from '../hooks/useBackground';
 
@@ -46,10 +47,10 @@ const BANK_LOGOS: Record<string, any> = {
 const OPERATION_TIMEOUT_MINUTES = 15;
 
 const GREEN  = '#22c55e';
-const GLASS  = 'rgba(255,255,255,0.08)';
-const BORDER = 'rgba(255,255,255,0.14)';
-const DIM    = 'rgba(255,255,255,0.5)';
-const SHEET  = '#0b1929';
+const GLASS  = '#FFFFFF';
+const BORDER = 'rgba(0,0,0,0.08)';
+const DIM    = '#6B7280';
+const SHEET  = '#FFFFFF';
 
 interface TransferScreenProps {
   navigation: any;
@@ -69,6 +70,22 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
 
   const [timeRemaining, setTimeRemaining]   = useState('');
   const [isExpired, setIsExpired]           = useState(false);
+  const [showTimerInfo, setShowTimerInfo]   = useState(false);
+  const timerInfoSpin = useRef(new Animated.Value(0)).current;
+  const timerInfoLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    if (showTimerInfo) {
+      timerInfoSpin.setValue(0);
+      timerInfoLoopRef.current = Animated.loop(
+        Animated.timing(timerInfoSpin, { toValue: 1, duration: 1800, useNativeDriver: true, easing: Easing.linear })
+      );
+      timerInfoLoopRef.current.start();
+    } else {
+      timerInfoLoopRef.current?.stop();
+      timerInfoSpin.setValue(0);
+    }
+  }, [showTimerInfo]);
 
   const [transferCodeModalVisible, setTransferCodeModalVisible] = useState(false);
   const [transferCode, setTransferCode]     = useState('');
@@ -155,9 +172,34 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
   useEffect(() => {
     const handleOperationExpired = (data: any) => {
       if (data.operation_id === operation.operation_id) {
+        const key = `expired_${data.operation_id}`;
+        shownCancelAlerts.add(key);
+        setTimeout(() => shownCancelAlerts.delete(key), 5000);
         Alert.alert(
-          '⏱️ Tiempo Expirado',
-          `La operación ${data.operation_id} ha sido cancelada porque se agotó el tiempo para subir el comprobante.\n\nPuedes crear una nueva operación desde el inicio.`,
+          '⏱️ Operación Cancelada',
+          `Tu operación ${data.operation_id} fue cancelada automáticamente por vencer el tiempo límite sin confirmación.\n\nPuedes crear una nueva operación desde el inicio.`,
+          [{
+            text: 'Entendido',
+            onPress: async () => {
+              try { await AsyncStorage.removeItem(LOCAL_OPERATIONS_CACHE_KEY); } catch {}
+              navigation.replace('Tabs', { screen: 'HistoryTab', params: { initialTab: 'completed' } });
+            },
+          }],
+          { cancelable: false }
+        );
+      }
+    };
+
+    const handleCanceledByAdmin = (data: any) => {
+      if (data.operation_id === operation.operation_id) {
+        const key = `cancel_${data.operation_id}`;
+        shownCancelAlerts.add(key);
+        setTimeout(() => shownCancelAlerts.delete(key), 5000);
+        Alert.alert(
+          '❌ Operación Cancelada',
+          `Tu operación ${data.operation_id} fue cancelada por el equipo Qoricash.\n\n` +
+          `Motivo: ${data.reason || 'Sin motivo especificado'}\n\n` +
+          `Si tienes alguna duda, contáctanos por WhatsApp.`,
           [{
             text: 'Entendido',
             onPress: async () => {
@@ -171,7 +213,11 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
     };
 
     socketService.on('operation_expired', handleOperationExpired);
-    return () => socketService.off('operation_expired', handleOperationExpired);
+    socketService.on('operacion_cancelada_admin', handleCanceledByAdmin);
+    return () => {
+      socketService.off('operation_expired', handleOperationExpired);
+      socketService.off('operacion_cancelada_admin', handleCanceledByAdmin);
+    };
   }, [operation.operation_id, navigation]);
 
   // ── Account helper ────────────────────────────────────────────────────────
@@ -325,24 +371,19 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <View style={s.root}>
-      <ImageBackground
-        source={bg}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-      />
-      <View style={[StyleSheet.absoluteFill, s.overlay]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#F5F7FA' }]} pointerEvents="none" />
 
       {/* ── Header ── */}
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => navigation.replace('Tabs', { screen: 'HistoryTab' })} style={s.backBtn} activeOpacity={0.7}>
           <View style={s.backBtnInner}>
-            <Ionicons name="chevron-back" size={20} color="#fff" />
+            <Ionicons name="chevron-back" size={20} color="#0D1117" />
           </View>
         </TouchableOpacity>
         <View style={s.headerCenter}>
           <View style={{ alignItems: 'center' }}>
             <Image
-              source={require('../../assets/logo.png')}
+              source={require('../../assets/qc.png')}
               style={s.headerLogo}
               resizeMode="contain"
             />
@@ -367,22 +408,20 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           transition={{ type: 'timing', duration: 400, delay: 0 }}
         >
           <View style={s.timeline}>
-            {/* Paso 1 — completado */}
+            {/* Paso 1 — completado: Cotiza */}
             <View style={s.step}>
               <View style={[s.stepDot, s.stepDotDone]}>
-                <Ionicons name="checkmark" size={13} color="#fff" />
+                <Ionicons name="receipt-outline" size={13} color="#fff" />
               </View>
               <Text style={[s.stepLabel, s.stepLabelDone]}>Cotiza</Text>
             </View>
 
             <View style={[s.stepLine, s.stepLineDone]} />
 
-            {/* Paso 2 — activo */}
+            {/* Paso 2 — activo: Transfiere */}
             <View style={s.step}>
               <View style={s.stepDotActiveWrap}>
-                {/* Track fijo (borde tenue completo) */}
                 <View style={s.stepArcTrack} />
-                {/* Arco giratorio — 3/4 del borde visible */}
                 <Animated.View style={[s.stepArcSpin, {
                   transform: [{ rotate: stepSpin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
                 }]} />
@@ -395,10 +434,10 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
 
             <View style={s.stepLine} />
 
-            {/* Paso 3 — pendiente */}
+            {/* Paso 3 — pendiente: Recibe */}
             <View style={s.step}>
               <View style={s.stepDot}>
-                <Ionicons name="checkmark-circle-outline" size={13} color={DIM} />
+                <Ionicons name="gift-outline" size={13} color={DIM} />
               </View>
               <Text style={s.stepLabel}>Recibe</Text>
             </View>
@@ -410,61 +449,69 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           from={{ opacity: 0, translateY: 22 }}
           animate={{ opacity: 1, translateY: 0 }}
           transition={{ type: 'timing', duration: 400, delay: 80 }}
-          style={s.card}
+          style={[s.card, { backgroundColor: '#0D1117', borderColor: '#0D1117' }]}
         >
-          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
           {/* ID + timer */}
           <View style={s.cardTopRow}>
             <View>
-              <Text style={s.cardMeta}>ID de Operación</Text>
-              <Text style={s.cardOpId}>{operation.operation_id}</Text>
+              <Text style={[s.cardMeta, { color: 'rgba(255,255,255,0.45)' }]}>ID de Operación</Text>
+              <Text style={[s.cardOpId, { color: '#fff', fontSize: 19 }]}>{operation.operation_id}</Text>
             </View>
-            <View style={[s.timerPill, isExpired && s.timerPillExpired]}>
-              <Ionicons name="time-outline" size={13} color={isExpired ? '#ef4444' : '#fbbf24'} />
-              <Text style={[s.timerText, isExpired && s.timerTextExpired]}>
-                {isExpired ? 'Expirado' : timeRemaining}
-              </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={[s.timerPill, isExpired && s.timerPillExpired]}>
+                <Ionicons name="time-outline" size={13} color={isExpired ? '#ef4444' : '#fbbf24'} />
+                <Text style={[s.timerText, isExpired && s.timerTextExpired]}>
+                  {isExpired ? 'Expirado' : timeRemaining}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowTimerInfo(true)} activeOpacity={0.7}
+                style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="help" size={11} color="rgba(255,255,255,0.7)" />
+              </TouchableOpacity>
             </View>
           </View>
 
-          <View style={s.hairline} />
+          <View style={[s.hairline, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
 
           {/* Meta */}
           <View style={s.metaRow}>
             <View style={s.metaItem}>
-              <Text style={s.metaLabel}>Tipo</Text>
-              <Text style={s.metaValue}>
+              <Text style={[s.metaLabel, { color: 'rgba(255,255,255,0.45)' }]}>Tipo</Text>
+              <Text style={[s.metaValue, { color: '#fff' }]}>
                 {operation.operation_type === 'Compra' ? 'Qoricash Compra' : 'Qoricash Vende'}
               </Text>
             </View>
             <View style={s.metaItem}>
-              <Text style={s.metaLabel}>Fecha</Text>
-              <Text style={s.metaValue}>{formatDateTime(operation.created_at)}</Text>
+              <Text style={[s.metaLabel, { color: 'rgba(255,255,255,0.45)' }]}>Fecha</Text>
+              <Text style={[s.metaValue, { color: '#fff' }]}>{formatDateTime(operation.created_at)}</Text>
             </View>
           </View>
 
-          <View style={s.hairline} />
+          <View style={[s.hairline, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
 
           {/* Montos */}
-          <View style={s.amountsRow}>
-            <View style={s.amountBlock}>
-              <Text style={s.amountLabel}>{operation.operation_type === 'Compra' ? 'Envías dólares' : 'Envías soles'}</Text>
-              <Text style={s.amountValue}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ flex: 1, gap: 3 }}>
+              <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: '500', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                {operation.operation_type === 'Compra' ? '🇺🇸 Envías' : '🇵🇪 Envías'}
+              </Text>
+              <Text style={{ fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: -0.5 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
                 {operation.operation_type === 'Compra'
                   ? formatCurrency(operation.amount_usd, 'USD')
                   : formatCurrency(operation.amount_pen, 'PEN')}
               </Text>
             </View>
 
-            <View style={s.tcPill}>
-              <Ionicons name="swap-horizontal" size={11} color={DIM} />
-              <Text style={s.tcPillText}>{operation.exchange_rate.toFixed(3)}</Text>
+            <View style={{ alignItems: 'center', gap: 3, paddingHorizontal: 8 }}>
+              <Ionicons name="swap-horizontal" size={14} color="rgba(255,255,255,0.35)" />
+              <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: '600' }}>{operation.exchange_rate.toFixed(4)}</Text>
             </View>
 
-            <View style={s.amountBlock}>
-              <Text style={s.amountLabel}>{operation.operation_type === 'Compra' ? 'Recibes soles' : 'Recibes dólares'}</Text>
-              <Text style={[s.amountValue, { color: GREEN }]}>
+            <View style={{ flex: 1, gap: 3, alignItems: 'flex-end' }}>
+              <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: '500', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                {operation.operation_type === 'Compra' ? '🇵🇪 Recibes' : '🇺🇸 Recibes'}
+              </Text>
+              <Text style={{ fontSize: 28, fontWeight: '800', color: GREEN, letterSpacing: -0.5 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
                 {operation.operation_type === 'Compra'
                   ? formatCurrency(operation.amount_pen, 'PEN')
                   : formatCurrency(operation.amount_usd, 'USD')}
@@ -480,12 +527,10 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           transition={{ type: 'timing', duration: 400, delay: 160 }}
           style={s.card}
         >
-          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
           {/* Cabecera */}
           <View style={s.transferToHeader}>
             <View style={s.transferToIcon}>
-              <Ionicons name="business-outline" size={18} color={GREEN} />
+              <Ionicons name="business-outline" size={18} color="#FFFFFF" />
             </View>
             <View>
               <Text style={s.cardMeta}>Transfiere a</Text>
@@ -606,42 +651,29 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           style={s.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.65)' }]} />
           <View style={s.modalSheet}>
-            <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
-            {/* Header */}
-            <View style={s.modalHeader}>
-              <View style={s.modalIconWrap}>
-                <Ionicons name="receipt-outline" size={18} color={GREEN} />
+            {/* Header — fondo negro */}
+            <View style={[s.modalHeader, { backgroundColor: '#0D1117' }]}>
+              <View style={[s.modalIconWrap, { backgroundColor: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.15)' }]}>
+                <Ionicons name="receipt-outline" size={18} color="#FFFFFF" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.modalTitle}>Código de transferencia</Text>
-                <Text style={s.modalSub}>Ingresa el número de tu voucher bancario</Text>
+                <Text style={[s.modalTitle, { color: '#FFFFFF' }]}>Código de transferencia</Text>
+                <Text style={[s.modalSub, { color: 'rgba(255,255,255,0.55)' }]}>Ingresa el número de tu voucher bancario</Text>
               </View>
               <TouchableOpacity
                 onPress={() => { if (submitAnimPhase === 'idle') { setTransferCodeModalVisible(false); setTransferCode(''); } }}
                 activeOpacity={0.7}
-                style={s.modalCloseBtn}
+                style={[s.modalCloseBtn, { backgroundColor: 'rgba(255,255,255,0.12)' }]}
               >
-                <Ionicons name="close" size={18} color="rgba(255,255,255,0.4)" />
+                <Ionicons name="close" size={18} color="rgba(255,255,255,0.7)" />
               </TouchableOpacity>
             </View>
 
             {submitAnimPhase === 'idle' ? (
               <>
                 <View style={s.modalBody}>
-                  {/* Operation ID chip */}
-                  <View style={s.modalOpIdRow}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Ionicons name="pricetag-outline" size={13} color={DIM} />
-                      <Text style={s.modalOpIdLabel}>Operación</Text>
-                    </View>
-                    <View style={s.modalOpIdChip}>
-                      <Text style={s.modalOpIdValue}>{operation.operation_id}</Text>
-                    </View>
-                  </View>
-
                   {/* Info banner — left-accent style */}
                   <View style={s.modalInfoBanner}>
                     <View style={s.modalInfoAccent} />
@@ -661,7 +693,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
                     value={transferCode}
                     onChangeText={setTransferCode}
                     placeholder="Ej: 00123456789"
-                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    placeholderTextColor="rgba(0,0,0,0.3)"
                     keyboardType="default"
                     autoCapitalize="characters"
                   />
@@ -736,16 +768,15 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           style={s.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
           <View style={s.cancelSheet}>
-            <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.30)' }]} />
             {cancelAnimPhase === 'idle' ? (
               <>
-                {/* Header con ícono centrado + close */}
+                {/* Header */}
                 <View style={s.cancelIconBlock}>
                   <View style={s.cancelIconRing}>
-                    <Ionicons name="close-circle" size={19} color="#ef4444" />
+                    <Ionicons name="close-circle" size={19} color="#fff" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={s.cancelTitle}>Cancelar operación</Text>
@@ -754,9 +785,9 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
                   <TouchableOpacity
                     onPress={() => { if (!canceling) { setCancelModalVisible(false); setCancelReason(''); } }}
                     activeOpacity={0.7}
-                    style={s.modalCloseBtn}
+                    style={[s.modalCloseBtn, { backgroundColor: '#F3F4F6' }]}
                   >
-                    <Ionicons name="close" size={18} color="rgba(255,255,255,0.4)" />
+                    <Ionicons name="close" size={18} color="#6B7280" />
                   </TouchableOpacity>
                 </View>
 
@@ -764,8 +795,8 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
                   {/* Chip operación */}
                   <View style={s.cancelOpRow}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Ionicons name="pricetag-outline" size={13} color="rgba(255,255,255,0.4)" />
-                      <Text style={s.modalOpIdLabel}>Operación</Text>
+                      <Ionicons name="pricetag-outline" size={13} color="#9CA3AF" />
+                      <Text style={[s.modalOpIdLabel, { color: '#6B7280' }]}>Operación</Text>
                     </View>
                     <View style={s.cancelOpChip}>
                       <Text style={s.cancelOpChipText}>{operation.operation_id}</Text>
@@ -773,15 +804,18 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
                   </View>
 
                   {/* Input motivo */}
-                  <Text style={s.modalInputLabel}>
+                  <Text style={[s.modalInputLabel, { color: '#374151' }]}>
                     Motivo de cancelación{'  '}<Text style={{ color: '#ef4444' }}>*</Text>
                   </Text>
                   <TextInput
-                    style={[s.modalInput, s.modalInputMultiline, cancelReason.trim() ? s.cancelInputActive : undefined]}
+                    style={[s.modalInput, s.modalInputMultiline,
+                      { backgroundColor: '#F8FAFC', borderColor: 'rgba(0,0,0,0.10)', color: '#0D1117' },
+                      cancelReason.trim() ? s.cancelInputActive : undefined,
+                    ]}
                     value={cancelReason}
                     onChangeText={setCancelReason}
                     placeholder="Ej: Cambié de opinión, error en el monto..."
-                    placeholderTextColor="rgba(255,255,255,0.25)"
+                    placeholderTextColor="#C4C9D4"
                     multiline
                     numberOfLines={3}
                   />
@@ -877,6 +911,48 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          MODAL — Info tiempo límite
+      ═══════════════════════════════════════════════════════════════════════ */}
+      <Modal
+        visible={showTimerInfo}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowTimerInfo(false)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', padding: 32 }}
+          activeOpacity={1}
+          onPress={() => setShowTimerInfo(false)}
+        >
+          <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 24, width: '100%', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 12 }}>
+            {/* Icono animado */}
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(13,17,23,0.06)', borderWidth: 1, borderColor: 'rgba(13,17,23,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 14, alignSelf: 'center' }}>
+              <Animated.View style={{ transform: [{ rotate: timerInfoSpin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }}>
+                <Ionicons name="time-outline" size={28} color="#0D1117" />
+              </Animated.View>
+            </View>
+            {/* Título */}
+            <Text style={{ fontSize: 16, fontWeight: '800', color: '#0D1117', textAlign: 'center', marginBottom: 10 }}>
+              Tiempo límite de transferencia
+            </Text>
+            {/* Cuerpo */}
+            <Text style={{ fontSize: 13.5, color: '#4B5563', lineHeight: 21, textAlign: 'center', marginBottom: 20 }}>
+              Tienes <Text style={{ fontWeight: '700', color: '#0D1117' }}>{OPERATION_TIMEOUT_MINUTES} minutos</Text> para realizar la transferencia bancaria e ingresar el número de operación.{'\n\n'}
+              Si el tiempo se agota sin confirmación, la operación será <Text style={{ fontWeight: '700', color: '#ef4444' }}>cancelada automáticamente</Text> y deberás iniciar una nueva.
+            </Text>
+            {/* Botón */}
+            <TouchableOpacity
+              onPress={() => setShowTimerInfo(false)}
+              activeOpacity={0.8}
+              style={{ backgroundColor: '#0D1117', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>Entendido</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -885,10 +961,6 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
 const s = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000',
-  },
-  overlay: {
-    backgroundColor: 'transparent',
   },
 
   // ── Header ──────────────────────────────────────────────────────────────────
@@ -908,11 +980,16 @@ const s = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: GLASS,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: 'rgba(0,0,0,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   headerCenter: {
     flex: 1,
@@ -927,7 +1004,7 @@ const s = StyleSheet.create({
   corporateLabel: {
     fontSize: 9,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.35)',
+    color: '#9CA3AF',
     letterSpacing: 2.5,
     marginTop: 2,
     marginLeft: 18,
@@ -956,7 +1033,7 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#F3F4F6',
     borderWidth: 1,
     borderColor: BORDER,
     alignItems: 'center',
@@ -967,8 +1044,8 @@ const s = StyleSheet.create({
     borderColor: GREEN,
   },
   stepDotActive: {
-    backgroundColor: 'rgba(34,197,94,0.18)',
-    borderColor: GREEN,
+    backgroundColor: '#0D1117',
+    borderColor: '#0D1117',
     borderWidth: 1.5,
   },
   stepDotActiveWrap: {
@@ -983,7 +1060,7 @@ const s = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     borderWidth: 1.5,
-    borderColor: 'rgba(34,197,94,0.18)',
+    borderColor: 'rgba(0,0,0,0.12)',
   },
   stepArcSpin: {
     position: 'absolute',
@@ -991,15 +1068,15 @@ const s = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     borderWidth: 1.5,
-    borderTopColor: GREEN,
-    borderRightColor: GREEN,
-    borderBottomColor: GREEN,
+    borderTopColor: '#0D1117',
+    borderRightColor: '#0D1117',
+    borderBottomColor: '#0D1117',
     borderLeftColor: 'transparent',
   },
   stepLine: {
     flex: 1,
     height: 2,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(0,0,0,0.08)',
     marginHorizontal: 8,
     marginBottom: 20,
   },
@@ -1016,20 +1093,24 @@ const s = StyleSheet.create({
     fontWeight: '600',
   },
   stepLabelActive: {
-    color: '#fff',
+    color: '#0D1117',
     fontWeight: '700',
   },
 
   // ── Cards ────────────────────────────────────────────────────────────────────
   card: {
-    backgroundColor: 'transparent',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: 'rgba(0,0,0,0.06)',
     borderRadius: 22,
     marginHorizontal: 16,
     marginBottom: 14,
     padding: 18,
-    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 6,
   },
   hairline: {
     height: 1,
@@ -1054,7 +1135,7 @@ const s = StyleSheet.create({
   cardOpId: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#fff',
+    color: '#0D1117',
     letterSpacing: 0.3,
   },
   timerPill: {
@@ -1098,7 +1179,7 @@ const s = StyleSheet.create({
   metaValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#fff',
+    color: '#0D1117',
   },
 
   // Resumen — montos
@@ -1109,7 +1190,7 @@ const s = StyleSheet.create({
   },
   amountBlock: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#F3F4F6',
     borderRadius: 12,
     padding: 12,
     alignItems: 'center',
@@ -1125,7 +1206,7 @@ const s = StyleSheet.create({
   amountValue: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#fff',
+    color: '#0D1117',
     letterSpacing: -0.3,
   },
   tcPill: {
@@ -1149,21 +1230,21 @@ const s = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: 'rgba(34,197,94,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.25)',
+    backgroundColor: '#0D1117',
+    borderWidth: 0,
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
   transferToName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: '#0D1117',
   },
   transferToRuc: {
     fontSize: 12,
     fontWeight: '400',
-    color: 'rgba(255,255,255,0.45)',
+    color: 'rgba(0,0,0,0.45)',
     marginTop: 2,
   },
 
@@ -1174,7 +1255,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 9,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: 'rgba(0,0,0,0.07)',
   },
   detailLabel: {
     fontSize: 13,
@@ -1184,13 +1265,13 @@ const s = StyleSheet.create({
   detailValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: '#0D1117',
     flex: 2,
     textAlign: 'right',
   },
   bankLogo: {
-    width: 140,
-    height: 50,
+    width: 110,
+    height: 38,
   },
   accountRow: {
     flexDirection: 'row',
@@ -1230,7 +1311,7 @@ const s = StyleSheet.create({
   infoBannerText: {
     flex: 1,
     fontSize: 12,
-    color: '#93c5fd',
+    color: '#2563eb',
     lineHeight: 17,
   },
   noteBanner: {
@@ -1247,7 +1328,7 @@ const s = StyleSheet.create({
   noteBannerText: {
     flex: 1,
     fontSize: 12,
-    color: '#fde68a',
+    color: '#d97706',
     lineHeight: 17,
   },
 
@@ -1257,18 +1338,18 @@ const s = StyleSheet.create({
     gap: 10,
   },
   primaryBtn: {
-    backgroundColor: GREEN,
+    backgroundColor: '#0D1117',
     borderRadius: 16,
     paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: GREEN,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
   },
   primaryBtnDisabled: {
     backgroundColor: 'rgba(255,255,255,0.15)',
@@ -1286,11 +1367,11 @@ const s = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: 'rgba(239,68,68,0.45)',
-    backgroundColor: 'rgba(239,68,68,0.07)',
+    borderColor: 'rgba(0,0,0,0.20)',
+    backgroundColor: 'transparent',
   },
   dangerBtnText: {
-    color: '#f87171',
+    color: '#dc2626',
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -1303,8 +1384,8 @@ const s = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(37,211,102,0.3)',
-    backgroundColor: 'rgba(37,211,102,0.06)',
+    borderColor: 'rgba(0,0,0,0.20)',
+    backgroundColor: 'transparent',
   },
   supportBtnText: {
     fontSize: 14,
@@ -1321,20 +1402,19 @@ const s = StyleSheet.create({
   },
   modalSheet: {
     width: '100%',
-    backgroundColor: 'transparent',
+    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.18)',
+    borderWidth: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.18,
     shadowRadius: 28,
     elevation: 20,
   },
   modalCloseBtn: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: '#F3F4F6',
     alignItems: 'center', justifyContent: 'center',
   },
   modalHeader: {
@@ -1344,7 +1424,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    borderBottomColor: 'rgba(0,0,0,0.07)',
   },
   modalIconWrap: {
     width: 38,
@@ -1368,7 +1448,7 @@ const s = StyleSheet.create({
   modalTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: '#0D1117',
     letterSpacing: 0.1,
   },
   modalSub: {
@@ -1385,21 +1465,20 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: '#F9FAFB',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(0,0,0,0.07)',
     paddingVertical: 9,
     paddingHorizontal: 12,
     marginBottom: 12,
   },
   modalOpIdChip: {
-    backgroundColor: 'rgba(34,197,94,0.12)',
+    backgroundColor: '#16a34a',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.25)',
+    borderWidth: 0,
   },
   modalOpIdLabel: {
     fontSize: 12,
@@ -1409,7 +1488,7 @@ const s = StyleSheet.create({
   modalOpIdValue: {
     fontSize: 13,
     fontWeight: '700',
-    color: GREEN,
+    color: '#FFFFFF',
     letterSpacing: 0.5,
   },
   modalInfoBanner: {
@@ -1431,7 +1510,7 @@ const s = StyleSheet.create({
   modalInfoText: {
     flex: 1,
     fontSize: 12,
-    color: '#93c5fd',
+    color: '#2563eb',
     lineHeight: 18,
   },
   warningBanner: {
@@ -1444,21 +1523,21 @@ const s = StyleSheet.create({
   },
   warningBannerText: {
     fontSize: 13,
-    color: '#fca5a5',
+    color: '#FFFFFF',
     lineHeight: 18,
   },
   modalInputLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.8)',
+    color: '#0D1117',
     marginBottom: 10,
   },
   modalInput: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: '#F3F4F6',
     borderWidth: 1.5,
-    borderColor: BORDER,
+    borderColor: 'rgba(0,0,0,0.08)',
     borderRadius: 14,
-    color: '#fff',
+    color: '#0D1117',
     fontSize: 17,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -1469,12 +1548,12 @@ const s = StyleSheet.create({
     textAlignVertical: 'top',
   },
   modalInputActive: {
-    borderColor: GREEN,
-    shadowColor: GREEN,
+    borderColor: '#0D1117',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   modalInputActiveDanger: {
     borderColor: '#ef4444',
@@ -1491,7 +1570,7 @@ const s = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 6,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.07)',
+    borderTopColor: 'rgba(0,0,0,0.07)',
   },
   modalBtnGhost: {
     flex: 1,
@@ -1505,7 +1584,7 @@ const s = StyleSheet.create({
   modalBtnGhostText: {
     fontSize: 14,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.65)',
+    color: '#6B7280',
   },
   modalCancelLink: {
     alignItems: 'center',
@@ -1514,21 +1593,21 @@ const s = StyleSheet.create({
   modalCancelLinkText: {
     fontSize: 14,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.4)',
+    color: 'rgba(0,0,0,0.4)',
   },
   modalBtnGreen: {
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
-    backgroundColor: GREEN,
-    shadowColor: GREEN,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 6,
+    backgroundColor: '#0D1117',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
   },
   modalBtnGreenDisabled: {
-    backgroundColor: 'rgba(34,197,94,0.28)',
+    backgroundColor: 'rgba(0,0,0,0.12)',
     shadowOpacity: 0,
     elevation: 0,
   },
@@ -1551,14 +1630,12 @@ const s = StyleSheet.create({
   // ── Cancel Modal ──────────────────────────────────────────────────────────────
   cancelSheet: {
     width: '100%',
-    backgroundColor: 'transparent',
+    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.16)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.18,
     shadowRadius: 24,
     elevation: 18,
   },
@@ -1569,28 +1646,28 @@ const s = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(239,68,68,0.08)',
+    borderBottomColor: 'rgba(0,0,0,0.07)',
   },
   cancelIconRing: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(239,68,68,0.08)',
+    backgroundColor: '#dc2626',
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.22)',
+    borderColor: '#dc2626',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#fff',
+    color: '#0D1117',
     letterSpacing: 0.1,
     marginBottom: 2,
   },
   cancelSubtitle: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.38)',
+    color: 'rgba(0,0,0,0.4)',
   },
   cancelBody: {
     paddingHorizontal: 18,
@@ -1601,35 +1678,35 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: '#F9FAFB',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(0,0,0,0.07)',
     paddingHorizontal: 12,
     paddingVertical: 9,
     marginBottom: 12,
   },
   cancelOpChip: {
-    backgroundColor: 'rgba(239,68,68,0.08)',
+    backgroundColor: '#dc2626',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.18)',
+    borderColor: '#dc2626',
   },
   cancelOpChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#fca5a5',
+    color: '#FFFFFF',
     letterSpacing: 0.3,
   },
   cancelWarning: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: 'rgba(239,68,68,0.05)',
+    backgroundColor: 'rgba(239,68,68,0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.12)',
+    borderColor: 'rgba(239,68,68,0.18)',
     borderRadius: 10,
     padding: 10,
     marginBottom: 14,
@@ -1637,7 +1714,7 @@ const s = StyleSheet.create({
   cancelWarningText: {
     flex: 1,
     fontSize: 12,
-    color: 'rgba(252,165,165,0.85)',
+    color: '#dc2626',
     lineHeight: 17,
   },
   cancelInputActive: {
@@ -1654,7 +1731,7 @@ const s = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 20,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(239,68,68,0.07)',
+    borderTopColor: 'rgba(0,0,0,0.06)',
   },
   cancelBtnConfirm: {
     flexDirection: 'row',
@@ -1663,18 +1740,18 @@ const s = StyleSheet.create({
     gap: 8,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: 'rgba(239,68,68,0.75)',
+    backgroundColor: '#0D1117',
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.4)',
-    shadowColor: '#ef4444',
+    borderColor: '#0D1117',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 4,
   },
   cancelBtnConfirmDisabled: {
-    backgroundColor: 'transparent',
-    borderColor: 'rgba(239,68,68,0.18)',
+    backgroundColor: 'rgba(0,0,0,0.08)',
+    borderColor: 'rgba(0,0,0,0.08)',
     shadowOpacity: 0,
     elevation: 0,
   },
@@ -1689,11 +1766,13 @@ const s = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.12)',
   },
   cancelBtnBackText: {
     fontSize: 13,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.35)',
+    fontWeight: '600',
+    color: '#374151',
   },
 
   // Animaciones dentro de modal
@@ -1706,7 +1785,7 @@ const s = StyleSheet.create({
   animText: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#fff',
+    color: '#0D1117',
     textAlign: 'center',
   },
   animSub: {

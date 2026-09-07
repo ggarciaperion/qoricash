@@ -5,15 +5,13 @@ import {
   Animated,
   Easing,
   Image,
-  ImageBackground,
   Text,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
-import { useBackground } from '../hooks/useBackground';
+import { createAudioPlayer } from 'expo-audio';
 
-const GREEN      = '#22c55e';
-const GREEN_GLOW = 'rgba(34,197,94,0.18)';
+const DARK      = '#0D1117';
+const DARK_GLOW = 'rgba(0,0,0,0.06)';
 const ORBIT_R_A  = 57;
 const ORBIT_R_B  = 42;
 const DOT_A      = 4.5;
@@ -48,11 +46,10 @@ const Arc: React.FC<{
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export const LoginLoadingScreen: React.FC<Props> = ({ visible, onComplete }) => {
-  const bg = useBackground();
   const [shouldRender, setShouldRender] = useState(false);
   const [phase, setPhase]               = useState<'loading'|'success'>('loading');
 
-  const soundRef   = useRef<Audio.Sound | null>(null);
+  const soundRef   = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
   const loopsRef   = useRef<Animated.CompositeAnimation | null>(null);
   const timersRef  = useRef<ReturnType<typeof setTimeout>[]>([]);
   const runningRef = useRef(false);
@@ -107,7 +104,7 @@ export const LoginLoadingScreen: React.FC<Props> = ({ visible, onComplete }) => 
 
   // ── Cleanup ────────────────────────────────────────────────────────────────
   useEffect(() => {
-    return () => { soundRef.current?.unloadAsync(); };
+    return () => { soundRef.current?.remove(); };
   }, []);
 
   const clearTimers = () => {
@@ -145,25 +142,16 @@ export const LoginLoadingScreen: React.FC<Props> = ({ visible, onComplete }) => 
   // ── Audio ──────────────────────────────────────────────────────────────────
   const preloadSound = async () => {
     try {
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      const { sound } = await Audio.Sound.createAsync(
-        require('../../assets/sounds/payment_success.mp3'),
-        { volume: 0.58, shouldPlay: false }
-      );
-      soundRef.current = sound;
+      const player = createAudioPlayer(require('../../assets/sounds/payment_success.mp3'));
+      player.volume = 0.58;
+      soundRef.current = player;
     } catch {}
   };
 
   const playSound = async () => {
     try {
       if (soundRef.current) {
-        await soundRef.current.playAsync();
-        soundRef.current.setOnPlaybackStatusUpdate(s => {
-          if (s.isLoaded && s.didJustFinish) {
-            soundRef.current?.unloadAsync();
-            soundRef.current = null;
-          }
-        });
+        soundRef.current.play();
       }
     } catch {}
   };
@@ -373,7 +361,6 @@ export const LoginLoadingScreen: React.FC<Props> = ({ visible, onComplete }) => 
       style={[st.container, { opacity:exitFade, transform:[{scale:exitScale}] }]}
       pointerEvents={visible ? 'auto' : 'none'}
     >
-      <ImageBackground source={bg} style={StyleSheet.absoluteFill} resizeMode="cover" />
       <Animated.View style={[StyleSheet.absoluteFill, st.overlay, { opacity:overlayFade }]} />
 
       <Animated.View style={{ opacity:cardFade, transform:[{scale:cardScale},{translateY:cardY}], width:'100%', alignItems:'center' }}>
@@ -387,7 +374,7 @@ export const LoginLoadingScreen: React.FC<Props> = ({ visible, onComplete }) => 
             ],
             marginBottom: 30,
           }}>
-            <Image source={require('../../assets/logo.png')} style={st.logo} resizeMode="contain" />
+            <Image source={require('../../assets/qc.png')} style={st.logo} resizeMode="contain" />
           </Animated.View>
 
           {/* ── Área de spinner ── */}
@@ -406,9 +393,9 @@ export const LoginLoadingScreen: React.FC<Props> = ({ visible, onComplete }) => 
 
             {/* Triple ripple de éxito */}
             {([
-              [r1Scale, r1Fade, GREEN],
-              [r2Scale, r2Fade, 'rgba(34,197,94,0.62)'],
-              [r3Scale, r3Fade, 'rgba(34,197,94,0.34)'],
+              [r1Scale, r1Fade, DARK],
+              [r2Scale, r2Fade, 'rgba(0,0,0,0.50)'],
+              [r3Scale, r3Fade, 'rgba(0,0,0,0.28)'],
             ] as [Animated.Value, Animated.Value, string][]).map(([scale, fade, color], i) => (
               <Animated.View key={`rp${i}`} style={[st.ripple, {
                 opacity: fade, transform:[{scale}], borderColor:color,
@@ -443,9 +430,9 @@ export const LoginLoadingScreen: React.FC<Props> = ({ visible, onComplete }) => 
 
             {/* 3 arcos giratorios anidados */}
             <Animated.View style={{ opacity:ringsFade, alignItems:'center', justifyContent:'center' }}>
-              <Arc size={114} stroke={2.5} colorActive={GREEN}                 colorDim="rgba(34,197,94,0.10)" spin={r1} />
-              <Arc size={86}  stroke={2}   colorActive="rgba(34,197,94,0.62)" colorDim="rgba(34,197,94,0.07)" spin={r2} />
-              <Arc size={60}  stroke={1.5} colorActive="rgba(34,197,94,0.36)" colorDim="transparent"          spin={r3} />
+              <Arc size={114} stroke={2.5} colorActive={DARK}                   colorDim="rgba(0,0,0,0.08)" spin={r1} />
+              <Arc size={86}  stroke={2}   colorActive="rgba(0,0,0,0.55)"      colorDim="rgba(0,0,0,0.05)" spin={r2} />
+              <Arc size={60}  stroke={1.5} colorActive="rgba(0,0,0,0.30)"      colorDim="transparent"      spin={r3} />
             </Animated.View>
 
             {/* Checkmark */}
@@ -498,8 +485,8 @@ const st = StyleSheet.create({
     position:'absolute', top:0, left:0, right:0, bottom:0,
     zIndex:9999, justifyContent:'center', alignItems:'center',
   },
-  overlay: { backgroundColor:'rgba(0,0,0,0.62)' },
-  logo: { width:175, height:42 },
+  overlay: { backgroundColor:'#FFFFFF' },
+  logo: { width:130, height:33 },
   spinWrap: {
     width:130, height:130,
     alignItems:'center', justifyContent:'center',
@@ -507,19 +494,19 @@ const st = StyleSheet.create({
   },
   glow: {
     position:'absolute', width:86, height:86, borderRadius:43,
-    backgroundColor:GREEN_GLOW,
-    shadowColor:GREEN, shadowOffset:{width:0,height:0},
-    shadowOpacity:1, shadowRadius:36,
+    backgroundColor:DARK_GLOW,
+    shadowColor:'#000', shadowOffset:{width:0,height:0},
+    shadowOpacity:0.15, shadowRadius:24,
   },
   orbitDotA: {
     position:'absolute', width:DOT_A, height:DOT_A, borderRadius:DOT_A/2,
-    backgroundColor:'rgba(34,197,94,0.62)',
-    shadowColor:GREEN, shadowOffset:{width:0,height:0},
-    shadowOpacity:0.9, shadowRadius:3,
+    backgroundColor:'rgba(0,0,0,0.55)',
+    shadowColor:'#000', shadowOffset:{width:0,height:0},
+    shadowOpacity:0.4, shadowRadius:3,
   },
   orbitDotB: {
     position:'absolute', width:DOT_B, height:DOT_B, borderRadius:DOT_B/2,
-    backgroundColor:'rgba(34,197,94,0.38)',
+    backgroundColor:'rgba(0,0,0,0.30)',
   },
   ripple: {
     position:'absolute', width:90, height:90, borderRadius:45, borderWidth:1.5,
@@ -527,9 +514,9 @@ const st = StyleSheet.create({
   confettiDot: {
     position:'absolute',
     width:6, height:6, borderRadius:3,
-    backgroundColor:GREEN,
-    shadowColor:GREEN, shadowOffset:{width:0,height:0},
-    shadowOpacity:0.9, shadowRadius:5,
+    backgroundColor:DARK,
+    shadowColor:'#000', shadowOffset:{width:0,height:0},
+    shadowOpacity:0.3, shadowRadius:4,
     left: SPIN_CTR - 3,
     top:  SPIN_CTR - 3,
   },
@@ -538,28 +525,28 @@ const st = StyleSheet.create({
   },
   checkGlowRing: {
     position:'absolute', width:90, height:90, borderRadius:45,
-    backgroundColor:'rgba(34,197,94,0.11)',
-    shadowColor:GREEN, shadowOffset:{width:0,height:0},
-    shadowOpacity:1, shadowRadius:30,
+    backgroundColor:'rgba(0,0,0,0.06)',
+    shadowColor:'#000', shadowOffset:{width:0,height:0},
+    shadowOpacity:0.18, shadowRadius:22,
   },
   checkCircle: {
     width:68, height:68, borderRadius:34,
-    backgroundColor:GREEN,
+    backgroundColor:DARK,
     alignItems:'center', justifyContent:'center',
-    shadowColor:GREEN, shadowOffset:{width:0,height:10},
-    shadowOpacity:0.65, shadowRadius:22,
+    shadowColor:'#000', shadowOffset:{width:0,height:8},
+    shadowOpacity:0.22, shadowRadius:18,
     elevation:14,
   },
   textBlock: { height:54, width:'100%', position:'relative', marginBottom:4 },
   title: {
-    fontSize:19, fontWeight:'800', color:'#fff',
+    fontSize:19, fontWeight:'800', color:DARK,
     textAlign:'center', marginBottom:5, letterSpacing:0.1,
   },
-  accent: { color:GREEN, fontWeight:'800' },
+  accent: { color:DARK, fontWeight:'800' },
   sub: {
-    fontSize:12.5, color:'rgba(255,255,255,0.42)',
+    fontSize:12.5, color:'#6B7280',
     textAlign:'center', letterSpacing:0.2,
   },
   dotsRow: { flexDirection:'row', gap:10, alignItems:'center', marginTop:16 },
-  dot: { width:7, height:7, borderRadius:3.5, backgroundColor:GREEN },
+  dot: { width:7, height:7, borderRadius:3.5, backgroundColor:DARK },
 });

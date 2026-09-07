@@ -190,4 +190,5 @@ export interface CreateOperationForm {
   destination_account: string;
   terms_accepted?: boolean;
   notes?: string;
+  coupon_code?: string;
 }

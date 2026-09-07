@@ -4,7 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer, CommonActions } from '@react-navigation/native';
 import { Icon } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { View, ImageBackground, StyleSheet, Modal, Text, TouchableOpacity, Animated, Easing, Linking } from 'react-native';
+import { View, StyleSheet, Modal, Text, TouchableOpacity, Animated, Easing, Linking, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +24,7 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { PublicCalculatorScreen } from '../screens/PublicCalculatorScreen';
 import { ClientTypeSelectionScreen } from '../screens/ClientTypeSelectionScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
+import { RegisterSuccessScreen } from '../screens/RegisterSuccessScreen';
 import { RegisterWithGoogleScreen } from '../screens/RegisterWithGoogleScreen';
 import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
 import { VerifyIdentityScreen } from '../screens/VerifyIdentityScreen';
@@ -47,7 +48,7 @@ const Tab = createBottomTabNavigator();
 const TabNavigator = () => {
   return (
     <Tab.Navigator
-      tabBar={(props) => <CustomTabBar {...props} />}
+      tabBar={(props) => props.state.index === 0 ? null : <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,
         sceneStyle: { backgroundColor: 'transparent' },
@@ -65,14 +66,6 @@ const TabNavigator = () => {
 const AuthNavigator = () => {
   return (
     <View style={{ flex: 1 }}>
-      {/* Fondo fijo — nunca transiciona, compartido por todas las pantallas auth */}
-      <ImageBackground
-        source={require('../../assets/lo.jpg')}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-      />
-
-      {/* Stack con cards transparentes — el fondo es fijo, solo transiciona el contenido */}
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -118,11 +111,26 @@ const AuthNavigator = () => {
           },
         }}
       >
-        <Stack.Screen name="PublicCalculator" component={PublicCalculatorScreen} />
+        <Stack.Screen name="PublicCalculator" component={PublicCalculatorScreen} options={{ cardStyle: { backgroundColor: '#F5F7FA' } }} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="ClientTypeSelection" component={ClientTypeSelectionScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen
+          name="RegisterSuccess"
+          component={RegisterSuccessScreen}
+          options={{
+            gestureEnabled: false,
+            cardStyleInterpolator: ({ current }) => ({
+              cardStyle: { opacity: current.progress },
+            }),
+            transitionSpec: {
+              open:  { animation: 'timing', config: { duration: 380 } },
+              close: { animation: 'timing', config: { duration: 300 } },
+            },
+          }}
+        />
         <Stack.Screen name="RegisterWithGoogle" component={RegisterWithGoogleScreen} />
+        <Stack.Screen name="WebView" component={WebViewScreen} />
       </Stack.Navigator>
     </View>
   );
@@ -276,18 +284,13 @@ const MainNavigator = () => {
   );
 };
 
+import { shownCancelAlerts } from '../utils/cancelAlertDedup';
+
 // Root Navigator
 export const AppNavigator = () => {
   const { isAuthenticated, loading, client, logout } = useAuth();
   const { showLoginLoading, setShowLoginLoading, showLogoutLoading, setShowLogoutLoading } = useLoginLoading();
   const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
-
-  // ── Notificación global: operación cancelada por admin ──
-  const [cancelledOpId,     setCancelledOpId]     = useState<string | null>(null);
-  const [cancelledReason,   setCancelledReason]   = useState<string | null>(null);
-  const [showCancelAlert,   setShowCancelAlert]   = useState(false);
-  const alertScale   = useRef(new Animated.Value(0.86)).current;
-  const alertOpacity = useRef(new Animated.Value(0)).current;
 
   // ── Notificación global: operación completada ──
   const navRef            = useRef<any>(null);
@@ -307,23 +310,6 @@ export const AppNavigator = () => {
     if (!isAuthenticated || !client?.dni) return;
 
     socketService.connect(client.dni);
-
-    const handleAdminCancel = (data: any) => {
-      const opId   = data?.operation_id || data?.id || '';
-      const reason = data?.reason || data?.cancellation_reason || null;
-      setCancelledOpId(opId);
-      setCancelledReason(reason);
-      setShowCancelAlert(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      alertScale.setValue(0.86);
-      alertOpacity.setValue(0);
-      Animated.parallel([
-        Animated.spring(alertScale,   { toValue: 1, tension: 210, friction: 17, useNativeDriver: true }),
-        Animated.timing(alertOpacity, { toValue: 1, duration: 190, useNativeDriver: true }),
-      ]).start();
-    };
-
-    socketService.on('operacion_cancelada_admin', handleAdminCancel);
 
     const handleOperationCompleted = (data: any) => {
       const opId = data?.operation_id || '';
@@ -377,11 +363,49 @@ export const AppNavigator = () => {
       });
     };
 
+    // ── Global: operación cancelada por admin ──────────────────────────────
+    const handleGlobalAdminCancel = (data: any) => {
+      const opId  = data?.operation_id || data?.id || '';
+      const key   = `cancel_${opId}`;
+      if (shownCancelAlerts.has(key)) return;   // ya manejado por la pantalla específica
+      shownCancelAlerts.add(key);
+      setTimeout(() => shownCancelAlerts.delete(key), 5000);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      const reason = data?.reason || data?.cancellation_reason || null;
+      Alert.alert(
+        '❌ Operación Cancelada',
+        `Tu operación ${opId} fue cancelada por el equipo Qoricash.` +
+        (reason ? `\n\nMotivo: ${reason}` : '') +
+        '\n\nSi tienes alguna duda, contáctanos por WhatsApp.',
+        [{ text: 'Entendido' }],
+        { cancelable: false }
+      );
+    };
+
+    // ── Global: operación expirada por tiempo ──────────────────────────────
+    const handleGlobalExpired = (data: any) => {
+      const opId = data?.operation_id || '';
+      const key  = `expired_${opId}`;
+      if (shownCancelAlerts.has(key)) return;   // ya manejado por TransferScreen
+      shownCancelAlerts.add(key);
+      setTimeout(() => shownCancelAlerts.delete(key), 5000);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '⏱️ Operación Cancelada',
+        `Tu operación ${opId} fue cancelada automáticamente por vencer el tiempo límite sin confirmación.\n\nPuedes crear una nueva operación desde el inicio.`,
+        [{ text: 'Entendido' }],
+        { cancelable: false }
+      );
+    };
+
     socketService.on('operacion_completada', handleOperationCompleted);
+    socketService.on('operacion_cancelada_admin', handleGlobalAdminCancel);
+    socketService.on('operation_expired', handleGlobalExpired);
 
     return () => {
-      socketService.off('operacion_cancelada_admin', handleAdminCancel);
       socketService.off('operacion_completada', handleOperationCompleted);
+      socketService.off('operacion_cancelada_admin', handleGlobalAdminCancel);
+      socketService.off('operation_expired', handleGlobalExpired);
     };
   }, [isAuthenticated, client?.dni]);
 
@@ -519,73 +543,6 @@ export const AppNavigator = () => {
         </BlurView>
       </Modal>
 
-      {/* ── Alerta global: operación cancelada por admin ── */}
-      <Modal
-        visible={showCancelAlert}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setShowCancelAlert(false)}
-      >
-        <BlurView intensity={60} tint="dark" style={navS.alertBackdrop}>
-          <Animated.View style={[navS.alertCard, { opacity: alertOpacity, transform: [{ scale: alertScale }] }]}>
-
-            {/* Icono */}
-            <View style={navS.alertIconWrap}>
-              <Ionicons name="close-circle" size={36} color="#ef4444" />
-            </View>
-
-            {/* Texto */}
-            <Text style={navS.alertTitle}>Operación cancelada</Text>
-            {cancelledOpId ? (
-              <Text style={navS.alertBody}>
-                Tu operación <Text style={navS.alertOpId}>{cancelledOpId}</Text> ha sido anulada por el equipo de Qoricash.
-              </Text>
-            ) : (
-              <Text style={navS.alertBody}>
-                Una de tus operaciones ha sido anulada por el equipo de Qoricash.
-              </Text>
-            )}
-
-            {/* Motivo de cancelación */}
-            {cancelledReason ? (
-              <View style={navS.alertReasonBox}>
-                <Text style={navS.alertReasonLabel}>MOTIVO</Text>
-                <Text style={navS.alertReasonText}>{cancelledReason}</Text>
-              </View>
-            ) : null}
-
-            <Text style={navS.alertBodySub}>
-              Si tienes alguna duda, contáctanos por WhatsApp.
-            </Text>
-
-            {/* Botón soporte */}
-            <TouchableOpacity
-              style={navS.alertBtnWa}
-              activeOpacity={0.82}
-              onPress={() => {
-                const msg = cancelledOpId
-                  ? `Hola, tengo una consulta sobre la cancelación de mi operación ${cancelledOpId}`
-                  : 'Hola, tengo una consulta sobre una operación cancelada';
-                Linking.openURL(`https://wa.me/51910624404?text=${encodeURIComponent(msg)}`);
-              }}
-            >
-              <Ionicons name="logo-whatsapp" size={16} color="#fff" />
-              <Text style={navS.alertBtnWaText}>Contactar con soporte</Text>
-            </TouchableOpacity>
-
-            {/* Botón cerrar */}
-            <TouchableOpacity
-              style={navS.alertBtnClose}
-              activeOpacity={0.7}
-              onPress={() => setShowCancelAlert(false)}
-            >
-              <Text style={navS.alertBtnCloseText}>Entendido</Text>
-            </TouchableOpacity>
-
-          </Animated.View>
-        </BlurView>
-      </Modal>
     </View>
   );
 };

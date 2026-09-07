@@ -341,44 +341,45 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [calcOperationType, setCalcOperationType] = useState<'Compra' | 'Venta'>('Compra');
   const [calcRates, setCalcRates] = useState<{ compra: number; venta: number } | null>(null);
 
-  const EMPRESA_IMPROVEMENT = 0.0010;
-  const EMPRESA_STRIKE_DIFF = 0.0030;
+  // ── Pips / mejoras de tasa ─────────────────────────────────────────────────
+  const CORPORATE_BASE_PIPS = 0.0010;   // corporativo siempre
+  const REFERRAL_PIPS       = 0.0010;   // código referido (max con volumen)
 
-  const empresaRates = useMemo(
-    () => calcRates && isLegalEntity
-      ? { compra: calcRates.compra + EMPRESA_IMPROVEMENT, venta: calcRates.venta - EMPRESA_IMPROVEMENT }
-      : null,
-    [calcRates, isLegalEntity],
-  );
-
-  const REFERRAL_IMPROVEMENT = 0.002;
   const [referralModalVisible, setReferralModalVisible] = useState(false);
   const [referralInput,        setReferralInput]        = useState('');
   const [referralValidating,   setReferralValidating]   = useState(false);
   const [referralApplied,      setReferralApplied]      = useState<string | null>(null);
 
-  const getVolumePips = (usdAmount: number): number => {
-    if (usdAmount >= 10000) return 0.0020;
-    if (usdAmount >= 5000)  return 0.0015;
-    if (usdAmount >= 3000)  return 0.0010;
+  // Volumen en USD en tiempo real (sin esperar ready)
+  const pendingUSD = useMemo(() => {
+    if (!pendingOp.amountUSD) return 0;
+    const val = parseFloat(pendingOp.amountUSD) || 0;
+    if (pendingOp.operationType === 'Compra') return val;
+    const rate = pendingOp.rate || calcRates?.venta || 0;
+    return rate > 0 ? val / rate : 0;
+  }, [pendingOp.amountUSD, pendingOp.operationType, pendingOp.rate, calcRates]);
+
+  const getVolumePips = (usd: number): number => {
+    if (usd >= 15000) return isLegalEntity ? 0.0020 : 0.0015;
+    if (usd >= 5000)  return 0.0010;
     return 0;
   };
-  const pendingUSD = useMemo(() => {
-    if (!pendingOp.ready || !pendingOp.amountUSD || !pendingOp.rate) return 0;
-    const val = parseFloat(pendingOp.amountUSD) || 0;
-    return pendingOp.operationType === 'Compra' ? val : (pendingOp.rate > 0 ? val / pendingOp.rate : 0);
-  }, [pendingOp.ready, pendingOp.amountUSD, pendingOp.rate, pendingOp.operationType]);
 
-  const volumePips    = useMemo(() => getVolumePips(pendingUSD), [pendingUSD]);
-  const effectivePips = useMemo(
-    () => Math.max(referralApplied ? REFERRAL_IMPROVEMENT : 0, volumePips),
-    [referralApplied, volumePips],
-  );
-  const displayRates = useMemo(
-    () => effectivePips > 0 && calcRates
-      ? { compra: calcRates.compra + effectivePips, venta: calcRates.venta - effectivePips }
+  const volumePips = useMemo(() => getVolumePips(pendingUSD), [pendingUSD, isLegalEntity]);
+
+  // Pips totales = base corporativo + max(volumen, referido)
+  const totalPips = useMemo(() => {
+    const base  = isLegalEntity ? CORPORATE_BASE_PIPS : 0;
+    const bonus = Math.max(volumePips, referralApplied ? REFERRAL_PIPS : 0);
+    return base + bonus;
+  }, [isLegalEntity, volumePips, referralApplied]);
+
+  // Tasas mejoradas (null si no hay mejora)
+  const improvedRates = useMemo(
+    () => calcRates && totalPips > 0
+      ? { compra: calcRates.compra + totalPips, venta: calcRates.venta - totalPips }
       : null,
-    [effectivePips, calcRates],
+    [calcRates, totalPips],
   );
 
   const closeReferralModal = () => { setReferralModalVisible(false); setReferralInput(''); };
@@ -499,7 +500,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     if (!client?.has_complete_documents) {
       Alert.alert('Validación Requerida', 'Completa tu verificación de identidad primero.', [{ text: 'Entendido' }]); return;
     }
-    const rate = (empresaRates ?? displayRates ?? calcRates)?.compra ?? 0;
+    const rate = (improvedRates ?? calcRates)?.compra ?? 0;
     navigation.navigate('NewOperation', { operationType: 'Compra', amountUSD: '0', exchangeRate: rate, baseExchangeRate: calcRates?.compra ?? rate });
   };
 
@@ -526,12 +527,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   }));
 
   const firstName = (() => {
+    if (isLegalEntity && client.razon_social) return capitalize(client.razon_social.split(' ')[0]);
     if (client.nombres)   return capitalize(client.nombres.split(' ')[0]);
     if (client.full_name) return capitalize(client.full_name.split(' ')[0]);
     return '';
   })();
 
-  const displayedRates = empresaRates ?? displayRates ?? calcRates;
+  const displayedRates = improvedRates ?? calcRates;
+  const hasImprovement = totalPips > 0;
 
   // ── Grid tiles ──
   const gridTiles = [
@@ -583,7 +586,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={s.greetingSub}>¡Hola,</Text>
-            <Text style={s.greetingName}>{firstName}! 👋</Text>
+            <View style={s.greetingNameRow}>
+              <Text style={s.greetingName}>{firstName}!</Text>
+              {isLegalEntity
+                ? <View style={s.greetingCompanyIcon}><Ionicons name="business" size={16} color="#0D1117" /></View>
+                : <Text style={s.greetingEmoji}>👋</Text>
+              }
+            </View>
           </View>
           <TouchableOpacity style={s.refreshBtn} onPress={onRefresh}>
             <Animated.View style={refreshing ? { transform: [{ rotate: refreshRotate }] } : undefined}>
@@ -612,6 +621,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           <View style={s.heroRatesRow}>
             <View style={s.heroRateItem}>
               <Text style={s.heroRateLabel}>Compramos S/</Text>
+              {hasImprovement && calcRates && (
+                <Text style={s.heroRateStrike}>{calcRates.compra.toFixed(4)}</Text>
+              )}
               <Text style={s.heroRateValue} numberOfLines={1} adjustsFontSizeToFit>
                 {displayedRates?.compra.toFixed(4) ?? '—'}
               </Text>
@@ -620,6 +632,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <View style={s.heroRateDivider} />
             <View style={s.heroRateItem}>
               <Text style={s.heroRateLabel}>Vendemos S/</Text>
+              {hasImprovement && calcRates && (
+                <Text style={s.heroRateStrike}>{calcRates.venta.toFixed(4)}</Text>
+              )}
               <Text style={s.heroRateValue} numberOfLines={1} adjustsFontSizeToFit>
                 {displayedRates?.venta.toFixed(4) ?? '—'}
               </Text>
@@ -627,12 +642,33 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             </View>
           </View>
 
-          {isLegalEntity && (
-            <View style={s.corporateBadge}>
-              <Ionicons name="business-outline" size={11} color="rgba(255,255,255,0.6)" />
-              <Text style={s.corporateBadgeText}>Tarifa Corporativa</Text>
-            </View>
-          )}
+          {/* Badges corporativo + mejora activa */}
+          <View style={s.heroCardBadgesRow}>
+            {isLegalEntity && (
+              <View style={s.corporateBadge}>
+                <Ionicons name="business-outline" size={11} color="rgba(255,255,255,0.6)" />
+                <Text style={s.corporateBadgeText}>Tarifa Corporativa</Text>
+              </View>
+            )}
+            {volumePips > 0 && (
+              <View style={s.volumeBadge}>
+                <Ionicons name="trending-up-outline" size={11} color="#4ade80" />
+                <Text style={s.volumeBadgeText}>Tasa preferencial</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Nota volumen */}
+          <View style={s.heroRateNote}>
+            <Ionicons name="sparkles-outline" size={11} color="rgba(255,255,255,0.35)" />
+            <Text style={s.heroRateNoteText}>
+              {pendingUSD >= 15000
+                ? 'Tasa premium activa · +15 pips aplicados'
+                : pendingUSD >= 5000
+                ? 'Mejora por volumen activa · +10 pips aplicados'
+                : 'Ingresa un monto · Mejoras desde $5,000'}
+            </Text>
+          </View>
 
         </MotiView>
 
@@ -734,7 +770,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             onRatesChange={setCalcRates}
             onOperationTypeChange={setCalcOperationType}
             externalOperationType={calcOperationType}
-            overrideRates={displayRates}
+            overrideRates={displayedRates}
             showStrikeRate={!isLegalEntity}
             hideTabs
           />
@@ -1085,7 +1121,15 @@ const s = StyleSheet.create({
     elevation: 2,
   },
   greetingSub: { fontSize: 13, color: '#9CA3AF', fontWeight: '400' },
+  greetingNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   greetingName: { fontSize: 22, fontWeight: '800', color: '#0D1117', letterSpacing: -0.4 },
+  greetingEmoji: { fontSize: 20 },
+  greetingCompanyIcon: {
+    width: 28, height: 28, borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.07)',
+    alignItems: 'center', justifyContent: 'center',
+  },
 
   // ── Menú hamburguesa (dropdown) ──
   menuBackdrop: {
@@ -1299,6 +1343,19 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     marginHorizontal: 16,
   },
+  heroRateStrike: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.30)',
+    textDecorationLine: 'line-through',
+    textAlign: 'center',
+    marginBottom: 1,
+    fontWeight: '500',
+  },
+  heroCardBadgesRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 0,
+  },
   corporateBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1308,13 +1365,46 @@ const s = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    marginBottom: 16,
   },
   corporateBadgeText: {
     fontSize: 10,
     color: 'rgba(255,255,255,0.6)',
     fontWeight: '600',
     letterSpacing: 0.3,
+  },
+  volumeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(74,222,128,0.12)',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(74,222,128,0.25)',
+  },
+  volumeBadgeText: {
+    fontSize: 10,
+    color: '#4ade80',
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  heroRateNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  heroRateNoteText: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.40)',
+    fontWeight: '500',
+    flex: 1,
+    lineHeight: 15,
   },
   newOpBtn: {
     flexDirection: 'row',
