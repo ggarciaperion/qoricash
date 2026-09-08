@@ -80,7 +80,7 @@ jobs:
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: qoricash-release-v8.aab
+          name: qoricash-release-v9.aab
           path: android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 14
 
