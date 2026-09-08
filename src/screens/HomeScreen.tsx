@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   Text,
   TextInput,
-  Dimensions,
+  useWindowDimensions,
   KeyboardAvoidingView,
   Keyboard,
   Platform,
@@ -44,7 +44,6 @@ import { API_CONFIG } from '../constants/config';
 import { Operation } from '../types';
 import { useBackground } from '../hooks/useBackground';
 
-const { width: W } = Dimensions.get('window');
 
 // Reloj animado para el banner "Validación en proceso"
 const ClockIcon: React.FC = () => {
@@ -208,6 +207,7 @@ const LiveDot: React.FC = () => {
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
+  const { width: W } = useWindowDimensions();
   const bg = useBackground();
   const insets = useSafeAreaInsets();
   const { client, refreshClient } = useAuth();
@@ -484,6 +484,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       Alert.alert('Validación Requerida', 'Completa tu verificación de identidad primero.', [{ text: 'Entendido' }]);
       return;
     }
+    const rates    = improvedRates ?? calcRates;
     const baseRate = calcRates
       ? (operationType === 'Compra' ? calcRates.compra : calcRates.venta)
       : null;
@@ -492,6 +493,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       amountUSD: usdAmount.toString(),
       exchangeRate,
       baseExchangeRate: baseRate,
+      ratesCompra: rates?.compra,
+      ratesVenta:  rates?.venta,
     });
   };
 
@@ -500,8 +503,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     if (!client?.has_complete_documents) {
       Alert.alert('Validación Requerida', 'Completa tu verificación de identidad primero.', [{ text: 'Entendido' }]); return;
     }
-    const rate = (improvedRates ?? calcRates)?.compra ?? 0;
-    navigation.navigate('NewOperation', { operationType: 'Compra', amountUSD: '0', exchangeRate: rate, baseExchangeRate: calcRates?.compra ?? rate });
+    const rates = improvedRates ?? calcRates;
+    const rate  = rates?.compra ?? 0;
+    navigation.navigate('NewOperation', {
+      operationType: 'Compra',
+      amountUSD: '0',
+      exchangeRate: rate,
+      baseExchangeRate: calcRates?.compra ?? rate,
+      ratesCompra: rates?.compra,
+      ratesVenta:  rates?.venta,
+    });
   };
 
   if (!client) {
@@ -717,7 +728,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           style={s.gridWrap}
         >
           {gridTiles.map(({ icon, label, onPress }) => (
-            <TouchableOpacity key={label} style={s.gridTile} onPress={onPress} activeOpacity={0.75}>
+            <TouchableOpacity key={label} style={[s.gridTile, { width: (W - 40 - 14) / 2 }]} onPress={onPress} activeOpacity={0.75}>
               <View style={s.gridIconWrap}>
                 <Ionicons name={icon} size={26} color="#0D1117" />
               </View>
@@ -1460,7 +1471,6 @@ const s = StyleSheet.create({
     marginBottom: 22,
   },
   gridTile: {
-    width: (W - 40 - 14) / 2,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     paddingVertical: 22,
