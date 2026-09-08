@@ -74,7 +74,16 @@ const RateValue: React.FC<RateValueProps> = ({ value, style }) => {
     return () => clearTimeout(t);
   }, [value]);
 
-  return <Reanimated.Text style={[style, animStyle]}>{value}</Reanimated.Text>;
+  return (
+    <Reanimated.Text
+      style={[style, animStyle]}
+      numberOfLines={1}
+      adjustsFontSizeToFit
+      minimumFontScale={0.55}
+    >
+      {value}
+    </Reanimated.Text>
+  );
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -613,10 +622,12 @@ const styles = StyleSheet.create({
   },
   rateCard: {
     flex: 1,
+    minWidth: 0,
     paddingVertical: 30,
-    paddingHorizontal: 18,
+    paddingHorizontal: 14,
     gap: 10,
     alignItems: 'center',
+    overflow: 'hidden',
   },
   ratesDivider: {
     width: 1,

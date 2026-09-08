@@ -1,10 +1,9 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   TouchableOpacity,
   StyleSheet,
   Animated,
-  Dimensions,
   Text,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
@@ -12,9 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
-const { width: SCREEN_W } = Dimensions.get('window');
 const TAB_COUNT = 4;
-const TAB_W     = SCREEN_W / TAB_COUNT;
 const PILL_W    = 62;
 const PILL_H    = 50;
 const ACTIVE    = '#0D1117';
@@ -31,11 +28,11 @@ interface Props { state: any; navigation: any }
 
 export const CustomTabBar: React.FC<Props> = ({ state, navigation }) => {
   const insets = useSafeAreaInsets();
+  const [barWidth, setBarWidth] = useState(0);
+  const tabW = barWidth > 0 ? barWidth / TAB_COUNT : 0;
 
-  // Pill slide
-  const pillX = useRef(
-    new Animated.Value(state.index * TAB_W + TAB_W / 2 - PILL_W / 2)
-  ).current;
+  // Pill slide — starts at 0, snaps to correct position once barWidth is known
+  const pillX = useRef(new Animated.Value(0)).current;
 
   // Per-tab press scale
   const sc = [
@@ -53,10 +50,18 @@ export const CustomTabBar: React.FC<Props> = ({ state, navigation }) => {
     useRef(new Animated.Value(state.index === 3 ? 1 : 0.65)).current,
   ];
 
+  // Snap pill instantly when barWidth resolves
   useEffect(() => {
-    // Pill glides to new tab
+    if (tabW > 0) {
+      pillX.setValue(state.index * tabW + tabW / 2 - PILL_W / 2);
+    }
+  }, [tabW]);
+
+  // Animate pill when tab changes
+  useEffect(() => {
+    if (tabW === 0) return;
     Animated.spring(pillX, {
-      toValue: state.index * TAB_W + TAB_W / 2 - PILL_W / 2,
+      toValue: state.index * tabW + tabW / 2 - PILL_W / 2,
       tension: 220,
       friction: 15,
       useNativeDriver: true,
@@ -70,7 +75,7 @@ export const CustomTabBar: React.FC<Props> = ({ state, navigation }) => {
         useNativeDriver: true,
       }).start();
     });
-  }, [state.index]);
+  }, [state.index, tabW]);
 
   const handlePress = (i: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -100,7 +105,7 @@ export const CustomTabBar: React.FC<Props> = ({ state, navigation }) => {
       <Animated.View style={[styles.pill, { transform: [{ translateX: pillX }] }]} />
 
       {/* Tabs */}
-      <View style={styles.row}>
+      <View style={styles.row} onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}>
         {TABS.map((tab, i) => {
           const focused   = state.index === i;
           const iconName  = focused ? tab.iconFocused : tab.icon;
