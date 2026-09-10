@@ -541,11 +541,11 @@ def _parse_monto(texto):
 def _bienvenida(numero, nombre):
     BANNER_URL = 'https://qoricash.pe/fn.png'
     primer_nombre = nombre.split()[0] if nombre else ''
-    saludo = f'¡Hola {primer_nombre}! 👋' if primer_nombre else '¡Hola! 👋'
+    saludo = f'¡Hola {primer_nombre}!' if primer_nombre else '¡Hola!'
 
     msg = (
-        f'{saludo} Bienvenido a *Qoricash* 🏦\n\n'
-        'Cambia dólares y soles al mejor precio del Perú — '
+        f'{saludo} Bienvenido a *Qoricash*\n\n'
+        'Cambia dólares y soles al mejor precio del Perú '
         'desde tu WhatsApp, sin apps, sin trámites y de forma inmediata.\n\n'
         '🔒 _Regulado por la SBS_'
     )
