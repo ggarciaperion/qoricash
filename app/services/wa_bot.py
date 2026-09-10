@@ -2416,12 +2416,15 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     session.estado = 'esperando_cuenta_destino'
 
                 elif estado == 'viendo_cotizacion':
-                    # N3 — Keywords de duda → ofrecer asesor; resto → re-mostrar cotización
                     _dudas_kw = ('conveniente', 'precio', 'seguro', 'confiable',
                                  'como funciona', 'cómo funciona', 'garantia', 'garantía',
                                  'cuanto', 'cuánto', 'comparar', 'banco', 'diferencia',
                                  'recomend', 'mejor', 'sirve', 'vale la pena')
-                    if any(k in txt_lower for k in _dudas_kw):
+                    _cancelar_kw = ('cancelar', 'salir', 'no gracias', 'volver', 'inicio', 'menu', 'no quiero')
+                    if any(k in txt_lower for k in _cancelar_kw):
+                        _reset_sesion(session)
+                        _menu_rapido(numero)
+                    elif any(k in txt_lower for k in _dudas_kw):
                         send_buttons(numero,
                             '¿Tienes dudas sobre el tipo de cambio o el proceso? '
                             'Un asesor puede orientarte de inmediato 😊',
@@ -2432,10 +2435,24 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                             ]
                         )
                     else:
-                        _flujo_mostrar_cotizacion(numero, session)
+                        # Texto libre (hola, preguntas, etc.) → IA breve + recordatorio de opciones
+                        _ia_resp = _respuesta_ia(texto, numero, session)
+                        if _ia_resp:
+                            send_text(numero, _ia_resp)
+                        send_buttons(numero,
+                            '¿Continúas con tu cotización?',
+                            [
+                                {'id': 'btn_aceptar_cotiz',  'title': '✅ Aceptar precio'},
+                                {'id': 'btn_volver_cotizar', 'title': '🔄 Nueva cotización'},
+                                {'id': 'btn_asesor',         'title': '💬 Hablar con asesor'},
+                            ]
+                        )
 
                 elif estado == 'decidiendo_registro':
                     # P1 — Cliente escribió texto en lugar de usar los botones "¿Ya eres cliente?"
+                    _ia_resp = _respuesta_ia(texto, numero, session)
+                    if _ia_resp:
+                        send_text(numero, _ia_resp)
                     _flujo_cotiz_aceptada(numero, session)
 
                 elif estado == 'op_pendiente_pago':
@@ -2446,6 +2463,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         moneda_e = 'PEN' if session.cotiz_op == 'compra' else 'USD'
                         simbolo_e = 'S/' if moneda_e == 'PEN' else 'USD'
                         monto_e = float(op_act.amount_pen) if moneda_e == 'PEN' else float(op_act.amount_usd)
+                        _ia_resp = _respuesta_ia(texto, numero, session)
+                        if _ia_resp:
+                            send_text(numero, _ia_resp)
                         send_buttons(numero,
                             f'📋 Tu operación *{op_act.operation_id}* sigue pendiente de pago.\n\n'
                             f'Transfiere *{simbolo_e} {monto_e:,.2f}* y luego presiona el botón.',
