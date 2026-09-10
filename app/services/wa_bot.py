@@ -1081,7 +1081,7 @@ def _flujo_op_creada(numero, op, session, client):
 
     cuentas = _texto_cuentas_qoricash(moneda_enviar)
 
-    OP_BANNER_URL = 'https://qoricash.pe/jk.png'
+    OP_BANNER_URL = 'https://qoricash.pe/kol.png'
     msg = (
         f'📋 *Nro:* {op.operation_id}\n'
         + (f'👤 *Titular:* {titular}\n' if titular else '')
