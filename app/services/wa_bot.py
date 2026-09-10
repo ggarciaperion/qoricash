@@ -794,6 +794,69 @@ def _flujo_pedir_doc_verificacion(numero):
     )
 
 
+def _flujo_pedir_identificacion(numero):
+    """Solicita DNI/RUC para identificar al cliente antes de operar."""
+    send_text(numero,
+        '🔎 Para continuar, ingresa tu número de documento:\n\n'
+        '• *DNI* — 8 dígitos (persona natural)\n'
+        '• *RUC* — 11 dígitos (empresa)\n\n'
+        'Lo consultaremos en RENIEC/SUNAT para verificar tu identidad.'
+    )
+
+
+def _auto_crear_cliente(doc, nombre, es_empresa, phone_numero):
+    """
+    Crea un cliente nuevo a partir de datos de RENIEC/SUNAT.
+    Status=Activo, kyc_status=pendiente — puede operar dentro de los límites legales.
+    """
+    import random, string
+    from app.models.client import Client
+    from decimal import Decimal
+
+    digits = re.sub(r'\D', '', phone_numero)
+    local  = digits[-9:] if len(digits) >= 9 else digits
+
+    # Email placeholder único hasta que el cliente lo actualice
+    placeholder_email = f'{doc}@bot.qoricash.pe'
+
+    client = Client()
+    client.document_type = 'RUC' if es_empresa else 'DNI'
+    client.dni    = doc
+    client.email  = placeholder_email
+    client.phone  = local
+    client.status = 'Activo'
+    client.kyc_status = 'pendiente'
+    # Límites operativos sin documentos (normativa SBS)
+    client.operations_without_docs_limit = 10
+    client.max_amount_without_docs = Decimal('50000.00') if es_empresa else Decimal('10000.00')
+
+    if es_empresa:
+        client.razon_social = nombre
+    else:
+        parts = nombre.split()
+        if len(parts) >= 3:
+            client.nombres           = ' '.join(parts[:-2])
+            client.apellido_paterno  = parts[-2]
+            client.apellido_materno  = parts[-1]
+        elif len(parts) == 2:
+            client.nombres          = parts[0]
+            client.apellido_paterno = parts[1]
+        else:
+            client.nombres = nombre
+
+    # Generar código de referido único
+    while True:
+        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        if not Client.query.filter_by(referral_code=code).first():
+            client.referral_code = code
+            break
+
+    db.session.add(client)
+    db.session.commit()
+    log.info(f'[WaBot] Cliente auto-creado: {doc} | {nombre} | tel={local}')
+    return client
+
+
 def _es_dni(t):
     """DNI peruano (8 dígitos) o Carnet de Extranjería (9 dígitos)."""
     return bool(re.match(r'^\d{8,9}$', t.strip()))
@@ -1771,9 +1834,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     )
                     session.estado = 'esperando_doc'
                 else:
-                    # No encontrado → flujo estándar con DNI
-                    _flujo_cotiz_aceptada(numero, session)
-                    session.estado = 'decidiendo_registro'
+                    # No encontrado por teléfono → pedir DNI/RUC directamente
+                    _flujo_pedir_identificacion(numero)
+                    session.estado = 'esperando_identificacion'
 
             elif btn_id.startswith('btn_cliente_') and estado == 'eligiendo_cliente_telefono':
                 # P2 — Cliente eligió con qué cuenta operar (múltiples cuentas en mismo teléfono)
@@ -1947,33 +2010,119 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                             'Ejemplo: *1000*  o  *2500*  o  *5 mil*'
                         )
 
+            elif estado == 'esperando_identificacion':
+                # Flujo nuevo: identificar cliente por DNI/RUC con auto-creación
+                doc = texto.strip()
+                if _es_dni(doc) or _es_ruc(doc):
+                    session.cotiz_doc = doc
+                    es_empresa = _es_ruc(doc)
+                    client = _buscar_cliente(doc)
+                    if client:
+                        if client.status == 'Activo':
+                            # Cliente existente activo → proceder directamente
+                            primer_nombre = (client.nombres or client.razon_social or '').split()[0].title()
+                            send_text(numero, f'✅ ¡Hola de nuevo, {primer_nombre}! Te identificamos correctamente.')
+                            moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                            cuentas = _cuentas_cliente_por_moneda(client, moneda_recibe)
+                            if cuentas:
+                                _flujo_elegir_cuenta(numero, cuentas, moneda_recibe)
+                                session.estado = 'eligiendo_cuenta_destino'
+                            else:
+                                _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                                session.estado = 'esperando_cuenta_destino'
+                        else:
+                            send_buttons(numero,
+                                '⏳ Encontramos tu cuenta pero aún no está activa.\n\n'
+                                'Nuestro equipo la activará pronto. ¿Deseas hablar con un asesor?',
+                                [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                            )
+                            session.estado = 'inicio'
+                    else:
+                        # No existe → consultar RENIEC/SUNAT y auto-crear
+                        send_text(numero, '🔍 Consultando tu documento en la base de datos oficial...')
+                        nombre = _lookup_ruc(doc) if es_empresa else _lookup_dni(doc)
+                        if nombre:
+                            try:
+                                client = _auto_crear_cliente(doc, nombre, es_empresa, numero)
+                                saludo = (client.razon_social or client.nombres or '').split()[0].title()
+                                send_text(numero,
+                                    f'✅ ¡Bienvenido, {saludo}! Hemos verificado tu documento en '
+                                    f'{"SUNAT" if es_empresa else "RENIEC"} y creado tu perfil en Qoricash.\n\n'
+                                    f'Puedes operar de forma inmediata y segura. 🎉'
+                                )
+                                _notificar_admins_wa(
+                                    f'🆕 Cliente auto-registrado vía bot:\n'
+                                    f'Doc: {doc} | {nombre}\n'
+                                    f'Tel: {numero} | Cotiz: {session.cotiz_op} USD {session.cotiz_importe}'
+                                )
+                                moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                                _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                                session.estado = 'esperando_cuenta_destino'
+                            except Exception as _e:
+                                log.error(f'[WaBot] Error auto-creando cliente {doc}: {_e}')
+                                send_buttons(numero,
+                                    '⚠️ No pudimos completar tu registro automático. '
+                                    'Un asesor te ayudará en segundos.',
+                                    [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                                )
+                                session.estado = 'inicio'
+                        else:
+                            send_buttons(numero,
+                                f'⚠️ No encontramos el {"RUC" if es_empresa else "DNI"} *{doc}* '
+                                f'en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
+                                'Verifica que el número sea correcto o habla con un asesor.',
+                                [
+                                    {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'},
+                                ]
+                            )
+                else:
+                    send_text(numero,
+                        '⚠️ Documento no válido.\n\n'
+                        'Ingresa un *DNI* (8 dígitos) o *RUC* (11 dígitos).\n'
+                        'Ejemplo: *12345678* (DNI) | *20123456789* (RUC)'
+                    )
+
             elif estado == 'esperando_doc':
-                # Verificar DNI/RUC de cliente existente
+                # Verificar DNI/RUC de cliente existente (flujo legacy por teléfono múltiple)
                 doc = texto.strip()
                 if _es_dni(doc) or _es_ruc(doc):
                     session.cotiz_doc = doc
                     client = _buscar_cliente(doc)
                     if client:
-                        kyc = (client.kyc_status or '').lower()
-                        if kyc in ('completo', 'aprobado'):
-                            # Determinar moneda que recibirá el cliente
+                        if client.status == 'Activo':
                             moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
                             cuentas = _cuentas_cliente_por_moneda(client, moneda_recibe)
                             if len(cuentas) >= 1:
-                                # Siempre mostrar botones para que el cliente confirme/elija
                                 _flujo_elegir_cuenta(numero, cuentas, moneda_recibe)
                                 session.estado = 'eligiendo_cuenta_destino'
                             else:
-                                # Sin cuenta de esa moneda: pedir banco + número
                                 session.cotiz_cuenta = ''
                                 _flujo_pedir_cuenta_destino(numero, moneda_recibe)
                                 session.estado = 'esperando_cuenta_destino'
                         else:
-                            _flujo_sin_kyc(numero, kyc)
+                            _flujo_sin_kyc(numero, (client.kyc_status or '').lower())
                             session.estado = 'inicio'
                     else:
-                        _flujo_no_encontrado(numero)
-                        session.estado = 'inicio'
+                        # No encontrado → auto-crear igual que en esperando_identificacion
+                        es_empresa = _es_ruc(doc)
+                        nombre = _lookup_ruc(doc) if es_empresa else _lookup_dni(doc)
+                        if nombre:
+                            try:
+                                client = _auto_crear_cliente(doc, nombre, es_empresa, numero)
+                                saludo = (client.razon_social or client.nombres or '').split()[0].title()
+                                send_text(numero,
+                                    f'✅ ¡Bienvenido, {saludo}! Hemos verificado y creado tu perfil en Qoricash.'
+                                )
+                                moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                                _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                                session.estado = 'esperando_cuenta_destino'
+                            except Exception as _e:
+                                log.error(f'[WaBot] Error auto-creando cliente {doc}: {_e}')
+                                _flujo_no_encontrado(numero)
+                                session.estado = 'inicio'
+                        else:
+                            _flujo_no_encontrado(numero)
+                            session.estado = 'inicio'
                 else:
                     send_text(numero,
                         '⚠️ Documento no válido.\n\n'
