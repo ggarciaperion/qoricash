@@ -2252,6 +2252,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         _ia_resp = _respuesta_ia(texto, numero, session)
                         if _ia_resp:
                             send_text(numero, _ia_resp)
+                            _menu_rapido(numero)
                         else:
                             _bienvenida(numero, session.nombre)
                         session.estado = 'menu_mostrado'  # avanza en cualquier caso
@@ -2333,6 +2334,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         _ia_resp = _respuesta_ia(texto, numero, session)
                         if _ia_resp:
                             send_text(numero, _ia_resp)
+                            _menu_rapido(numero)
                             _entendido = True  # IA respondió correctamente, resetear contador
                         else:
                             # Contar mensajes no entendidos consecutivamente para evitar loop
@@ -2383,6 +2385,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         _ia_resp = _respuesta_ia(texto, numero, session)
                         if _ia_resp:
                             send_text(numero, _ia_resp)
+                            _flujo_cotizar_inicio(numero)
                         else:
                             _flujo_cotizar_inicio(numero)
 
