@@ -812,10 +812,10 @@ def _flujo_pedir_identificacion(numero):
 
 
 def _flujo_pedir_id_para_cotizar(numero):
-    """Solicita DNI/RUC para identificar al cliente antes de mostrar el TC."""
+    """Solicita DNI/RUC/CE para identificar al cliente antes de mostrar el TC."""
     send_buttons(numero,
-        '🔎 Para mostrarte el tipo de cambio necesitamos identificarte.\n\n'
-        'Ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos):',
+        '🔎 Para mostrarte el tipo de cambio preferente necesitamos verificar tu identidad.\n\n'
+        'Ingresa tu *DNI* (8 dígitos), *CE* (9 dígitos) o *RUC* (11 dígitos):',
         [{'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'}]
     )
 
@@ -2059,6 +2059,18 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 if any(k in txt_lower_id for k in ('cancelar', 'salir', 'no quiero', 'volver', 'inicio', 'exit', 'stop', 'no', 'menu')):
                     _reset_sesion(session)
                     _menu_rapido(numero)
+                elif len(re.sub(r'\D', '', doc)) == 9:
+                    # 9 dígitos → posible Carné de Extranjería, confirmar con el cliente
+                    session.cotiz_doc = doc
+                    send_buttons(numero,
+                        f'Registramos el número *{doc}* (9 dígitos).\n\n'
+                        '¿Es tu *Carné de Extranjería (CE)*? Si te equivocaste puedes reintentar.',
+                        [
+                            {'id': 'btn_confirmar_ce',   'title': '✍️ Sí, es mi CE'},
+                            {'id': 'btn_reintentar_doc', 'title': '🔄 Me equivoqué'},
+                        ]
+                    )
+                    session.estado = 'esperando_confirmar_ce'
                 elif _es_dni(doc) or _es_ruc(doc):
                     session.cotiz_doc = doc
                     es_empresa = _es_ruc(doc)
@@ -2215,10 +2227,43 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 else:
                     send_buttons(numero,
                         '⚠️ Documento no válido.\n\n'
-                        'Ingresa un *DNI* (8 dígitos) o *RUC* (11 dígitos).\n'
-                        'Ejemplo: *12345678*  |  *20123456789*',
+                        'Ingresa tu *DNI* (8 dígitos), *CE* (9 dígitos) o *RUC* (11 dígitos).\n'
+                        'Ejemplo: *12345678* · *123456789* · *20123456789*',
                         [{'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'}]
                     )
+
+            elif estado == 'esperando_confirmar_ce':
+                # Cliente confirmó o rechazó que sus 9 dígitos son CE
+                if btn_id == 'btn_confirmar_ce':
+                    send_text(numero, '✍️ Ingresa tu *nombre completo*:')
+                    session.tipo   = 'natural'
+                    session.estado = 'esperando_nombre_ce'
+                elif btn_id == 'btn_reintentar_doc':
+                    session.cotiz_doc = ''
+                    _flujo_pedir_id_para_cotizar(numero)
+                    session.estado = 'esperando_id_cotizar'
+                else:
+                    send_buttons(numero,
+                        f'Registramos el número *{session.cotiz_doc}* (9 dígitos).\n\n'
+                        '¿Es tu *Carné de Extranjería (CE)*? Si te equivocaste puedes reintentar.',
+                        [
+                            {'id': 'btn_confirmar_ce',   'title': '✍️ Sí, es mi CE'},
+                            {'id': 'btn_reintentar_doc', 'title': '🔄 Me equivoqué'},
+                        ]
+                    )
+
+            elif estado == 'esperando_nombre_ce':
+                # Recibe nombre del titular CE
+                nombre_ce = texto.strip()
+                if len(nombre_ce) < 3:
+                    send_text(numero, '⚠️ Ingresa tu nombre completo (mínimo 3 caracteres).')
+                else:
+                    session.nombre = nombre_ce
+                    send_text(numero,
+                        f'✅ Gracias, *{nombre_ce.split()[0].title()}*.\n\n'
+                        'Para enviarte las confirmaciones de tus operaciones ingresa tu *correo electrónico*:'
+                    )
+                    session.estado = 'esperando_email_cotizar'
 
             elif estado == 'esperando_email_cotizar':
                 # Recibe email para nuevo cliente que quiere cotizar
