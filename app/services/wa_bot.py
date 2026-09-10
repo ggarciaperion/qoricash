@@ -804,10 +804,11 @@ def _flujo_pedir_doc_verificacion(numero):
 
 
 def _flujo_pedir_identificacion(numero):
-    """Solicita DNI/RUC para identificar al cliente antes de operar."""
+    """Solicita DNI/RUC/CE para identificar al cliente antes de operar."""
     send_text(numero,
         '🔎 Para continuar, ingresa tu número de documento:\n\n'
         '• *DNI* — 8 dígitos (persona natural)\n'
+        '• *CE* — 9 dígitos (carné de extranjería)\n'
         '• *RUC* — 11 dígitos (empresa)\n\n'
         'Lo consultaremos en RENIEC/SUNAT para verificar tu identidad.'
     )
