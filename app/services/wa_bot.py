@@ -539,7 +539,7 @@ def _parse_monto(texto):
 # ── Flujos del bot ─────────────────────────────────────────────────
 
 def _bienvenida(numero, nombre):
-    BANNER_URL = 'https://qoricash.pe/banerwsp.png'
+    BANNER_URL = 'https://qoricash.pe/fn.png'
     primer_nombre = nombre.split()[0] if nombre else ''
     saludo = f'¡Hola {primer_nombre}! 👋' if primer_nombre else '¡Hola! 👋'
 
@@ -2371,7 +2371,20 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
             else:
                 # P1 — Re-enviar el paso donde quedó el cliente según su estado
                 if estado == 'eligiendo_operacion':
-                    _flujo_cotizar_inicio(numero)
+                    _cancelar_kw = ('cancelar', 'salir', 'exit', 'stop', 'no gracias', 'volver', 'inicio', 'menu')
+                    _cotizar_kw  = ('comprar', 'vender', 'compra', 'venta', 'dolares', 'dólares', 'soles', 'cambiar')
+                    if any(k in txt_lower for k in _cancelar_kw):
+                        _reset_sesion(session)
+                        _menu_rapido(numero)
+                    elif any(k in txt_lower for k in _cotizar_kw):
+                        _flujo_cotizar_inicio(numero)
+                    else:
+                        # Pregunta fuera del flujo → intentar IA, si falla re-mostrar botones
+                        _ia_resp = _respuesta_ia(texto, numero, session)
+                        if _ia_resp:
+                            send_text(numero, _ia_resp)
+                        else:
+                            _flujo_cotizar_inicio(numero)
 
                 elif estado == 'esperando_importe':
                     _flujo_pedir_importe(numero, session.cotiz_op or 'compra')
