@@ -401,6 +401,39 @@ def send_buttons(numero, body, buttons):
         log.error(f'[WaBot] Error send_buttons a {numero}: {e}')
 
 
+def send_buttons_image(numero, image_url, body, buttons):
+    """Mensaje interactivo con imagen en el header + hasta 3 botones.
+    Si Meta rechaza la imagen, hace fallback a send_buttons normal."""
+    payload = {
+        'messaging_product': 'whatsapp',
+        'to': numero.lstrip('+'),
+        'type': 'interactive',
+        'interactive': {
+            'type': 'button',
+            'header': {
+                'type': 'image',
+                'image': {'link': image_url},
+            },
+            'body': {'text': body},
+            'action': {
+                'buttons': [
+                    {'type': 'reply', 'reply': {'id': b['id'], 'title': b['title'][:20]}}
+                    for b in buttons[:3]
+                ]
+            }
+        }
+    }
+    try:
+        r = requests.post(WA_API_URL, json=payload, headers=_headers(), timeout=10)
+        if not r.ok:
+            log.warning(f'[WaBot] send_buttons_image falló ({r.status_code}), fallback a send_buttons')
+            send_buttons(numero, body, buttons)
+            return
+        _save_outgoing(numero, '[imagen] ' + body + ' [botones: ' + ', '.join(b['title'] for b in buttons) + ']')
+    except Exception as e:
+        log.error(f'[WaBot] Error send_buttons_image a {numero}: {e}')
+        send_buttons(numero, body, buttons)
+
 def send_list(numero, body, sections):
     payload = {
         'messaging_product': 'whatsapp',
@@ -506,29 +539,19 @@ def _parse_monto(texto):
 # ── Flujos del bot ─────────────────────────────────────────────────
 
 def _bienvenida(numero, nombre):
+    BANNER_URL = 'https://qoricash.pe/banerwsp.png'
     primer_nombre = nombre.split()[0] if nombre else ''
-    saludo = f'Hola {primer_nombre} 👋' if primer_nombre else 'Hola 👋'
-    base_compra, base_venta = _get_tc()
-    # Aplicar spread igual que en la cotización:
-    # compra (bot compra USD del cliente) = base_compra - SPREAD_TC
-    # venta  (bot vende USD al cliente)   = base_venta  + SPREAD_TC
-    compra = round(base_compra - SPREAD_TC, 3) if base_compra else 0
-    venta  = round(base_venta  + SPREAD_TC, 3) if base_venta  else 0
-    tc_texto = (
-        f'💱 *Tipo de cambio ahora:*\n'
-        f'  • Compra: S/ {compra:.3f}\n'
-        f'  • Venta:  S/ {venta:.3f}'
-    ) if compra else ''
+    saludo = f'¡Hola {primer_nombre}! 👋' if primer_nombre else '¡Hola! 👋'
 
     msg = (
-        f'{saludo} Bienvenido a *Qoricash* 🏦\n'
-        'Casa de cambio digital — rápida, segura y regulada por la *SBS*.\n\n'
-        f'{tc_texto}\n\n'
-        '⭐ _Tasa preferencial para importes mayores a $3,000 USD_'
-    ).strip()
+        f'{saludo} Bienvenido a *Qoricash* 🏦\n\n'
+        'Cambia dólares y soles al mejor precio del Perú — '
+        'desde tu WhatsApp, sin apps, sin trámites y de forma inmediata.\n\n'
+        '🔒 _Regulado por la SBS_'
+    )
 
-    send_buttons(numero, msg, [
-        {'id': 'btn_cotizar',  'title': '💱 Cotizar'},
+    send_buttons_image(numero, BANNER_URL, msg, [
+        {'id': 'btn_cotizar',  'title': '💱 Cotizar ahora'},
         {'id': 'btn_registro', 'title': '📝 Registrarme'},
         {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
     ])
@@ -1451,9 +1474,48 @@ def _get_anthropic_client():
         return None
 
 
+def _historial_ia(numero, limite=8):
+    """
+    Retorna los últimos `limite` mensajes del chat como lista de dicts
+    [{'role': 'user'|'assistant', 'content': str}, ...]
+    listos para pasarle a la API de Anthropic.
+    """
+    try:
+        msgs = (
+            WaMessage.query
+            .filter_by(numero=numero)
+            .order_by(WaMessage.created_at.desc())
+            .limit(limite)
+            .all()
+        )
+        msgs = list(reversed(msgs))  # cronológico
+        historia = []
+        for m in msgs:
+            role = 'assistant' if m.direccion == 'saliente' else 'user'
+            texto = m.mensaje.strip()
+            if not texto:
+                continue
+            # Normalizar templates de Meta en algo legible por la IA
+            if texto.startswith('[template:'):
+                texto = f'[Mensaje automático del sistema: {texto}]'
+            historia.append({'role': role, 'content': texto})
+        # Anthropic requiere alternancia user/assistant — fusionar consecutivos del mismo rol
+        filtered = []
+        for msg in historia:
+            if filtered and filtered[-1]['role'] == msg['role']:
+                filtered[-1] = msg  # conservar el más reciente del mismo rol
+            else:
+                filtered.append(msg)
+        return filtered
+    except Exception as e:
+        log.warning(f'[WaBot-IA] Error leyendo historial: {e}')
+        return []
+
+
 def _respuesta_ia(texto_usuario, numero, session):
     """
     Genera una respuesta conversacional usando Claude Haiku.
+    Incluye historial reciente del chat para dar contexto a la IA.
     Retorna str con la respuesta, o None si falla (para caer al fallback clásico).
     """
     client = _get_anthropic_client()
@@ -1467,37 +1529,59 @@ def _respuesta_ia(texto_usuario, numero, session):
         nombre_cliente = session.nombre or 'cliente'
         registrado = bool(session.cotiz_doc)
         en_horario = _is_horario_atencion()
-
-        horario_txt = (
-            'Lunes a viernes: 9:00 am – 6:00 pm | Sábados: 9:00 am – 1:00 pm'
-        )
+        horario_txt = 'Lunes a viernes: 9:00 am – 6:00 pm | Sábados: 9:00 am – 1:00 pm'
         disponibilidad = 'en horario de atención' if en_horario else 'fuera de horario (la operación se registra y se atiende al inicio del siguiente día hábil)'
 
         system_prompt = (
             'Eres el asistente virtual de Qoricash, una casa de cambio digital peruana regulada por la SBS. '
-            'Responde siempre en español, de forma breve, amable y directa (máximo 3-4 oraciones). '
-            'NO uses asteriscos para negrita ni markdown — solo texto plano con emojis ocasionales. '
-            'No inventes tipos de cambio distintos a los dados. No des consejos de inversión. '
-            'Si el cliente quiere cotizar o hacer una operación, indícale que use el botón de Cotizar. '
-            'Si tiene una queja compleja o algo fuera de tu alcance, ofrece conectarle con un asesor humano. '
-            '\n\nDatos actuales:\n'
+            'Tu función es responder preguntas y aclarar dudas — no vender ni ser insistente.\n\n'
+
+            'REGLAS:\n'
+            '- Responde en español, breve y amable (máximo 2-3 oraciones).\n'
+            '- Sin asteriscos ni markdown. Solo texto plano con emojis ocasionales.\n'
+            '- No inventes tipos de cambio distintos a los dados.\n'
+            '- Si el cliente dice "gracias", "excelente", "perfecto", "listo", "ok", "de nada", '
+            'o cualquier cierre de conversación, responde SOLO con una despedida breve y cálida. '
+            'No ofrezcas más servicios ni hagas preguntas adicionales.\n'
+            '- Si el historial muestra una operación recién completada (mensaje de sistema tipo '
+            'qoricash_operacion_completada), responde solo agradeciendo y despidiéndote.\n'
+            '- Si el cliente quiere cotizar, indícale que use el botón Cotizar.\n'
+            '- Si la consulta está fuera de tu alcance, ofrece conectar con un asesor.\n\n'
+
+            'DATOS ACTUALES:\n'
             f'- Tipo de cambio hoy: {tc_str}\n'
-            f'- Solo operamos USD ↔ PEN (dólares americanos y soles peruanos)\n'
+            f'- Solo operamos USD ↔ PEN\n'
             f'- Horario: {horario_txt}\n'
             f'- Estado actual: {disponibilidad}\n'
             f'- Nombre del cliente: {nombre_cliente}\n'
-            f'- Cliente registrado en Qoricash: {"sí" if registrado else "no"}\n'
-            '- Web: www.qoricash.pe | WhatsApp asesor: +51 910 624 404'
+            f'- Cliente registrado: {"sí" if registrado else "no"}\n'
+            '- Web: www.qoricash.pe | Asesor: +51 910 624 404'
         )
+
+        # Construir historial de conversación para contexto
+        historia = _historial_ia(numero, limite=8)
+
+        # Asegurar que el mensaje actual esté al final como 'user'
+        if historia and historia[-1]['role'] == 'user':
+            historia[-1] = {'role': 'user', 'content': texto_usuario}
+        else:
+            historia.append({'role': 'user', 'content': texto_usuario})
+
+        # Garantizar que empiece con 'user'
+        while historia and historia[0]['role'] == 'assistant':
+            historia = historia[1:]
+
+        if not historia:
+            historia = [{'role': 'user', 'content': texto_usuario}]
 
         response = client.messages.create(
             model='claude-haiku-4-5-20251001',
-            max_tokens=200,
+            max_tokens=180,
             system=system_prompt,
-            messages=[{'role': 'user', 'content': texto_usuario}],
+            messages=historia,
         )
         respuesta = response.content[0].text.strip()
-        log.info(f'[WaBot-IA] {numero} → IA respondió ({len(respuesta)} chars)')
+        log.info(f'[WaBot-IA] {numero} → IA respondió ({len(respuesta)} chars, ctx={len(historia)} msgs)')
         return respuesta
 
     except Exception as e:
