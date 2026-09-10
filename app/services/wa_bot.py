@@ -571,8 +571,9 @@ def _flujo_cotizar_inicio(numero):
     send_buttons(numero,
         '¿Qué operación deseas realizar?',
         [
-            {'id': 'btn_comprar', 'title': '🟢 Comprar dólares'},
-            {'id': 'btn_vender',  'title': '🔵 Vender dólares'},
+            {'id': 'btn_comprar',       'title': '🟢 Comprar dólares'},
+            {'id': 'btn_vender',        'title': '🔵 Vender dólares'},
+            {'id': 'btn_volver_inicio', 'title': '🔙 Volver'},
         ]
     )
 
@@ -580,10 +581,11 @@ def _flujo_cotizar_inicio(numero):
 def _flujo_pedir_importe(numero, operacion):
     """Solicita el importe en USD."""
     op_texto = 'comprar' if operacion == 'compra' else 'vender'
-    send_text(numero,
+    send_buttons(numero,
         f'¿Cuántos dólares deseas {op_texto}?\n\n'
         f'Escribe el monto en USD. Ejemplo: *1000*\n'
-        f'_(Mínimo: USD {MONTO_MINIMO_USD:,.0f})_'
+        f'_(Mínimo: USD {MONTO_MINIMO_USD:,.0f})_',
+        [{'id': 'btn_volver_cotizar', 'title': '🔙 Cambiar operación'}]
     )
 
 
@@ -2106,10 +2108,11 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                             session.nombre = nombre_api
                             session.tipo   = 'empresa' if es_empresa else 'natural'
                             saludo = nombre_api.split()[0].title()
-                            send_text(numero,
+                            send_buttons(numero,
                                 f'✅ Verificamos tu documento en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
                                 f'Para completar tu perfil y enviarte las confirmaciones de tus operaciones, '
-                                f'ingresa tu *correo electrónico*:'
+                                f'ingresa tu *correo electrónico*:',
+                                [{'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'}]
                             )
                             session.estado = 'esperando_email_registro'
                         else:
@@ -2208,10 +2211,11 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         if nombre_api:
                             session.nombre = nombre_api
                             session.tipo   = 'empresa' if es_empresa else 'natural'
-                            send_text(numero,
+                            send_buttons(numero,
                                 f'✅ Verificamos tu documento en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
                                 f'Para completar tu perfil y enviarte las confirmaciones de tus operaciones, '
-                                f'ingresa tu *correo electrónico*:'
+                                f'ingresa tu *correo electrónico*:',
+                                [{'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'}]
                             )
                             session.estado = 'esperando_email_cotizar'
                         else:
