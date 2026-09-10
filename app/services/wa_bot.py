@@ -730,10 +730,9 @@ def _flujo_sesion_expirada(numero):
             ]
         )
     else:
-        send_buttons(numero,
+        send_text(numero,
             '⏰ Tu sesión ha expirado por inactividad.\n\n'
-            'Cuando desees volver a operar, escríbenos y comenzamos de nuevo.',
-            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+            'Cuando desees volver a operar, escríbenos y comenzamos de nuevo.'
         )
 
 
