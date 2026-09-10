@@ -803,10 +803,11 @@ def _flujo_pedir_identificacion(numero):
     )
 
 
-def _auto_crear_cliente(doc, nombre, es_empresa, phone_numero):
+def _auto_crear_cliente(doc, nombre, es_empresa, phone_numero, email=None):
     """
     Crea un cliente nuevo a partir de datos de RENIEC/SUNAT.
     Status=Activo, kyc_status=pendiente — puede operar dentro de los límites legales.
+    email: correo real del cliente; si None usa placeholder temporal.
     """
     import random, string
     from app.models.client import Client
@@ -815,8 +816,7 @@ def _auto_crear_cliente(doc, nombre, es_empresa, phone_numero):
     digits = re.sub(r'\D', '', phone_numero)
     local  = digits[-9:] if len(digits) >= 9 else digits
 
-    # Email placeholder único hasta que el cliente lo actualice
-    placeholder_email = f'{doc}@bot.qoricash.pe'
+    placeholder_email = email if email else f'{doc}@bot.qoricash.pe'
 
     client = Client()
     client.document_type = 'RUC' if es_empresa else 'DNI'
@@ -2012,13 +2012,17 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
             elif estado == 'esperando_identificacion':
                 # Flujo nuevo: identificar cliente por DNI/RUC con auto-creación
                 doc = texto.strip()
-                if _es_dni(doc) or _es_ruc(doc):
+                txt_lower_id = doc.lower()
+                # Permitir salir del estado en cualquier momento
+                if any(k in txt_lower_id for k in ('cancelar', 'salir', 'no quiero', 'volver', 'inicio', 'exit', 'stop', 'no', 'menu')):
+                    _reset_sesion(session)
+                    _menu_rapido(numero)
+                elif _es_dni(doc) or _es_ruc(doc):
                     session.cotiz_doc = doc
                     es_empresa = _es_ruc(doc)
                     client = _buscar_cliente(doc)
                     if client:
                         if client.status == 'Activo':
-                            # Cliente existente activo → proceder directamente
                             primer_nombre = (client.nombres or client.razon_social or '').split()[0].title()
                             send_text(numero, f'✅ ¡Hola de nuevo, {primer_nombre}! Te identificamos correctamente.')
                             moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
@@ -2033,52 +2037,87 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                             send_buttons(numero,
                                 '⏳ Encontramos tu cuenta pero aún no está activa.\n\n'
                                 'Nuestro equipo la activará pronto. ¿Deseas hablar con un asesor?',
-                                [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                                [
+                                    {'id': 'btn_asesor',       'title': '💬 Hablar con asesor'},
+                                    {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
+                                ]
                             )
                             session.estado = 'inicio'
                     else:
-                        # No existe → consultar RENIEC/SUNAT y auto-crear
-                        send_text(numero, '🔍 Consultando tu documento en la base de datos oficial...')
-                        nombre = _lookup_ruc(doc) if es_empresa else _lookup_dni(doc)
-                        if nombre:
-                            try:
-                                client = _auto_crear_cliente(doc, nombre, es_empresa, numero)
-                                saludo = (client.razon_social or client.nombres or '').split()[0].title()
-                                send_text(numero,
-                                    f'✅ ¡Bienvenido, {saludo}! Hemos verificado tu documento en '
-                                    f'{"SUNAT" if es_empresa else "RENIEC"} y creado tu perfil en Qoricash.\n\n'
-                                    f'Puedes operar de forma inmediata y segura. 🎉'
-                                )
-                                _notificar_admins_wa(
-                                    f'🆕 Cliente auto-registrado vía bot:\n'
-                                    f'Doc: {doc} | {nombre}\n'
-                                    f'Tel: {numero} | Cotiz: {session.cotiz_op} USD {session.cotiz_importe}'
-                                )
-                                moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
-                                _flujo_pedir_cuenta_destino(numero, moneda_recibe)
-                                session.estado = 'esperando_cuenta_destino'
-                            except Exception as _e:
-                                log.error(f'[WaBot] Error auto-creando cliente {doc}: {_e}')
-                                send_buttons(numero,
-                                    '⚠️ No pudimos completar tu registro automático. '
-                                    'Un asesor te ayudará en segundos.',
-                                    [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
-                                )
-                                session.estado = 'inicio'
+                        # No existe → consultar RENIEC/SUNAT
+                        send_text(numero, '🔍 Verificando tu documento...')
+                        nombre_api = _lookup_ruc(doc) if es_empresa else _lookup_dni(doc)
+                        if nombre_api:
+                            # Guardar datos para usarlos cuando llegue el email
+                            session.nombre = nombre_api
+                            session.tipo   = 'empresa' if es_empresa else 'natural'
+                            saludo = nombre_api.split()[0].title()
+                            send_text(numero,
+                                f'✅ Verificamos tu documento en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
+                                f'Para completar tu perfil y enviarte las confirmaciones de tus operaciones, '
+                                f'ingresa tu *correo electrónico*:'
+                            )
+                            session.estado = 'esperando_email_registro'
                         else:
                             send_buttons(numero,
                                 f'⚠️ No encontramos el {"RUC" if es_empresa else "DNI"} *{doc}* '
                                 f'en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
                                 'Verifica que el número sea correcto o habla con un asesor.',
                                 [
-                                    {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'},
+                                    {'id': 'btn_asesor',       'title': '💬 Hablar con asesor'},
+                                    {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
                                 ]
                             )
                 else:
-                    send_text(numero,
+                    send_buttons(numero,
                         '⚠️ Documento no válido.\n\n'
                         'Ingresa un *DNI* (8 dígitos) o *RUC* (11 dígitos).\n'
-                        'Ejemplo: *12345678* (DNI) | *20123456789* (RUC)'
+                        'Ejemplo: *12345678*  |  *20123456789*',
+                        [{'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'}]
+                    )
+
+            elif estado == 'esperando_email_registro':
+                # Recibe email para completar auto-registro
+                email_raw = texto.strip().lower()
+                if any(k in email_raw for k in ('cancelar', 'salir', 'no quiero', 'volver', 'no', 'exit')):
+                    _reset_sesion(session)
+                    _menu_rapido(numero)
+                elif _es_email(email_raw):
+                    doc        = session.cotiz_doc or ''
+                    nombre_reg = session.nombre    or ''
+                    es_empresa = (session.tipo == 'empresa')
+                    try:
+                        client = _auto_crear_cliente(doc, nombre_reg, es_empresa, numero, email=email_raw)
+                        saludo = (client.razon_social or client.nombres or '').split()[0].title()
+                        send_text(numero,
+                            f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
+                            f'Recibirás las confirmaciones de tus operaciones en *{email_raw}*.\n\n'
+                            f'Continuemos con tu operación 👇'
+                        )
+                        _notificar_admins_wa(
+                            f'🆕 Cliente auto-registrado vía bot:\n'
+                            f'Doc: {doc} | {nombre_reg}\n'
+                            f'Email: {email_raw} | Tel: {numero}\n'
+                            f'Cotiz: {session.cotiz_op} USD {session.cotiz_importe}'
+                        )
+                        moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                        _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                        session.estado = 'esperando_cuenta_destino'
+                    except Exception as _e:
+                        log.error(f'[WaBot] Error auto-creando cliente {doc}: {_e}')
+                        send_buttons(numero,
+                            '⚠️ No pudimos completar tu registro. Un asesor te ayudará.',
+                            [
+                                {'id': 'btn_asesor',       'title': '💬 Hablar con asesor'},
+                                {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
+                            ]
+                        )
+                        session.estado = 'inicio'
+                else:
+                    send_buttons(numero,
+                        '⚠️ Correo no válido. Ingresa un correo en formato correcto.\n'
+                        'Ejemplo: *tucorreo@gmail.com*',
+                        [{'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'}]
                     )
 
             elif estado == 'esperando_doc':
