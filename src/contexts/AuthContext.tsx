@@ -12,10 +12,12 @@ interface AuthContextData {
   client: Client | null;
   loading: boolean;
   isAuthenticated: boolean;
+  sessionKicked: boolean;  // true cuando otra sesión inició y tumbó esta
   login: (credentials: LoginCredentials, dni: string) => Promise<void>;
   loginWithGoogle: (clientData: Client) => Promise<void>;
   logout: () => Promise<void>;
   refreshClient: () => Promise<void>;
+  clearSessionKicked: () => void;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
@@ -24,13 +26,43 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionKicked, setSessionKicked] = useState(false);
+  const sessionIdRef = React.useRef<string | null>(null);
 
   useEffect(() => {
     socketService.configure();
     socketService.connect();
     loadStoredData();
 
+    // Escuchar invalidación de sesión (nuevo login en otro dispositivo)
+    const handleSessionInvalidated = async (data: { new_session_id: string }) => {
+      const mySessionId = sessionIdRef.current
+        ?? await AsyncStorage.getItem(STORAGE_KEYS.SESSION_ID);
+
+      // Si el nuevo session_id es el nuestro, somos la sesión recién creada → ignorar
+      if (mySessionId && mySessionId === data.new_session_id) return;
+
+      console.log('🔒 [AUTH] Sesión invalidada. Cerrando sesión automáticamente...');
+      setSessionKicked(true);
+
+      // Limpiar datos locales
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.USER_DATA,
+        STORAGE_KEYS.CLIENT_DATA,
+        STORAGE_KEYS.AUTH_TOKEN,
+        STORAGE_KEYS.REQUIRES_PASSWORD_CHANGE,
+        STORAGE_KEYS.SESSION_ID,
+      ]);
+      socketService.disconnect();
+      setUser(null);
+      setClient(null);
+      sessionIdRef.current = null;
+    };
+
+    socketService.subscribeToEvent('session_invalidated', handleSessionInvalidated);
+
     return () => {
+      socketService.unsubscribeFromEvent('session_invalidated', handleSessionInvalidated);
       socketService.disconnect();
     };
   }, []);
@@ -62,10 +94,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const loadStoredData = async () => {
     try {
-      const [storedUser, storedClient] = await Promise.all([
+      const [storedUser, storedClient, storedSessionId] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.USER_DATA),
         AsyncStorage.getItem(STORAGE_KEYS.CLIENT_DATA),
+        AsyncStorage.getItem(STORAGE_KEYS.SESSION_ID),
       ]);
+      if (storedSessionId) sessionIdRef.current = storedSessionId;
 
       if (storedClient && storedUser) {
         const cachedClient: Client = JSON.parse(storedClient);
@@ -111,13 +145,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const clientData = loginResponse.client;
       const requiresPasswordChange = loginResponse.requires_password_change || false;
+      const sessionId = loginResponse.session_id || null;
 
       // Persistir sesión en AsyncStorage para auto-login en próxima apertura
-      await AsyncStorage.multiSet([
+      const storageEntries: [string, string][] = [
         [STORAGE_KEYS.CLIENT_DATA, JSON.stringify(clientData)],
         [STORAGE_KEYS.USER_DATA, JSON.stringify(loginResponse.user)],
-      ]);
+      ];
+      if (sessionId) storageEntries.push([STORAGE_KEYS.SESSION_ID, sessionId]);
+      await AsyncStorage.multiSet(storageEntries);
 
+      sessionIdRef.current = sessionId;
       setUser(loginResponse.user);
       setClient(clientData);
 
@@ -174,11 +212,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         STORAGE_KEYS.CLIENT_DATA,
         STORAGE_KEYS.AUTH_TOKEN,
         STORAGE_KEYS.REQUIRES_PASSWORD_CHANGE,
+        STORAGE_KEYS.SESSION_ID,
       ]);
+      sessionIdRef.current = null;
       setUser(null);
       setClient(null);
     }
   };
+
+  const clearSessionKicked = () => setSessionKicked(false);
 
   const refreshClient = async () => {
     try {
@@ -204,10 +246,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         client,
         loading,
         isAuthenticated: !!user && !!client,
+        sessionKicked,
         login,
         loginWithGoogle,
         logout,
         refreshClient,
+        clearSessionKicked,
       }}
     >
       {children}

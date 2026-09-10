@@ -39,6 +39,7 @@ export const STORAGE_KEYS = {
   AUTH_TOKEN: '@qoricash_auth_token',
   BIOMETRIC_ENABLED: '@qoricash_biometric_enabled',
   REQUIRES_PASSWORD_CHANGE: '@qoricash_requires_password_change',
+  SESSION_ID: '@qoricash_session_id',
 };
 
 // Operation Status Colors

@@ -169,15 +169,42 @@ def client_login():
 
         logger.info(f"Login exitoso de cliente: {client.dni}")
 
+        try:
+            client_data = client.to_dict()
+        except Exception as dict_err:
+            import traceback
+            logger.error(f"Error en to_dict() para cliente {client.dni}: {str(dict_err)}\n{traceback.format_exc()}")
+            return jsonify({
+                'success': False,
+                'message': 'Error al cargar datos del cliente. Contacta con soporte.'
+            }), 500
+
+        # ── Control de sesión única ──────────────────────────────────
+        # Generar un nuevo session_id para esta sesión.
+        # Notificar a las sesiones previas del mismo cliente para que se desconecten.
+        import uuid
+        from app.extensions import socketio as _socketio
+        session_id = str(uuid.uuid4())
+        try:
+            _socketio.emit(
+                'session_invalidated',
+                {'new_session_id': session_id},
+                room=f'client_{client.dni}',
+            )
+        except Exception as sio_err:
+            logger.warning(f"No se pudo emitir session_invalidated: {sio_err}")
+
         return jsonify({
             'success': True,
             'message': 'Login exitoso',
-            'client': client.to_dict(),
+            'client': client_data,
+            'session_id': session_id,
             'requires_password_change': client.requires_password_change or False
         }), 200
 
     except Exception as e:
-        logger.error(f"Error en login de cliente: {str(e)}")
+        import traceback
+        logger.error(f"Error en login de cliente: {str(e)}\n{traceback.format_exc()}")
         return jsonify({
             'success': False,
             'message': 'Error al iniciar sesión. Intenta nuevamente.'
@@ -339,16 +366,17 @@ def forgot_password():
         client = Client.query.filter_by(dni=dni).first()
 
         if not client:
-            # Por seguridad, no revelamos si el cliente existe o no
             return jsonify({
-                'success': True,
-                'message': 'Si los datos son correctos, recibirás un email con tu contraseña temporal'
+                'success': False,
+                'error_code': 'dni_not_found',
+                'message': 'El número de documento no está registrado en el sistema.'
             }), 200
 
         # Verificar que el email coincida
         if not client.email or client.email.lower().strip() != email:
             return jsonify({
                 'success': False,
+                'error_code': 'email_mismatch',
                 'message': 'El correo ingresado no está asociado a este número de documento.'
             }), 200
 

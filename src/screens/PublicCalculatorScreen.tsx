@@ -211,9 +211,14 @@ export const PublicCalculatorScreen: React.FC<Props> = ({ navigation }) => {
 
   useEffect(() => {
     fetchRates();
+    // Asegurar que el socket esté conectado para la pantalla pública
+    if (!socketService.isConnected()) {
+      socketService.connect();
+    }
+    // Usar subscribeToEvent (eventEmitter interno) en lugar de socket.on directo
     const handler = (d: any) => setRates({ compra: d.compra, venta: d.venta });
-    socketService.on('tipos_cambio_actualizados', handler);
-    return () => socketService.off('tipos_cambio_actualizados', handler);
+    socketService.subscribeToEvent('tipos_cambio_actualizados', handler);
+    return () => socketService.unsubscribeFromEvent('tipos_cambio_actualizados', handler);
   }, []);
 
   const onRefresh = useCallback(async () => {

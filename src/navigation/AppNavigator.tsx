@@ -288,7 +288,7 @@ import { shownCancelAlerts } from '../utils/cancelAlertDedup';
 
 // Root Navigator
 export const AppNavigator = () => {
-  const { isAuthenticated, loading, client, logout } = useAuth();
+  const { isAuthenticated, loading, client, logout, sessionKicked, clearSessionKicked } = useAuth();
   const { showLoginLoading, setShowLoginLoading, showLogoutLoading, setShowLogoutLoading } = useLoginLoading();
   const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
 
@@ -476,6 +476,68 @@ export const AppNavigator = () => {
         onLogout={logout}
         onComplete={() => setShowLogoutLoading(false)}
       />
+
+      {/* ── Modal global: sesión invalidada por otro dispositivo ── */}
+      <Modal
+        visible={sessionKicked}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => {}}
+      >
+        <BlurView intensity={70} tint="dark" style={navS.alertBackdrop}>
+          <View style={{
+            backgroundColor: '#0F172A',
+            borderRadius: 24,
+            marginHorizontal: 24,
+            overflow: 'hidden',
+            borderWidth: 1,
+            borderColor: 'rgba(239,68,68,0.25)',
+          }}>
+            {/* Header rojo */}
+            <View style={{
+              backgroundColor: '#DC2626',
+              alignItems: 'center',
+              paddingTop: 28,
+              paddingBottom: 22,
+              paddingHorizontal: 24,
+            }}>
+              <View style={{
+                width: 60, height: 60, borderRadius: 18,
+                backgroundColor: 'rgba(255,255,255,0.18)',
+                alignItems: 'center', justifyContent: 'center',
+                marginBottom: 14,
+              }}>
+                <Ionicons name="lock-closed" size={28} color="#ffffff" />
+              </View>
+              <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '900', textAlign: 'center' }}>
+                Sesión cerrada
+              </Text>
+              <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, textAlign: 'center', marginTop: 4 }}>
+                Tu sesión fue iniciada en otro dispositivo
+              </Text>
+            </View>
+
+            {/* Body */}
+            <View style={{ padding: 22 }}>
+              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', lineHeight: 20, marginBottom: 20 }}>
+                Por seguridad, solo se permite una sesión activa a la vez. Si no fuiste tú, cambia tu contraseña inmediatamente.
+              </Text>
+              <TouchableOpacity
+                onPress={() => { clearSessionKicked(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
+                style={{
+                  backgroundColor: '#2563EB',
+                  borderRadius: 14,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '800' }}>Entendido</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </BlurView>
+      </Modal>
 
       {/* ── Alerta global: operación completada ── */}
       <Modal

@@ -111,6 +111,12 @@ class SocketService {
       console.log('📡 Operación expirada:', data);
       this.handleOperationExpired(data);
     });
+
+    // Sesión invalidada: nuevo login en otro dispositivo con el mismo DNI
+    this.socket.on('session_invalidated', (data) => {
+      console.log('🔒 [SOCKET] session_invalidated recibido:', data);
+      this.eventEmitter.emit('session_invalidated', data);
+    });
   }
 
   // Desconectar Socket.IO
