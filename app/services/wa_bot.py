@@ -823,6 +823,46 @@ def _flujo_pedir_id_para_cotizar(numero):
     )
 
 
+def _intentar_identificar_y_cotizar(numero, session):
+    """
+    Identifica al cliente con 3 niveles de prioridad y arranca el flujo de cotización.
+
+    Prioridad 1 — session.cotiz_doc ya fijado (misma sesión activa):
+        Reutiliza el documento sin preguntar.  Muestra nota de cómo cambiar.
+    Prioridad 2 — Phone lookup P2 (1 cliente activo por número):
+        Auto-identifica y fija cotiz_doc.
+    Prioridad 3 — Ninguno:
+        Pide DNI/RUC → estado esperando_id_cotizar.
+    """
+    # P1 — sesión activa con doc ya conocido
+    _client_ses = _buscar_cliente(session.cotiz_doc) if session.cotiz_doc else None
+    if _client_ses and _client_ses.status == 'Activo':
+        primer_nombre = (_client_ses.nombres or _client_ses.razon_social or '').split()[0].title()
+        send_text(numero,
+            f'👋 ¡Hola de nuevo, {primer_nombre}!\n\n'
+            f'_Continuamos con tu misma sesión. Si deseas operar con otro documento, '
+            f'cierra la sesión primero._'
+        )
+        _flujo_cotizar_inicio(numero)
+        session.estado = 'eligiendo_operacion'
+        return
+
+    # P2 — phone lookup
+    _clientes_tel = _buscar_clientes_por_telefono(numero)
+    if len(_clientes_tel) == 1 and _clientes_tel[0].status == 'Activo':
+        _c = _clientes_tel[0]
+        session.cotiz_doc = _c.dni
+        primer_nombre = (_c.nombres or _c.razon_social or '').split()[0].title()
+        send_text(numero, f'👋 ¡Hola de nuevo, {primer_nombre}!')
+        _flujo_cotizar_inicio(numero)
+        session.estado = 'eligiendo_operacion'
+        return
+
+    # P3 — pedir documento
+    _flujo_pedir_id_para_cotizar(numero)
+    session.estado = 'esperando_id_cotizar'
+
+
 def _auto_crear_cliente(doc, nombre, es_empresa, phone_numero, email=None):
     """
     Crea un cliente nuevo a partir de datos de RENIEC/SUNAT.
@@ -1819,18 +1859,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 if _op_activa:
                     _flujo_op_ya_activa(numero, _op_activa)
                 else:
-                    # P2 — Identificar cliente por teléfono antes de mostrar TC
-                    _clientes_tel_cot = _buscar_clientes_por_telefono(numero)
-                    if len(_clientes_tel_cot) == 1 and _clientes_tel_cot[0].status == 'Activo':
-                        _c_tel = _clientes_tel_cot[0]
-                        session.cotiz_doc = _c_tel.dni
-                        primer_nombre = (_c_tel.nombres or _c_tel.razon_social or '').split()[0].title()
-                        send_text(numero, f'👋 ¡Hola de nuevo, {primer_nombre}!')
-                        _flujo_cotizar_inicio(numero)
-                        session.estado = 'eligiendo_operacion'
-                    else:
-                        _flujo_pedir_id_para_cotizar(numero)
-                        session.estado = 'esperando_id_cotizar'
+                    _intentar_identificar_y_cotizar(numero, session)
 
             elif btn_id == 'btn_comprar':
                 _op_activa = _operacion_activa_cliente(numero)
@@ -2657,17 +2686,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     if _op_activa_txt:
                         _flujo_op_ya_activa(numero, _op_activa_txt)
                     else:
-                        _clientes_tel_ini = _buscar_clientes_por_telefono(numero)
-                        if len(_clientes_tel_ini) == 1 and _clientes_tel_ini[0].status == 'Activo':
-                            _c_ini = _clientes_tel_ini[0]
-                            session.cotiz_doc = _c_ini.dni
-                            primer_nombre = (_c_ini.nombres or _c_ini.razon_social or '').split()[0].title()
-                            send_text(numero, f'👋 ¡Hola de nuevo, {primer_nombre}!')
-                            _flujo_cotizar_inicio(numero)
-                            session.estado = 'eligiendo_operacion'
-                        else:
-                            _flujo_pedir_id_para_cotizar(numero)
-                            session.estado = 'esperando_id_cotizar'
+                        _intentar_identificar_y_cotizar(numero, session)
                 else:
                     # Si tiene operación activa, recordarle antes de mostrar bienvenida
                     _op_activa_txt = _operacion_activa_cliente(numero)
@@ -2730,17 +2749,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     if _op_activa_txt:
                         _flujo_op_ya_activa(numero, _op_activa_txt)
                     else:
-                        _clientes_tel_mm = _buscar_clientes_por_telefono(numero)
-                        if len(_clientes_tel_mm) == 1 and _clientes_tel_mm[0].status == 'Activo':
-                            _c_mm = _clientes_tel_mm[0]
-                            session.cotiz_doc = _c_mm.dni
-                            primer_nombre = (_c_mm.nombres or _c_mm.razon_social or '').split()[0].title()
-                            send_text(numero, f'👋 ¡Hola de nuevo, {primer_nombre}!')
-                            _flujo_cotizar_inicio(numero)
-                            session.estado = 'eligiendo_operacion'
-                        else:
-                            _flujo_pedir_id_para_cotizar(numero)
-                            session.estado = 'esperando_id_cotizar'
+                        _intentar_identificar_y_cotizar(numero, session)
                 elif any(k in txt_lower for k in ('asesor', 'ayuda', 'ayúdame', 'ayudame', 'hablar', 'persona', 'humano', 'soporte', 'contacto')):
                     _flujo_asesor(numero)
                     session.estado = 'inicio'
