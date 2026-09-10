@@ -803,6 +803,15 @@ def _flujo_pedir_identificacion(numero):
     )
 
 
+def _flujo_pedir_id_para_cotizar(numero):
+    """Solicita DNI/RUC para identificar al cliente antes de mostrar el TC."""
+    send_buttons(numero,
+        '🔎 Para mostrarte el tipo de cambio necesitamos identificarte.\n\n'
+        'Ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos):',
+        [{'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'}]
+    )
+
+
 def _auto_crear_cliente(doc, nombre, es_empresa, phone_numero, email=None):
     """
     Crea un cliente nuevo a partir de datos de RENIEC/SUNAT.
@@ -1786,8 +1795,18 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 if _op_activa:
                     _flujo_op_ya_activa(numero, _op_activa)
                 else:
-                    _flujo_cotizar_inicio(numero)
-                    session.estado = 'eligiendo_operacion'
+                    # P2 — Identificar cliente por teléfono antes de mostrar TC
+                    _clientes_tel_cot = _buscar_clientes_por_telefono(numero)
+                    if len(_clientes_tel_cot) == 1 and _clientes_tel_cot[0].status == 'Activo':
+                        _c_tel = _clientes_tel_cot[0]
+                        session.cotiz_doc = _c_tel.dni
+                        primer_nombre = (_c_tel.nombres or _c_tel.razon_social or '').split()[0].title()
+                        send_text(numero, f'👋 ¡Hola de nuevo, {primer_nombre}!')
+                        _flujo_cotizar_inicio(numero)
+                        session.estado = 'eligiendo_operacion'
+                    else:
+                        _flujo_pedir_id_para_cotizar(numero)
+                        session.estado = 'esperando_id_cotizar'
 
             elif btn_id == 'btn_comprar':
                 _op_activa = _operacion_activa_cliente(numero)
@@ -1810,32 +1829,31 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     session.estado = 'esperando_importe'
 
             elif btn_id == 'btn_aceptar_cotiz':
-                # P2 — Buscar cliente por número de teléfono antes de preguntar DNI
-                clientes_tel = _buscar_clientes_por_telefono(numero)
-                if len(clientes_tel) == 1:
-                    # Un único cliente aprobado → saltar verificación de DNI
-                    client_tel = clientes_tel[0]
-                    session.cotiz_doc = client_tel.dni
-                    moneda_recibe_tel = 'USD' if session.cotiz_op == 'compra' else 'PEN'
-                    cuentas_tel = _cuentas_cliente_por_moneda(client_tel, moneda_recibe_tel)
-                    if len(cuentas_tel) >= 1:
-                        # Siempre mostrar botones para que el cliente confirme/elija
-                        _flujo_elegir_cuenta(numero, cuentas_tel, moneda_recibe_tel)
-                        session.estado = 'eligiendo_cuenta_destino'
+                # Cliente ya identificado (session.cotiz_doc fijado en flujo identificación-primero)
+                if session.cotiz_doc:
+                    client_ac = _buscar_cliente(session.cotiz_doc)
+                    if client_ac and client_ac.status == 'Activo':
+                        moneda_recibe_ac = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                        cuentas_ac = _cuentas_cliente_por_moneda(client_ac, moneda_recibe_ac)
+                        if cuentas_ac:
+                            _flujo_elegir_cuenta(numero, cuentas_ac, moneda_recibe_ac)
+                            session.estado = 'eligiendo_cuenta_destino'
+                        else:
+                            _flujo_pedir_cuenta_destino(numero, moneda_recibe_ac)
+                            session.estado = 'esperando_cuenta_destino'
                     else:
-                        _flujo_pedir_cuenta_destino(numero, moneda_recibe_tel)
-                        session.estado = 'esperando_cuenta_destino'
-                elif len(clientes_tel) > 1:
-                    # Múltiples cuentas con el mismo teléfono → pedir documento para identificar
-                    send_text(numero,
-                        '🔎 Ingresa el *DNI/CE* (8-9 dígitos) o *RUC* (11 dígitos) '
-                        'con el que deseas operar:'
-                    )
-                    session.estado = 'esperando_doc'
+                        send_buttons(numero,
+                            '⚠️ No pudimos verificar tu cuenta. Por favor habla con un asesor.',
+                            [
+                                {'id': 'btn_asesor',       'title': '💬 Hablar con asesor'},
+                                {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
+                            ]
+                        )
+                        session.estado = 'inicio'
                 else:
-                    # No encontrado por teléfono → pedir DNI/RUC directamente
-                    _flujo_pedir_identificacion(numero)
-                    session.estado = 'esperando_identificacion'
+                    # Fallback: no debería ocurrir con el nuevo flujo, pero por seguridad
+                    _flujo_pedir_id_para_cotizar(numero)
+                    session.estado = 'esperando_id_cotizar'
 
             elif btn_id.startswith('btn_cliente_') and estado == 'eligiendo_cliente_telefono':
                 # P2 — Cliente eligió con qué cuenta operar (múltiples cuentas en mismo teléfono)
@@ -2103,6 +2121,106 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
                         _flujo_pedir_cuenta_destino(numero, moneda_recibe)
                         session.estado = 'esperando_cuenta_destino'
+                    except Exception as _e:
+                        log.error(f'[WaBot] Error auto-creando cliente {doc}: {_e}')
+                        send_buttons(numero,
+                            '⚠️ No pudimos completar tu registro. Un asesor te ayudará.',
+                            [
+                                {'id': 'btn_asesor',       'title': '💬 Hablar con asesor'},
+                                {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
+                            ]
+                        )
+                        session.estado = 'inicio'
+                else:
+                    send_buttons(numero,
+                        '⚠️ Correo no válido. Ingresa un correo en formato correcto.\n'
+                        'Ejemplo: *tucorreo@gmail.com*',
+                        [{'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'}]
+                    )
+
+            elif estado == 'esperando_id_cotizar':
+                # Identificación antes de mostrar TC (nuevo flujo identificación-primero)
+                doc = texto.strip()
+                txt_lower_idc = doc.lower()
+                if any(k in txt_lower_idc for k in ('cancelar', 'salir', 'no quiero', 'volver', 'inicio', 'exit', 'stop', 'no', 'menu')):
+                    _reset_sesion(session)
+                    _menu_rapido(numero)
+                elif _es_dni(doc) or _es_ruc(doc):
+                    session.cotiz_doc = doc
+                    es_empresa = _es_ruc(doc)
+                    client = _buscar_cliente(doc)
+                    if client:
+                        if client.status == 'Activo':
+                            primer_nombre = (client.nombres or client.razon_social or '').split()[0].title()
+                            send_text(numero, f'✅ ¡Hola de nuevo, {primer_nombre}! Te identificamos correctamente.')
+                            _flujo_cotizar_inicio(numero)
+                            session.estado = 'eligiendo_operacion'
+                        else:
+                            send_buttons(numero,
+                                '⏳ Encontramos tu cuenta pero aún no está activa.\n\n'
+                                'Nuestro equipo la activará pronto. ¿Deseas hablar con un asesor?',
+                                [
+                                    {'id': 'btn_asesor',       'title': '💬 Hablar con asesor'},
+                                    {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
+                                ]
+                            )
+                            session.estado = 'inicio'
+                    else:
+                        # No existe → consultar RENIEC/SUNAT
+                        send_text(numero, '🔍 Verificando tu documento...')
+                        nombre_api = _lookup_ruc(doc) if es_empresa else _lookup_dni(doc)
+                        if nombre_api:
+                            session.nombre = nombre_api
+                            session.tipo   = 'empresa' if es_empresa else 'natural'
+                            send_text(numero,
+                                f'✅ Verificamos tu documento en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
+                                f'Para completar tu perfil y enviarte las confirmaciones de tus operaciones, '
+                                f'ingresa tu *correo electrónico*:'
+                            )
+                            session.estado = 'esperando_email_cotizar'
+                        else:
+                            send_buttons(numero,
+                                f'⚠️ No encontramos el {"RUC" if es_empresa else "DNI"} *{doc}* '
+                                f'en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
+                                'Verifica que el número sea correcto o habla con un asesor.',
+                                [
+                                    {'id': 'btn_asesor',       'title': '💬 Hablar con asesor'},
+                                    {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
+                                ]
+                            )
+                else:
+                    send_buttons(numero,
+                        '⚠️ Documento no válido.\n\n'
+                        'Ingresa un *DNI* (8 dígitos) o *RUC* (11 dígitos).\n'
+                        'Ejemplo: *12345678*  |  *20123456789*',
+                        [{'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'}]
+                    )
+
+            elif estado == 'esperando_email_cotizar':
+                # Recibe email para nuevo cliente que quiere cotizar
+                email_raw = texto.strip().lower()
+                if any(k in email_raw for k in ('cancelar', 'salir', 'no quiero', 'volver', 'no', 'exit')):
+                    _reset_sesion(session)
+                    _menu_rapido(numero)
+                elif _es_email(email_raw):
+                    doc        = session.cotiz_doc or ''
+                    nombre_reg = session.nombre    or ''
+                    es_empresa = (session.tipo == 'empresa')
+                    try:
+                        client = _auto_crear_cliente(doc, nombre_reg, es_empresa, numero, email=email_raw)
+                        saludo = (client.razon_social or client.nombres or '').split()[0].title()
+                        send_text(numero,
+                            f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
+                            f'Recibirás las confirmaciones de tus operaciones en *{email_raw}*.\n\n'
+                            f'Ahora sí, veamos el tipo de cambio 👇'
+                        )
+                        _notificar_admins_wa(
+                            f'🆕 Cliente auto-registrado vía bot (cotizar):\n'
+                            f'Doc: {doc} | {nombre_reg}\n'
+                            f'Email: {email_raw} | Tel: {numero}'
+                        )
+                        _flujo_cotizar_inicio(numero)
+                        session.estado = 'eligiendo_operacion'
                     except Exception as _e:
                         log.error(f'[WaBot] Error auto-creando cliente {doc}: {_e}')
                         send_buttons(numero,
@@ -2427,8 +2545,17 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     if _op_activa_txt:
                         _flujo_op_ya_activa(numero, _op_activa_txt)
                     else:
-                        _flujo_cotizar_inicio(numero)
-                        session.estado = 'eligiendo_operacion'
+                        _clientes_tel_ini = _buscar_clientes_por_telefono(numero)
+                        if len(_clientes_tel_ini) == 1 and _clientes_tel_ini[0].status == 'Activo':
+                            _c_ini = _clientes_tel_ini[0]
+                            session.cotiz_doc = _c_ini.dni
+                            primer_nombre = (_c_ini.nombres or _c_ini.razon_social or '').split()[0].title()
+                            send_text(numero, f'👋 ¡Hola de nuevo, {primer_nombre}!')
+                            _flujo_cotizar_inicio(numero)
+                            session.estado = 'eligiendo_operacion'
+                        else:
+                            _flujo_pedir_id_para_cotizar(numero)
+                            session.estado = 'esperando_id_cotizar'
                 else:
                     # Si tiene operación activa, recordarle antes de mostrar bienvenida
                     _op_activa_txt = _operacion_activa_cliente(numero)
@@ -2491,8 +2618,17 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     if _op_activa_txt:
                         _flujo_op_ya_activa(numero, _op_activa_txt)
                     else:
-                        _flujo_cotizar_inicio(numero)
-                        session.estado = 'eligiendo_operacion'
+                        _clientes_tel_mm = _buscar_clientes_por_telefono(numero)
+                        if len(_clientes_tel_mm) == 1 and _clientes_tel_mm[0].status == 'Activo':
+                            _c_mm = _clientes_tel_mm[0]
+                            session.cotiz_doc = _c_mm.dni
+                            primer_nombre = (_c_mm.nombres or _c_mm.razon_social or '').split()[0].title()
+                            send_text(numero, f'👋 ¡Hola de nuevo, {primer_nombre}!')
+                            _flujo_cotizar_inicio(numero)
+                            session.estado = 'eligiendo_operacion'
+                        else:
+                            _flujo_pedir_id_para_cotizar(numero)
+                            session.estado = 'esperando_id_cotizar'
                 elif any(k in txt_lower for k in ('asesor', 'ayuda', 'ayúdame', 'ayudame', 'hablar', 'persona', 'humano', 'soporte', 'contacto')):
                     _flujo_asesor(numero)
                     session.estado = 'inicio'
