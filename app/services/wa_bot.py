@@ -1103,7 +1103,13 @@ def _flujo_modificar_importe(numero, session):
     op = Operation.query.filter_by(operation_id=session.cotiz_op_id).first()
 
     if not op:
-        send_text(numero, '⚠️ No encontramos tu operación. Contacta a un asesor: *+51 910 624 404*')
+        send_buttons(numero,
+            '⚠️ No encontramos tu operación. Contacta a un asesor o vuelve a cotizar.',
+            [
+                {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+            ]
+        )
         return
 
     if op.status != 'Pendiente':
@@ -1133,7 +1139,13 @@ def _flujo_registrar_codigo_op(numero, codigo, session):
         from app.models.operation import Operation
         op = Operation.query.filter_by(operation_id=session.cotiz_op_id).first()
         if not op:
-            send_text(numero, '⚠️ No encontramos tu operación. Contacta a un asesor: *+51 910 624 404*')
+            send_buttons(numero,
+                '⚠️ No encontramos tu operación. Contacta a un asesor o vuelve a cotizar.',
+                [
+                    {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                    {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                ]
+            )
             return
 
         if op.status not in ('Pendiente', 'En proceso'):
@@ -2429,7 +2441,13 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
 
                     op = Operation.query.filter_by(operation_id=session.cotiz_op_id).first()
                     if not op:
-                        send_text(numero, '⚠️ No encontramos tu operación. Contacta a un asesor: *+51 910 624 404*')
+                        send_buttons(numero,
+                            '⚠️ No encontramos tu operación. Contacta a un asesor o vuelve a cotizar.',
+                            [
+                                {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                            ]
+                        )
                         session.estado = 'inicio'
                     elif op.status != 'Pendiente':
                         send_text(numero,
