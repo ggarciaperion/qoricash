@@ -819,7 +819,7 @@ def _flujo_pedir_id_para_cotizar(numero):
     send_buttons(numero,
         '🔎 Para mostrarte el tipo de cambio preferente necesitamos verificar tu identidad.\n\n'
         'Ingresa tu *DNI* (8 dígitos), *CE* (9 dígitos) o *RUC* (11 dígitos):',
-        [{'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'}]
+        [{'id': 'btn_no_ahora', 'title': '❌ Cancelar'}]
     )
 
 
@@ -1952,6 +1952,28 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 _flujo_como_funciona(numero)
                 session.estado = 'inicio'
 
+            elif btn_id == 'btn_no_ahora':
+                # Cliente canceló el flujo de identificación — respuesta amigable, no bienvenida
+                send_buttons(numero,
+                    'No hay problema 😊 Cuando quieras cotizar o necesites cambiar divisas, '
+                    'aquí estaremos.\n\n'
+                    '¿Hay algo más en lo que pueda ayudarte?',
+                    [
+                        {'id': 'btn_cerrar_sesion', 'title': '🔒 Cerrar sesión'},
+                        {'id': 'btn_cotizar',       'title': '💱 Cotizar'},
+                        {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
+                    ]
+                )
+                session.estado = 'menu_mostrado'
+
+            elif btn_id == 'btn_cerrar_sesion':
+                _reset_sesion(session)
+                send_text(numero,
+                    '¡Hasta luego! 👋 Tu sesión ha sido cerrada.\n\n'
+                    'Cuando regreses, escríbenos y estaremos listos para ayudarte.'
+                )
+                session.estado = 'inicio'
+
             elif btn_id == 'btn_volver_inicio':
                 session.estado      = 'inicio'
                 session.tipo        = ''
@@ -2216,7 +2238,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                                 f'✅ Verificamos tu documento en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
                                 f'Para completar tu perfil y enviarte las confirmaciones de tus operaciones, '
                                 f'ingresa tu *correo electrónico*:',
-                                [{'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'}]
+                                [{'id': 'btn_no_ahora', 'title': '❌ Cancelar'}]
                             )
                             session.estado = 'esperando_email_cotizar'
                         else:
@@ -2225,8 +2247,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                                 f'en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
                                 'Verifica que el número sea correcto o habla con un asesor.',
                                 [
-                                    {'id': 'btn_asesor',       'title': '💬 Hablar con asesor'},
-                                    {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
+                                    {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                                    {'id': 'btn_no_ahora', 'title': '❌ Cancelar'},
                                 ]
                             )
                 else:
@@ -2234,7 +2256,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         '⚠️ Documento no válido.\n\n'
                         'Ingresa tu *DNI* (8 dígitos), *CE* (9 dígitos) o *RUC* (11 dígitos).\n'
                         'Ejemplo: *12345678* · *123456789* · *20123456789*',
-                        [{'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'}]
+                        [{'id': 'btn_no_ahora', 'title': '❌ Cancelar'}]
                     )
 
             elif estado == 'esperando_confirmar_ce':
@@ -2274,8 +2296,17 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 # Recibe email para nuevo cliente que quiere cotizar
                 email_raw = texto.strip().lower()
                 if any(k in email_raw for k in ('cancelar', 'salir', 'no quiero', 'volver', 'no', 'exit')):
-                    _reset_sesion(session)
-                    _menu_rapido(numero)
+                    send_buttons(numero,
+                        'No hay problema 😊 Cuando quieras cotizar o necesites cambiar divisas, '
+                        'aquí estaremos.\n\n'
+                        '¿Hay algo más en lo que pueda ayudarte?',
+                        [
+                            {'id': 'btn_cerrar_sesion', 'title': '🔒 Cerrar sesión'},
+                            {'id': 'btn_cotizar',       'title': '💱 Cotizar'},
+                            {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
+                        ]
+                    )
+                    session.estado = 'menu_mostrado'
                 elif _es_email(email_raw):
                     doc        = session.cotiz_doc or ''
                     nombre_reg = session.nombre    or ''
@@ -2300,8 +2331,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         send_buttons(numero,
                             '⚠️ No pudimos completar tu registro. Un asesor te ayudará.',
                             [
-                                {'id': 'btn_asesor',       'title': '💬 Hablar con asesor'},
-                                {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
+                                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                                {'id': 'btn_no_ahora', 'title': '❌ Cancelar'},
                             ]
                         )
                         session.estado = 'inicio'
@@ -2309,7 +2340,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     send_buttons(numero,
                         '⚠️ Correo no válido. Ingresa un correo en formato correcto.\n'
                         'Ejemplo: *tucorreo@gmail.com*',
-                        [{'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'}]
+                        [{'id': 'btn_no_ahora', 'title': '❌ Cancelar'}]
                     )
 
             elif estado == 'esperando_doc':
