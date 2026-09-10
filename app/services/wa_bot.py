@@ -1428,6 +1428,83 @@ def _registrar_lead(numero, session):
         log.warning(f'[WaBot] No se pudo registrar lead: {e}')
 
 
+# ── IA conversacional (Claude) ─────────────────────────────────────
+
+_ANTHROPIC_CLIENT = None
+
+def _get_anthropic_client():
+    """Lazy-init del cliente Anthropic. Retorna None si no hay API key."""
+    global _ANTHROPIC_CLIENT
+    if _ANTHROPIC_CLIENT is not None:
+        return _ANTHROPIC_CLIENT
+    api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+    if not api_key:
+        log.warning('[WaBot-IA] ANTHROPIC_API_KEY no configurada — IA desactivada')
+        return None
+    try:
+        import anthropic
+        _ANTHROPIC_CLIENT = anthropic.Anthropic(api_key=api_key)
+        log.info('[WaBot-IA] Cliente Anthropic inicializado OK')
+        return _ANTHROPIC_CLIENT
+    except Exception as e:
+        log.warning(f'[WaBot-IA] No se pudo inicializar cliente Anthropic: {e}')
+        return None
+
+
+def _respuesta_ia(texto_usuario, numero, session):
+    """
+    Genera una respuesta conversacional usando Claude Haiku.
+    Retorna str con la respuesta, o None si falla (para caer al fallback clásico).
+    """
+    client = _get_anthropic_client()
+    if client is None:
+        return None
+
+    try:
+        compra, venta = _get_tc()
+        tc_str = f'Compra: S/ {compra:.3f} | Venta: S/ {venta:.3f}' if compra else 'no disponible en este momento'
+
+        nombre_cliente = session.nombre or 'cliente'
+        registrado = bool(session.cotiz_doc)
+        en_horario = _is_horario_atencion()
+
+        horario_txt = (
+            'Lunes a viernes: 9:00 am – 6:00 pm | Sábados: 9:00 am – 1:00 pm'
+        )
+        disponibilidad = 'en horario de atención' if en_horario else 'fuera de horario (la operación se registra y se atiende al inicio del siguiente día hábil)'
+
+        system_prompt = (
+            'Eres el asistente virtual de Qoricash, una casa de cambio digital peruana regulada por la SBS. '
+            'Responde siempre en español, de forma breve, amable y directa (máximo 3-4 oraciones). '
+            'NO uses asteriscos para negrita ni markdown — solo texto plano con emojis ocasionales. '
+            'No inventes tipos de cambio distintos a los dados. No des consejos de inversión. '
+            'Si el cliente quiere cotizar o hacer una operación, indícale que use el botón de Cotizar. '
+            'Si tiene una queja compleja o algo fuera de tu alcance, ofrece conectarle con un asesor humano. '
+            '\n\nDatos actuales:\n'
+            f'- Tipo de cambio hoy: {tc_str}\n'
+            f'- Solo operamos USD ↔ PEN (dólares americanos y soles peruanos)\n'
+            f'- Horario: {horario_txt}\n'
+            f'- Estado actual: {disponibilidad}\n'
+            f'- Nombre del cliente: {nombre_cliente}\n'
+            f'- Cliente registrado en Qoricash: {"sí" if registrado else "no"}\n'
+            '- Web: www.qoricash.pe | WhatsApp asesor: +51 910 624 404'
+        )
+
+        response = client.messages.create(
+            model='claude-haiku-4-5-20251001',
+            max_tokens=200,
+            system=system_prompt,
+            messages=[{'role': 'user', 'content': texto_usuario}],
+        )
+        respuesta = response.content[0].text.strip()
+        log.info(f'[WaBot-IA] {numero} → IA respondió ({len(respuesta)} chars)')
+        return respuesta
+
+    except Exception as e:
+        log.warning(f'[WaBot-IA] Error generando respuesta IA para {numero}: {e}')
+        return None
+
+
 # ── Horario de atención ────────────────────────────────────────────
 
 def _is_horario_atencion():
@@ -2086,8 +2163,13 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     if _op_activa_txt:
                         _flujo_op_ya_activa(numero, _op_activa_txt)
                     else:
-                        _bienvenida(numero, session.nombre)
-                        session.estado = 'menu_mostrado'  # evita loop de bienvenida
+                        # Intentar respuesta con IA antes de mostrar bienvenida genérica
+                        _ia_resp = _respuesta_ia(texto, numero, session)
+                        if _ia_resp:
+                            send_text(numero, _ia_resp)
+                        else:
+                            _bienvenida(numero, session.nombre)
+                        session.estado = 'menu_mostrado'  # avanza en cualquier caso
 
             elif estado == 'menu_mostrado':
                 # El cliente ya recibió la bienvenida. No re-enviarla; responder con inteligencia.
@@ -2162,29 +2244,35 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     if _op_activa_txt:
                         _flujo_op_ya_activa(numero, _op_activa_txt)
                     else:
-                        # Contar mensajes no entendidos consecutivamente para evitar loop
-                        try:
-                            session.cotiz_intentos = (session.cotiz_intentos or 0) + 1
-                            _no_entendidos = session.cotiz_intentos
-                        except Exception:
-                            _no_entendidos = 1
-
-                        if _no_entendidos >= 2:
-                            # Tras 2 mensajes sin entender: derivar a asesor automáticamente
-                            try:
-                                session.cotiz_intentos = 0
-                            except Exception:
-                                pass
-                            send_buttons(numero,
-                                'Parece que no logro entenderte bien. 😊\n\n'
-                                'Te conecto con un asesor para que pueda ayudarte mejor.',
-                                [
-                                    {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
-                                    {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
-                                ]
-                            )
+                        # Intentar respuesta con IA primero
+                        _ia_resp = _respuesta_ia(texto, numero, session)
+                        if _ia_resp:
+                            send_text(numero, _ia_resp)
+                            _entendido = True  # IA respondió correctamente, resetear contador
                         else:
-                            _menu_rapido(numero)
+                            # Contar mensajes no entendidos consecutivamente para evitar loop
+                            try:
+                                session.cotiz_intentos = (session.cotiz_intentos or 0) + 1
+                                _no_entendidos = session.cotiz_intentos
+                            except Exception:
+                                _no_entendidos = 1
+
+                            if _no_entendidos >= 2:
+                                # Tras 2 mensajes sin entender: derivar a asesor automáticamente
+                                try:
+                                    session.cotiz_intentos = 0
+                                except Exception:
+                                    pass
+                                send_buttons(numero,
+                                    'Parece que no logro entenderte bien. 😊\n\n'
+                                    'Te conecto con un asesor para que pueda ayudarte mejor.',
+                                    [
+                                        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                                        {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                                    ]
+                                )
+                            else:
+                                _menu_rapido(numero)
 
                 if _entendido:
                     try:
