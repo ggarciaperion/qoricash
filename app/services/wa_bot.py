@@ -973,7 +973,8 @@ def _texto_cuentas_qoricash(moneda):
         if data:
             lineas.append(f'🏦 *{banco}*')
             lineas.append(f'  Cuenta: `{data["numero"]}`')
-            lineas.append(f'  CCI:    `{data["cci"]}`')
+            if banco != 'BCP':
+                lineas.append(f'  CCI:    `{data["cci"]}`')
             lineas.append('')
     return '\n'.join(lineas).strip()
 
@@ -1080,8 +1081,8 @@ def _flujo_op_creada(numero, op, session, client):
 
     cuentas = _texto_cuentas_qoricash(moneda_enviar)
 
+    OP_BANNER_URL = 'https://qoricash.pe/jk.png'
     msg = (
-        f'✅ *Operación creada exitosamente*\n'
         f'📋 *Nro:* {op.operation_id}\n'
         + (f'👤 *Titular:* {titular}\n' if titular else '')
         + f'\n'
@@ -1090,7 +1091,7 @@ def _flujo_op_creada(numero, op, session, client):
         f'{cuentas}\n\n'
         f'_Una vez transferido, presiona el botón y te pediremos el código de tu voucher (el número que aparece en tu constancia bancaria)._'
     )
-    send_buttons(numero, msg, [
+    send_buttons_image(numero, OP_BANNER_URL, msg, [
         {'id': 'btn_ya_transferi',      'title': '✅ Ya transferí'},
         {'id': 'btn_modificar_importe', 'title': '✏️ Modificar importe'},
     ])
