@@ -296,12 +296,23 @@ def wa_notify_cuenta_activa(client):
         pass
 
 
-def send_template(numero, template_name, lang_code, params):
+def send_template(numero, template_name, lang_code, params, header_image_url=None):
     """
     Envía una plantilla aprobada por Meta.
     params: lista de strings con los valores de cada variable {{1}}, {{2}}...
+    header_image_url: URL pública de imagen si el template tiene header tipo IMAGE.
     Funciona aunque el cliente nunca haya escrito al bot (sin ventana de 24h).
     """
+    components = []
+    if header_image_url:
+        components.append({
+            'type': 'header',
+            'parameters': [{'type': 'image', 'image': {'link': header_image_url}}]
+        })
+    components.append({
+        'type': 'body',
+        'parameters': [{'type': 'text', 'text': str(p)} for p in params]
+    })
     payload = {
         'messaging_product': 'whatsapp',
         'to': numero.lstrip('+'),
@@ -309,10 +320,7 @@ def send_template(numero, template_name, lang_code, params):
         'template': {
             'name': template_name,
             'language': {'code': lang_code},
-            'components': [{
-                'type': 'body',
-                'parameters': [{'type': 'text', 'text': str(p)} for p in params]
-            }]
+            'components': components,
         }
     }
     try:
@@ -337,7 +345,7 @@ def wa_notify_operacion_completada(client, op_id, titular, email_txt):
         return
     if not phone_digits.startswith('51'):
         phone_digits = '51' + phone_digits
-    send_template(phone_digits, 'qoricash_operacion_completada', 'es', [op_id, titular, email_txt])
+    send_template(phone_digits, 'qoricash_operacion_completada', 'es', [op_id, titular, email_txt], header_image_url='https://qoricash.pe/gh.png')
 
 
 def wa_notify_operacion_cancelada(client, op_id, titular, reason):
@@ -1081,7 +1089,7 @@ def _flujo_op_creada(numero, op, session, client):
 
     cuentas = _texto_cuentas_qoricash(moneda_enviar)
 
-    OP_BANNER_URL = 'https://qoricash.pe/kol.png'
+    OP_BANNER_URL = 'https://qoricash.pe/hj.png'
     msg = (
         f'📋 *Nro:* {op.operation_id}\n'
         + (f'👤 *Titular:* {titular}\n' if titular else '')
