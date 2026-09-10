@@ -555,13 +555,14 @@ def _bienvenida(numero, nombre):
         f'{saludo} Bienvenido a *Qoricash*\n\n'
         'Cambia dólares y soles al mejor precio del Perú '
         'desde tu WhatsApp, sin apps, sin trámites y de forma inmediata.\n\n'
-        '🔒 _Regulado por la SBS_'
+        '🔒 _Regulado por la SBS_\n\n'
+        '¿Qué deseas hacer? 👇'
     )
 
     send_buttons_image(numero, BANNER_URL, msg, [
-        {'id': 'btn_cotizar',  'title': '💱 Cotizar ahora'},
-        {'id': 'btn_registro', 'title': '📝 Registrarme'},
-        {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
+        {'id': 'btn_cotizar',       'title': '💱 Cotizar ahora'},
+        {'id': 'btn_como_funciona', 'title': 'ℹ️ ¿Cómo funciona?'},
+        {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
     ])
 
 
@@ -657,11 +658,11 @@ def _flujo_mostrar_cotizacion(numero, session):
 def _menu_rapido(numero):
     """Menú de opciones sin el saludo de bienvenida (para clientes que ya fueron bienvenidos)."""
     send_buttons(numero,
-        '¿En qué te podemos ayudar?',
+        '¿En qué te podemos ayudar? 👇',
         [
-            {'id': 'btn_cotizar',  'title': '💱 Cotizar'},
-            {'id': 'btn_registro', 'title': '📝 Registrarme'},
-            {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
+            {'id': 'btn_cotizar',       'title': '💱 Cotizar'},
+            {'id': 'btn_como_funciona', 'title': 'ℹ️ ¿Cómo funciona?'},
+            {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
         ]
     )
 
@@ -680,9 +681,8 @@ def _flujo_como_funciona(numero):
         '¿Deseas comenzar ahora?'
     )
     send_buttons(numero, msg, [
-        {'id': 'btn_cotizar',  'title': '💱 Cotizar ahora'},
-        {'id': 'btn_registro', 'title': '📝 Registrarme'},
-        {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
+        {'id': 'btn_cotizar', 'title': '💱 Cotizar ahora'},
+        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
     ])
 
 
@@ -1934,6 +1934,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 _flujo_cotizar_inicio(numero)
                 session.estado = 'eligiendo_operacion'
 
+            elif btn_id == 'btn_como_funciona':
+                _flujo_como_funciona(numero)
+
             elif btn_id in ('btn_registro', 'btn_registrarme'):
                 _flujo_tipo_cliente(numero)
                 session.estado = 'eligiendo_tipo'
@@ -2551,16 +2554,17 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 elif any(k in txt_lower for k in ('registr', 'mi cuenta', 'activar', 'cuándo activan', 'cuando activan', 'estado de mi cuenta')):
                     if session.cotiz_doc:
                         send_buttons(numero,
-                            '⏳ Tu solicitud de registro está siendo revisada por nuestro equipo.\n\n'
+                            '⏳ Tu solicitud está siendo revisada por nuestro equipo.\n\n'
                             'Te notificaremos por aquí mismo cuando tu cuenta esté activa.',
                             [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                         )
                     else:
                         send_buttons(numero,
-                            '¿Deseas registrarte en Qoricash?',
+                            '¡Buenas noticias! El registro es automático al cotizar. 🎉\n\n'
+                            'Solo necesitas tu DNI o RUC y te creamos el perfil al instante.',
                             [
-                                {'id': 'btn_registro', 'title': '📝 Registrarme'},
-                                {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
+                                {'id': 'btn_cotizar', 'title': '💱 Cotizar ahora'},
+                                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
                             ]
                         )
                 elif any(k in txt_lower for k in (
@@ -2607,9 +2611,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     send_buttons(numero,
                         '¡Hola! 👋 ¿En qué te puedo ayudar hoy?',
                         [
-                            {'id': 'btn_cotizar',  'title': '💱 Cotizar'},
-                            {'id': 'btn_registro', 'title': '📝 Registrarme'},
-                            {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
+                            {'id': 'btn_cotizar',       'title': '💱 Cotizar'},
+                            {'id': 'btn_como_funciona', 'title': 'ℹ️ ¿Cómo funciona?'},
+                            {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
                         ]
                     )
                 elif any(k in txt_lower for k in ('ok', 'okey', 'okay', 'entendido', 'gracias', 'listo', 'perfecto', 'bien', 'dale', 'claro', 'de acuerdo')):
@@ -2662,16 +2666,17 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 elif any(k in txt_lower for k in ('registr', 'mi cuenta', 'activar', 'cuándo activan', 'cuando activan', 'estado de mi cuenta')):
                     if session.cotiz_doc:
                         send_buttons(numero,
-                            '⏳ Tu solicitud de registro está siendo revisada por nuestro equipo.\n\n'
+                            '⏳ Tu solicitud está siendo revisada por nuestro equipo.\n\n'
                             'Te notificaremos por aquí mismo cuando tu cuenta esté activa.',
                             [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                         )
                     else:
                         send_buttons(numero,
-                            '¿Deseas registrarte en Qoricash?',
+                            '¡Buenas noticias! El registro es automático al cotizar. 🎉\n\n'
+                            'Solo necesitas tu DNI o RUC y te creamos el perfil al instante.',
                             [
-                                {'id': 'btn_registro', 'title': '📝 Registrarme'},
-                                {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
+                                {'id': 'btn_cotizar', 'title': '💱 Cotizar ahora'},
+                                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
                             ]
                         )
                 else:
