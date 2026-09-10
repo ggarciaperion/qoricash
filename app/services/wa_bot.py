@@ -1787,6 +1787,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
 
         # ── Texto libre ───────────────────────────────────────────
         elif tipo_msg == 'text':
+            log.info(f'[WaBot-DBG] texto="{texto[:60]}" estado="{estado}"')
             txt_lower = texto.lower()
 
             # Solo el registro requiere horario en texto (cotizar y cuenta destino se permiten siempre)
