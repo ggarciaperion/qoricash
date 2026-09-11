@@ -571,9 +571,9 @@ def _flujo_cotizar_inicio(numero):
     send_buttons(numero,
         '¿Qué operación deseas realizar?',
         [
-            {'id': 'btn_comprar',       'title': '🟢 Comprar dólares'},
-            {'id': 'btn_vender',        'title': '🔵 Vender dólares'},
-            {'id': 'btn_volver_inicio', 'title': '🔙 Volver'},
+            {'id': 'btn_comprar',        'title': '🟢 Comprar dólares'},
+            {'id': 'btn_vender',         'title': '🔵 Vender dólares'},
+            {'id': 'btn_cerrar_sesion',  'title': '🔒 Cerrar sesión'},
         ]
     )
 
