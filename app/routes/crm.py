@@ -490,10 +490,10 @@ def webhook_receive():
                     texto = interactive.get('list_reply', {}).get('id', '')
                 else:
                     texto = f'[interactive:{i_type}]'
-            elif tipo in ('system', 'order', 'unknown', 'reaction', 'location'):
-                # Tipos que no requieren procesamiento — ignorar silenciosamente
-                continue
             else:
+                import json as _json_dbg
+                import logging as _log_dbg
+                _log_dbg.getLogger(__name__).warning(f'[WEBHOOK-MSG-UNKNOWN] tipo={tipo} msg={_json_dbg.dumps(msg, ensure_ascii=False)[:500]}')
                 texto = f'[{tipo}]'
 
             contacto = next((c for c in contacts if c.get('wa_id') == msg.get('from')), {})
