@@ -925,8 +925,45 @@ def _es_ruc(t):
     return bool(re.match(r'^\d{11}$', t.strip()))
 
 
-def _es_email(t):
-    return bool(re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', t.strip()))
+_DOMINIOS_DESECHABLES = {
+    'yopmail.com', 'mailinator.com', 'guerrillamail.com', 'guerrillamail.net',
+    'guerrillamail.org', 'tempmail.com', 'temp-mail.org', 'throwam.com',
+    'trashmail.com', 'trashmail.me', 'dispostable.com', 'sharklasers.com',
+    'guerrillamailblock.com', 'grr.la', 'guerrillamail.info', 'spam4.me',
+    'spamgourmet.com', 'maildrop.cc', 'fakeinbox.com', 'mailnull.com',
+    'spamcowboy.com', 'discard.email', 'spamhereplease.com', 'crap.email',
+    'getairmail.com', 'filzmail.com', 'throwam.com', 'mail.tm',
+    'mohmal.com', 'tempr.email', 'nwldx.com', 'mailtemp.net',
+    'boximail.com', '10minutemail.com', '20minutemail.com', 'tempinbox.com',
+    'spamgourmet.net', 'notmailinator.com', 'dispostable.com', 'binkmail.com',
+}
+
+_TLDS_INVALIDOS = {'.con', '.cmo', '.ocm', '.coom', '.comm', '.cm', '.vom', '.ocm'}
+
+def _es_email(t: str) -> bool:
+    """
+    Valida formato de email, TLDs mal escritos y dominios desechables/prueba.
+    Retorna True solo si el email parece real y válido.
+    """
+    t = t.strip().lower()
+    # Formato básico
+    if not re.match(r'^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$', t):
+        return False
+    # Debe tener exactamente un @
+    parts = t.split('@')
+    if len(parts) != 2:
+        return False
+    local, domain = parts
+    if not local or not domain or '.' not in domain:
+        return False
+    # TLDs mal escritos comunes
+    for bad_tld in _TLDS_INVALIDOS:
+        if t.endswith(bad_tld):
+            return False
+    # Dominios desechables
+    if domain in _DOMINIOS_DESECHABLES:
+        return False
+    return True
 
 
 def _buscar_cliente(doc):
@@ -2029,7 +2066,6 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
 
         # ── Texto libre ───────────────────────────────────────────
         elif tipo_msg == 'text':
-            log.info(f'[WaBot-DBG] texto="{texto[:60]}" estado="{estado}"')
             txt_lower = texto.lower()
 
             # Solo el registro requiere horario en texto (cotizar y cuenta destino se permiten siempre)
@@ -2162,7 +2198,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                             saludo = nombre_api.split()[0].title()
                             send_buttons(numero,
                                 f'✅ Verificamos tu documento en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
-                                f'Para crear tu cuenta en Qoricash, ingresa tu *correo electrónico*:',
+                                f'Y para finalizar, coloca un *correo electrónico válido*:',
                                 [{'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'}]
                             )
                             session.estado = 'esperando_email_registro'
@@ -2223,8 +2259,11 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         session.estado = 'inicio'
                 else:
                     send_buttons(numero,
-                        '⚠️ Correo no válido. Ingresa un correo en formato correcto.\n'
-                        'Ejemplo: *tucorreo@gmail.com*',
+                        '⚠️ Correo no válido. Verifica que:\n'
+                        '• Tenga el formato correcto (ej: *tucorreo@gmail.com*)\n'
+                        '• No termine en *.con*, *.cmo* u otro dominio incorrecto\n'
+                        '• No sea un correo temporal o de prueba\n\n'
+                        'Intenta de nuevo 👇',
                         [{'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'}]
                     )
 
@@ -2264,7 +2303,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                             session.tipo   = 'empresa' if es_empresa else 'natural'
                             send_buttons(numero,
                                 f'✅ Verificamos tu documento en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
-                                f'Para crear tu cuenta en Qoricash, ingresa tu *correo electrónico*:',
+                                f'Y para finalizar, coloca un *correo electrónico válido*:',
                                 [{'id': 'btn_no_ahora', 'title': '❌ Cancelar'}]
                             )
                             session.estado = 'esperando_email_cotizar'
@@ -2365,8 +2404,11 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         session.estado = 'inicio'
                 else:
                     send_buttons(numero,
-                        '⚠️ Correo no válido. Ingresa un correo en formato correcto.\n'
-                        'Ejemplo: *tucorreo@gmail.com*',
+                        '⚠️ Correo no válido. Verifica que:\n'
+                        '• Tenga el formato correcto (ej: *tucorreo@gmail.com*)\n'
+                        '• No termine en *.con*, *.cmo* u otro dominio incorrecto\n'
+                        '• No sea un correo temporal o de prueba\n\n'
+                        'Intenta de nuevo 👇',
                         [{'id': 'btn_no_ahora', 'title': '❌ Cancelar'}]
                     )
 
