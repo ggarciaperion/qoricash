@@ -325,6 +325,9 @@ def send_template(numero, template_name, lang_code, params, header_image_url=Non
     }
     try:
         r = requests.post(WA_API_URL, json=payload, headers=_headers(), timeout=10)
+        if not r.ok:
+            log.error(f'[WaBot] Error send_template {template_name} a {numero}: HTTP {r.status_code} | {r.text[:300]}')
+            return
         r.raise_for_status()
         _save_outgoing(numero, f'[template:{template_name}] ' + ' | '.join(str(p) for p in params))
         log.info(f'[WaBot] Template {template_name} enviado a {numero}')
