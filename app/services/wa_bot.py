@@ -341,14 +341,18 @@ def wa_notify_operacion_completada(client, op_id, titular, email_txt):
     Llega a cualquier número aunque no haya ventana de 24h activa.
     """
     if not client:
+        log.warning(f'[WaBot-COMPLETE] {op_id}: client es None — no se envía WA')
         return
     phone_raw = (getattr(client, 'phone', None) or '').split(';')[0].strip()
     phone_digits = ''.join(c for c in phone_raw if c.isdigit())
     if not phone_digits:
+        log.warning(f'[WaBot-COMPLETE] {op_id}: teléfono vacío (phone_raw={phone_raw!r}) — no se envía WA')
         return
     if not phone_digits.startswith('51'):
         phone_digits = '51' + phone_digits
+    log.warning(f'[WaBot-COMPLETE] {op_id}: enviando template a {phone_digits} | titular={titular!r}')
     send_template(phone_digits, 'qoricash_operacion_completada', 'es', [op_id, titular, email_txt], header_image_url='https://qoricash.pe/gh.png')
+    log.warning(f'[WaBot-COMPLETE] {op_id}: send_template finalizado para {phone_digits}')
 
 
 def wa_notify_operacion_cancelada(client, op_id, titular, reason):

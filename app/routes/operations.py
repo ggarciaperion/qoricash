@@ -1419,14 +1419,15 @@ def complete_operation(operation_id):
             from app.services.wa_bot import wa_notify_operacion_completada
             _op_ref = fresh_op or operation
             _client = getattr(_op_ref, 'client', None)
+            logger.warning(f'[COMPLETE-WA] {operation_code}: client={_client!r}')
             _titular = _client.full_name or _client.razon_social if _client else _op_ref.operation_id
             _email_raw = (getattr(_client, 'email', '') or '')
             _emails = [e.strip() for e in _email_raw.split(';') if e.strip() and '@' in e]
             _email_txt = _emails[0] if _emails else 'correo registrado'
             wa_notify_operacion_completada(_client, _op_ref.operation_id, _titular, _email_txt)
-            logger.info(f'[COMPLETE] WhatsApp template enviado para {operation_code}')
+            logger.warning(f'[COMPLETE-WA] {operation_code}: wa_notify_operacion_completada llamado OK')
         except Exception as e_wa:
-            logger.warning(f'[COMPLETE] Error WhatsApp para {operation_code}: {e_wa}')
+            logger.warning(f'[COMPLETE-WA] {operation_code}: excepcion en bloque WA: {e_wa}')
 
         # Notificar
         try:
