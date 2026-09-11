@@ -490,6 +490,9 @@ def webhook_receive():
                     texto = interactive.get('list_reply', {}).get('id', '')
                 else:
                     texto = f'[interactive:{i_type}]'
+            elif tipo in ('system', 'order', 'unknown', 'reaction', 'location'):
+                # Tipos que no requieren procesamiento — ignorar silenciosamente
+                continue
             else:
                 texto = f'[{tipo}]'
 
