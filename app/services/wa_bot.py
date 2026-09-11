@@ -2162,8 +2162,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                             saludo = nombre_api.split()[0].title()
                             send_buttons(numero,
                                 f'✅ Verificamos tu documento en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
-                                f'Para completar tu perfil y enviarte las confirmaciones de tus operaciones, '
-                                f'ingresa tu *correo electrónico*:',
+                                f'Para crear tu cuenta en Qoricash, ingresa tu *correo electrónico*:',
                                 [{'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'}]
                             )
                             session.estado = 'esperando_email_registro'
@@ -2265,8 +2264,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                             session.tipo   = 'empresa' if es_empresa else 'natural'
                             send_buttons(numero,
                                 f'✅ Verificamos tu documento en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
-                                f'Para completar tu perfil y enviarte las confirmaciones de tus operaciones, '
-                                f'ingresa tu *correo electrónico*:',
+                                f'Para crear tu cuenta en Qoricash, ingresa tu *correo electrónico*:',
                                 [{'id': 'btn_no_ahora', 'title': '❌ Cancelar'}]
                             )
                             session.estado = 'esperando_email_cotizar'
