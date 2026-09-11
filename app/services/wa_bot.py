@@ -725,25 +725,11 @@ def _cotiz_expirada(session):
 
 
 def _flujo_sesion_expirada(numero):
-    """
-    Avisa al cliente que la sesión expiró.
-    Si el último mensaje saliente fue la notificación de operación completada,
-    envía un cierre de cortesía en lugar del genérico de inactividad.
-    """
-    if _ultimo_saliente_fue_op_completada(numero):
-        send_buttons(numero,
-            '¡Fue un placer ayudarte con tu operación! 😊\n'
-            'Estamos aquí siempre que lo necesites.',
-            [
-                {'id': 'btn_volver_cotizar', 'title': '💱 Volver a cotizar'},
-                {'id': 'btn_asesor',         'title': '💬 Hablar con asesor'},
-            ]
-        )
-    else:
-        send_text(numero,
-            '⏰ Tu sesión ha expirado por inactividad.\n\n'
-            'Cuando desees volver a operar, escríbenos y comenzamos de nuevo.'
-        )
+    """Avisa al cliente que la sesión expiró por inactividad."""
+    send_text(numero,
+        '⏰ Tu sesión ha expirado por inactividad.\n\n'
+        'Cuando desees volver a operar, escríbenos y comenzamos de nuevo.'
+    )
 
 
 def _reset_sesion(session):
