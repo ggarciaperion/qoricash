@@ -351,7 +351,7 @@ def wa_notify_operacion_completada(client, op_id, titular, email_txt):
     if not phone_digits.startswith('51'):
         phone_digits = '51' + phone_digits
     log.warning(f'[WaBot-COMPLETE] {op_id}: enviando template a {phone_digits} | titular={titular!r}')
-    send_template(phone_digits, 'qoricash_operacion_completada', 'es', [op_id, titular, email_txt], header_image_url='https://qoricash.pe/gh.png')
+    send_template(phone_digits, 'qoricash_operacion_completada', 'es', [op_id, titular, email_txt])
     log.warning(f'[WaBot-COMPLETE] {op_id}: send_template finalizado para {phone_digits}')
 
 
