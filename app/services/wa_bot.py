@@ -592,7 +592,7 @@ def _flujo_pedir_importe(numero, operacion):
         f'¿Cuántos dólares quieres cambiar?\n\n'
         f'Escribe solo el número 👇\n'
         f'Ejemplo: *500*, *1000*, *5000*\n\n'
-        f'> _Mínimo USD {MONTO_MINIMO_USD:,.0f} · Máximo USD 20,000_',
+        f'> _Mínimo USD {MONTO_MINIMO_USD:,.0f}_',
         [{'id': 'btn_volver_cotizar', 'title': '🔙 Cambiar'}]
     )
 
@@ -1210,7 +1210,7 @@ def _flujo_modificar_importe(numero, session):
         f'Importe actual: *USD {float(op.amount_usd):,.2f}*\n'
         f'T.C. aplicado: *{float(op.exchange_rate):.4f}*\n\n'
         f'¿Cuántos USD deseas {verbo} ahora?\n'
-        f'_(Mínimo USD {MONTO_MINIMO_USD:,.0f} · Máximo USD 20,000)_'
+        f'_(Mínimo USD {MONTO_MINIMO_USD:,.0f})_'
     )
     session.estado = 'esperando_nuevo_importe'
 
@@ -2159,13 +2159,6 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                             f'El monto mínimo de operación es *USD {MONTO_MINIMO_USD:,.0f}*.\n\n'
                             f'¿Cuántos dólares deseas cambiar?'
                         )
-                    elif monto > 20000:
-                        send_buttons(numero,
-                            '💼 Para operaciones superiores a *USD 20,000* te atendemos de forma personalizada con condiciones especiales.\n\n'
-                            'Un asesor te contactará para brindarte el mejor tipo de cambio.',
-                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
-                        )
-                        session.estado = 'inicio'
                     else:
                         session.cotiz_importe = monto
                         _flujo_mostrar_cotizacion(numero, session)
@@ -2631,13 +2624,6 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         f'⚠️ El monto mínimo es *USD {MONTO_MINIMO_USD:,.0f}*.\n'
                         f'¿Cuántos USD deseas cambiar?'
                     )
-                elif nuevo_monto > 20000:
-                    send_buttons(numero,
-                        '💼 Para importes superiores a *USD 20,000* te atendemos de forma personalizada.\n'
-                        'Un asesor te contactará para coordinarlo.',
-                        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
-                    )
-                    session.estado = 'inicio'
                 else:
                     from app.models.operation import Operation
                     from app.services.email_service import EmailService
