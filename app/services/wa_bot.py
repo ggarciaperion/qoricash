@@ -562,8 +562,8 @@ def _bienvenida(numero, nombre):
         f'{saludo}\n\n'
         'Cambia dólares al *mejor tipo de cambio del día*, '
         'directo desde WhatsApp. Sin apps. Sin filas. Sin comisiones.\n\n'
-        '🔒 _Regulado por la SBS_\n\n'
-        '¿Cotizamos ahora? 👇'
+        '> 🔒 _Regulado por la SBS_\n\n'
+        '> ¿Cotizamos ahora? 👇'
     )
 
     send_buttons_image(numero, BANNER_URL, msg, [
@@ -577,8 +577,8 @@ def _flujo_cotizar_inicio(numero):
     """Pregunta si el cliente desea comprar o vender dólares."""
     send_buttons(numero,
         '¿Qué quieres hacer hoy? 👇\n\n'
-        '• *Tengo soles* y quiero dólares → primera opción\n'
-        '• *Tengo dólares* y quiero soles → segunda opción',
+        '> • *Tengo soles* y quiero dólares → primera opción\n'
+        '> • *Tengo dólares* y quiero soles → segunda opción',
         [
             {'id': 'btn_comprar', 'title': '🟢 Soles → Dólares'},
             {'id': 'btn_vender',  'title': '🔵 Dólares → Soles'},
@@ -592,7 +592,7 @@ def _flujo_pedir_importe(numero, operacion):
         f'¿Cuántos dólares quieres cambiar?\n\n'
         f'Escribe solo el número 👇\n'
         f'Ejemplo: *500*, *1000*, *5000*\n\n'
-        f'_(Mínimo USD {MONTO_MINIMO_USD:,.0f} · Máximo USD 20,000)_',
+        f'> _Mínimo USD {MONTO_MINIMO_USD:,.0f} · Máximo USD 20,000_',
         [{'id': 'btn_volver_cotizar', 'title': '🔙 Cambiar'}]
     )
 
@@ -633,7 +633,7 @@ def _flujo_mostrar_cotizacion(numero, session):
             f'💱 *Tu cotización*\n\n'
             f'📤 Tú envías:    *S/ {soles:,.2f}*\n'
             f'📥 Tú recibes:  *USD {importe:,.2f}*\n\n'
-            f'_Tipo de cambio: S/ {tc_final:.4f}_'
+            f'> _Tipo de cambio: S/ {tc_final:.4f}_'
         )
     else:
         # Cliente vende dólares → empresa le compra → usa TC compra - spread
@@ -644,13 +644,13 @@ def _flujo_mostrar_cotizacion(numero, session):
             f'💱 *Tu cotización*\n\n'
             f'📤 Tú envías:    *USD {importe:,.2f}*\n'
             f'📥 Tú recibes:  *S/ {soles:,.2f}*\n\n'
-            f'_Tipo de cambio: S/ {tc_final:.4f}_'
+            f'> _Tipo de cambio: S/ {tc_final:.4f}_'
         )
 
     if mejora > 0:
-        resumen += f'\n\n  ✨ _TC preferencial por monto especial_'
+        resumen += f'\n> ✨ _TC preferencial por monto especial_'
 
-    resumen += f'\n\n  ⏱ _Válido hasta las {expira_hora}_'
+    resumen += f'\n> ⏱ _Válido hasta las {expira_hora}_'
 
     session.cotiz_tc = tc_final
     try:
@@ -684,8 +684,8 @@ def _flujo_como_funciona(numero):
         '1️⃣ *Cotiza* — Dinos cuánto quieres cambiar y te damos el precio al instante. Sin compromisos.\n\n'
         '2️⃣ *Transfiere* — Nos envías el dinero por transferencia bancaria (BCP o Interbank) y nos mandas el código del voucher.\n\n'
         '3️⃣ *¡Listo!* — En minutos depositamos en tu cuenta y te avisamos aquí por WhatsApp.\n\n'
-        '🔒 _Casa de cambio 100% regulada por la SBS (Res. N.° 00313-2026)_\n\n'
-        '🕐 Atención: Lun–Vie 9am–6pm | Sáb 9am–2pm\n\n'
+        '> 🔒 _Casa de cambio regulada por la SBS (Res. N.° 00313-2026)_\n'
+        '> 🕐 _Atención: Lun–Vie 9am–6pm · Sáb 9am–2pm_\n\n'
         '¿Quieres ver el tipo de cambio ahora?'
     )
     send_buttons(numero, msg, [
@@ -1170,8 +1170,8 @@ def _flujo_op_creada(numero, op, session, client):
         f'⏱ Tienes *15 minutos* para transferir. Si no lo haces, la operación se cancela sola.\n\n'
         f'*Transfiérenos {simbolo} {monto_enviar:,.2f} a esta cuenta:*\n\n'
         f'{cuentas}\n\n'
-        f'👇 Cuando hayas transferido, presiona el botón y escribe el código de tu voucher '
-        f'(el número que aparece en tu constancia bancaria como "N° de operación" o "referencia").'
+        f'👇 Cuando hayas transferido, presiona el botón.\n\n'
+        f'> _Te pediremos el código de tu voucher (el número que aparece en tu constancia bancaria como "N° de operación" o "referencia")._'
     )
     send_buttons_image(numero, OP_BANNER_URL, msg, [
         {'id': 'btn_ya_transferi',      'title': '✅ Ya transferí'},
