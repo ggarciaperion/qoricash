@@ -559,11 +559,11 @@ def _bienvenida(numero, nombre):
     saludo = f'¡Hola, {primer_nombre}! 👋' if primer_nombre else '¡Hola! 👋'
 
     msg = (
-        f'{saludo} Soy el asistente de *Qoricash*.\n\n'
-        'Te ayudo a cambiar dólares y soles al mejor precio, '
-        'directo por WhatsApp. Sin apps, sin trámites. ⚡\n\n'
-        '🔒 _Casa de cambio regulada por la SBS_\n\n'
-        '¿En qué te puedo ayudar? 👇'
+        f'{saludo}\n\n'
+        'Cambia dólares al *mejor tipo de cambio del día*, '
+        'directo desde WhatsApp. Sin apps. Sin filas. Sin comisiones.\n\n'
+        '🔒 _Regulado por la SBS_\n\n'
+        '¿Cotizamos ahora? 👇'
     )
 
     send_buttons_image(numero, BANNER_URL, msg, [
