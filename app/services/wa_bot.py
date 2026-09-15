@@ -1161,13 +1161,22 @@ def _flujo_op_creada(numero, op, session, client):
 
     cuentas = _texto_cuentas_qoricash(moneda_enviar)
 
+    if _is_horario_atencion():
+        aviso_tiempo = f'⏱ Tienes *15 minutos* para transferir. Si no lo haces, la operación se cancela sola.'
+        aviso_horario = ''
+    else:
+        proximo = _next_business_day()
+        aviso_tiempo = f'⏱ Tienes tiempo hasta las *9:00 AM del {proximo}* para realizar la transferencia.'
+        aviso_horario = f'\n> 🕐 _Estamos fuera de horario. Tu operación será procesada el {proximo} cuando nuestro equipo inicie operaciones._\n'
+
     OP_BANNER_URL = 'https://qoricash.pe/hj.png'
     msg = (
         f'✅ *¡Operación registrada!*\n\n'
         f'📋 *N° de operación:* {op.operation_id}\n'
         + (f'👤 *Titular:* {titular}\n' if titular else '')
         + f'\n'
-        f'⏱ Tienes *15 minutos* para transferir. Si no lo haces, la operación se cancela sola.\n\n'
+        f'{aviso_tiempo}\n'
+        f'{aviso_horario}\n'
         f'*Transfiérenos {simbolo} {monto_enviar:,.2f} a esta cuenta:*\n\n'
         f'{cuentas}\n\n'
         f'👇 Cuando hayas transferido, presiona el botón.\n\n'
