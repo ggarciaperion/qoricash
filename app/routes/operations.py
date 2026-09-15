@@ -491,7 +491,10 @@ def create_operation():
         destination_account: string (optional)
         notes: string (optional)
     """
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
+
+    if not data:
+        return jsonify({'success': False, 'message': 'Cuerpo de la petición vacío o inválido'}), 400
 
     # Determinar origen según el rol del usuario
     if current_user.role == 'App':
@@ -501,66 +504,83 @@ def create_operation():
     else:
         origen = 'sistema'
 
-    # Crear operación
-    success, message, operation = OperationService.create_operation(
-        current_user=current_user,
-        client_id=data.get('client_id'),
-        operation_type=data.get('operation_type'),
-        amount_usd=data.get('amount_usd'),
-        exchange_rate=data.get('exchange_rate'),
-        source_account=data.get('source_account'),
-        destination_account=data.get('destination_account'),
-        notes=data.get('notes'),
-        origen=origen,
-        base_rate=data.get('base_rate')
-    )
-    
-    if success:
-        # Guardar depósitos y pagos iniciales si se proporcionaron
+    try:
+        # Crear operación
+        success, message, operation = OperationService.create_operation(
+            current_user=current_user,
+            client_id=data.get('client_id'),
+            operation_type=data.get('operation_type'),
+            amount_usd=data.get('amount_usd'),
+            exchange_rate=data.get('exchange_rate'),
+            source_account=data.get('source_account'),
+            destination_account=data.get('destination_account'),
+            notes=data.get('notes'),
+            origen=origen,
+            base_rate=data.get('base_rate')
+        )
+
+        if success:
+            # Guardar depósitos y pagos iniciales si se proporcionaron
+            try:
+                from app.extensions import db as _db
+                _changed = False
+                if data.get('client_deposits') and isinstance(data['client_deposits'], list):
+                    deps = data['client_deposits']
+                    for dep in deps:
+                        if not dep.get('qc_bank') and dep.get('cuenta_cargo'):
+                            dep['qc_bank'] = _derive_bank_from_account(dep['cuenta_cargo'])
+                    operation.client_deposits = deps
+                    _changed = True
+                if data.get('client_payments') and isinstance(data['client_payments'], list):
+                    pays = data['client_payments']
+                    for pay in pays:
+                        if not pay.get('qc_bank') and pay.get('cuenta_destino'):
+                            pay['qc_bank'] = _derive_bank_from_account(pay['cuenta_destino'])
+                    operation.client_payments = pays
+                    _changed = True
+                if _changed:
+                    _db.session.commit()
+            except Exception as _e:
+                logger.warning(f'No se pudieron guardar depósitos/pagos iniciales: {_e}')
+
+            # Notificar creación
+            NotificationService.notify_new_operation(operation)
+            NotificationService.notify_dashboard_update()
+            NotificationService.notify_position_update()
+
+            # Enviar email automático
+            try:
+                from app.services.email_service import EmailService
+                EmailService.send_new_operation_email(operation)
+            except Exception as email_error:
+                logger.warning(f'⚠️ No se pudo enviar email de nueva operación: {str(email_error)}')
+
+            try:
+                op_dict = operation.to_dict(include_relations=True)
+            except Exception as dict_err:
+                logger.error(f'Error serializando operación {operation.operation_id}: {dict_err}', exc_info=True)
+                op_dict = {'id': operation.id, 'operation_id': operation.operation_id}
+
+            return jsonify({
+                'success': True,
+                'message': message,
+                'operation': op_dict
+            }), 201
+        else:
+            return jsonify({
+                'success': False,
+                'message': message
+            }), 400
+
+    except Exception as e:
+        import traceback
+        logger.error(f'Error inesperado en create_operation: {e}\n{traceback.format_exc()}')
+        from app.extensions import db as _db
         try:
-            from app.extensions import db as _db
-            _changed = False
-            if data.get('client_deposits') and isinstance(data['client_deposits'], list):
-                deps = data['client_deposits']
-                for dep in deps:
-                    if not dep.get('qc_bank') and dep.get('cuenta_cargo'):
-                        dep['qc_bank'] = _derive_bank_from_account(dep['cuenta_cargo'])
-                operation.client_deposits = deps
-                _changed = True
-            if data.get('client_payments') and isinstance(data['client_payments'], list):
-                pays = data['client_payments']
-                for pay in pays:
-                    if not pay.get('qc_bank') and pay.get('cuenta_destino'):
-                        pay['qc_bank'] = _derive_bank_from_account(pay['cuenta_destino'])
-                operation.client_payments = pays
-                _changed = True
-            if _changed:
-                _db.session.commit()
-        except Exception as _e:
-            logger.warning(f'No se pudieron guardar depósitos/pagos iniciales: {_e}')
-
-        # Notificar creación
-        NotificationService.notify_new_operation(operation)
-        NotificationService.notify_dashboard_update()
-        NotificationService.notify_position_update()
-
-        # Enviar email automático
-        try:
-            from app.services.email_service import EmailService
-            EmailService.send_new_operation_email(operation)
-        except Exception as email_error:
-            logger.warning(f'⚠️ No se pudo enviar email de nueva operación: {str(email_error)}')
-
-        return jsonify({
-            'success': True,
-            'message': message,
-            'operation': operation.to_dict(include_relations=True)
-        }), 201
-    else:
-        return jsonify({
-            'success': False,
-            'message': message
-        }), 400
+            _db.session.rollback()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': f'Error interno: {str(e)}'}), 500
 
 
 @operations_bp.route('/api/update_status/<int:operation_id>', methods=['PATCH'])
