@@ -593,7 +593,7 @@ def _flujo_pedir_importe(numero, operacion):
         f'Escribe solo el número 👇\n'
         f'Ejemplo: *500*, *1000*, *5000*\n\n'
         f'> _Mínimo USD {MONTO_MINIMO_USD:,.0f}_',
-        [{'id': 'btn_volver_cotizar', 'title': '🔙 Cambiar'}]
+        [{'id': 'btn_volver_cotizar', 'title': '🔙 Volver atrás'}]
     )
 
 
