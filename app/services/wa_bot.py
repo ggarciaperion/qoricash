@@ -1174,8 +1174,9 @@ def _flujo_op_creada(numero, op, session, client):
         f'> _Te pediremos el código de tu voucher (el número que aparece en tu constancia bancaria como "N° de operación" o "referencia")._'
     )
     send_buttons_image(numero, OP_BANNER_URL, msg, [
-        {'id': 'btn_ya_transferi',      'title': '✅ Ya transferí'},
-        {'id': 'btn_modificar_importe', 'title': '✏️ Cambiar monto'},
+        {'id': 'btn_ya_transferi',        'title': '✅ Ya transferí'},
+        {'id': 'btn_modificar_importe',   'title': '✏️ Cambiar monto'},
+        {'id': 'btn_cancelar_operacion',  'title': '❌ Cancelar operación'},
     ])
 
 
@@ -2034,6 +2035,39 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     [{'id': 'btn_modificar_importe', 'title': '🔙 Volver atrás'}]
                 )
                 session.estado = 'esperando_codigo_op'
+
+            elif btn_id == 'btn_cancelar_operacion':
+                from app.models.operation import Operation as _OpCancel
+                from app.utils.formatters import now_peru as _now_cancel
+                _op_cancel = _OpCancel.query.filter_by(operation_id=session.cotiz_op_id).first() if session.cotiz_op_id else None
+                if _op_cancel and _op_cancel.status == 'Pendiente':
+                    _op_cancel.status = 'Cancelada'
+                    _op_cancel.cancel_reason = 'Cancelada por el cliente vía WhatsApp bot'
+                    try:
+                        _op_cancel.canceled_at = _now_cancel()
+                    except Exception:
+                        pass
+                    db.session.commit()
+                    try:
+                        from app.services.notification_service import NotificationService
+                        NotificationService.notify_operation_updated(_op_cancel, old_status='Pendiente')
+                    except Exception:
+                        pass
+                    send_buttons(numero,
+                        f'❌ *Operación {_op_cancel.operation_id} cancelada.*\n\n'
+                        'No se realizó ningún cobro. Cuando quieras hacer otro cambio, aquí estaremos. 😊',
+                        [
+                            {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
+                            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                        ]
+                    )
+                    _reset_sesion(session)
+                else:
+                    send_buttons(numero,
+                        '⚠️ Esta operación ya no puede cancelarse.\n\n'
+                        'Si necesitas ayuda, habla con un asesor.',
+                        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                    )
 
             elif btn_id == 'btn_modificar_importe':
                 _flujo_modificar_importe(numero, session)
