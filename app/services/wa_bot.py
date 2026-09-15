@@ -659,7 +659,7 @@ def _flujo_mostrar_cotizacion(numero, session):
         pass
 
     send_buttons(numero, resumen, [
-        {'id': 'btn_aceptar_cotiz',  'title': '✅ Quiero este precio'},
+        {'id': 'btn_aceptar_cotiz',  'title': '✅ Aceptar cotización'},
         {'id': 'btn_volver_cotizar', 'title': '🔄 Cambiar monto'},
         {'id': 'btn_asesor',         'title': '💬 Hablar con asesor'},
     ])
