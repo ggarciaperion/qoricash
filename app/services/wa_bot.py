@@ -2016,11 +2016,22 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 session.estado = 'esperando_cuenta_nueva'
 
             elif btn_id == 'btn_ya_transferi':
-                send_text(numero,
-                    '🔢 Ingresa el *código de tu transferencia*.\n\n'
-                    'Es el número que aparece en tu voucher o constancia bancaria '
-                    '(puede llamarse "número de operación", "referencia" o "código de transacción").\n\n'
-                    'Ejemplo: *12345678*'
+                from app.models.operation import Operation as _OpYT
+                _op_yt = _OpYT.query.filter_by(operation_id=session.cotiz_op_id).first() if session.cotiz_op_id else None
+                if _op_yt:
+                    _moneda_yt = 'PEN' if session.cotiz_op == 'compra' else 'USD'
+                    _simbolo_yt = 'S/' if _moneda_yt == 'PEN' else 'USD'
+                    _monto_yt = float(_op_yt.amount_pen) if _moneda_yt == 'PEN' else float(_op_yt.amount_usd)
+                    _detalle_yt = f'> 📋 *{_op_yt.operation_id}* · {_simbolo_yt} {_monto_yt:,.2f}\n\n'
+                else:
+                    _detalle_yt = ''
+                send_buttons(numero,
+                    f'🔢 *¿Cuál es el código de tu transferencia?*\n\n'
+                    f'{_detalle_yt}'
+                    'Encuéntralo en tu constancia bancaria como '
+                    '"N° de operación", "referencia" o "código de transacción".\n\n'
+                    '> _Ejemplo: 12345678_',
+                    [{'id': 'btn_modificar_importe', 'title': '🔙 Volver atrás'}]
                 )
                 session.estado = 'esperando_codigo_op'
 
