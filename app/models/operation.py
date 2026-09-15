@@ -509,19 +509,20 @@ class Operation(db.Model):
     def generate_operation_id():
         """
         Generar ID de operación secuencial.
-        Parsea el número del último operation_id (EXP-XXXX) para mantener
-        el correlativo correcto independientemente del PK autoincremental.
+        Usa MAX numérico para evitar colisiones cuando las operaciones
+        no se insertan estrictamente en orden de correlativo.
         """
         from app.extensions import db
-        last = db.session.query(Operation.operation_id).filter(
-            Operation.operation_id.like('EXP-%')
-        ).order_by(Operation.id.desc()).first()
-        if last:
-            try:
-                last_num = int(last[0].split('-')[1])
-            except (IndexError, ValueError):
-                last_num = 1000
-        else:
+        from sqlalchemy import text
+        result = db.session.execute(
+            text(
+                "SELECT COALESCE(MAX(CAST(SPLIT_PART(operation_id, '-', 2) AS INTEGER)), 1000)"
+                " FROM operations WHERE operation_id LIKE 'EXP-%'"
+            )
+        ).scalar()
+        try:
+            last_num = int(result)
+        except (TypeError, ValueError):
             last_num = 1000
         return f'EXP-{last_num + 1}'
 
