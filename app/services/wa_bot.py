@@ -2379,8 +2379,15 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         if client.status == 'Activo':
                             primer_nombre = (client.nombres or client.razon_social or '').split()[0].title()
                             send_text(numero, f'✅ ¡Hola de nuevo, {primer_nombre}! Te identificamos correctamente.')
-                            _flujo_cotizar_inicio(numero)
-                            session.estado = 'eligiendo_operacion'
+                            # Continuar directamente a cuenta destino (ya tiene op y monto elegidos)
+                            moneda_recibe_idc = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                            cuentas_idc = _cuentas_cliente_por_moneda(client, moneda_recibe_idc)
+                            if cuentas_idc:
+                                _flujo_elegir_cuenta(numero, cuentas_idc, moneda_recibe_idc)
+                                session.estado = 'eligiendo_cuenta_destino'
+                            else:
+                                _flujo_pedir_cuenta_destino(numero, moneda_recibe_idc)
+                                session.estado = 'esperando_cuenta_destino'
                         else:
                             send_buttons(numero,
                                 '⏳ Encontramos tu cuenta pero aún no está activa.\n\n'
@@ -2400,7 +2407,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                             session.tipo   = 'empresa' if es_empresa else 'natural'
                             send_buttons(numero,
                                 f'✅ Verificamos tu documento en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
-                                f'Y para finalizar, coloca un *correo electrónico válido*:',
+                                f'Para finalizar, coloca tu *correo electrónico*:',
                                 [{'id': 'btn_no_ahora', 'title': '❌ Cancelar'}]
                             )
                             session.estado = 'esperando_email_cotizar'
@@ -2480,15 +2487,17 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         send_text(numero,
                             f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
                             f'Recibirás las confirmaciones de tus operaciones en *{email_raw}*.\n\n'
-                            f'Ahora sí, veamos el tipo de cambio 👇'
+                            f'Continuemos con tu operación 👇'
                         )
                         _notificar_admins_wa(
                             f'🆕 Cliente auto-registrado vía bot (cotizar):\n'
                             f'Doc: {doc} | {nombre_reg}\n'
                             f'Email: {email_raw} | Tel: {numero}'
                         )
-                        _flujo_cotizar_inicio(numero)
-                        session.estado = 'eligiendo_operacion'
+                        # Continuar directamente a cuenta destino (ya tiene op y monto elegidos)
+                        moneda_recibe_ec = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                        _flujo_pedir_cuenta_destino(numero, moneda_recibe_ec)
+                        session.estado = 'esperando_cuenta_destino'
                     except Exception as _e:
                         log.error(f'[WaBot] Error auto-creando cliente {doc}: {_e}')
                         send_buttons(numero,
