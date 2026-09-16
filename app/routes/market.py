@@ -159,14 +159,45 @@ def api_ticker_public():
         {'key': 'treasury_10y', 'label': 'Bono 10Y',     'value': _fmt(snap.get('treasury_10y')), 'chg': _fmt(snap.get('treasury_10y_chg')),  'prefix': '',   'suffix': '%'},
     ]
 
-    # Agregar macro si están disponibles
-    macro = data.get('macro') or {}
-    if macro.get('bcrp_rate'):
-        ticker.append({'key': 'bcrp', 'label': 'Tasa BCRP', 'value': _fmt(macro['bcrp_rate'].get('value')), 'chg': None, 'prefix': '', 'suffix': '%'})
-    if macro.get('tc_venta_bcrp'):
-        ticker.append({'key': 'tc_bcrp', 'label': 'TC Venta BCRP', 'value': _fmt(macro['tc_venta_bcrp'].get('value')), 'chg': None, 'prefix': 'S/', 'suffix': ''})
+    # ── Indicadores macro (sección separada) ─────────────────────────────────
+    macro_raw = data.get('macro') or {}
 
-    return jsonify({'success': True, 'items': ticker})
+    def _macro_item(key, label, m_key, prefix='', suffix='', fmt_fn=None):
+        """Construye un item macro con chg calculado desde prev_value."""
+        m = macro_raw.get(m_key) or {}
+        val  = _fmt(m.get('value'))
+        prev = _fmt(m.get('prev_value'))
+        chg  = None
+        if val is not None and prev is not None and prev != 0:
+            chg = round((val - prev) / abs(prev) * 100, 3)
+        return {
+            'key':       key,
+            'label':     label,
+            'value':     val,
+            'chg':       chg,
+            'prefix':    prefix,
+            'suffix':    suffix,
+            'period':    m.get('period', ''),
+            'source':    m.get('source', ''),
+            'notes':     m.get('notes', ''),
+            'direction': m.get('direction', 'flat'),
+        }
+
+    macro_items = []
+    if macro_raw.get('bcrp_rate'):
+        macro_items.append(_macro_item('bcrp_rate',    'Tasa BCRP',         'bcrp_rate',    suffix='%'))
+    if macro_raw.get('fed_rate'):
+        macro_items.append(_macro_item('fed_rate',     'Tasa FED',           'fed_rate',     suffix='%'))
+    if macro_raw.get('bcrp_tc_sell'):
+        macro_items.append(_macro_item('bcrp_tc_sell', 'TC Oficial BCRP',    'bcrp_tc_sell', prefix='S/'))
+    if macro_raw.get('us_cpi_yoy'):
+        macro_items.append(_macro_item('us_cpi_yoy',   'Inflación EE.UU.',   'us_cpi_yoy',   suffix='%'))
+    if macro_raw.get('us_unrate'):
+        macro_items.append(_macro_item('us_unrate',    'Desempleo EE.UU.',   'us_unrate',    suffix='%'))
+    if macro_raw.get('us_nfp'):
+        macro_items.append(_macro_item('us_nfp',       'NFP EE.UU.',         'us_nfp',       suffix='K'))
+
+    return jsonify({'success': True, 'items': ticker, 'macro': macro_items})
 
 
 @market_bp.route('/api/news-public')
