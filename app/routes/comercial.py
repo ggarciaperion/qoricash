@@ -633,6 +633,96 @@ def _build_email_html(c, compra, venta, sender_email, nombre_completo, cargo="Tr
     return html
 
 
+# ── Pipeline Comercial — oportunidades del sistema de prospección ─────────────
+
+_PIPELINE_ROLES = ('Master', 'Presidente de Negocios', 'Trader')
+
+
+@comercial_bp.route("/pipeline")
+@login_required
+@require_role(*_PIPELINE_ROLES)
+def pipeline():
+    """Vista del pipeline de oportunidades detectadas por prospección automática."""
+    from app.models.inteligencia import Oportunidad
+    import json
+
+    estado_filtro = request.args.get('estado', '')
+    valid_estados = {'', 'nuevo', 'en_seguimiento', 'convertido', 'descartado'}
+    if estado_filtro not in valid_estados:
+        estado_filtro = ''
+
+    q = Oportunidad.query
+    if estado_filtro:
+        q = q.filter_by(estado=estado_filtro)
+    oportunidades = q.order_by(Oportunidad.detectado_en.desc()).limit(200).all()
+
+    # Contadores para KPI strip y filtros
+    cnt_nuevo       = Oportunidad.query.filter_by(estado='nuevo').count()
+    cnt_seguimiento = Oportunidad.query.filter_by(estado='en_seguimiento').count()
+    cnt_convertido  = Oportunidad.query.filter_by(estado='convertido').count()
+    cnt_descartado  = Oportunidad.query.filter_by(estado='descartado').count()
+    cnt_alta        = Oportunidad.query.filter_by(prioridad='alta').filter(
+        Oportunidad.estado.in_(['nuevo', 'en_seguimiento'])
+    ).count()
+
+    # Serializar para el JS del modal
+    ops_json = [
+        {
+            'id':           op.id,
+            'empresa':      op.empresa or '',
+            'contacto':     op.contacto or '',
+            'email':        op.email or '',
+            'telefono':     op.telefono or '',
+            'sector':       op.sector or '',
+            'prioridad':    op.prioridad or 'baja',
+            'score':        op.score or 0,
+            'estado':       op.estado or 'nuevo',
+            'necesidad':    op.necesidad or '',
+            'recomendacion':op.recomendacion or '',
+            'cuerpo_email': op.cuerpo_email or '',
+            'cuenta_origen':op.cuenta_origen or '',
+            'detectado_en': op.detectado_en.strftime('%d/%m/%Y %H:%M') if op.detectado_en else '',
+        }
+        for op in oportunidades
+    ]
+
+    return render_template(
+        'comercial/pipeline.html',
+        oportunidades       = oportunidades,
+        oportunidades_json  = ops_json,
+        estado_filtro       = estado_filtro,
+        total               = cnt_nuevo + cnt_seguimiento + cnt_descartado + cnt_convertido,
+        cnt_nuevo           = cnt_nuevo,
+        cnt_seguimiento     = cnt_seguimiento,
+        cnt_convertido      = cnt_convertido,
+        cnt_descartado      = cnt_descartado,
+        cnt_alta            = cnt_alta,
+        now                 = now_peru(),
+    )
+
+
+@comercial_bp.route("/pipeline/estado/<int:op_id>", methods=["POST"])
+@login_required
+@require_role(*_PIPELINE_ROLES)
+@csrf.exempt
+def pipeline_update_estado(op_id):
+    """Actualiza el estado de una oportunidad desde el pipeline."""
+    from app.models.inteligencia import Oportunidad
+
+    op = db.get_or_404(Oportunidad, op_id)
+    data = request.get_json(silent=True) or {}
+    nuevo = data.get('estado', '')
+
+    valid = {'nuevo', 'en_seguimiento', 'convertido', 'descartado'}
+    if nuevo not in valid:
+        return jsonify({'ok': False, 'error': f'estado inválido: {nuevo!r}'}), 400
+
+    op.estado = nuevo
+    op.actualizado_en = now_peru()
+    db.session.commit()
+    return jsonify({'ok': True, 'estado': nuevo})
+
+
 # ── API: preview del email de precios ────────────────────────────────────────
 
 @comercial_bp.route("/preview-precio/<int:client_id>")

@@ -1,0 +1,412 @@
+{% extends "base.html" %}
+{% block title %}Pipeline Comercial — Qoricash{% endblock %}
+
+{% block content %}
+<style>
+/* ================================================================
+   PIPELINE COMERCIAL v1 — Lead Pipeline
+   Light Premium · Enterprise Fintech · QoriCash
+================================================================ */
+
+.pipe-header {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px; margin-bottom: 22px;
+}
+.pipe-header-left { display: flex; align-items: center; gap: 14px; }
+.pipe-icon {
+  width: 46px; height: 46px; flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(0,222,168,.16) 0%, rgba(0,222,168,.05) 100%);
+  border: 1px solid rgba(0,222,168,.22);
+  border-radius: 13px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; color: var(--qori-primary);
+}
+.pipe-title  { font-size: 1.2rem; font-weight: 800; color: var(--qori-gray-900); margin: 0 0 2px; letter-spacing: -.4px; }
+.pipe-sub    { font-size: 11px; color: var(--qori-gray-400); margin: 0; font-weight: 500; }
+
+/* Filtros */
+.pipe-filters {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.pipe-filter-btn {
+  font-size: 12px; font-weight: 600; padding: 5px 14px;
+  border-radius: 20px; border: 1px solid var(--qori-gray-200);
+  background: #fff; color: var(--qori-gray-600); cursor: pointer;
+  transition: all .18s;
+}
+.pipe-filter-btn:hover,
+.pipe-filter-btn.active { background: var(--qori-primary); color: #fff; border-color: var(--qori-primary); }
+.pipe-filter-btn.nuevo   { border-color: #bfdbfe; }
+.pipe-filter-btn.nuevo.active   { background: #3b82f6; border-color: #3b82f6; }
+.pipe-filter-btn.seguimiento.active { background: #f59e0b; border-color: #f59e0b; }
+.pipe-filter-btn.convertido.active  { background: #10b981; border-color: #10b981; }
+.pipe-filter-btn.descartado.active  { background: var(--qori-gray-400); border-color: var(--qori-gray-400); }
+
+/* Contadores KPI */
+.pipe-kpi-strip {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 10px; margin-bottom: 24px;
+}
+@media (max-width: 900px) { .pipe-kpi-strip { grid-template-columns: repeat(2, 1fr); } }
+
+.pipe-kpi {
+  background: #fff; border: 1px solid #E8EEF4; border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.055);
+  display: flex; align-items: flex-start; gap: 12px;
+  transition: box-shadow .2s;
+}
+.pipe-kpi:hover { box-shadow: 0 4px 14px rgba(0,0,0,.09); }
+.pipe-kpi-icon {
+  width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
+}
+.pipe-kpi-val  { font-size: 1.45rem; font-weight: 800; color: var(--qori-gray-900); line-height: 1; margin-bottom: 2px; }
+.pipe-kpi-lbl  { font-size: 10px; font-weight: 600; color: var(--qori-gray-400); text-transform: uppercase; letter-spacing: .5px; }
+
+/* Tabla */
+.pipe-table-wrap {
+  background: #fff; border: 1px solid #E8EEF4;
+  border-radius: 16px; overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+}
+.pipe-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+.pipe-table th {
+  background: #F8FAFC; border-bottom: 1px solid #E8EEF4;
+  padding: 10px 14px; text-align: left;
+  font-size: 10px; font-weight: 700; color: var(--qori-gray-400);
+  text-transform: uppercase; letter-spacing: .6px; white-space: nowrap;
+}
+.pipe-table td {
+  padding: 13px 14px; border-bottom: 1px solid #F1F5F9;
+  vertical-align: middle;
+}
+.pipe-table tr:last-child td { border-bottom: none; }
+.pipe-table tr:hover td      { background: #FAFCFF; }
+
+/* Empresa + contacto */
+.emp-name   { font-weight: 700; color: var(--qori-gray-900); font-size: 13px; }
+.emp-email  { font-size: 11px; color: var(--qori-gray-500); margin-top: 2px; }
+
+/* Badges de estado */
+.badge-estado {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
+  white-space: nowrap;
+}
+.badge-nuevo       { background: #eff6ff; color: #1d4ed8; }
+.badge-seguimiento { background: #fffbeb; color: #b45309; }
+.badge-convertido  { background: #f0fdf4; color: #15803d; }
+.badge-descartado  { background: #f1f5f9; color: #64748b; }
+
+/* Prioridad dot */
+.prio-dot {
+  display: inline-block; width: 8px; height: 8px;
+  border-radius: 50%; margin-right: 5px; vertical-align: middle;
+}
+.prio-alta   .prio-dot { background: #ef4444; }
+.prio-media  .prio-dot { background: #f59e0b; }
+.prio-baja   .prio-dot { background: #94a3b8; }
+.prio-alta   { color: #b91c1c; font-weight: 700; font-size: 11px; }
+.prio-media  { color: #92400e; font-weight: 600; font-size: 11px; }
+.prio-baja   { color: #64748b; font-weight: 500; font-size: 11px; }
+
+/* Score bar */
+.score-bar-wrap { display: flex; align-items: center; gap: 6px; }
+.score-bar {
+  width: 56px; height: 5px; border-radius: 3px; background: #E8EEF4; overflow: hidden;
+}
+.score-fill { height: 100%; border-radius: 3px; background: var(--qori-primary); }
+.score-num  { font-size: 11px; font-weight: 700; color: var(--qori-gray-700); }
+
+/* Botones acción */
+.btn-detalle {
+  font-size: 11px; font-weight: 600; padding: 4px 12px;
+  border-radius: 7px; border: 1px solid rgba(0,222,168,.3);
+  background: rgba(0,222,168,.07); color: #047857; cursor: pointer;
+  transition: all .17s; text-decoration: none; display: inline-block;
+}
+.btn-detalle:hover { background: var(--qori-primary); color: #fff; border-color: var(--qori-primary); }
+
+/* Modal detalle */
+.pipe-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  z-index: 1040; display: none; align-items: center; justify-content: center;
+}
+.pipe-modal-backdrop.open { display: flex; }
+.pipe-modal {
+  background: #fff; border-radius: 18px; width: 560px; max-width: 95vw;
+  max-height: 90vh; overflow-y: auto; padding: 28px;
+  box-shadow: 0 24px 60px rgba(0,0,0,.18);
+}
+.pipe-modal-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.pipe-modal-title  { font-size: 1.05rem; font-weight: 800; color: var(--qori-gray-900); margin: 0 0 4px; }
+.pipe-modal-sub    { font-size: 12px; color: var(--qori-gray-500); margin: 0; }
+.pipe-modal-close  {
+  background: none; border: none; font-size: 20px;
+  color: var(--qori-gray-400); cursor: pointer; padding: 0 4px;
+}
+.pipe-modal-close:hover { color: var(--qori-gray-700); }
+.pipe-dl { display: grid; grid-template-columns: 120px 1fr; gap: 8px 16px; font-size: 13px; }
+.pipe-dl dt { color: var(--qori-gray-500); font-weight: 600; }
+.pipe-dl dd { color: var(--qori-gray-800); margin: 0; word-break: break-word; }
+.pipe-divider { border: none; border-top: 1px solid #F1F5F9; margin: 16px 0; }
+
+/* Estado change buttons */
+.pipe-estado-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.pipe-estado-btn {
+  font-size: 12px; font-weight: 600; padding: 7px 16px;
+  border-radius: 8px; border: none; cursor: pointer; transition: all .18s;
+}
+.btn-seguimiento { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+.btn-seguimiento:hover { background: #f59e0b; color: #fff; }
+.btn-convertido  { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.btn-convertido:hover  { background: #10b981; color: #fff; }
+.btn-descartado  { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+.btn-descartado:hover  { background: #94a3b8; color: #fff; }
+
+.pipe-empty {
+  text-align: center; padding: 60px 20px; color: var(--qori-gray-400);
+}
+.pipe-empty-icon { font-size: 3rem; margin-bottom: 12px; }
+.pipe-empty-msg  { font-size: 14px; }
+</style>
+
+<div class="pipe-header">
+  <div class="pipe-header-left">
+    <div class="pipe-icon">🎯</div>
+    <div>
+      <p class="pipe-title">Pipeline Comercial</p>
+      <p class="pipe-sub">Oportunidades detectadas por el sistema de prospección</p>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <a href="/comercial" class="btn-detalle" style="border-color:#e2e8f0;background:#f8fafc;color:#475569;">
+      ← Comercial
+    </a>
+    <span style="font-size:11px;color:var(--qori-gray-400);">
+      Actualizado {{ now.strftime('%d/%m %H:%M') if now else '' }}
+    </span>
+  </div>
+</div>
+
+{# KPI Strip #}
+<div class="pipe-kpi-strip">
+  <div class="pipe-kpi">
+    <div class="pipe-kpi-icon" style="background:#eff6ff;color:#3b82f6;">🔵</div>
+    <div>
+      <div class="pipe-kpi-val">{{ cnt_nuevo }}</div>
+      <div class="pipe-kpi-lbl">Nuevos</div>
+    </div>
+  </div>
+  <div class="pipe-kpi">
+    <div class="pipe-kpi-icon" style="background:#fffbeb;color:#f59e0b;">⏳</div>
+    <div>
+      <div class="pipe-kpi-val">{{ cnt_seguimiento }}</div>
+      <div class="pipe-kpi-lbl">En seguimiento</div>
+    </div>
+  </div>
+  <div class="pipe-kpi">
+    <div class="pipe-kpi-icon" style="background:#f0fdf4;color:#10b981;">✅</div>
+    <div>
+      <div class="pipe-kpi-val">{{ cnt_convertido }}</div>
+      <div class="pipe-kpi-lbl">Convertidos</div>
+    </div>
+  </div>
+  <div class="pipe-kpi">
+    <div class="pipe-kpi-icon" style="background:rgba(0,222,168,.1);color:var(--qori-primary);">🔥</div>
+    <div>
+      <div class="pipe-kpi-val">{{ cnt_alta }}</div>
+      <div class="pipe-kpi-lbl">Alta prioridad</div>
+    </div>
+  </div>
+</div>
+
+{# Filtros #}
+<div class="pipe-filters">
+  <button class="pipe-filter-btn {% if estado_filtro == '' %}active{% endif %}"
+          onclick="filtrar('')">Todos ({{ total }})</button>
+  <button class="pipe-filter-btn nuevo {% if estado_filtro == 'nuevo' %}active nuevo{% endif %}"
+          onclick="filtrar('nuevo')">Nuevo ({{ cnt_nuevo }})</button>
+  <button class="pipe-filter-btn seguimiento {% if estado_filtro == 'en_seguimiento' %}active seguimiento{% endif %}"
+          onclick="filtrar('en_seguimiento')">Seguimiento ({{ cnt_seguimiento }})</button>
+  <button class="pipe-filter-btn convertido {% if estado_filtro == 'convertido' %}active convertido{% endif %}"
+          onclick="filtrar('convertido')">Convertido ({{ cnt_convertido }})</button>
+  <button class="pipe-filter-btn descartado {% if estado_filtro == 'descartado' %}active descartado{% endif %}"
+          onclick="filtrar('descartado')">Descartado ({{ cnt_descartado }})</button>
+</div>
+
+{# Tabla #}
+<div class="pipe-table-wrap">
+  {% if oportunidades %}
+  <table class="pipe-table">
+    <thead>
+      <tr>
+        <th>Empresa / Contacto</th>
+        <th>Tipo</th>
+        <th>Sector</th>
+        <th>Prioridad</th>
+        <th>Score</th>
+        <th>Estado</th>
+        <th>Detectado</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for op in oportunidades %}
+      <tr>
+        <td>
+          <div class="emp-name">{{ op.empresa or op.email }}</div>
+          <div class="emp-email">{{ op.email }}</div>
+          {% if op.contacto %}<div class="emp-email">{{ op.contacto }}</div>{% endif %}
+        </td>
+        <td style="font-size:12px;color:var(--qori-gray-600);">
+          {{ op.necesidad[:60] if op.necesidad else op.cuenta_origen or '—' }}
+        </td>
+        <td style="font-size:12px;color:var(--qori-gray-600);">{{ op.sector or '—' }}</td>
+        <td>
+          <span class="prio-{{ op.prioridad or 'baja' }}">
+            <span class="prio-dot"></span>{{ (op.prioridad or 'baja')|title }}
+          </span>
+        </td>
+        <td>
+          <div class="score-bar-wrap">
+            <div class="score-bar"><div class="score-fill" style="width:{{ op.score }}%;"></div></div>
+            <span class="score-num">{{ op.score }}</span>
+          </div>
+        </td>
+        <td>
+          <span class="badge-estado badge-{{ op.estado }}">
+            {% if op.estado == 'nuevo' %}🔵
+            {% elif op.estado == 'en_seguimiento' %}⏳
+            {% elif op.estado == 'convertido' %}✅
+            {% else %}—{% endif %}
+            {{ op.estado|replace('_', ' ')|title }}
+          </span>
+        </td>
+        <td style="font-size:11px;color:var(--qori-gray-500);white-space:nowrap;">
+          {{ op.detectado_en.strftime('%d/%m %H:%M') if op.detectado_en else '—' }}
+        </td>
+        <td>
+          <a href="#" class="btn-detalle" onclick="abrirModal({{ op.id }});return false;">Ver</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="pipe-empty">
+    <div class="pipe-empty-icon">🎯</div>
+    <div class="pipe-empty-msg">No hay oportunidades
+      {% if estado_filtro %} con estado "{{ estado_filtro }}"{% endif %}.
+    </div>
+    <div style="font-size:12px;color:var(--qori-gray-400);margin-top:8px;">
+      Las oportunidades aparecen aquí cuando un prospecto responde positivamente a una campaña.
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{# Modal detalle #}
+<div class="pipe-modal-backdrop" id="pipeModal" onclick="cerrarModal(event)">
+  <div class="pipe-modal" onclick="event.stopPropagation()">
+    <div class="pipe-modal-header">
+      <div>
+        <p class="pipe-modal-title" id="modalEmpresa">—</p>
+        <p class="pipe-modal-sub" id="modalEmail">—</p>
+      </div>
+      <button class="pipe-modal-close" onclick="cerrarModal()">✕</button>
+    </div>
+    <dl class="pipe-dl" id="modalBody"></dl>
+    <hr class="pipe-divider">
+    <div>
+      <p style="font-size:11px;font-weight:700;color:var(--qori-gray-400);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">
+        Cambiar estado
+      </p>
+      <div class="pipe-estado-btns" id="estadoBtns"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const _opData = {{ oportunidades_json | tojson | safe }};
+
+function filtrar(estado) {
+  const url = new URL(window.location.href);
+  if (estado) url.searchParams.set('estado', estado);
+  else url.searchParams.delete('estado');
+  window.location.href = url.toString();
+}
+
+function abrirModal(id) {
+  const op = _opData.find(o => o.id === id);
+  if (!op) return;
+
+  document.getElementById('modalEmpresa').textContent = op.empresa || op.email;
+  document.getElementById('modalEmail').textContent   = op.email;
+
+  const dl = document.getElementById('modalBody');
+  const rows = [
+    ['Contacto',    op.contacto || '—'],
+    ['Teléfono',    op.telefono || '—'],
+    ['Sector',      op.sector || '—'],
+    ['Prioridad',   (op.prioridad || 'baja').charAt(0).toUpperCase() + (op.prioridad||'baja').slice(1)],
+    ['Score',       op.score],
+    ['Estado',      (op.estado||'').replace(/_/g,' ')],
+    ['Necesidad',   op.necesidad || '—'],
+    ['Recomendación', op.recomendacion || '—'],
+    ['Asunto orig.', op.cuerpo_email || '—'],
+    ['Detectado',   op.detectado_en || '—'],
+    ['Bandeja orig.',op.cuenta_origen || '—'],
+  ];
+  dl.innerHTML = rows.map(([k,v]) =>
+    `<dt>${k}</dt><dd>${v}</dd>`
+  ).join('');
+
+  // Botones de estado
+  const btns = document.getElementById('estadoBtns');
+  const opciones = [
+    ['en_seguimiento', 'btn-seguimiento', '⏳ En seguimiento'],
+    ['convertido',     'btn-convertido',  '✅ Convertido'],
+    ['descartado',     'btn-descartado',  '✗ Descartar'],
+  ].filter(o => o[0] !== op.estado);
+
+  btns.innerHTML = opciones.map(([estado, cls, label]) =>
+    `<button class="pipe-estado-btn ${cls}" onclick="cambiarEstado(${id},'${estado}')">${label}</button>`
+  ).join('');
+
+  document.getElementById('pipeModal').classList.add('open');
+}
+
+function cerrarModal(e) {
+  if (!e || e.target === document.getElementById('pipeModal')) {
+    document.getElementById('pipeModal').classList.remove('open');
+  }
+}
+
+function cambiarEstado(id, nuevoEstado) {
+  fetch(`/comercial/pipeline/estado/${id}`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json',
+               'X-CSRFToken': document.cookie.match(/csrf_token=([^;]+)/)?.[1] || ''},
+    body: JSON.stringify({estado: nuevoEstado})
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) window.location.reload();
+    else alert('Error: ' + (data.error || 'desconocido'));
+  })
+  .catch(() => alert('Error de conexión'));
+}
+
+// Abrir modal si viene ?id= en URL
+const _urlId = parseInt(new URLSearchParams(window.location.search).get('id'));
+if (_urlId) setTimeout(() => abrirModal(_urlId), 200);
+</script>
+{% endblock %}

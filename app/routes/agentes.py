@@ -74,15 +74,18 @@ def index():
 def mission_control():
     from app.models.agent import AgentStatus, AgentLog, AgentAlert
     from app.services.agents.executive import ExecutiveAgent
+    from app.services.prospeccion_repo import get_prospeccion_kpis
 
     agents = AgentStatus.query.order_by(AgentStatus.id).all()
     recent_logs = (AgentLog.query.order_by(AgentLog.created_at.desc()).limit(50).all())
     alerts = AgentAlert.query.filter_by(resolved=False).order_by(AgentAlert.created_at.desc()).limit(10).all()
     kpis = ExecutiveAgent.get_kpis()
+    prospeccion_kpis = get_prospeccion_kpis()
 
     return render_template('agentes/mission_control.html',
                            agents=agents, recent_logs=recent_logs,
-                           alerts=alerts, kpis=kpis)
+                           alerts=alerts, kpis=kpis,
+                           prospeccion=prospeccion_kpis)
 
 
 @agentes_bp.route('/dashboard')
@@ -268,6 +271,46 @@ def configuracion():
 # ─────────────────────────────────────────────────────────────────────────────
 # APIs JSON
 # ─────────────────────────────────────────────────────────────────────────────
+
+@agentes_bp.route('/api/prospeccion/kpis')
+@login_required
+@_require_agent_access
+def api_prospeccion_kpis():
+    """KPIs del ecosistema de prospección desde PostgreSQL compartido."""
+    from app.services.prospeccion_repo import get_prospeccion_kpis
+    return jsonify(get_prospeccion_kpis())
+
+
+@agentes_bp.route('/api/prospeccion/runs')
+@login_required
+@_require_agent_access
+def api_prospeccion_runs():
+    """Últimas ejecuciones de agentes del ecosistema."""
+    from app.services.prospeccion_repo import get_agent_runs
+    limit = min(int(request.args.get('limit', 20)), 100)
+    return jsonify(get_agent_runs(limit))
+
+
+@agentes_bp.route('/api/prospeccion/heartbeats')
+@login_required
+@_require_agent_access
+def api_prospeccion_heartbeats():
+    """Estado de liveness de cada agente del worker."""
+    from app.services.prospeccion_repo import get_agent_heartbeats, get_worker_status
+    return jsonify({
+        'worker':  get_worker_status(),
+        'agents':  get_agent_heartbeats(),
+    })
+
+
+@agentes_bp.route('/api/prospeccion/bandejas')
+@login_required
+@_require_agent_access
+def api_prospeccion_bandejas():
+    """Estado de las 3 bandejas Gmail (enviados, bounces, pausa)."""
+    from app.services.prospeccion_repo import get_bandeja_estado
+    return jsonify(get_bandeja_estado())
+
 
 @agentes_bp.route('/api/status')
 @login_required

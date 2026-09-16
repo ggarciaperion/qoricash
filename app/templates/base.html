@@ -130,6 +130,19 @@
                 <i class="bi bi-briefcase"></i>
                 <span class="sidebar-link-text">Comercial</span>
             </a>
+            <a class="sidebar-link {% if request.endpoint == 'comercial.pipeline' %}active{% endif %}"
+               href="{{ url_for('comercial.pipeline') }}">
+                <i class="bi bi-kanban"></i>
+                <span class="sidebar-link-text">CRM · Oportunidades</span>
+            </a>
+            {% endif %}
+
+            {% if current_user.role in ['Master', 'Presidente de Negocios'] %}
+            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('agentes') %}active{% endif %}"
+               href="{{ url_for('agentes.mission_control') }}">
+                <i class="bi bi-cpu"></i>
+                <span class="sidebar-link-text">Agentes IA</span>
+            </a>
             {% endif %}
 
 

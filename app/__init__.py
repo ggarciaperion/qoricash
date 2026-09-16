@@ -1207,6 +1207,8 @@ def register_blueprints(app):
     # prospeccion_bp desregistrado — módulo oculto (archivos intactos)
     from app.routes.comercial import comercial_bp
     app.register_blueprint(comercial_bp)       # Modulo Comercial — cartera de clientes
+    from app.routes.leads_api import leads_api_bp
+    app.register_blueprint(leads_api_bp)       # API de leads prospección → Oportunidad: /api/leads/*
     from app.routes.alertas_tc import alertas_tc_bp
     app.register_blueprint(alertas_tc_bp)      # Modulo Alertas TC — leads desde qoricash.pe
     from app.routes.push import push_bp
@@ -1220,7 +1222,8 @@ def register_blueprints(app):
     from app.routes.ai import ai_bp
     app.register_blueprint(ai_bp)                                # Agentes IA: /ai/*
 
-    # agentes_bp desactivado — panel de Agentes IA removido del sistema
+    from app.routes.agentes import agentes_bp
+    app.register_blueprint(agentes_bp)             # Agentes IA / Mission Control: /agentes/*
 
 # Service Worker debe servirse desde la raíz del dominio (scope /)
     import os
