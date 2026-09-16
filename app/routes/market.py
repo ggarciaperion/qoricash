@@ -169,6 +169,42 @@ def api_ticker_public():
     return jsonify({'success': True, 'items': ticker})
 
 
+@market_bp.route('/api/news-public')
+@limiter.limit("60 per minute")
+def api_news_public():
+    """
+    Endpoint público: últimas noticias de alto/medio impacto para qoricash.pe.
+    Protegido por TICKER_API_KEY (misma clave que /api/ticker).
+    """
+    expected_key = os.environ.get('TICKER_API_KEY', '')
+    provided_key = request.headers.get('X-Ticker-Key') or request.args.get('key', '')
+    if expected_key and provided_key != expected_key:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    try:
+        from datetime import timedelta
+        from app.models.market import MarketNews
+        since = now_peru() - timedelta(hours=48)
+        from sqlalchemy import case as sa_case
+        impact_order = sa_case(
+            {'high': 1, 'medium': 2},
+            value=MarketNews.impact_level,
+            else_=3,
+        )
+        rows = (
+            MarketNews.query
+            .filter(MarketNews.fetched_at >= since)
+            .filter(MarketNews.impact_level.in_(['high', 'medium']))
+            .order_by(impact_order.asc(), MarketNews.fetched_at.desc())
+            .limit(15)
+            .all()
+        )
+        return jsonify({'success': True, 'news': [n.to_dict() for n in rows]})
+    except Exception as e:
+        logger.error(f'[NewsPublic] Error: {e}')
+        return jsonify({'success': False, 'news': []}), 500
+
+
 # ─── DATATEC Reference Rates ─────────────────────────────────────────────────
 
 @market_bp.route('/api/datatec', methods=['GET'])
