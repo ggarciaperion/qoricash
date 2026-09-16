@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authApi } from '../api/auth';
 import apiClient from '../api/client';
@@ -6,6 +6,8 @@ import { User, Client, LoginCredentials } from '../types';
 import { STORAGE_KEYS } from '../constants/config';
 import socketService from '../services/socketService';
 import { notificationService } from '../services/notificationService';
+
+const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutos
 
 interface AuthContextData {
   user: User | null;
@@ -28,6 +30,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true);
   const [sessionKicked, setSessionKicked] = useState(false);
   const sessionIdRef = React.useRef<string | null>(null);
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     socketService.configure();
@@ -66,6 +69,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       socketService.disconnect();
     };
   }, []);
+
+  // Cierre automático por inactividad (15 minutos) — solo en web
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!user) {
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      return;
+    }
+
+    const resetTimer = () => {
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = setTimeout(() => {
+        console.log('🔒 [AUTH] Cierre por inactividad (15 min)');
+        logout();
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer();
+
+    return () => {
+      events.forEach(e => window.removeEventListener(e, resetTimer));
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    };
+  }, [user]);
 
   // Cuando el usuario se autentica, unirse a room específico del cliente
   useEffect(() => {
