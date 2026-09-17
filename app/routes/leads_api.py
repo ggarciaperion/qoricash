@@ -172,13 +172,11 @@ def create_lead():
         mensaje_id      = gmail_msg_id,
     )
 
-    # Vincular con Prospecto si viene el ID
-    prospecto_id = data.get('prospecto_id')
-    if prospecto_id:
-        try:
-            op.prospecto_creado_id = int(prospecto_id)
-        except (ValueError, TypeError):
-            pass
+    # prospecto_id del worker referencia ec_prospectos (DB separada del worker).
+    # NO se puede usar como FK a prospectos.id de esta app — son tablas de sistemas
+    # distintos y los IDs no coinciden. Intentar asignarlo causa IntegrityError (HTTP 500).
+    # El contexto del prospecto ya está capturado en 'necesidad' a través de _build_necesidad.
+    # Si en el futuro se desea vincular, deberá hacerse por email o RUC, no por ID externo.
 
     db.session.add(op)
     db.session.flush()  # obtener id antes del commit
