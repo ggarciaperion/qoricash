@@ -629,8 +629,8 @@ def _flujo_cotizar_inicio(numero):
         '> • *Tengo soles* y quiero dólares → primera opción\n'
         '> • *Tengo dólares* y quiero soles → segunda opción',
         [
-            {'id': 'btn_comprar', 'title': '🟢 Soles → Dólares'},
-            {'id': 'btn_vender',  'title': '🔵 Dólares → Soles'},
+            {'id': 'btn_comprar', 'title': '1) 🟢 Soles → Dólares'},
+            {'id': 'btn_vender',  'title': '2) 🔵 Dólares → Soles'},
         ]
     )
 
@@ -731,8 +731,8 @@ def _flujo_como_funciona(numero):
     BANNER_URL = 'https://qoricash.pe/334.jpg'
     msg = (
         '1️⃣ *Cotiza* — Dinos cuánto quieres cambiar y te damos el precio al instante. Sin compromisos.\n\n'
-        '2️⃣ *Transfiere* — Nos envías el dinero por transferencia bancaria (BCP o Interbank) y nos mandas el código del voucher.\n\n'
-        '3️⃣ *¡Listo!* — En minutos depositamos en tu cuenta y te avisamos aquí por WhatsApp.\n\n'
+        '2️⃣ *Transfiere* — Envías el dinero a la cuenta bancaria de Qoricash de tu elección y nos mandas el código de operación.\n\n'
+        '3️⃣ *¡Listo!* — En minutos transferimos a tu cuenta y te avisamos aquí por WhatsApp.\n\n'
         '> 🔒 _Fintech de cambio regulada por la SBS (Res. N.° 00313-2026)_\n'
         '> 🕐 _Lun–Vie 9am–6pm · Sáb 9am–2pm_\n\n'
         '¿Quieres ver el tipo de cambio ahora?'
