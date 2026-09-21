@@ -553,24 +553,77 @@ def _parse_monto(texto):
 
 # ── Flujos del bot ─────────────────────────────────────────────────
 
-def _bienvenida(numero, nombre):
+def _bienvenida(numero, session):
+    """
+    Saludo de bienvenida personalizado según identidad del cliente:
+    - 0 clientes encontrados por teléfono → saludo genérico (nuevo cliente)
+    - 1 cliente encontrado → saludo con nombre de BD, auto-fija cotiz_doc
+    - 2+ clientes (persona natural + empresa) → selector de cuenta directo
+    """
     BANNER_URL = 'https://qoricash.pe/122.jpg'
-    primer_nombre = nombre.split()[0] if nombre else ''
-    saludo = f'¡Hola, {primer_nombre}! 👋' if primer_nombre else '¡Hola! 👋'
+    nombre = session.nombre if hasattr(session, 'nombre') else (session or '')
 
-    msg = (
-        f'{saludo}\n\n'
-        'Cambia dólares al *mejor tipo de cambio del día*, '
-        'directo desde WhatsApp. Sin apps. Sin filas. Sin comisiones.\n\n'
-        '> 🔒 _Regulado por la SBS_\n\n'
-        '> ¿Cotizamos ahora? 👇'
-    )
+    clientes = _buscar_clientes_por_telefono(numero)
 
-    send_buttons_image(numero, BANNER_URL, msg, [
-        {'id': 'btn_cotizar',       'title': '💱 Ver tipo de cambio'},
-        {'id': 'btn_como_funciona', 'title': 'ℹ️ ¿Cómo funciona?'},
-        {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
-    ])
+    if len(clientes) == 1:
+        c = clientes[0]
+        nombre_db = (c.nombres or c.razon_social or '').strip()
+        primer_nombre = nombre_db.split()[0].title() if nombre_db else (nombre.split()[0] if nombre else '')
+        # Actualizar sesión con nombre fresco y doc conocido
+        session.nombre = nombre_db or nombre
+        if not session.cotiz_doc:
+            session.cotiz_doc = c.dni
+        saludo = f'¡Hola, {primer_nombre}! 👋' if primer_nombre else '¡Hola! 👋'
+        msg = (
+            f'{saludo}\n\n'
+            'Cambia dólares al *mejor tipo de cambio del día*, '
+            'directo desde WhatsApp. Sin apps. Sin filas. Sin comisiones.\n\n'
+            '> 🔒 _Regulado por la SBS_\n\n'
+            '> ¿Cotizamos ahora? 👇'
+        )
+        send_buttons_image(numero, BANNER_URL, msg, [
+            {'id': 'btn_cotizar',       'title': '💱 Ver tipo de cambio'},
+            {'id': 'btn_como_funciona', 'title': 'ℹ️ ¿Cómo funciona?'},
+            {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
+        ])
+
+    elif len(clientes) > 1:
+        # Múltiples cuentas: mostrar selector inmediato en el saludo
+        primer_nombre = nombre.split()[0].title() if nombre else ''
+        saludo = f'¡Hola, {primer_nombre}! 👋 Bienvenido de vuelta.' if primer_nombre else '¡Hola de nuevo! 👋'
+        msg = (
+            f'{saludo}\n\n'
+            'Tenemos *más de una cuenta* vinculada a tu número.\n\n'
+            '> ¿Con cuál deseas operar hoy? 👇'
+        )
+        botones = []
+        for c in clientes[:2]:
+            if c.document_type == 'RUC':
+                label = (c.razon_social or 'Empresa').strip()[:14]
+                botones.append({'id': f'btn_bienvenida_{c.dni}', 'title': f'🏢 {label}'[:20]})
+            else:
+                pnombre = (c.nombres or '').split()[0].title() if c.nombres else 'Personal'
+                botones.append({'id': f'btn_bienvenida_{c.dni}', 'title': f'👤 {pnombre} - Personal'[:20]})
+        botones.append({'id': 'btn_asesor', 'title': '💬 Hablar con asesor'})
+        send_buttons_image(numero, BANNER_URL, msg, botones)
+        session.estado = 'eligiendo_cuenta_bienvenida'
+
+    else:
+        # Nuevo cliente o no registrado
+        primer_nombre = nombre.split()[0] if nombre else ''
+        saludo = f'¡Hola, {primer_nombre}! 👋' if primer_nombre else '¡Hola! 👋'
+        msg = (
+            f'{saludo}\n\n'
+            'Cambia dólares al *mejor tipo de cambio del día*, '
+            'directo desde WhatsApp. Sin apps. Sin filas. Sin comisiones.\n\n'
+            '> 🔒 _Regulado por la SBS_\n\n'
+            '> ¿Cotizamos ahora? 👇'
+        )
+        send_buttons_image(numero, BANNER_URL, msg, [
+            {'id': 'btn_cotizar',       'title': '💱 Ver tipo de cambio'},
+            {'id': 'btn_como_funciona', 'title': 'ℹ️ ¿Cómo funciona?'},
+            {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
+        ])
 
 
 def _flujo_cotizar_inicio(numero):
@@ -1991,6 +2044,26 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         )
                         session.estado = 'esperando_id_cotizar'
 
+            elif btn_id.startswith('btn_bienvenida_'):
+                # Selector de cuenta desde el saludo de bienvenida (multi-cuenta)
+                doc_sel = btn_id[len('btn_bienvenida_'):]
+                client_sel = _buscar_cliente(doc_sel)
+                if client_sel and (client_sel.kyc_status or '').lower() in ('completo', 'aprobado'):
+                    session.cotiz_doc = doc_sel
+                    nombre_db = (client_sel.nombres or client_sel.razon_social or '').strip()
+                    session.nombre = nombre_db
+                    primer_nombre = nombre_db.split()[0].title() if nombre_db else ''
+                    conf = f', {primer_nombre}' if primer_nombre else ''
+                    send_text(numero, f'✅ Perfecto{conf}. Operas con esa cuenta.')
+                    _menu_rapido(numero)
+                    session.estado = 'menu_mostrado'
+                else:
+                    send_buttons(numero,
+                        '⚠️ No encontramos esa cuenta activa. Habla con un asesor.',
+                        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                    )
+                    session.estado = 'inicio'
+
             elif btn_id.startswith('btn_cliente_') and estado == 'eligiendo_cliente_telefono':
                 # P2 — Cliente eligió con qué cuenta operar (múltiples cuentas en mismo teléfono)
                 doc_sel = btn_id[len('btn_cliente_'):]
@@ -2161,7 +2234,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 session.dni_front   = ''
                 session.dni_back    = ''
                 session.ruc_doc     = ''
-                _bienvenida(numero, session.nombre)
+                _bienvenida(numero, session)
 
             elif btn_id == 'btn_natural':
                 session.tipo = 'natural'
@@ -2774,7 +2847,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
             elif estado == 'inicio':
                 txt_lower = texto.lower()
                 if any(k in txt_lower for k in ('hola', 'buenas', 'buenos', 'hi ', 'hey', 'saludos', 'buen dia', 'buen día')):
-                    _bienvenida(numero, session.nombre)
+                    _bienvenida(numero, session)
                     session.estado = 'menu_mostrado'
                 elif any(k in txt_lower for k in ('como funciona', 'cómo funciona', 'como opera', 'es seguro', 'es confiable', 'información', 'informacion', 'info', 'cuéntame', 'cuentame')):
                     _flujo_como_funciona(numero)
@@ -2831,7 +2904,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                             send_text(numero, _ia_resp)
                             _menu_rapido(numero)
                         else:
-                            _bienvenida(numero, session.nombre)
+                            _bienvenida(numero, session)
                         session.estado = 'menu_mostrado'  # avanza en cualquier caso
 
             elif estado == 'menu_mostrado':
@@ -3053,7 +3126,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                             [{'id': 'btn_ya_transferi', 'title': '✅ Ya transferí'}]
                         )
                     else:
-                        _bienvenida(numero, session.nombre)
+                        _bienvenida(numero, session)
                         session.estado = 'inicio'
 
                 elif estado == 'confirmando_cuenta':
@@ -3079,7 +3152,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     )
 
                 else:
-                    _bienvenida(numero, session.nombre)
+                    _bienvenida(numero, session)
                     session.estado = 'menu_mostrado'
 
         # ── Imágenes / documentos ─────────────────────────────────
@@ -3144,7 +3217,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     'Por favor usa las opciones del menú o escribe tu respuesta.'
                 )
             else:
-                _bienvenida(numero, session.nombre)
+                _bienvenida(numero, session)
 
         db.session.commit()
 
