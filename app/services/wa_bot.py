@@ -572,8 +572,10 @@ def _detectar_intencion(texto):
                 '- cancelar   → quiere salir, cancelar, no seguir, desistir, volver al inicio\n'
                 '- no_tengo   → dice que no tiene la divisa, no tiene dinero, no le alcanza, etc.\n'
                 '- asesor     → quiere hablar con una persona, pide ayuda humana\n'
-                '- reintento  → probablemente intentó escribir un monto pero mal (ej: letras mezcladas, '
-                'idioma distinto, confusión) — el bot debe pedirle que intente de nuevo\n'
+                '- reintento  → intentó escribir un monto pero lo escribió mal '
+                '(letras, confusión de formato, idioma distinto, etc.)\n'
+                '- otro       → pregunta algo diferente (tipo de cambio, horario, cómo funciona, '
+                'consulta sobre el servicio, cualquier cosa que no sea un monto ni las anteriores)\n'
             )
             resp = client.messages.create(
                 model='claude-haiku-4-5-20251001',
@@ -581,7 +583,7 @@ def _detectar_intencion(texto):
                 messages=[{'role': 'user', 'content': prompt}],
             )
             clasificacion = resp.content[0].text.strip().lower().split()[0]
-            if clasificacion in ('cancelar', 'no_tengo', 'asesor', 'reintento'):
+            if clasificacion in ('cancelar', 'no_tengo', 'asesor', 'reintento', 'otro'):
                 log.info(f'[WaBot-IA] intencion clasificada="{clasificacion}" para texto="{texto[:40]}"')
                 return None if clasificacion == 'reintento' else clasificacion
         except Exception as e:
@@ -2371,8 +2373,18 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                             'Con gusto te conecto con un asesor. 👋',
                             [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                         )
+                    elif intencion == 'otro':
+                        # Pregunta distinta durante el flujo → responder con IA y redirigir
+                        respuesta_ia = _respuesta_ia(texto, numero, session)
+                        if respuesta_ia:
+                            send_text(numero, respuesta_ia)
+                        send_text(numero,
+                            'Cuando quieras continuar con la cotización, escribe el monto en dólares. '
+                            'Ejemplo: *1000*'
+                        )
+                        # No reseteamos el estado — el flujo sigue esperando el monto
                     else:
-                        # Realmente no se entendió el monto → incrementar contador
+                        # No se entendió el monto → incrementar contador
                         try:
                             session.cotiz_intentos = (session.cotiz_intentos or 0) + 1
                             intentos = session.cotiz_intentos
