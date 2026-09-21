@@ -560,7 +560,7 @@ def _bienvenida(numero, session):
     - 1 cliente encontrado → saludo con nombre de BD, auto-fija cotiz_doc
     - 2+ clientes (persona natural + empresa) → selector de cuenta directo
     """
-    BANNER_URL = 'https://qoricash.pe/122.jpg'
+    BANNER_URL = 'https://qoricash.pe/213.jpg'
     nombre = session.nombre if hasattr(session, 'nombre') else (session or '')
 
     clientes = _buscar_clientes_por_telefono(numero)
