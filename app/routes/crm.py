@@ -1504,6 +1504,21 @@ def api_bot_toggle(numero):
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+# ── API — Reset sesión bot por número ────────────────────────────
+@crm_bp.route('/api/reset-sesion/<path:numero>', methods=['POST'])
+@login_required
+def api_reset_sesion(numero):
+    """Resetea la sesión del bot para que el próximo mensaje muestre la bienvenida."""
+    from app.models.wa_bot_session import WaBotSession
+    from app.services.wa_bot import _reset_sesion
+    s = WaBotSession.query.filter_by(numero=numero).first()
+    if s:
+        _reset_sesion(s)
+        db.session.commit()
+        log.info(f'[CRM] Sesión bot reseteada para {numero} por {current_user.username}')
+    return jsonify({'ok': True})
+
+
 # ── Limpieza historial WA anterior a julio 2026 ───────────────────
 @crm_bp.route('/api/limpiar-wa-historial', methods=['POST'])
 @login_required

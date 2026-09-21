@@ -775,6 +775,9 @@ body.has-pb-bar.has-sidebar .main-wrapper {
             <span class="bot-dot"></span>
             <span id="botToggleLabel">Bot activo</span>
           </button>
+          <button id="btnResetSesion" onclick="resetSesion()" title="Resetear sesión del bot (próximo mensaje mostrará bienvenida)" style="background:#e65c00;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+            <i class="bi bi-arrow-counterclockwise"></i> Reset sesión
+          </button>
           <button class="crm-back-btn" onclick="goBack()" title="Volver">
             <i class="bi bi-arrow-left"></i>
           </button>
@@ -1015,6 +1018,28 @@ function renderBotToggle(pausado) {
   label.textContent = pausado ? 'Asesor activo' : 'Bot activo';
   btn.title = pausado ? 'Clic para reactivar el bot' : 'Clic para pausar el bot';
   btn.dataset.pausado = pausado ? '1' : '0';
+}
+
+async function resetSesion() {
+  if (!activeNum) return;
+  const btn = document.getElementById('btnResetSesion');
+  btn.disabled = true;
+  try {
+    const csrf = document.querySelector('meta[name="csrf-token"]');
+    const r = await fetch(`/crm/api/reset-sesion/${encodeURIComponent(activeNum)}`, {
+      method: 'POST',
+      headers: csrf ? { 'X-CSRFToken': csrf.content } : {}
+    });
+    const j = await r.json();
+    if (j.ok) {
+      showToast('✅ Sesión reseteada — próximo mensaje mostrará bienvenida', 'success');
+    } else {
+      showToast('Error al resetear sesión', 'error');
+    }
+  } catch(e) {
+    showToast('Error de conexión', 'error');
+  }
+  btn.disabled = false;
 }
 
 async function toggleBot() {
