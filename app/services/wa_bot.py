@@ -554,7 +554,7 @@ def _parse_monto(texto):
 # ── Flujos del bot ─────────────────────────────────────────────────
 
 def _bienvenida(numero, nombre):
-    BANNER_URL = 'https://qoricash.pe/fn.png'
+    BANNER_URL = 'https://qoricash.pe/122.jpg'
     primer_nombre = nombre.split()[0] if nombre else ''
     saludo = f'¡Hola, {primer_nombre}! 👋' if primer_nombre else '¡Hola! 👋'
 
