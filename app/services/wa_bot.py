@@ -576,9 +576,8 @@ def _bienvenida(numero, session):
         saludo = f'¡Hola, {primer_nombre}! 👋' if primer_nombre else '¡Hola! 👋'
         msg = (
             f'{saludo}\n\n'
-            'Cambia dólares al *mejor tipo de cambio del día*, '
-            'directo desde WhatsApp. Sin apps. Sin filas. Sin comisiones.\n\n'
-            '> 🔒 _Regulado por la SBS_  ·  ¿Cotizamos ahora? 👇'
+            'Cambia dólares al *mejor tipo de cambio del día en tiempo real* sin salir de tu WhatsApp, sin descargar otras apps, sin comisiones.\n\n'
+            '> _🔒 Regulado por la SBS  ·  ¿Cotizamos ahora? 👇_'
         )
         send_buttons_image(numero, BANNER_URL, msg, [
             {'id': 'btn_cotizar',       'title': '💱 Ver tipo de cambio'},
@@ -613,9 +612,8 @@ def _bienvenida(numero, session):
         saludo = f'¡Hola, {primer_nombre}! 👋' if primer_nombre else '¡Hola! 👋'
         msg = (
             f'{saludo}\n\n'
-            'Cambia dólares al *mejor tipo de cambio del día*, '
-            'directo desde WhatsApp. Sin apps. Sin filas. Sin comisiones.\n\n'
-            '> 🔒 _Regulado por la SBS_  ·  ¿Cotizamos ahora? 👇'
+            'Cambia dólares al *mejor tipo de cambio del día en tiempo real* sin salir de tu WhatsApp, sin descargar otras apps, sin comisiones.\n\n'
+            '> _🔒 Regulado por la SBS  ·  ¿Cotizamos ahora? 👇_'
         )
         send_buttons_image(numero, BANNER_URL, msg, [
             {'id': 'btn_cotizar',       'title': '💱 Ver tipo de cambio'},
