@@ -551,6 +551,43 @@ def _parse_monto(texto):
         return None
 
 
+# ── Detección de intenciones en texto libre ────────────────────────
+
+_INTENCIONES_CANCEL = (
+    'cancel', 'cancelar', 'cancela', 'salir', 'volver', 'inicio', 'menu',
+    'no quiero', 'no me interesa', 'dejame', 'olvida', 'stop', 'exit',
+    'no gracias', 'no, gracias', 'chau', 'adios', 'adiós',
+)
+_INTENCIONES_NO_TENGO = (
+    'no tengo', 'no cuento', 'no tengo dólares', 'no tengo dolares',
+    'no tengo soles', 'no tengo plata', 'no tengo dinero',
+)
+_INTENCIONES_ASESOR = (
+    'asesor', 'agente', 'persona', 'humano', 'ayuda', 'help',
+    'hablar con', 'comunicar', 'soporte',
+)
+
+def _detectar_intencion(texto):
+    """
+    Analiza texto libre y retorna la intención detectada:
+    - 'cancelar'   : quiere cancelar / salir / volver
+    - 'no_tengo'   : no tiene la divisa para cambiar
+    - 'asesor'     : quiere hablar con un asesor
+    - None         : sin intención clara (probablemente monto mal escrito)
+    """
+    t = texto.lower().strip()
+    for frase in _INTENCIONES_NO_TENGO:
+        if frase in t:
+            return 'no_tengo'
+    for frase in _INTENCIONES_CANCEL:
+        if frase in t:
+            return 'cancelar'
+    for frase in _INTENCIONES_ASESOR:
+        if frase in t:
+            return 'asesor'
+    return None
+
+
 # ── Flujos del bot ─────────────────────────────────────────────────
 
 def _bienvenida(numero, session):
@@ -2287,34 +2324,66 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         _flujo_mostrar_cotizacion(numero, session)
                         session.estado = 'viendo_cotizacion'
                 else:
-                    # Monto inválido → incrementar contador
-                    try:
-                        session.cotiz_intentos = (session.cotiz_intentos or 0) + 1
-                        intentos = session.cotiz_intentos
-                    except Exception:
-                        intentos = 1
-
-                    if intentos >= 2:
-                        # Tras 2 intentos fallidos: ofrecer salida clara
+                    # Sin monto → detectar intención antes de pedir reintento
+                    intencion = _detectar_intencion(texto)
+                    if intencion == 'cancelar':
+                        _reset_sesion(session)
                         send_buttons(numero,
-                            '🤔 Parece que hay una dificultad con el monto.\n\n'
-                            'Escribe solo el número en dólares, por ejemplo: *1000*\n\n'
-                            '¿Prefieres que un asesor te ayude?',
+                            'Sin problema, cancelamos la cotización. 😊\n\n'
+                            '¿Hay algo más en lo que pueda ayudarte?',
                             [
-                                {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
-                                {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
+                                {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
                             ]
                         )
-                        try:
-                            session.cotiz_intentos = 0
-                        except Exception:
-                            pass
-                        session.estado = 'inicio'
-                    else:
-                        send_text(numero,
-                            'No entendí el monto. Escribe solo el número en dólares.\n\n'
-                            'Ejemplo: *1000*  o  *2500*  o  *5 mil*'
+                    elif intencion == 'no_tengo':
+                        # Determinar qué divisa le falta según flujo activo
+                        divisa_falta = 'dólares' if (session.cotiz_tipo or '') == 'compra' else 'soles'
+                        divisa_tiene = 'soles' if divisa_falta == 'dólares' else 'dólares'
+                        _reset_sesion(session)
+                        send_buttons(numero,
+                            f'Sin problema. Si tienes *{divisa_tiene}* y quieres *{divisa_falta}*, '
+                            f'podemos hacer el cambio al revés. 💱\n\n'
+                            f'¿Qué quieres hacer?',
+                            [
+                                {'id': 'btn_cotizar', 'title': '💱 Ver tipo de cambio'},
+                                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                            ]
                         )
+                    elif intencion == 'asesor':
+                        _reset_sesion(session)
+                        send_buttons(numero,
+                            'Con gusto te conecto con un asesor. 👋',
+                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                        )
+                    else:
+                        # Realmente no se entendió el monto → incrementar contador
+                        try:
+                            session.cotiz_intentos = (session.cotiz_intentos or 0) + 1
+                            intentos = session.cotiz_intentos
+                        except Exception:
+                            intentos = 1
+
+                        if intentos >= 2:
+                            send_buttons(numero,
+                                '🤔 Parece que hay una dificultad con el monto.\n\n'
+                                'Escribe solo el número en dólares, por ejemplo: *1000*\n\n'
+                                '¿Prefieres que un asesor te ayude?',
+                                [
+                                    {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
+                                    {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
+                                ]
+                            )
+                            try:
+                                session.cotiz_intentos = 0
+                            except Exception:
+                                pass
+                            session.estado = 'inicio'
+                        else:
+                            send_text(numero,
+                                'No entendí el monto. Escribe solo el número en dólares.\n\n'
+                                'Ejemplo: *1000*  o  *2500*  o  *5 mil*'
+                            )
 
             elif estado == 'esperando_identificacion':
                 # Flujo nuevo: identificar cliente por DNI/RUC con auto-creación
@@ -2747,10 +2816,28 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
             elif estado == 'esperando_nuevo_importe':
                 nuevo_monto = _parse_monto(texto)
                 if not nuevo_monto or nuevo_monto <= 0:
-                    send_text(numero,
-                        '⚠️ No entendí el monto. Ingresa solo el número en USD.\n'
-                        'Ejemplo: *1500* o *1500.50*'
-                    )
+                    intencion = _detectar_intencion(texto)
+                    if intencion == 'cancelar':
+                        _reset_sesion(session)
+                        send_buttons(numero,
+                            'Sin problema, cancelamos el cambio de monto. 😊\n\n'
+                            '¿Qué quieres hacer?',
+                            [
+                                {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                            ]
+                        )
+                    elif intencion == 'asesor':
+                        _reset_sesion(session)
+                        send_buttons(numero,
+                            'Con gusto te conecto con un asesor. 👋',
+                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                        )
+                    else:
+                        send_text(numero,
+                            '⚠️ No entendí el monto. Ingresa solo el número en USD.\n'
+                            'Ejemplo: *1500* o *1500.50*'
+                        )
                 elif nuevo_monto < MONTO_MINIMO_USD:
                     send_text(numero,
                         f'⚠️ El monto mínimo es *USD {MONTO_MINIMO_USD:,.0f}*.\n'
