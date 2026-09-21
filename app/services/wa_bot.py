@@ -728,8 +728,8 @@ def _menu_rapido(numero):
 
 def _flujo_como_funciona(numero):
     """Explica el proceso de cambio y destaca seguridad / regulación SBS."""
+    BANNER_URL = 'https://qoricash.pe/334.jpg'
     msg = (
-        '💱 *¿Cómo funciona Qoricash?*\n\n'
         '1️⃣ *Cotiza* — Dinos cuánto quieres cambiar y te damos el precio al instante. Sin compromisos.\n\n'
         '2️⃣ *Transfiere* — Nos envías el dinero por transferencia bancaria (BCP o Interbank) y nos mandas el código del voucher.\n\n'
         '3️⃣ *¡Listo!* — En minutos depositamos en tu cuenta y te avisamos aquí por WhatsApp.\n\n'
@@ -737,7 +737,7 @@ def _flujo_como_funciona(numero):
         '> 🕐 _Atención: Lun–Vie 9am–6pm · Sáb 9am–2pm_\n\n'
         '¿Quieres ver el tipo de cambio ahora?'
     )
-    send_buttons(numero, msg, [
+    send_buttons_image(numero, BANNER_URL, msg, [
         {'id': 'btn_cotizar', 'title': '💱 Ver tipo de cambio'},
         {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
     ])
