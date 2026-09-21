@@ -553,36 +553,51 @@ def _parse_monto(texto):
 
 # ── Detección de intenciones en texto libre ────────────────────────
 
-_INTENCIONES_CANCEL = (
-    'cancel', 'cancelar', 'cancela', 'salir', 'volver', 'inicio', 'menu',
-    'no quiero', 'no me interesa', 'dejame', 'olvida', 'stop', 'exit',
-    'no gracias', 'no, gracias', 'chau', 'adios', 'adiós',
-)
-_INTENCIONES_NO_TENGO = (
-    'no tengo', 'no cuento', 'no tengo dólares', 'no tengo dolares',
-    'no tengo soles', 'no tengo plata', 'no tengo dinero',
-)
-_INTENCIONES_ASESOR = (
-    'asesor', 'agente', 'persona', 'humano', 'ayuda', 'help',
-    'hablar con', 'comunicar', 'soporte',
-)
-
 def _detectar_intencion(texto):
     """
-    Analiza texto libre y retorna la intención detectada:
-    - 'cancelar'   : quiere cancelar / salir / volver
-    - 'no_tengo'   : no tiene la divisa para cambiar
-    - 'asesor'     : quiere hablar con un asesor
-    - None         : sin intención clara (probablemente monto mal escrito)
+    Clasifica la intención del usuario cuando no escribe un monto válido.
+    Usa Claude Haiku para interpretar lenguaje natural en cualquier forma.
+    Retorna: 'cancelar' | 'no_tengo' | 'asesor' | None (reintento de monto)
+    Fallback por keywords si la IA no está disponible.
     """
+    client = _get_anthropic_client()
+    if client:
+        try:
+            prompt = (
+                'Clasifica la intención del siguiente mensaje de un usuario en un chat de '
+                'casa de cambio de divisas (soles/dólares). El bot le había pedido que '
+                'ingrese el monto en dólares que quiere cambiar.\n\n'
+                f'Mensaje del usuario: "{texto}"\n\n'
+                'Responde SOLO con una de estas palabras (sin explicación, sin puntuación):\n'
+                '- cancelar   → quiere salir, cancelar, no seguir, desistir, volver al inicio\n'
+                '- no_tengo   → dice que no tiene la divisa, no tiene dinero, no le alcanza, etc.\n'
+                '- asesor     → quiere hablar con una persona, pide ayuda humana\n'
+                '- reintento  → probablemente intentó escribir un monto pero mal (ej: letras mezcladas, '
+                'idioma distinto, confusión) — el bot debe pedirle que intente de nuevo\n'
+            )
+            resp = client.messages.create(
+                model='claude-haiku-4-5-20251001',
+                max_tokens=10,
+                messages=[{'role': 'user', 'content': prompt}],
+            )
+            clasificacion = resp.content[0].text.strip().lower().split()[0]
+            if clasificacion in ('cancelar', 'no_tengo', 'asesor', 'reintento'):
+                log.info(f'[WaBot-IA] intencion clasificada="{clasificacion}" para texto="{texto[:40]}"')
+                return None if clasificacion == 'reintento' else clasificacion
+        except Exception as e:
+            log.warning(f'[WaBot-IA] Error clasificando intención: {e}')
+
+    # Fallback por keywords si la IA no responde
     t = texto.lower().strip()
-    for frase in _INTENCIONES_NO_TENGO:
+    for frase in ('no tengo', 'no cuento', 'no tengo dólares', 'no tengo dolares',
+                  'no tengo soles', 'no tengo plata', 'no tengo dinero'):
         if frase in t:
             return 'no_tengo'
-    for frase in _INTENCIONES_CANCEL:
+    for frase in ('cancel', 'cancelar', 'cancela', 'salir', 'volver', 'inicio',
+                  'no quiero', 'no me interesa', 'olvida', 'chau', 'adios', 'adiós'):
         if frase in t:
             return 'cancelar'
-    for frase in _INTENCIONES_ASESOR:
+    for frase in ('asesor', 'agente', 'persona', 'humano', 'ayuda', 'hablar con'):
         if frase in t:
             return 'asesor'
     return None
