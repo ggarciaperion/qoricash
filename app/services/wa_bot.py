@@ -3217,7 +3217,14 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 if estado == 'eligiendo_operacion':
                     _cancelar_kw = ('cancelar', 'salir', 'exit', 'stop', 'no gracias', 'volver', 'inicio', 'menu')
                     _cotizar_kw  = ('comprar', 'vender', 'compra', 'venta', 'dolares', 'dólares', 'soles', 'cambiar')
-                    if any(k in txt_lower for k in _cancelar_kw):
+                    if any(k in txt_lower for k in _despedida_kw):
+                        primer_nombre = (session.nombre or '').split()[0].title() if session.nombre else ''
+                        _reset_sesion(session)
+                        send_text(numero,
+                            f'¡Hasta luego{", " + primer_nombre if primer_nombre else ""}! 👋 '
+                            f'Cuando necesites cambiar, aquí estaremos. ¡Que tengas un excelente día!'
+                        )
+                    elif any(k in txt_lower for k in _cancelar_kw):
                         _reset_sesion(session)
                         _menu_rapido(numero)
                     elif any(k in txt_lower for k in _cotizar_kw):
@@ -3263,7 +3270,14 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                  'cuanto', 'cuánto', 'comparar', 'banco', 'diferencia',
                                  'recomend', 'mejor', 'sirve', 'vale la pena')
                     _cancelar_kw = ('cancelar', 'salir', 'no gracias', 'volver', 'inicio', 'menu', 'no quiero')
-                    if any(k in txt_lower for k in _cancelar_kw):
+                    if any(k in txt_lower for k in _despedida_kw):
+                        primer_nombre = (session.nombre or '').split()[0].title() if session.nombre else ''
+                        _reset_sesion(session)
+                        send_text(numero,
+                            f'¡Hasta luego{", " + primer_nombre if primer_nombre else ""}! 👋 '
+                            f'Cuando necesites cambiar, aquí estaremos. ¡Que tengas un excelente día!'
+                        )
+                    elif any(k in txt_lower for k in _cancelar_kw):
                         _reset_sesion(session)
                         _menu_rapido(numero)
                     elif any(k in txt_lower for k in _dudas_kw):
