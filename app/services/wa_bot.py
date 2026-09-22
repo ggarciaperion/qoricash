@@ -2347,8 +2347,18 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 'eligiendo_tipo', 'esperando_numero_doc',
             }
 
+            # N0 — despedida universal: "cierra sesion", "chau", "adios", etc.
+            _despedida_kw = ('cierra sesion', 'cerrar sesion', 'chau', 'adios', 'adiós', 'bye bye', 'nos vemos', 'hasta mañana', 'hasta manana')
+            if any(k in txt_lower for k in _despedida_kw):
+                primer_nombre = (session.nombre or '').split()[0].title() if session.nombre else ''
+                _reset_sesion(session)
+                send_text(numero,
+                    f'¡Hasta luego{", " + primer_nombre if primer_nombre else ""}! 👋 '
+                    f'Cuando necesites cambiar, aquí estaremos. ¡Que tengas un excelente día!'
+                )
+
             # N1 — "cancelar" universal: cualquier estado activo (excepto inicio)
-            if estado != 'inicio' and any(k in txt_lower for k in ('cancelar', 'salir', 'no gracias', 'stop', 'quiero salir')):
+            elif estado != 'inicio' and any(k in txt_lower for k in ('cancelar', 'salir', 'no gracias', 'stop', 'quiero salir')):
                 _reset_sesion(session)
                 send_buttons(numero,
                     '✅ Proceso cancelado. ¿Hay algo más en lo que pueda ayudarte?',
