@@ -633,9 +633,9 @@ def _bienvenida(numero, session):
             'Cambia dólares al *mejor tipo de cambio del día en tiempo real* sin salir de tu WhatsApp, sin descargar otras apps, sin comisiones.'
         )
         send_buttons_image(numero, BANNER_URL, msg, [
-            {'id': 'btn_cotizar',       'title': '↕️ Ver tipo de cambio'},
-            {'id': 'btn_como_funciona', 'title': '❔ ¿Cómo funciona?'},
-            {'id': 'btn_asesor',        'title': '☎️ Hablar con asesor'},
+            {'id': 'btn_cotizar',       'title': '› Ver tipo de cambio'},
+            {'id': 'btn_como_funciona', 'title': '› ¿Cómo funciona?'},
+            {'id': 'btn_asesor',        'title': '› Hablar con asesor'},
         ])
 
     elif len(clientes) > 1:
@@ -668,21 +668,21 @@ def _bienvenida(numero, session):
             'Cambia dólares al *mejor tipo de cambio del día en tiempo real* sin salir de tu WhatsApp, sin descargar otras apps, sin comisiones.'
         )
         send_buttons_image(numero, BANNER_URL, msg, [
-            {'id': 'btn_cotizar',       'title': '↕️ Ver tipo de cambio'},
-            {'id': 'btn_como_funciona', 'title': '❔ ¿Cómo funciona?'},
-            {'id': 'btn_asesor',        'title': '☎️ Hablar con asesor'},
+            {'id': 'btn_cotizar',       'title': '› Ver tipo de cambio'},
+            {'id': 'btn_como_funciona', 'title': '› ¿Cómo funciona?'},
+            {'id': 'btn_asesor',        'title': '› Hablar con asesor'},
         ])
 
 
 def _flujo_cotizar_inicio(numero):
     """Pregunta si el cliente desea comprar o vender dólares."""
     send_buttons(numero,
-        '¿Qué quieres hacer hoy? 👇\n\n'
+        'Cotiza el tipo de operacion\n\n'
         '> • *Tengo soles* y quiero dólares → primera opción\n'
         '> • *Tengo dólares* y quiero soles → segunda opción',
         [
-            {'id': 'btn_comprar', 'title': '1) 🟢 Soles → Dólares'},
-            {'id': 'btn_vender',  'title': '2) 🔵 Dólares → Soles'},
+            {'id': 'btn_comprar', 'title': '1→ Soles a Dolares'},
+            {'id': 'btn_vender',  'title': '2→ Dolares a Soles'},
         ]
     )
 
@@ -693,7 +693,8 @@ def _flujo_pedir_importe(numero, operacion):
         f'¿Cuántos dólares quieres cambiar?\n\n'
         f'Escribe solo el número 👇\n'
         f'Ejemplo: *500*, *1000*, *5000*\n\n'
-        f'> _Mínimo USD {MONTO_MINIMO_USD:,.0f}_',
+        f'> Importe mínimo ${MONTO_MINIMO_USD:,.0f}\n'
+        f'> Mayor TC en importes superiores a $3,000',
         [{'id': 'btn_volver_cotizar', 'title': '🔙 Volver atrás'}]
     )
 
@@ -732,9 +733,9 @@ def _flujo_mostrar_cotizacion(numero, session):
         soles    = round(importe * tc_final, 2)
         resumen  = (
             f'💱 *Tu cotización*\n\n'
-            f'📤 Tú envías:    *S/ {soles:,.2f}*\n'
-            f'📥 Tú recibes:  *USD {importe:,.2f}*\n\n'
-            f'> _Tipo de cambio: S/ {tc_final:.4f}_'
+            f'› Tú envías:    *S/ {soles:,.2f}*\n'
+            f'› Tú recibes:  *USD {importe:,.2f}*\n\n'
+            f'> Tipo de cambio: S/ {tc_final:.4f}'
         )
     else:
         # Cliente vende dólares → empresa le compra → usa TC compra - spread
@@ -743,15 +744,15 @@ def _flujo_mostrar_cotizacion(numero, session):
         soles    = round(importe * tc_final, 2)
         resumen  = (
             f'💱 *Tu cotización*\n\n'
-            f'📤 Tú envías:    *USD {importe:,.2f}*\n'
-            f'📥 Tú recibes:  *S/ {soles:,.2f}*\n\n'
-            f'> _Tipo de cambio: S/ {tc_final:.4f}_'
+            f'› Tú envías:    *USD {importe:,.2f}*\n'
+            f'› Tú recibes:  *S/ {soles:,.2f}*\n\n'
+            f'> Tipo de cambio: S/ {tc_final:.4f}'
         )
 
     if mejora > 0:
-        resumen += f'\n> ✨ _TC preferencial por monto especial_'
+        resumen += f'\n> ✨ TC preferencial por monto especial'
 
-    resumen += f'\n> ⏱ _Válido hasta las {expira_hora}_'
+    resumen += f'\n> ⏱ Válido hasta las {expira_hora}'
 
     session.cotiz_tc = tc_final
     try:
@@ -760,9 +761,8 @@ def _flujo_mostrar_cotizacion(numero, session):
         pass
 
     send_buttons(numero, resumen, [
-        {'id': 'btn_aceptar_cotiz',  'title': '✅ Aceptar cotización'},
-        {'id': 'btn_volver_cotizar', 'title': '🔄 Cambiar monto'},
-        {'id': 'btn_asesor',         'title': '💬 Hablar con asesor'},
+        {'id': 'btn_aceptar_cotiz', 'title': '✅ Aceptar cotización'},
+        {'id': 'btn_mas_opciones',  'title': '⋯ Más opciones'},
     ])
 
 
@@ -785,9 +785,8 @@ def _flujo_como_funciona(numero):
         '1️⃣ *Cotiza* — Dinos cuánto quieres cambiar y te damos el precio al instante. Sin compromisos.\n\n'
         '2️⃣ *Transfiere* — Envías el dinero a la cuenta bancaria de Qoricash de tu elección y nos mandas el código de operación.\n\n'
         '3️⃣ *¡Listo!* — En minutos transferimos a tu cuenta y te avisamos aquí por WhatsApp.\n\n'
-        '> 🔒 _Fintech de cambio regulada por la SBS (Res. N.° 00313-2026)_\n'
-        '> 🕐 _Lun–Vie 9am–6pm · Sáb 9am–2pm_\n\n'
-        '¿Quieres ver el tipo de cambio ahora?'
+        '> 🔒 Inscritos en SBS (Res. N.° 00313-2026)\n'
+        '> 🕐 Lun–Vie 9am–6pm · Sáb 9am–2pm'
     )
     send_buttons_image(numero, BANNER_URL, msg, [
         {'id': 'btn_cotizar', 'title': '💱 Ver tipo de cambio'},
@@ -1414,24 +1413,20 @@ def _flujo_elegir_cuenta(numero, cuentas, moneda):
 def _flujo_pedir_cuenta_destino(numero, moneda):
     """Pide al cliente banco + número de cuenta cuando no tiene ninguna registrada en esa moneda."""
     simbolo = 'dólares (USD)' if moneda == 'USD' else 'soles (S/)'
-    send_text(numero,
+    send_buttons(numero,
         f'¿A qué cuenta quieres recibir tus *{simbolo}*?\n\n'
-        f'Escribe el banco y el número de cuenta así 👇\n\n'
-        f'*BCP 1234567890*\n'
-        f'*Interbank 123456789*\n'
-        f'*BBVA 0011123456789012*\n'
-        f'*Scotiabank 0123456789*'
+        f'Selecciona tu banco 👇',
+        [{'id': 'btn_elegir_banco', 'title': '🏦 Elegir banco'}]
     )
 
 
 def _flujo_confirmar_cuenta(numero, banco, num_cuenta):
     """Muestra los datos de cuenta para confirmación antes de crear la operación."""
-    ultimos = num_cuenta[-4:] if len(num_cuenta) >= 4 else num_cuenta
     send_buttons(numero,
         f'Antes de continuar, confirma que tu cuenta de destino es correcta 👇\n\n'
         f'🏦 *Banco:* {banco}\n'
-        f'🔢 *N° de cuenta:* ···{ultimos}\n\n'
-        '_(Si el número está mal, tu dinero podría ir a otra cuenta)_',
+        f'🔢 *N° de cuenta:* {num_cuenta}\n\n'
+        '> Revisa con calma tu cuenta bancaria',
         [
             {'id': 'btn_confirmar_cuenta', 'title': '✅ Sí, es correcta'},
             {'id': 'btn_cambiar_cuenta',   'title': '✏️ Cambiar cuenta'},
@@ -2124,9 +2119,13 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     else:
                         # Cliente nuevo: pedir identificación recién al aceptar el precio
                         send_buttons(numero,
-                            '¡Perfecto! Para procesar tu cambio solo necesitamos verificar tu identidad.\n\n'
-                            '🪪 Ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos):',
-                            [{'id': 'btn_volver_cotizar', 'title': '🔙 Volver'}]
+                            'Para generar tu operación necesitamos verificar tu identidad.\n\n'
+                            '🪪 Ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).\n\n'
+                            '> ¿Tienes Carné de Extranjería? 👇',
+                            [
+                                {'id': 'btn_tengo_ce',    'title': '🌍 Carné de Extranjería'},
+                                {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
+                            ]
                         )
                         session.estado = 'esperando_id_cotizar'
 
@@ -2247,6 +2246,75 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
             elif btn_id == 'btn_volver_cotizar':
                 _flujo_cotizar_inicio(numero)
                 session.estado = 'eligiendo_operacion'
+
+            elif btn_id == 'btn_mas_opciones':
+                send_list(numero,
+                    '¿Qué deseas hacer?',
+                    [{
+                        'title': 'Opciones',
+                        'rows': [
+                            {'id': 'btn_volver_cotizar',   'title': 'Cambiar monto'},
+                            {'id': 'btn_cambiar_operacion','title': 'Cambiar operación'},
+                            {'id': 'btn_cancelar_cotiz',   'title': 'Cancelar cotización'},
+                            {'id': 'btn_asesor',           'title': 'Hablar con asesor'},
+                        ]
+                    }]
+                )
+
+            elif btn_id == 'btn_cambiar_operacion':
+                _reset_sesion(session)
+                _flujo_cotizar_inicio(numero)
+                session.estado = 'eligiendo_operacion'
+
+            elif btn_id == 'btn_cancelar_cotiz':
+                _reset_sesion(session)
+                send_buttons(numero,
+                    'Cotización cancelada. ¿Hay algo más en lo que pueda ayudarte?',
+                    [
+                        {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
+                        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                    ]
+                )
+
+            elif btn_id == 'btn_elegir_banco':
+                moneda_b = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                send_list(numero,
+                    f'¿En qué banco tienes tu cuenta en {"dólares" if moneda_b == "USD" else "soles"}?',
+                    [{
+                        'title': 'Selecciona tu banco',
+                        'rows': [
+                            {'id': 'btn_banco_bcp',        'title': 'BCP'},
+                            {'id': 'btn_banco_interbank',  'title': 'Interbank'},
+                            {'id': 'btn_banco_banbif',     'title': 'BanBif'},
+                            {'id': 'btn_banco_bbva',       'title': 'BBVA'},
+                            {'id': 'btn_banco_scotiabank', 'title': 'Scotiabank'},
+                            {'id': 'btn_banco_pichincha',  'title': 'Pichincha'},
+                            {'id': 'btn_banco_otras',      'title': 'Otras entidades'},
+                        ]
+                    }]
+                )
+
+            elif btn_id in ('btn_banco_bcp', 'btn_banco_interbank', 'btn_banco_banbif'):
+                _banco_map = {'btn_banco_bcp': 'BCP', 'btn_banco_interbank': 'INTERBANK', 'btn_banco_banbif': 'BANBIF'}
+                _banco_sel = _banco_map[btn_id]
+                session.cotiz_cuenta = f'{_banco_sel}|'
+                send_buttons(numero,
+                    f'Escribe tu número de cuenta *{_banco_sel}*:',
+                    [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                )
+                session.estado = 'esperando_num_cuenta'
+
+            elif btn_id in ('btn_banco_bbva', 'btn_banco_scotiabank', 'btn_banco_pichincha', 'btn_banco_otras'):
+                _banco_map2 = {'btn_banco_bbva': 'BBVA', 'btn_banco_scotiabank': 'SCOTIABANK',
+                               'btn_banco_pichincha': 'PICHINCHA', 'btn_banco_otras': 'OTRO'}
+                _banco_sel = _banco_map2[btn_id]
+                session.cotiz_cuenta = f'{_banco_sel}|CCI'
+                send_buttons(numero,
+                    f'Para *{_banco_sel}*, ingresa tu *CCI* (20 dígitos):\n\n'
+                    f'> Lo encuentras en tu app del banco → Mis cuentas → Datos de cuenta.',
+                    [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                )
+                session.estado = 'esperando_num_cuenta'
 
             elif btn_id == 'btn_como_funciona':
                 _flujo_como_funciona(numero)
@@ -2508,6 +2576,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             session.estado = 'inicio'
                     else:
                         # No existe → consultar RENIEC/SUNAT
+                        session.cotiz_intentos = 0  # reset contador de intentos
                         send_text(numero, '🔍 Verificando tu documento...')
                         nombre_api = _lookup_ruc(doc) if es_empresa else _lookup_dni(doc)
                         if nombre_api:
@@ -2517,20 +2586,36 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             saludo = nombre_api.split()[0].title()
                             send_buttons(numero,
                                 f'✅ Verificamos tu documento en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
-                                f'Y para finalizar, coloca un *correo electrónico válido*:',
-                                [{'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'}]
+                                f'Y para finalizar, coloca tu *correo electrónico*:\n\n'
+                                f'> Revísalo bien antes de enviarlo.',
+                                [
+                                    {'id': 'btn_asesor',       'title': '💬 Hablar con asesor'},
+                                    {'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'},
+                                ]
                             )
                             session.estado = 'esperando_email_registro'
                         else:
-                            send_buttons(numero,
-                                f'⚠️ No encontramos el {"RUC" if es_empresa else "DNI"} *{doc}* '
-                                f'en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
-                                'Verifica que el número sea correcto o habla con un asesor.',
-                                [
-                                    {'id': 'btn_asesor',       'title': '💬 Hablar con asesor'},
-                                    {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
-                                ]
-                            )
+                            _intentos = (session.cotiz_intentos or 0) + 1
+                            session.cotiz_intentos = _intentos
+                            if _intentos >= 3:
+                                send_buttons(numero,
+                                    f'Hemos intentado verificar *{doc}* varias veces y no lo encontramos en '
+                                    f'{"SUNAT" if es_empresa else "RENIEC"}.\n\n'
+                                    'Puede que el número tenga un error o no esté registrado. '
+                                    'Un asesor puede ayudarte a continuar.',
+                                    [
+                                        {'id': 'btn_asesor',       'title': '💬 Hablar con asesor'},
+                                        {'id': 'btn_volver_inicio', 'title': '← Volver'},
+                                    ]
+                                )
+                            else:
+                                _restantes = 3 - _intentos
+                                send_buttons(numero,
+                                    f'No encontramos el número *{doc}* 🤔\n\n'
+                                    f'Revisa que esté bien escrito e ingrésalo de nuevo '
+                                    f'({_restantes} intento{"s" if _restantes > 1 else ""} restante{"s" if _restantes > 1 else ""}).',
+                                    [{'id': 'btn_volver_inicio', 'title': '← Volver'}]
+                                )
                 else:
                     send_buttons(numero,
                         '⚠️ Documento no válido.\n\n'
@@ -2622,6 +2707,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             session.estado = 'inicio'
                     else:
                         # No existe → consultar RENIEC/SUNAT
+                        session.cotiz_intentos = 0  # reset contador de intentos
                         send_text(numero, '🔍 Verificando tu documento...')
                         nombre_api = _lookup_ruc(doc) if es_empresa else _lookup_dni(doc)
                         if nombre_api:
@@ -2629,20 +2715,36 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             session.tipo   = 'empresa' if es_empresa else 'natural'
                             send_buttons(numero,
                                 f'✅ Verificamos tu documento en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
-                                f'Para finalizar, coloca tu *correo electrónico*:',
-                                [{'id': 'btn_no_ahora', 'title': '❌ Cancelar'}]
-                            )
-                            session.estado = 'esperando_email_cotizar'
-                        else:
-                            send_buttons(numero,
-                                f'⚠️ No encontramos el {"RUC" if es_empresa else "DNI"} *{doc}* '
-                                f'en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
-                                'Verifica que el número sea correcto o habla con un asesor.',
+                                f'Para finalizar, coloca tu *correo electrónico*:\n\n'
+                                f'> Revísalo bien antes de enviarlo.',
                                 [
                                     {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
                                     {'id': 'btn_no_ahora', 'title': '❌ Cancelar'},
                                 ]
                             )
+                            session.estado = 'esperando_email_cotizar'
+                        else:
+                            _intentos = (session.cotiz_intentos or 0) + 1
+                            session.cotiz_intentos = _intentos
+                            if _intentos >= 3:
+                                send_buttons(numero,
+                                    f'Hemos intentado verificar *{doc}* varias veces y no lo encontramos en '
+                                    f'{"SUNAT" if es_empresa else "RENIEC"}.\n\n'
+                                    'Puede que el número tenga un error o no esté registrado. '
+                                    'Un asesor puede ayudarte a continuar.',
+                                    [
+                                        {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
+                                        {'id': 'btn_no_ahora', 'title': '← Volver'},
+                                    ]
+                                )
+                            else:
+                                _restantes = 3 - _intentos
+                                send_buttons(numero,
+                                    f'No encontramos el número *{doc}* 🤔\n\n'
+                                    f'Revisa que esté bien escrito e ingrésalo de nuevo '
+                                    f'({_restantes} intento{"s" if _restantes > 1 else ""} restante{"s" if _restantes > 1 else ""}).',
+                                    [{'id': 'btn_no_ahora', 'title': '← Volver'}]
+                                )
                 else:
                     send_buttons(numero,
                         '⚠️ Documento no válido.\n\n'
@@ -2650,6 +2752,13 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         'Ejemplo: *12345678* · *123456789* · *20123456789*',
                         [{'id': 'btn_no_ahora', 'title': '❌ Cancelar'}]
                     )
+
+            elif btn_id == 'btn_tengo_ce':
+                send_buttons(numero,
+                    '🌍 Ingresa tu número de *Carné de Extranjería* (CE):',
+                    [{'id': 'btn_volver_cotizar', 'title': '🔙 Volver'}]
+                )
+                session.estado = 'esperando_ce_numero'
 
             elif estado == 'esperando_confirmar_ce':
                 # Cliente confirmó o rechazó que sus 9 dígitos son CE
@@ -2670,6 +2779,20 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             {'id': 'btn_reintentar_doc', 'title': '🔄 Me equivoqué'},
                         ]
                     )
+
+            elif estado == 'esperando_ce_numero':
+                # Recibe número de CE ingresado por el botón directo
+                ce_raw = re.sub(r'\D', '', texto.strip())
+                if any(k in texto.lower() for k in ('cancelar', 'salir', 'volver', 'no')):
+                    _flujo_cotizar_inicio(numero)
+                    session.estado = 'eligiendo_operacion'
+                elif len(ce_raw) < 6:
+                    send_text(numero, '⚠️ Número de CE no válido. Ingresa solo los dígitos de tu carné:')
+                else:
+                    session.cotiz_doc = ce_raw
+                    session.tipo = 'natural'
+                    send_text(numero, '✍️ Ingresa tu *nombre completo*:')
+                    session.estado = 'esperando_nombre_ce'
 
             elif estado == 'esperando_nombre_ce':
                 # Recibe nombre del titular CE
@@ -2787,6 +2910,32 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         'Ingresa un *DNI/CE* (8-9 dígitos) o *RUC* (11 dígitos).\n'
                         'Ejemplo: *12345678* (DNI) | *20123456789* (RUC)'
                     )
+
+            elif estado == 'esperando_num_cuenta':
+                # Cliente ingresa número de cuenta/CCI tras seleccionar banco en la lista
+                _num_raw = re.sub(r'\D', '', texto.strip())
+                _stored  = session.cotiz_cuenta or '|'
+                _banco_n, _flag = _stored.split('|', 1)
+                _necesita_cci   = _flag == 'CCI'
+                if _necesita_cci:
+                    if len(_num_raw) != 20:
+                        send_text(numero,
+                            f'⚠️ El CCI debe tener exactamente 20 dígitos.\n'
+                            f'Recibimos {len(_num_raw)} dígito{"s" if len(_num_raw) != 1 else ""}. Intenta de nuevo:'
+                        )
+                    else:
+                        session.cotiz_cuenta = f'{_banco_n}|{_num_raw}'
+                        _flujo_confirmar_cuenta(numero, _banco_n, _num_raw)
+                        session.estado = 'confirmando_cuenta'
+                else:
+                    if len(_num_raw) < 6:
+                        send_text(numero,
+                            f'⚠️ El número de cuenta debe tener al menos 6 dígitos. Intenta de nuevo:'
+                        )
+                    else:
+                        session.cotiz_cuenta = f'{_banco_n}|{_num_raw}'
+                        _flujo_confirmar_cuenta(numero, _banco_n, _num_raw)
+                        session.estado = 'confirmando_cuenta'
 
             elif estado == 'esperando_cuenta_destino':
                 # Cliente ingresa "BANCO NUMERO" para cuenta sin registrar
