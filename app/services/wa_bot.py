@@ -645,7 +645,7 @@ def _bienvenida(numero, session):
         msg = (
             f'{saludo}\n\n'
             'Tenemos *más de una cuenta* vinculada a tu número.\n\n'
-            '> ¿Con cuál deseas operar hoy? 👇'
+            '¿Con cuál deseas operar hoy? 👇'
         )
         botones = []
         for c in clientes[:2]:
@@ -678,8 +678,8 @@ def _flujo_cotizar_inicio(numero):
     """Pregunta si el cliente desea comprar o vender dólares."""
     send_buttons(numero,
         'Cotiza el tipo de operacion\n\n'
-        '> • *Tengo soles* y quiero dólares → primera opción\n'
-        '> • *Tengo dólares* y quiero soles → segunda opción',
+        '• *Tengo soles* y quiero dólares — primera opción\n'
+        '• *Tengo dólares* y quiero soles — segunda opción',
         [
             {'id': 'btn_comprar', 'title': '1→ Soles a Dolares'},
             {'id': 'btn_vender',  'title': '2→ Dolares a Soles'},
@@ -693,8 +693,8 @@ def _flujo_pedir_importe(numero, operacion):
         f'¿Cuántos dólares quieres cambiar?\n\n'
         f'Escribe solo el número 👇\n'
         f'Ejemplo: *500*, *1000*, *5000*\n\n'
-        f'> Importe mínimo ${MONTO_MINIMO_USD:,.0f}\n'
-        f'> Mayor TC en importes superiores a $3,000',
+        f'Importe mínimo ${MONTO_MINIMO_USD:,.0f}\n'
+        f'Mayor TC en importes superiores a $3,000',
         [{'id': 'btn_volver_cotizar', 'title': '🔙 Volver atrás'}]
     )
 
@@ -735,7 +735,7 @@ def _flujo_mostrar_cotizacion(numero, session):
             f'💱 *Tu cotización*\n\n'
             f'› Tú envías:    *S/ {soles:,.2f}*\n'
             f'› Tú recibes:  *USD {importe:,.2f}*\n\n'
-            f'> Tipo de cambio: S/ {tc_final:.4f}'
+            f'Tipo de cambio: S/ {tc_final:.4f}'
         )
     else:
         # Cliente vende dólares → empresa le compra → usa TC compra - spread
@@ -746,7 +746,7 @@ def _flujo_mostrar_cotizacion(numero, session):
             f'💱 *Tu cotización*\n\n'
             f'› Tú envías:    *USD {importe:,.2f}*\n'
             f'› Tú recibes:  *S/ {soles:,.2f}*\n\n'
-            f'> Tipo de cambio: S/ {tc_final:.4f}'
+            f'Tipo de cambio: S/ {tc_final:.4f}'
         )
 
     if mejora > 0:
@@ -785,8 +785,8 @@ def _flujo_como_funciona(numero):
         '1️⃣ *Cotiza* — Dinos cuánto quieres cambiar y te damos el precio al instante. Sin compromisos.\n\n'
         '2️⃣ *Transfiere* — Envías el dinero a la cuenta bancaria de Qoricash de tu elección y nos mandas el código de operación.\n\n'
         '3️⃣ *¡Listo!* — En minutos transferimos a tu cuenta y te avisamos aquí por WhatsApp.\n\n'
-        '> 🔒 Inscritos en SBS (Res. N.° 00313-2026)\n'
-        '> 🕐 Lun–Vie 9am–6pm · Sáb 9am–2pm'
+        '🔒 Inscritos en SBS (Res. N.° 00313-2026)\n'
+        '🕐 Lun–Vie 9am–6pm · Sáb 9am–2pm'
     )
     send_buttons_image(numero, BANNER_URL, msg, [
         {'id': 'btn_cotizar', 'title': '💱 Ver tipo de cambio'},
@@ -1283,7 +1283,7 @@ def _flujo_op_creada(numero, op, session, client):
         f'*Transfiérenos {simbolo} {monto_enviar:,.2f} a esta cuenta:*\n\n'
         f'{cuentas}\n\n'
         f'👇 Cuando hayas transferido, presiona el botón.\n\n'
-        f'> _Te pediremos el código de tu voucher (el número que aparece en tu constancia bancaria como "N° de operación" o "referencia")._'
+        f'Te pediremos el código de tu voucher (el número que aparece en tu constancia bancaria como "N° de operación" o "referencia").'
     )
     send_buttons_image(numero, OP_BANNER_URL, msg, [
         {'id': 'btn_ya_transferi',        'title': '✅ Ya transferí'},
@@ -1429,7 +1429,7 @@ def _flujo_confirmar_cuenta(numero, banco, num_cuenta):
         f'Antes de continuar, confirma que tu cuenta de destino es correcta 👇\n\n'
         f'🏦 *Banco:* {banco}\n'
         f'🔢 *N° de cuenta:* {num_cuenta}\n\n'
-        '> Revisa con calma tu cuenta bancaria',
+        'Revisa con calma tu cuenta bancaria.',
         [
             {'id': 'btn_confirmar_cuenta', 'title': '✅ Sí, es correcta'},
             {'id': 'btn_cambiar_cuenta',   'title': '✏️ Cambiar cuenta'},
@@ -2124,7 +2124,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         send_buttons(numero,
                             'Para generar tu operación necesitamos verificar tu identidad.\n\n'
                             '🪪 Ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).\n\n'
-                            '> ¿Tienes Carné de Extranjería? 👇',
+                            '¿Tienes Carné de Extranjería? 👇',
                             [
                                 {'id': 'btn_tengo_ce',    'title': '🌍 Carné de Extranjería'},
                                 {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
@@ -2193,7 +2193,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     _moneda_yt = 'PEN' if session.cotiz_op == 'compra' else 'USD'
                     _simbolo_yt = 'S/' if _moneda_yt == 'PEN' else 'USD'
                     _monto_yt = float(_op_yt.amount_pen) if _moneda_yt == 'PEN' else float(_op_yt.amount_usd)
-                    _detalle_yt = f'> 📋 *{_op_yt.operation_id}* · {_simbolo_yt} {_monto_yt:,.2f}\n\n'
+                    _detalle_yt = f'📋 *{_op_yt.operation_id}* · {_simbolo_yt} {_monto_yt:,.2f}\n\n'
                 else:
                     _detalle_yt = ''
                 send_buttons(numero,
@@ -2201,7 +2201,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     f'{_detalle_yt}'
                     'Encuéntralo en tu constancia bancaria como '
                     '"N° de operación", "referencia" o "código de transacción".\n\n'
-                    '> _Ejemplo: 12345678_',
+                    'Ejemplo: 12345678',
                     [{'id': 'btn_modificar_importe', 'title': '🔙 Volver atrás'}]
                 )
                 session.estado = 'esperando_codigo_op'
@@ -2314,7 +2314,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 session.cotiz_cuenta = f'{_banco_sel}|CCI'
                 send_buttons(numero,
                     f'Para *{_banco_sel}*, ingresa tu *CCI* (20 dígitos):\n\n'
-                    f'> Lo encuentras en tu app del banco → Mis cuentas → Datos de cuenta.',
+                    f'Lo encuentras en tu app del banco → Mis cuentas → Datos de cuenta.',
                     [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                 )
                 session.estado = 'esperando_num_cuenta'
@@ -2590,7 +2590,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             send_buttons(numero,
                                 f'✅ Verificamos tu documento en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
                                 f'Y para finalizar, coloca tu *correo electrónico*:\n\n'
-                                f'> Revísalo bien antes de enviarlo.',
+                                f'Revísalo bien antes de enviarlo.',
                                 [
                                     {'id': 'btn_asesor',       'title': '💬 Hablar con asesor'},
                                     {'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'},
@@ -2719,7 +2719,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             send_buttons(numero,
                                 f'✅ Verificamos tu documento en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
                                 f'Para finalizar, coloca tu *correo electrónico*:\n\n'
-                                f'> Revísalo bien antes de enviarlo.',
+                                f'Revísalo bien antes de enviarlo.',
                                 [
                                     {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
                                     {'id': 'btn_no_ahora', 'title': '❌ Cancelar'},
