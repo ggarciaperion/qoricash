@@ -627,11 +627,10 @@ def _bienvenida(numero, session):
         session.nombre = nombre_db or nombre
         if not session.cotiz_doc:
             session.cotiz_doc = c.dni
-        saludo = f'¡Hola, {primer_nombre}! 👋' if primer_nombre else '¡Hola! 👋'
+        saludo = f'¡Hola, {primer_nombre}!' if primer_nombre else '¡Hola!'
         msg = (
             f'{saludo}\n\n'
-            'Cambia dólares al *mejor tipo de cambio del día en tiempo real* sin salir de tu WhatsApp, sin descargar otras apps, sin comisiones.\n\n'
-            '> _Elige una opción 👇_'
+            'Cambia dólares al *mejor tipo de cambio del día en tiempo real* sin salir de tu WhatsApp, sin descargar otras apps, sin comisiones.'
         )
         send_buttons_image(numero, BANNER_URL, msg, [
             {'id': 'btn_cotizar',       'title': '↕️ Ver tipo de cambio'},
@@ -663,11 +662,10 @@ def _bienvenida(numero, session):
     else:
         # Nuevo cliente o no registrado
         primer_nombre = nombre.split()[0] if nombre else ''
-        saludo = f'¡Hola, {primer_nombre}! 👋' if primer_nombre else '¡Hola! 👋'
+        saludo = f'¡Hola, {primer_nombre}!' if primer_nombre else '¡Hola!'
         msg = (
             f'{saludo}\n\n'
-            'Cambia dólares al *mejor tipo de cambio del día en tiempo real* sin salir de tu WhatsApp, sin descargar otras apps, sin comisiones.\n\n'
-            '> _Elige una opción 👇_'
+            'Cambia dólares al *mejor tipo de cambio del día en tiempo real* sin salir de tu WhatsApp, sin descargar otras apps, sin comisiones.'
         )
         send_buttons_image(numero, BANNER_URL, msg, [
             {'id': 'btn_cotizar',       'title': '↕️ Ver tipo de cambio'},
