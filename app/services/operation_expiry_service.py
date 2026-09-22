@@ -358,20 +358,12 @@ class OperationExpiryService:
             closed_count = 0
             for numero in sessions_to_notify:
                 try:
-                    # Enviar con botón "Hablar con asesor" (interactive)
+                    # Solo texto — cierre de sesión no necesita botones
                     payload = {
                         'messaging_product': 'whatsapp',
                         'to': numero.lstrip('+'),
-                        'type': 'interactive',
-                        'interactive': {
-                            'type': 'button',
-                            'body': {'text': cuerpo},
-                            'action': {
-                                'buttons': [
-                                    {'type': 'reply', 'reply': {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}}
-                                ]
-                            }
-                        }
+                        'type': 'text',
+                        'text': {'body': cuerpo}
                     }
                     requests.post(wa_url, json=payload, headers=headers, timeout=10)
                     logger.info(f"[SESSION] Sesión expirada, WA enviado: {numero}")
