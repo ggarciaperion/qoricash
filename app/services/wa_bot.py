@@ -2348,7 +2348,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
             }
 
             # N0 — despedida universal: "cierra sesion", "chau", "adios", etc.
-            _despedida_kw = ('cierra sesion', 'cerrar sesion', 'chau', 'adios', 'adiós', 'bye bye', 'nos vemos', 'hasta mañana', 'hasta manana')
+            _despedida_kw = ('cierra sesion', 'cierra sesión', 'cerrar sesion', 'cerrar sesión',
+                             'chau', 'adios', 'adiós', 'bye bye', 'nos vemos',
+                             'hasta mañana', 'hasta manana', 'hasta pronto')
             if any(k in txt_lower for k in _despedida_kw):
                 primer_nombre = (session.nombre or '').split()[0].title() if session.nombre else ''
                 _reset_sesion(session)
@@ -3011,9 +3013,13 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     _flujo_como_funciona(numero)
                 elif any(k in txt_lower for k in ('horario', 'hora', 'atienden', 'trabajan', 'abren', 'cierran', 'disponible', 'disponibles')):
                     _flujo_horario(numero)
-                elif any(k in txt_lower for k in ('cancelar', 'salir', 'exit', 'stop', 'no gracias')):
+                elif any(k in txt_lower for k in ('cancelar', 'salir', 'exit', 'stop', 'no gracias',
+                                                    'cierra sesion', 'cierra sesión', 'cerrar sesion', 'cerrar sesión',
+                                                    'chau', 'adios', 'adiós', 'bye bye', 'hasta pronto', 'nos vemos')):
+                    primer_nombre = (session.nombre or '').split()[0].title() if session.nombre else ''
                     send_text(numero,
-                        'No hay ningún proceso activo. Cuando quieras operar, estamos aquí. 😊'
+                        f'¡Hasta luego{", " + primer_nombre if primer_nombre else ""}! 👋 '
+                        f'Cuando necesites cambiar, aquí estaremos. ¡Que tengas un excelente día!'
                     )
                 elif any(k in txt_lower for k in ('euro', 'eur ', 'libra', 'gbp', 'yuan', 'yen', 'otra moneda')):
                     send_buttons(numero,
@@ -3051,18 +3057,26 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     else:
                         _intentar_identificar_y_cotizar(numero, session)
                 else:
-                    # Si tiene operación activa, recordarle antes de mostrar bienvenida
-                    _op_activa_txt = _operacion_activa_cliente(numero)
-                    if _op_activa_txt:
-                        _flujo_op_ya_activa(numero, _op_activa_txt)
+                    # Despedida en estado inicio
+                    if any(k in txt_lower for k in _despedida_kw):
+                        primer_nombre = (session.nombre or '').split()[0].title() if session.nombre else ''
+                        send_text(numero,
+                            f'¡Hasta luego{", " + primer_nombre if primer_nombre else ""}! 👋 '
+                            f'Cuando necesites cambiar, aquí estaremos. ¡Que tengas un excelente día!'
+                        )
                     else:
-                        # Intentar respuesta con IA antes de mostrar bienvenida genérica
-                        _ia_resp = _respuesta_ia(texto, numero, session)
-                        if _ia_resp:
-                            send_text(numero, _ia_resp)
-                            _menu_rapido(numero)
+                        # Si tiene operación activa, recordarle antes de mostrar bienvenida
+                        _op_activa_txt = _operacion_activa_cliente(numero)
+                        if _op_activa_txt:
+                            _flujo_op_ya_activa(numero, _op_activa_txt)
                         else:
-                            _bienvenida(numero, session)
+                            # Intentar respuesta con IA antes de mostrar bienvenida genérica
+                            _ia_resp = _respuesta_ia(texto, numero, session)
+                            if _ia_resp:
+                                send_text(numero, _ia_resp)
+                                _menu_rapido(numero)
+                            else:
+                                _bienvenida(numero, session)
                         session.estado = 'menu_mostrado'  # avanza en cualquier caso
 
             elif estado == 'menu_mostrado':
@@ -3091,9 +3105,15 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     _flujo_como_funciona(numero)
                 elif any(k in txt_lower for k in ('horario', 'hora', 'atienden', 'trabajan', 'abren', 'cierran', 'disponible', 'disponibles')):
                     _flujo_horario(numero)
-                elif any(k in txt_lower for k in ('no quiero', 'no me interesa', 'no gracias', 'no tengo', 'salir', 'exit', 'stop', 'cancelar')):
-                    send_text(numero, 'Entendido 😊 Cuando necesites cambiar dólares, aquí estaremos.')
-                    session.estado = 'inicio'
+                elif any(k in txt_lower for k in ('no quiero', 'no me interesa', 'no gracias', 'no tengo', 'salir', 'exit', 'stop', 'cancelar',
+                                                    'cierra sesion', 'cierra sesión', 'cerrar sesion', 'cerrar sesión',
+                                                    'chau', 'adios', 'adiós', 'bye bye', 'hasta pronto', 'nos vemos')):
+                    primer_nombre = (session.nombre or '').split()[0].title() if session.nombre else ''
+                    _reset_sesion(session)
+                    send_text(numero,
+                        f'¡Hasta luego{", " + primer_nombre if primer_nombre else ""}! 👋 '
+                        f'Cuando necesites cambiar, aquí estaremos. ¡Que tengas un excelente día!'
+                    )
                 elif any(k in txt_lower for k in ('euro', 'eur ', 'libra', 'gbp', 'yuan', 'yen', 'otra moneda')):
                     send_buttons(numero,
                         '💱 Por el momento operamos solo cambio de *USD ↔ PEN* (dólares americanos a soles).\n\n'
@@ -3138,40 +3158,50 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         )
                 else:
                     _entendido = False
-                    _op_activa_txt = _operacion_activa_cliente(numero)
-                    if _op_activa_txt:
-                        _flujo_op_ya_activa(numero, _op_activa_txt)
+                    # Despedida en estado menu_mostrado
+                    if any(k in txt_lower for k in _despedida_kw):
+                        primer_nombre = (session.nombre or '').split()[0].title() if session.nombre else ''
+                        _reset_sesion(session)
+                        send_text(numero,
+                            f'¡Hasta luego{", " + primer_nombre if primer_nombre else ""}! 👋 '
+                            f'Cuando necesites cambiar, aquí estaremos. ¡Que tengas un excelente día!'
+                        )
+                        _entendido = True
                     else:
-                        # Intentar respuesta con IA primero
-                        _ia_resp = _respuesta_ia(texto, numero, session)
-                        if _ia_resp:
-                            send_text(numero, _ia_resp)
-                            _menu_rapido(numero)
-                            _entendido = True  # IA respondió correctamente, resetear contador
+                        _op_activa_txt = _operacion_activa_cliente(numero)
+                        if _op_activa_txt:
+                            _flujo_op_ya_activa(numero, _op_activa_txt)
                         else:
-                            # Contar mensajes no entendidos consecutivamente para evitar loop
-                            try:
-                                session.cotiz_intentos = (session.cotiz_intentos or 0) + 1
-                                _no_entendidos = session.cotiz_intentos
-                            except Exception:
-                                _no_entendidos = 1
-
-                            if _no_entendidos >= 2:
-                                # Tras 2 mensajes sin entender: derivar a asesor automáticamente
-                                try:
-                                    session.cotiz_intentos = 0
-                                except Exception:
-                                    pass
-                                send_buttons(numero,
-                                    'Parece que no logro entenderte bien. 😊\n\n'
-                                    'Te conecto con un asesor para que pueda ayudarte mejor.',
-                                    [
-                                        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
-                                        {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
-                                    ]
-                                )
-                            else:
+                            # Intentar respuesta con IA primero
+                            _ia_resp = _respuesta_ia(texto, numero, session)
+                            if _ia_resp:
+                                send_text(numero, _ia_resp)
                                 _menu_rapido(numero)
+                                _entendido = True  # IA respondió correctamente, resetear contador
+                            else:
+                                # Contar mensajes no entendidos consecutivamente para evitar loop
+                                try:
+                                    session.cotiz_intentos = (session.cotiz_intentos or 0) + 1
+                                    _no_entendidos = session.cotiz_intentos
+                                except Exception:
+                                    _no_entendidos = 1
+
+                                if _no_entendidos >= 2:
+                                    # Tras 2 mensajes sin entender: derivar a asesor automáticamente
+                                    try:
+                                        session.cotiz_intentos = 0
+                                    except Exception:
+                                        pass
+                                    send_buttons(numero,
+                                        'Parece que no logro entenderte bien. 😊\n\n'
+                                        'Te conecto con un asesor para que pueda ayudarte mejor.',
+                                        [
+                                            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                                            {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                                        ]
+                                    )
+                                else:
+                                    _menu_rapido(numero)
 
                 if _entendido:
                     try:
