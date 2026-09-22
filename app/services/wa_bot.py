@@ -840,6 +840,7 @@ def _flujo_sesion_expirada(numero):
 
 def _reset_sesion(session):
     """Limpia todos los datos de la sesión y la devuelve a inicio."""
+    from app.utils.formatters import now_peru as _now_reset
     session.estado         = 'inicio'
     session.cotiz_op       = ''
     session.cotiz_importe  = 0.0
@@ -849,6 +850,8 @@ def _reset_sesion(session):
     session.cotiz_op_id    = ''
     session.cotiz_cuenta   = ''
     session.tipo           = ''
+    session.bot_pausado    = False   # siempre reactivar el bot al resetear sesión
+    session.updated_at     = _now_reset()  # forzar UPDATE aunque no haya otros cambios
     try:
         session.cotiz_intentos = 0
     except Exception:
