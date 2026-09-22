@@ -631,12 +631,12 @@ def _bienvenida(numero, session):
         msg = (
             f'{saludo}\n\n'
             'Cambia dólares al *mejor tipo de cambio del día en tiempo real* sin salir de tu WhatsApp, sin descargar otras apps, sin comisiones.\n\n'
-            '> _🔒 Regulado por la SBS  ·  ¿Cotizamos ahora? 👇_'
+            '> _Elige una opción 👇_'
         )
         send_buttons_image(numero, BANNER_URL, msg, [
-            {'id': 'btn_cotizar',       'title': '💱 Ver tipo de cambio'},
-            {'id': 'btn_como_funciona', 'title': 'ℹ️ ¿Cómo funciona?'},
-            {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
+            {'id': 'btn_cotizar',       'title': '↕️ Ver tipo de cambio'},
+            {'id': 'btn_como_funciona', 'title': '❔ ¿Cómo funciona?'},
+            {'id': 'btn_asesor',        'title': '☎️ Hablar con asesor'},
         ])
 
     elif len(clientes) > 1:
@@ -667,12 +667,12 @@ def _bienvenida(numero, session):
         msg = (
             f'{saludo}\n\n'
             'Cambia dólares al *mejor tipo de cambio del día en tiempo real* sin salir de tu WhatsApp, sin descargar otras apps, sin comisiones.\n\n'
-            '> _🔒 Regulado por la SBS  ·  ¿Cotizamos ahora? 👇_'
+            '> _Elige una opción 👇_'
         )
         send_buttons_image(numero, BANNER_URL, msg, [
-            {'id': 'btn_cotizar',       'title': '💱 Ver tipo de cambio'},
-            {'id': 'btn_como_funciona', 'title': 'ℹ️ ¿Cómo funciona?'},
-            {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
+            {'id': 'btn_cotizar',       'title': '↕️ Ver tipo de cambio'},
+            {'id': 'btn_como_funciona', 'title': '❔ ¿Cómo funciona?'},
+            {'id': 'btn_asesor',        'title': '☎️ Hablar con asesor'},
         ])
 
 
