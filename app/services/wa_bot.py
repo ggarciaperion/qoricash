@@ -1959,7 +1959,37 @@ def _nombre_valido(nombre):
     return nombre if re.search(r'[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]', nombre) else ''
 
 
-def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
+def _typing(numero, wa_id=''):
+    """
+    Muestra animación de escritura (3 puntos) y marca el mensaje como leído.
+    Se llama justo antes de procesar y responder un mensaje entrante.
+    """
+    headers = _headers()
+    # 1. Marcar mensaje como leído (palomitas azules)
+    if wa_id:
+        try:
+            requests.post(WA_API_URL, json={
+                'messaging_product': 'whatsapp',
+                'status': 'read',
+                'message_id': wa_id,
+            }, headers=headers, timeout=5)
+        except Exception:
+            pass
+    # 2. Activar indicador de escritura (3 puntos animados)
+    try:
+        requests.post(WA_API_URL, json={
+            'messaging_product': 'whatsapp',
+            'to': numero.lstrip('+'),
+            'type': 'typing_indicator',
+            'typing_indicator': {'type': 'text'},
+        }, headers=headers, timeout=5)
+    except Exception:
+        pass
+    import time
+    time.sleep(1.2)  # pausa natural antes de responder
+
+
+def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
     """
     Punto de entrada desde webhook_receive().
     tipo_msg: 'text' | 'image' | 'document' | 'interactive' | etc.
@@ -1972,6 +2002,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
             session.nombre = nombre
 
         estado = session.estado
+
+        # ── Typing indicator + read receipt ────────────────────────
+        _typing(numero, wa_id)
 
         # ── Bot pausado: asesor atendiendo manualmente ─────────────
         try:
