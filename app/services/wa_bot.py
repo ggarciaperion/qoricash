@@ -1964,28 +1964,33 @@ def _typing(numero, wa_id=''):
     Muestra animación de escritura (3 puntos) y marca el mensaje como leído.
     Se llama justo antes de procesar y responder un mensaje entrante.
     """
+    import time
     headers = _headers()
-    # 1. Marcar mensaje como leído (palomitas azules)
+
+    # Llamada combinada: read receipt + typing indicator en un solo request
     if wa_id:
         try:
             requests.post(WA_API_URL, json={
                 'messaging_product': 'whatsapp',
                 'status': 'read',
                 'message_id': wa_id,
+                'typing_indicator': {'type': 'text'},
             }, headers=headers, timeout=5)
         except Exception:
             pass
-    # 2. Activar indicador de escritura (3 puntos animados)
-    try:
-        requests.post(WA_API_URL, json={
-            'messaging_product': 'whatsapp',
-            'to': numero.lstrip('+'),
-            'type': 'typing_indicator',
-            'typing_indicator': {'type': 'text'},
-        }, headers=headers, timeout=5)
-    except Exception:
-        pass
-    import time
+    else:
+        # Sin wa_id: solo typing indicator
+        try:
+            requests.post(WA_API_URL, json={
+                'messaging_product': 'whatsapp',
+                'recipient_type': 'individual',
+                'to': numero.lstrip('+'),
+                'type': 'typing_indicator',
+                'typing_indicator': {'type': 'text'},
+            }, headers=headers, timeout=5)
+        except Exception:
+            pass
+
     time.sleep(1.2)  # pausa natural antes de responder
 
 
