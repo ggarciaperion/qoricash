@@ -466,13 +466,15 @@ class TestStatusConstraintAndExpiry(unittest.TestCase):
         bad = re.findall(r'now_peru\(\)\s*\+.*timedelta.*minutes.*15', src)
         # Solo la cotización inicial muestra expira_hora con now()+15; eso está bien.
         # El bloque de post-update calcula expira desde created_at.
-        # Verificar que created_at está en el mismo bloque que 'Plazo restante'.
-        idx_plazo = src.find('Plazo restante')
+        # Verificar que created_at está en el mismo bloque que el cálculo de hora límite.
+        # El mensaje usa 'Transfiere antes de las' + hora calculada desde created_at.
+        idx_plazo = src.find('Transfiere antes de las')
         idx_created = src.rfind('op.created_at', 0, idx_plazo)
-        self.assertGreater(idx_plazo, 0)
+        self.assertGreater(idx_plazo, 0,
+                           "'Transfiere antes de las' debe aparecer en el post-update")
         self.assertGreater(idx_created, 0)
-        self.assertLess(idx_plazo - idx_created, 800,
-                        'op.created_at y Plazo restante deben estar en el mismo bloque')
+        self.assertLess(idx_plazo - idx_created, 900,
+                        'op.created_at y hora límite deben estar en el mismo bloque')
 
 
 # ─── P6: Mensaje de transferencia ─────────────────────────────────────────────

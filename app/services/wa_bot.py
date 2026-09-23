@@ -1184,10 +1184,16 @@ def _flujo_mostrar_cotizacion(numero, session):
     except Exception:
         pass
 
-    send_buttons(numero, resumen, [
-        {'id': f'btn_aceptar_cotiz_{_token}', 'title': '✅ Aceptar cotización'},
-        {'id': 'btn_mas_opciones',            'title': '⋯ Más opciones'},
-    ])
+    send_list(numero, resumen, [{
+        'title': 'Opciones',
+        'rows': [
+            {'id': f'btn_aceptar_cotiz_{_token}', 'title': 'Aceptar cotización'},
+            {'id': 'btn_cambiar_monto',            'title': 'Cambiar monto'},
+            {'id': 'btn_cambiar_operacion',        'title': 'Cambiar operación'},
+            {'id': 'btn_cancelar_cotiz',           'title': 'Cancelar cotización'},
+            {'id': 'btn_asesor',                   'title': 'Hablar con asesor'},
+        ]
+    }])
 
 
 def _menu_rapido(numero):
@@ -3336,13 +3342,23 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 _flujo_cotizar_inicio(numero)
                 session.estado = 'eligiendo_operacion'
 
+            elif btn_id == 'btn_cambiar_monto':
+                # Conservar dirección; solo pedir nuevo importe.
+                try:
+                    session.cotiz_token = None
+                except Exception:
+                    pass
+                _flujo_pedir_importe(numero, session.cotiz_op or 'venta')
+                session.estado = 'esperando_importe'
+
             elif btn_id == 'btn_mas_opciones':
+                # Compatibilidad con mensajes anteriores al rediseño de lista.
                 send_list(numero,
                     '¿Qué deseas hacer?',
                     [{
                         'title': 'Opciones',
                         'rows': [
-                            {'id': 'btn_volver_cotizar',   'title': 'Cambiar monto'},
+                            {'id': 'btn_cambiar_monto',    'title': 'Cambiar monto'},
                             {'id': 'btn_cambiar_operacion','title': 'Cambiar operación'},
                             {'id': 'btn_cancelar_cotiz',   'title': 'Cancelar cotización'},
                             {'id': 'btn_asesor',           'title': 'Hablar con asesor'},
@@ -3351,9 +3367,46 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 )
 
             elif btn_id == 'btn_cambiar_operacion':
-                _reset_sesion(session)
-                _flujo_cotizar_inicio(numero)
-                session.estado = 'eligiendo_operacion'
+                # Conservar importe; solo actualizar dirección.
+                try:
+                    session.cotiz_token = None
+                except Exception:
+                    pass
+                send_list(numero,
+                    '¿Qué cambio quieres hacer?',
+                    [{'title': 'Dirección', 'rows': [
+                        {'id': 'btn_dir_compra', 'title': 'Soles a dólares'},
+                        {'id': 'btn_dir_venta',  'title': 'Dólares a soles'},
+                    ]}]
+                )
+
+            elif btn_id == 'btn_dir_compra':
+                session.cotiz_op     = 'compra'
+                session.cotiz_cuenta = ''
+                try:
+                    session.cotiz_token = None
+                except Exception:
+                    pass
+                if (session.cotiz_importe or 0) >= MONTO_MINIMO_USD:
+                    _flujo_mostrar_cotizacion(numero, session)
+                    session.estado = 'viendo_cotizacion'
+                else:
+                    _flujo_pedir_importe(numero, 'compra')
+                    session.estado = 'esperando_importe'
+
+            elif btn_id == 'btn_dir_venta':
+                session.cotiz_op     = 'venta'
+                session.cotiz_cuenta = ''
+                try:
+                    session.cotiz_token = None
+                except Exception:
+                    pass
+                if (session.cotiz_importe or 0) >= MONTO_MINIMO_USD:
+                    _flujo_mostrar_cotizacion(numero, session)
+                    session.estado = 'viendo_cotizacion'
+                else:
+                    _flujo_pedir_importe(numero, 'venta')
+                    session.estado = 'esperando_importe'
 
             elif btn_id == 'btn_cancelar_cotiz':
                 _reset_sesion(session)
@@ -3539,6 +3592,15 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 session.tipo = 'empresa'
                 _flujo_pedir_numero_doc(numero, 'empresa')
                 session.estado = 'esperando_numero_doc'
+
+            elif btn_id == 'btn_tengo_ce':
+                send_text(numero,
+                    '🌍 Envíanos los *9 dígitos de tu CE* y tus *nombres y apellidos* '
+                    'tal como aparecen en el documento.\n\n'
+                    'Puedes enviarnos ambos datos juntos o por separado.\n'
+                    'Ejemplo: *123456789 Juan Pérez García*'
+                )
+                session.estado = 'esperando_ce_numero'
 
             else:
                 _menu_rapido(numero)
@@ -3883,12 +3945,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         [{'id': 'btn_no_ahora', 'title': '❌ Cancelar'}]
                     )
 
-            elif btn_id == 'btn_tengo_ce':
-                send_buttons(numero,
-                    '🌍 Ingresa tu número de *Carné de Extranjería* (CE):',
-                    [{'id': 'btn_volver_cotizar', 'title': '🔙 Volver'}]
-                )
-                session.estado = 'esperando_ce_numero'
+
 
             elif estado == 'esperando_confirmar_ce':
                 # Cliente confirmó o rechazó que sus 9 dígitos son CE
@@ -3911,18 +3968,39 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     )
 
             elif estado == 'esperando_ce_numero':
-                # Recibe número de CE ingresado por el botón directo
+                # Acepta CE solo, nombre solo, o ambos en un mismo mensaje.
                 ce_raw = re.sub(r'\D', '', texto.strip())
+                # Intentar extraer nombre: letras y espacios que quedan tras retirar los dígitos
+                _nombre_ce_parte = re.sub(r'\d+', '', texto).strip()
+                _nombre_ce_parte = re.sub(r'[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]', '', _nombre_ce_parte).strip()
+
                 if any(k in texto.lower() for k in ('cancelar', 'salir', 'volver', 'no')):
                     _flujo_cotizar_inicio(numero)
                     session.estado = 'eligiendo_operacion'
-                elif len(ce_raw) < 6:
-                    send_text(numero, '⚠️ Número de CE no válido. Ingresa solo los dígitos de tu carné:')
-                else:
-                    session.cotiz_doc = ce_raw
+                elif ce_raw and len(ce_raw) != 9:
+                    send_text(numero,
+                        f'⚠️ El CE debe tener exactamente 9 dígitos (recibimos {len(ce_raw)}).\n'
+                        'Inténtalo de nuevo:'
+                    )
+                elif ce_raw and len(ce_raw) == 9:
+                    session.cotiz_doc = ce_raw   # preservar ceros iniciales como texto
                     session.tipo = 'natural'
-                    send_text(numero, '✍️ Ingresa tu *nombre completo*:')
-                    session.estado = 'esperando_nombre_ce'
+                    if len(_nombre_ce_parte) >= 3:
+                        session.nombre = _nombre_ce_parte
+                        send_text(numero,
+                            f'✅ CE *{ce_raw}* y nombre *{_nombre_ce_parte.title()}* recibidos.\n\n'
+                            'Para enviarte las confirmaciones, ingresa tu *correo electrónico*:'
+                        )
+                        session.estado = 'esperando_email_cotizar'
+                    else:
+                        send_text(numero, '✍️ Ahora ingresa tu *nombre completo* tal como aparece en el documento:')
+                        session.estado = 'esperando_nombre_ce'
+                else:
+                    # Sin dígitos: podría ser el nombre enviado primero
+                    send_text(numero,
+                        '⚠️ No detectamos el número de CE.\n'
+                        'Envíanos los *9 dígitos* de tu Carné de Extranjería:'
+                    )
 
             elif estado == 'esperando_nombre_ce':
                 # Recibe nombre del titular CE
@@ -4252,44 +4330,55 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         except Exception as _ee:
                             log.warning(f'[WaBot] email modificación importe error: {_ee}')
 
-                        # Reenviar instrucciones de pago con el nuevo importe
-                        moneda_enviar = 'PEN' if session.cotiz_op == 'compra' else 'USD'
-                        simbolo       = 'S/' if moneda_enviar == 'PEN' else 'USD'
-                        monto_enviar  = nuevo_pen if moneda_enviar == 'PEN' else nuevo_usd
-                        cuentas       = _texto_cuentas_qoricash(moneda_enviar)
+                        # Construcción del mensaje de confirmación.
+                        moneda_enviar  = 'PEN' if session.cotiz_op == 'compra' else 'USD'
+                        _envia_label   = 'S/' if moneda_enviar == 'PEN' else 'USD'
+                        _recibe_label  = 'USD' if moneda_enviar == 'PEN' else 'S/'
+                        monto_enviar   = nuevo_pen if moneda_enviar == 'PEN' else nuevo_usd
+                        _recibe_monto  = nuevo_usd if moneda_enviar == 'PEN' else nuevo_pen
 
-                        # Plazo real: usa op.created_at, no reinicia el conteo al cambiar importe.
-                        from datetime import timedelta as _td3b
-                        _now3b   = now_peru
-                        _expira3b   = op.created_at + _td3b(minutes=15)
-                        _restante3b = max(0, int((_expira3b - _now3b()).total_seconds() / 60))
-                        _plazo3b = (
-                            f'⏱ *Plazo restante:* {_restante3b} min '
-                            f'(vence {_expira3b.strftime("%I:%M %p").lstrip("0")})'
+                        # Plazo real desde created_at original; tolerante a naive/aware.
+                        from datetime import timedelta as _td3b, timezone as _tz3b
+                        from app.utils.formatters import now_peru
+                        try:
+                            _created = op.created_at
+                            _now3b   = now_peru()
+                            if _created.tzinfo is None:
+                                _created = _created.replace(tzinfo=_tz3b.utc)
+                            _expira3b   = _created + _td3b(minutes=15)
+                            _restante3b = max(0, int((_expira3b - _now3b).total_seconds() / 60))
+                            _hora_lim   = _expira3b.astimezone(_now3b.tzinfo).strftime('%I:%M %p').lstrip('0')
+                        except Exception as _pe:
+                            log.warning(f'[WaBot] plazo calc error ({op.operation_id}): {_pe}')
+                            _restante3b = 0
+                            _hora_lim   = '—'
+
+                        _plazo_txt = (
+                            f'Transfiere antes de las {_hora_lim}.'
                             if _restante3b > 0 else
-                            '⏱ Fuera de horario: procesaremos mañana al inicio de operaciones.'
+                            'Procesaremos mañana al inicio de operaciones.'
                         )
-
-                        _envia_label  = 'S/' if moneda_enviar == 'PEN' else 'USD'
-                        _recibe_label = 'USD' if moneda_enviar == 'PEN' else 'S/'
-                        _recibe_monto = nuevo_usd if moneda_enviar == 'PEN' else nuevo_pen
 
                         msg = (
-                            f'✅ *Importe actualizado correctamente*\n\n'
-                            f'📋 *Operación:* {op.operation_id}\n'
-                            f'💵 *Envías:* {_envia_label} {monto_enviar:,.2f}\n'
-                            f'💰 *Recibes:* {_recibe_label} {_recibe_monto:,.2f}\n'
-                            f'📈 *T.C.:* {tc:.4f}\n'
-                            f'{_plazo3b}\n\n'
-                            f'*Transfiere {_envia_label} {monto_enviar:,.2f} a:*\n\n'
-                            f'{cuentas}\n\n'
-                            f'_Una vez transferido, presiona el botón y te pediremos el código de tu voucher._'
+                            f'✅ *Importe actualizado · {op.operation_id}*\n\n'
+                            f'Tú envías: *{_envia_label} {monto_enviar:,.2f}*\n'
+                            f'Tú recibes: *{_recibe_label} {_recibe_monto:,.2f}*\n'
+                            f'Tipo de cambio: S/ {tc:.4f}\n'
+                            f'{_plazo_txt}'
                         )
-                        send_buttons(numero, msg, [
-                            {'id': 'btn_ya_transferi',                            'title': '✅ Ya transferí'},
-                            {'id': 'btn_modificar_importe',                       'title': '✏️ Modificar importe'},
-                            {'id': f'btn_cancelar_operacion_{op.operation_id}',   'title': '❌ Cancelar operación'},
+                        _enviado = send_buttons(numero, msg, [
+                            {'id': 'btn_ya_transferi',                          'title': '✅ Ya transferí'},
+                            {'id': 'btn_modificar_importe',                     'title': '✏️ Modificar importe'},
+                            {'id': f'btn_cancelar_operacion_{op.operation_id}', 'title': '❌ Cancelar'},
                         ])
+                        if not _enviado:
+                            log.error(
+                                f'[WaBot] send_buttons falló tras actualizar {op.operation_id}; '
+                                'modificación persistida, enviando texto de respaldo'
+                            )
+                            # Fallback: resumen completo en texto plano para que el cliente
+                            # no tenga que enviar otro mensaje.
+                            send_text(numero, msg)
                         session.estado = 'op_pendiente_pago'
 
             elif estado == 'esperando_email':

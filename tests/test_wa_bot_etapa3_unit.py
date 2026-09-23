@@ -93,11 +93,31 @@ def _build_stubs():
     return db_mock, req_stub
 
 
+def _make_req_stub():
+    """Crea e instala el stub de requests con HTTPError, independientemente del orden de carga."""
+    req_stub = types.ModuleType('requests')
+    req_stub.post = MagicMock(return_value=MagicMock(ok=True, status_code=200,
+                                                      raise_for_status=MagicMock()))
+    req_stub.get  = MagicMock(return_value=MagicMock(ok=True, status_code=200))
+
+    class _HTTPError(Exception):
+        pass
+    req_stub.HTTPError = _HTTPError
+    req_exc = types.ModuleType('requests.exceptions')
+    req_exc.HTTPError = _HTTPError
+    req_stub.exceptions = req_exc
+    sys.modules['requests.exceptions'] = req_exc
+    sys.modules['requests'] = req_stub
+    return req_stub
+
+
 if 'app' not in sys.modules:
     _DB_MOCK, _REQ_STUB = _build_stubs()
 else:
     _DB_MOCK = sys.modules['app.extensions'].db
-    _REQ_STUB = sys.modules.get('requests', MagicMock())
+    # Siempre instalar el stub completo de requests antes de exec-ar _wabot,
+    # independientemente del orden de carga de los módulos de prueba.
+    _REQ_STUB = _make_req_stub()
 
 
 # ── Importar wa_bot en un módulo aislado ──────────────────────────────────────

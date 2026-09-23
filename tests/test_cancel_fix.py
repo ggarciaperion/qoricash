@@ -270,8 +270,8 @@ class TestPostUpdateMessage(unittest.TestCase):
             src = f.read()
         self.assertIn('op.created_at', src,
                       "Post-update must use op.created_at for plazo")
-        self.assertIn('Plazo restante', src,
-                      "Post-update must show remaining time")
+        self.assertIn('Transfiere antes de las', src,
+                      "Post-update must show deadline time")
 
 
 class TestOpYaActivaCancel(unittest.TestCase):

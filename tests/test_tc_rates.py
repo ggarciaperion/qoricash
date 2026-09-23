@@ -109,6 +109,8 @@ def _call_mostrar(session):
     with patch.object(_svc, '_get_tc', return_value=(_COMPRA, _VENTA)), \
          patch.object(_svc, 'send_buttons',
                       side_effect=lambda n, t, b=None, **kw: msgs.append(t)), \
+         patch.object(_svc, 'send_list',
+                      side_effect=lambda n, t, s=None, **kw: msgs.append(t)), \
          patch.object(_svc, 'send_buttons_image', MagicMock()), \
          patch.object(_svc, 'send_text', MagicMock()):
         _svc._flujo_mostrar_cotizacion('519', session)
@@ -272,6 +274,8 @@ class TestCorreccionDireccionCompraAVenta(unittest.TestCase):
         with patch.object(_svc, '_get_tc', return_value=(_COMPRA, _VENTA)), \
              patch.object(_svc, 'send_buttons',
                           side_effect=lambda n, t, b=None, **kw: msgs.append(t)), \
+             patch.object(_svc, 'send_list',
+                          side_effect=lambda n, t, s=None, **kw: msgs.append(t)), \
              patch.object(_svc, 'send_buttons_image', MagicMock()), \
              patch.object(_svc, 'send_text', MagicMock()):
             # Reproduce exactamente el bloque FIX-2A del handler viendo_cotizacion

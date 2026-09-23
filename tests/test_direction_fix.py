@@ -240,7 +240,11 @@ class TestDireccionCorreccion(unittest.TestCase):
         def _fake_send_text(n, txt):
             msgs.append({'txt': txt})
 
+        def _fake_send_list(n, txt, sections, **kw):
+            msgs.append({'txt': txt})
+
         with patch.object(_svc, 'send_buttons', side_effect=_fake_send_buttons), \
+             patch.object(_svc, 'send_list',    side_effect=_fake_send_list), \
              patch.object(_svc, 'send_text',    side_effect=_fake_send_text), \
              patch.object(_svc, '_get_tc',       return_value=tc_pair), \
              patch.object(_svc, '_mejora_tc',    return_value=0.0), \
