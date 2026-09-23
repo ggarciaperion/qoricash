@@ -487,6 +487,38 @@ def _get_tc():
         return 0, 0
 
 
+def _flujo_tc_publico(numero):
+    """
+    Muestra el tipo de cambio público vigente con botones de dirección.
+    No solicita identificación. Devuelve True si el TC estaba disponible.
+    Usado en saludos, consultas de TC y rutas P3 donde el cliente aún no
+    está identificado pero no hay razón para bloquearle la consulta.
+    """
+    compra, venta = _get_tc()
+    if not compra or not venta:
+        send_buttons(numero,
+            '⚠️ El tipo de cambio no está disponible en este momento.\n\n'
+            'Intenta en unos minutos o habla con un asesor.',
+            [
+                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                {'id': 'btn_cotizar', 'title': '🔄 Reintentar'},
+            ]
+        )
+        return False
+    send_buttons(numero,
+        f'💵 *Tipo de cambio vigente*\n\n'
+        f'› Compramos tus dólares: *S/ {compra:.4f}*\n'
+        f'› Te vendemos dólares:   *S/ {venta:.4f}*\n\n'
+        '¿Qué quieres hacer?',
+        [
+            {'id': 'btn_comprar', 'title': 'Soles a dólares'},
+            {'id': 'btn_vender',  'title': 'Dólares a soles'},
+            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+        ]
+    )
+    return True
+
+
 def _parse_monto(texto):
     """
     Extrae un número de texto libre con soporte para formatos peruanos/internacionales.
@@ -943,8 +975,10 @@ def _identificar_y_cotizar_directo(numero, session):
         _flujo_mostrar_cotizacion(numero, session)
         session.estado = 'viendo_cotizacion'
     else:
-        _flujo_pedir_id_para_cotizar(numero)
-        session.estado = 'esperando_id_cotizar'
+        # Cliente desconocido con dirección+importe → mostrar cotización ahora.
+        # La identificación se solicitará únicamente si acepta el precio.
+        _flujo_mostrar_cotizacion(numero, session)
+        session.estado = 'viendo_cotizacion'
 
 
 def _aplicar_interpretacion_pre_op(numero, session, interp):
@@ -1027,15 +1061,21 @@ def _bienvenida(numero, session):
         session.nombre = nombre_db or nombre
         if not session.cotiz_doc:
             session.cotiz_doc = c.dni
-        saludo = f'¡Hola, {primer_nombre}!' if primer_nombre else '¡Hola!'
-        msg = (
-            f'{saludo}\n\n'
-            'Cambia dólares al *mejor tipo de cambio del día en tiempo real* sin salir de tu WhatsApp, sin descargar otras apps, sin comisiones.'
-        )
+        saludo = f'¡Hola, {primer_nombre}! 👋' if primer_nombre else '¡Hola! 👋'
+        _c_bv1, _v_bv1 = _get_tc()
+        if _c_bv1 and _v_bv1:
+            tc_bv1 = (
+                f'\n💵 Compramos tus dólares: *S/ {_c_bv1:.4f}*\n'
+                f'💵 Te vendemos dólares:   *S/ {_v_bv1:.4f}*\n\n'
+                '¿Qué monto quieres cambiar y a qué moneda?'
+            )
+        else:
+            tc_bv1 = '\nCambia dólares sin salir de tu WhatsApp, sin comisiones.'
+        msg = f'{saludo} Soy el asistente de Qoricash.{tc_bv1}'
         send_buttons_image(numero, BANNER_URL, msg, [
-            {'id': 'btn_cotizar',       'title': '› Ver tipo de cambio'},
+            {'id': 'btn_comprar',       'title': 'Soles a dólares'},
+            {'id': 'btn_vender',        'title': 'Dólares a soles'},
             {'id': 'btn_como_funciona', 'title': '› ¿Cómo funciona?'},
-            {'id': 'btn_asesor',        'title': '› Hablar con asesor'},
         ])
 
     elif len(clientes) > 1:
@@ -1062,15 +1102,21 @@ def _bienvenida(numero, session):
     else:
         # Nuevo cliente o no registrado
         primer_nombre = nombre.split()[0] if nombre else ''
-        saludo = f'¡Hola, {primer_nombre}!' if primer_nombre else '¡Hola!'
-        msg = (
-            f'{saludo}\n\n'
-            'Cambia dólares al *mejor tipo de cambio del día en tiempo real* sin salir de tu WhatsApp, sin descargar otras apps, sin comisiones.'
-        )
+        saludo = f'¡Hola, {primer_nombre}! 👋' if primer_nombre else '¡Hola! 👋'
+        _c_bv2, _v_bv2 = _get_tc()
+        if _c_bv2 and _v_bv2:
+            tc_bv2 = (
+                f'\n💵 Compramos tus dólares: *S/ {_c_bv2:.4f}*\n'
+                f'💵 Te vendemos dólares:   *S/ {_v_bv2:.4f}*\n\n'
+                '¿Qué monto quieres cambiar y a qué moneda?'
+            )
+        else:
+            tc_bv2 = '\nCambia dólares sin salir de tu WhatsApp, sin comisiones.'
+        msg = f'{saludo} Soy el asistente de Qoricash.{tc_bv2}'
         send_buttons_image(numero, BANNER_URL, msg, [
-            {'id': 'btn_cotizar',       'title': '› Ver tipo de cambio'},
+            {'id': 'btn_comprar',       'title': 'Soles a dólares'},
+            {'id': 'btn_vender',        'title': 'Dólares a soles'},
             {'id': 'btn_como_funciona', 'title': '› ¿Cómo funciona?'},
-            {'id': 'btn_asesor',        'title': '› Hablar con asesor'},
         ])
 
 
@@ -1081,8 +1127,8 @@ def _flujo_cotizar_inicio(numero):
         '• *Tengo soles* y quiero dólares — primera opción\n'
         '• *Tengo dólares* y quiero soles — segunda opción',
         [
-            {'id': 'btn_comprar', 'title': '1→ Soles a Dolares'},
-            {'id': 'btn_vender',  'title': '2→ Dolares a Soles'},
+            {'id': 'btn_comprar', 'title': 'Soles a dólares'},
+            {'id': 'btn_vender',  'title': 'Dólares a soles'},
         ]
     )
 
@@ -1315,15 +1361,50 @@ def _ultimo_saliente_fue_op_completada(numero):
 
 
 def _flujo_cotiz_aceptada(numero, session):
-    """Cliente aceptó el precio — verificar si tiene cuenta."""
+    """
+    Flujo post-aceptación: identifica al cliente o solicita documento directamente.
+    No muestra '¿Ya eres cliente?'; continúa según lo que ya se conoce.
+    """
     log.info(f'[WaBot] {numero} aceptó cotización: {session.cotiz_op} USD {session.cotiz_importe} a S/ {session.cotiz_tc}')
+    # P1 — doc ya en sesión
+    if session.cotiz_doc:
+        _client_ca = _buscar_cliente(session.cotiz_doc)
+        if _client_ca and _client_ca.status == 'Activo':
+            _moneda_ca = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+            _cuentas_ca = _cuentas_cliente_por_moneda(_client_ca, _moneda_ca)
+            if _cuentas_ca:
+                _seleccionar_cuenta_y_continuar(numero, session, _client_ca, _cuentas_ca, _moneda_ca)
+            else:
+                _flujo_pedir_cuenta_destino(numero, _moneda_ca)
+                session.estado = 'esperando_cuenta_destino'
+            return
+    # P2 — phone lookup
+    _clientes_ca = _buscar_clientes_por_telefono(numero)
+    if len(_clientes_ca) == 1 and _clientes_ca[0].status == 'Activo':
+        _c_ca = _clientes_ca[0]
+        session.cotiz_doc = _c_ca.dni
+        _moneda_ca = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+        _cuentas_ca = _cuentas_cliente_por_moneda(_c_ca, _moneda_ca)
+        if _cuentas_ca:
+            _seleccionar_cuenta_y_continuar(numero, session, _c_ca, _cuentas_ca, _moneda_ca)
+        else:
+            _flujo_pedir_cuenta_destino(numero, _moneda_ca)
+            session.estado = 'esperando_cuenta_destino'
+        return
+    elif len(_clientes_ca) > 1:
+        _flujo_elegir_cliente_telefono(numero, _clientes_ca)
+        session.estado = 'eligiendo_cliente_telefono'
+        return
+    # P3 — solicitar documento directamente
     send_buttons(numero,
-        '✅ *¡Precio aceptado!*\n\n¿Ya eres cliente en Qoricash?',
+        'Para continuar, ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).\n\n'
+        'Si tienes Carné de Extranjería, elige CE 👇',
         [
-            {'id': 'btn_tengo_cuenta', 'title': '✅ Sí, soy cliente'},
-            {'id': 'btn_registrarme',  'title': '📝 No, quiero registrarme'},
+            {'id': 'btn_tengo_ce',      'title': '🌍 Tengo CE'},
+            {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
         ]
     )
+    session.estado = 'esperando_id_cotizar'
 
 
 def _flujo_pedir_doc_verificacion(numero):
@@ -1387,9 +1468,10 @@ def _intentar_identificar_y_cotizar(numero, session):
         session.estado = 'eligiendo_operacion'
         return
 
-    # P3 — pedir documento
-    _flujo_pedir_id_para_cotizar(numero)
-    session.estado = 'esperando_id_cotizar'
+    # P3 — cliente aún no identificado.
+    # Mostrar TC público y dejar que elija dirección; la ID se pedirá solo al aceptar.
+    _flujo_tc_publico(numero)
+    session.estado = 'eligiendo_operacion'
 
 
 def _auto_crear_cliente(doc, nombre, es_empresa, phone_numero, email=None):
@@ -3015,7 +3097,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 if _op_activa:
                     _flujo_op_ya_activa(numero, _op_activa)
                 else:
-                    _flujo_cotizar_inicio(numero)
+                    _flujo_tc_publico(numero)
                     session.estado = 'eligiendo_operacion'
 
             elif btn_id == 'btn_comprar':
@@ -3096,13 +3178,12 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         _flujo_elegir_cliente_telefono(numero, _clientes_tel)
                         session.estado = 'eligiendo_cliente_telefono'
                     else:
-                        # Cliente nuevo: pedir identificación recién al aceptar el precio
+                        # Cliente desconocido: solicitar documento directamente, sin pregunta intermedia.
                         send_buttons(numero,
-                            'Para generar tu operación necesitamos verificar tu identidad.\n\n'
-                            '🪪 Ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).\n\n'
-                            '¿Tienes Carné de Extranjería? 👇',
+                            'Para continuar, ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).\n\n'
+                            'Si tienes Carné de Extranjería, elige CE 👇',
                             [
-                                {'id': 'btn_tengo_ce',    'title': '🌍 Carné de Extranjería'},
+                                {'id': 'btn_tengo_ce',      'title': '🌍 Tengo CE'},
                                 {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
                             ]
                         )
@@ -3871,10 +3952,21 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     )
 
             elif estado == 'esperando_id_cotizar':
-                # Identificación antes de mostrar TC (nuevo flujo identificación-primero)
+                # Consulta pública de TC: nunca debe bloquear por falta de documento.
+                # Si el cliente pregunta el TC mientras está esperando identificación,
+                # se responde directamente sin cambiar de estado.
                 doc = texto.strip()
                 txt_lower_idc = doc.lower()
-                if any(k in txt_lower_idc for k in ('cancelar', 'salir', 'no quiero', 'volver', 'inicio', 'exit', 'stop', 'no', 'menu')):
+                _tc_kw_idc = (
+                    'cuanto esta', 'cuánto está', 'a cuanto', 'a cuánto',
+                    'tipo de cambio', ' tasa', ' tc ', 'precio del dolar',
+                    'precio del dólar', 'dolar hoy', 'dólar hoy', 'cuanto cuesta',
+                    'cuánto cuesta', 'cotizacion hoy', 'cotización hoy',
+                )
+                if any(k in txt_lower_idc for k in _tc_kw_idc):
+                    _flujo_tc_publico(numero)
+                    # Estado no cambia: cuando el cliente quiera continuar, aún pediremos doc
+                elif any(k in txt_lower_idc for k in ('cancelar', 'salir', 'no quiero', 'volver', 'inicio', 'exit', 'stop', 'no', 'menu')):
                     _reset_sesion(session)
                     _menu_rapido(numero)
                 elif _es_dni(doc) or _es_ruc(doc):
@@ -4912,7 +5004,36 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         elif re.match(r'^([A-Za-z0-9]{6,20})$', texto.strip()):
                             _codigo_inline = texto.strip()
 
-                    if _codigo_inline:
+                    # Consulta de TC con operación activa: responder sin tocar la operación.
+                    _tc_query_kw = (
+                        'cuanto esta', 'cuánto está', 'a cuanto', 'a cuánto',
+                        'tipo de cambio', 'tasa', ' tc ', 'precio del dolar',
+                        'precio del dólar', 'dolar hoy', 'dólar hoy', 'cuanto cuesta',
+                        'cuánto cuesta', 'cotizacion hoy', 'cotización hoy',
+                    )
+                    _es_consulta_tc_op = (
+                        not _codigo_inline
+                        and any(k in txt_lower for k in _tc_query_kw)
+                    )
+                    if _es_consulta_tc_op:
+                        _c_op, _v_op = _get_tc()
+                        if _c_op and _v_op:
+                            _tc_op_ses = float(session.cotiz_tc) if session.cotiz_tc else None
+                            _tc_resp = (
+                                f'💵 *TC vigente*\n'
+                                f'› Compramos: S/ {_c_op:.4f}\n'
+                                f'› Vendemos:  S/ {_v_op:.4f}'
+                            )
+                            if _tc_op_ses and abs(_tc_op_ses - _c_op) > 0.0005:
+                                _tc_resp += (
+                                    f'\n\n_Tu operación usa el TC pactado al cotizar: '
+                                    f'S/ {_tc_op_ses:.4f}_'
+                                )
+                            send_text(numero, _tc_resp)
+                        else:
+                            send_text(numero, '⚠️ El tipo de cambio no está disponible en este momento.')
+                        # Estado no cambia: la operación sigue pendiente
+                    elif _codigo_inline:
                         _flujo_registrar_codigo_op(numero, _codigo_inline, session)
                     else:
                         # P1 — Cliente escribió texto libre; recordar qué hacer
