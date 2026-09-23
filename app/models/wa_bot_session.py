@@ -27,6 +27,7 @@ class WaBotSession(db.Model):
     cotiz_op_id   = db.Column(db.String(20),  default='')   # operation_id creado (EXP-XXX)
     cotiz_cuenta  = db.Column(db.String(50),  default='')   # cuenta destino del cliente
     cotiz_timestamp = db.Column(db.DateTime, nullable=True)  # timestamp cuando se mostró la cotización
+    cotiz_token     = db.Column(db.String(36), nullable=True)  # token UUID corto que identifica la versión de cotización
     # Control de atención humana
     bot_pausado    = db.Column(db.Boolean, default=False, nullable=False)
     # Intentos fallidos consecutivos en el estado actual (para ofrecer salida tras N errores)

@@ -173,25 +173,45 @@ class OperationExpiryService:
 
             for operation in pending_ops:
                 try:
-                    operation.status = 'Cancelado'
-                    operation.cancellation_reason = motivo
-                    operation.updated_at = now_peru()
+                    # Revalidar bajo lock: el estado y los depósitos pueden haber cambiado
+                    # desde la consulta inicial (reporte de transferencia concurrente).
+                    op = Operation.query.filter_by(id=operation.id).with_for_update().first()
+                    if not op:
+                        continue
+
+                    if op.status not in ('Pendiente', 'En proceso'):
+                        # Ya fue procesada (completada, cancelada, etc.) entre la consulta y el lock
+                        db.session.commit()
+                        continue
+
+                    if op.client_deposits:
+                        # Tiene transferencia reportada: conservar para revisión del operador
+                        logger.info(
+                            f"[EOD] Operacion {op.operation_id} conservada: "
+                            f"transferencia reportada ({len(op.client_deposits)} registro(s))"
+                        )
+                        db.session.commit()
+                        continue
+
+                    op.status = 'Cancelado'
+                    op.cancellation_reason = motivo
+                    op.updated_at = now_peru()
                     db.session.commit()
 
-                    logger.info(f"[EOD] Operacion {operation.operation_id} cancelada automaticamente a las 10pm")
+                    logger.info(f"[EOD] Operacion {op.operation_id} cancelada automaticamente a las 10pm")
 
                     try:
-                        NotificationService.notify_operation_canceled(operation, motivo)
+                        NotificationService.notify_operation_canceled(op, motivo)
                     except Exception as notif_error:
-                        logger.error(f"[EOD] Error notificando {operation.operation_id}: {notif_error}")
+                        logger.error(f"[EOD] Error notificando {op.operation_id}: {notif_error}")
 
                     # Notificar al cliente vía WhatsApp
                     try:
                         from app.services.wa_bot import wa_notify_client_buttons
-                        titular = operation.client.full_name if operation.client else operation.operation_id
+                        titular = op.client.full_name if op.client else op.operation_id
                         wa_notify_client_buttons(
-                            operation.client,
-                            f'🌙 Tu operación *{operation.operation_id}* a nombre de *{titular}* fue cancelada automáticamente '
+                            op.client,
+                            f'🌙 Tu operación *{op.operation_id}* a nombre de *{titular}* fue cancelada automáticamente '
                             f'por cierre de operaciones del día (10:00 PM).\n\n'
                             f'Puedes iniciar una nueva cotización mañana o hablar con un asesor.',
                             [
@@ -200,7 +220,7 @@ class OperationExpiryService:
                             ]
                         )
                     except Exception as wa_err:
-                        logger.warning(f"[EOD] Error WA para {operation.operation_id}: {wa_err}")
+                        logger.warning(f"[EOD] Error WA para {op.operation_id}: {wa_err}")
 
                     cancelled_count += 1
 
@@ -278,6 +298,10 @@ class OperationExpiryService:
             sessions_to_notify = []
 
             for s in active_inactive:
+                # No expirar si el asesor está atendiendo manualmente
+                if s.bot_pausado:
+                    logger.info(f"[SESSION] {s.numero} — bot pausado (asesor activo), no expirar sesión.")
+                    continue
                 # No expirar si el cliente tiene una operación En proceso —
                 # el operador puede tardar más de 15 min en depositar los fondos.
                 if _tiene_op_en_proceso(s.numero):
@@ -305,6 +329,10 @@ class OperationExpiryService:
 
             for s in inicio_sessions:
                 if s.numero in sessions_to_notify:
+                    continue
+                # No notificar si el asesor está atendiendo manualmente
+                if s.bot_pausado:
+                    logger.info(f"[SESSION] {s.numero} — bot pausado (asesor activo), no enviar cierre de sesión.")
                     continue
                 # No enviar mensaje de sesión expirada si hay op En proceso
                 if _tiene_op_en_proceso(s.numero):
