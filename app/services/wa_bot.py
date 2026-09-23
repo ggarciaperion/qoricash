@@ -678,16 +678,30 @@ def _interpretar_solicitud(texto, session=None):
     if not es_compra and re.search(r'\b(comprar?|compro)\b.{0,30}\b(d[oó]lares?|usd)\b', t):
         es_compra = True
     # "quiero/necesito + dolares" only signals compra if no explicit venta verb is present
+    # AND no explicit directional phrase "dolares a soles" exists (stronger signal).
+    _venta_dir_explicit = any(k in t for k in (
+        'dolares a soles', 'dolares por soles', 'de dolares a',
+        'usd a soles', 'usd por soles',
+        'dólares a soles', 'dólares por soles', 'de dólares a',
+    ))
     if (not es_compra
             and re.search(r'\b(quiero|necesito)\b.{0,30}\b(d[oó]lares?|usd)\b', t)
-            and not re.search(r'\b(vender?|vendo)\b', t)):
+            and not re.search(r'\b(vender?|vendo)\b', t)
+            and not _venta_dir_explicit):
         es_compra = True
     if not es_venta and re.search(r'\b(vender?|vendo)\b.{0,30}\b(d[oó]lares?|usd)\b', t):
         es_venta = True
     # "quiero/necesito + soles" only signals venta if no explicit compra verb is present
+    # AND no explicit directional phrase "soles a dolares" exists (stronger signal).
+    _compra_dir_explicit = any(k in t for k in (
+        'soles a dolares', 'soles por dolares', 'de soles a',
+        'soles a usd', 'soles por usd',
+        'soles a dólares', 'soles por dólares', 'de soles a dólares',
+    ))
     if (not es_venta
             and re.search(r'\b(quiero|necesito)\b.{0,30}\bsoles?\b', t)
-            and not re.search(r'\b(comprar?|compro)\b', t)):
+            and not re.search(r'\b(comprar?|compro)\b', t)
+            and not _compra_dir_explicit):
         es_venta = True
     # Negation: "no quiero/deseo comprar/vender ..." cancels the detected direction
     if es_compra and re.search(r'\bno\s+(?:quiero|deseo)(?:\s+comprar?)?\b', t):
@@ -1132,6 +1146,25 @@ def _flujo_mostrar_cotizacion(numero, session):
             f'Tipo de cambio: S/ {tc_final:.4f}'
         )
 
+    # Guardia: tc_final debe ser finito y positivo antes de asignar o mostrar.
+    import math as _math_mq
+    if not (_math_mq.isfinite(tc_final) and tc_final > 0):
+        log.warning(f'[WaBot] TC inválido ({tc_final}) al cotizar para {numero}')
+        try:
+            session.cotiz_token = None  # ningún token aceptable para esta cotización
+        except Exception:
+            pass
+        send_buttons(numero,
+            '⚠️ El tipo de cambio no está disponible en este momento.\n\n'
+            'Inténtalo en unos minutos o habla con un asesor.',
+            [
+                {'id': 'btn_cotizar', 'title': '🔄 Cotizar de nuevo'},
+                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+            ]
+        )
+        session.estado = 'inicio'
+        return
+
     if mejora > 0:
         resumen += f'\n> ✨ TC preferencial por monto especial'
 
@@ -1496,7 +1529,8 @@ def _flujo_op_ya_activa(numero, op):
     estado_texto = 'pendiente de pago' if op.status == 'Pendiente' else 'siendo procesada'
     botones = [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
     if op.status == 'Pendiente':
-        botones.append({'id': 'btn_modificar_importe', 'title': '✏️ Modificar importe'})
+        botones.append({'id': 'btn_modificar_importe',                      'title': '✏️ Modificar importe'})
+        botones.append({'id': f'btn_cancelar_operacion_{op.operation_id}', 'title': '❌ Cancelar operación'})
     send_buttons(numero,
         f'⏳ Tu operación *{op.operation_id}* está {estado_texto}.\n\n'
         f'Solo puedes tener una operación activa a la vez. '
@@ -1675,13 +1709,13 @@ def _flujo_op_creada(numero, op, session, client):
         + f'\n\n{aviso_plazo}\n{aviso_horario}'
         f'Transfiérenos *{simbolo} {monto_enviar:,.2f}* a:\n\n'
         f'{cuentas}\n\n'
-        f'Cuando transferiste, escríbenos el código de tu voucher o pulsa el botón. '
-        f'El código aparece en tu constancia bancaria como "N° de operación" o "referencia".'
+        f'Transfiere el importe indicado a nuestra cuenta. '
+        f'Luego envíanos aquí el código de tu transferencia.'
     )
     return send_buttons_image(numero, OP_BANNER_URL, msg, [
-        {'id': 'btn_ya_transferi',        'title': '✅ Ya transferí'},
-        {'id': 'btn_modificar_importe',   'title': '✏️ Cambiar monto'},
-        {'id': 'btn_cancelar_operacion',  'title': '❌ Cancelar operación'},
+        {'id': 'btn_ya_transferi',                             'title': '✅ Ya transferí'},
+        {'id': 'btn_modificar_importe',                        'title': '✏️ Cambiar monto'},
+        {'id': f'btn_cancelar_operacion_{op.operation_id}',    'title': '❌ Cancelar operación'},
     ])
 
 
@@ -1865,6 +1899,20 @@ def _flujo_resumen_final(numero, session, client, regenerar_token=True):
     tc      = float(session.cotiz_tc or 0)
     cuenta  = session.cotiz_cuenta or ''
 
+    # Bloquear resumen con TC invalido (0, negativo, NaN, infinito).
+    import math as _math_rf
+    if not (_math_rf.isfinite(tc) and tc > 0):
+        log.warning(f'[WaBot] resumen bloqueado: TC invalido ({tc}) para {numero}')
+        send_buttons(numero,
+            '⚠️ No pude obtener el tipo de cambio. Cotiza nuevamente para continuar.',
+            [
+                {'id': 'btn_cotizar', 'title': '🔄 Cotizar de nuevo'},
+                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+            ]
+        )
+        session.estado = 'inicio'
+        return
+
     # Parsear cuenta (formato guardado: BANCO|NUMERO)
     if '|' in cuenta:
         banco_d, num_d = cuenta.split('|', 1)
@@ -1989,6 +2037,25 @@ def _crear_op_y_confirmar(numero, session, client, confirm_token=None):
                 return
         except Exception:
             pass
+
+        # ── CV2 — Revalidar TC e importe (cubre NaN, infinito, cero) ──
+        import math as _math_c
+        _tc_val  = float(session.cotiz_tc or 0)
+        _imp_val = float(session.cotiz_importe or 0)
+        if not (_math_c.isfinite(_tc_val) and _tc_val > 0
+                and _math_c.isfinite(_imp_val) and _imp_val >= MONTO_MINIMO_USD):
+            log.warning(f'[WaBot] Datos inválidos al crear op: TC={_tc_val} importe={_imp_val} {numero}')
+            session.cotiz_token = None
+            send_buttons(numero,
+                '⚠️ Los datos de la cotización no son válidos. Cotiza de nuevo — '
+                'conservamos el monto y la dirección.',
+                [
+                    {'id': 'btn_cotizar', 'title': '🔄 Cotizar de nuevo'},
+                    {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                ]
+            )
+            db.session.commit()
+            return
 
         # ── Crear operación y actualizar sesión ──
         op = _crear_operacion(session, client)
@@ -3115,38 +3182,148 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 )
                 session.estado = 'esperando_codigo_op'
 
-            elif btn_id == 'btn_cancelar_operacion':
+            elif btn_id.startswith('btn_cancelar_operacion'):
                 from app.models.operation import Operation as _OpCancel
-                from app.utils.formatters import now_peru as _now_cancel
-                _op_cancel = _OpCancel.query.filter_by(operation_id=session.cotiz_op_id).first() if session.cotiz_op_id else None
-                if _op_cancel and _op_cancel.status == 'Pendiente':
-                    _op_cancel.status = 'Cancelada'
-                    _op_cancel.cancel_reason = 'Cancelada por el cliente vía WhatsApp bot'
-                    try:
-                        _op_cancel.canceled_at = _now_cancel()
-                    except Exception:
-                        pass
-                    db.session.commit()
-                    try:
-                        from app.services.notification_service import NotificationService
-                        NotificationService.notify_operation_updated(_op_cancel, old_status='Pendiente')
-                    except Exception:
-                        pass
-                    send_buttons(numero,
-                        f'❌ *Operación {_op_cancel.operation_id} cancelada.*\n\n'
-                        'No se realizó ningún cobro. Cuando quieras hacer otro cambio, aquí estaremos. 😊',
-                        [
-                            {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
-                            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
-                        ]
-                    )
-                    _reset_sesion(session)
+                # El botón nuevo codifica el op_id: btn_cancelar_operacion_{EXP-XXX}
+                # El botón viejo (sin sufijo) no lleva op_id.
+                _sfx_cancel = btn_id[len('btn_cancelar_operacion'):]
+                _btn_op_id  = _sfx_cancel.lstrip('_') or None  # 'EXP-XXX' o None
+
+                # ── Caso A: botón sin op_id (formato viejo o sin contexto) ──
+                if _btn_op_id is None:
+                    _cur_op = None
+                    if session.cotiz_op_id:
+                        _cur_op = _OpCancel.query.filter_by(
+                            operation_id=session.cotiz_op_id).first()
+                    if _cur_op and _cur_op.status == 'Pendiente':
+                        send_buttons(numero,
+                            f'Para cancelar la operación *{_cur_op.operation_id}*, '
+                            'pulsa el botón de cancelación del mensaje más reciente.',
+                            [
+                                {'id': f'btn_cancelar_operacion_{_cur_op.operation_id}',
+                                 'title': '❌ Cancelar operación'},
+                                {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'},
+                            ]
+                        )
+                    else:
+                        send_buttons(numero,
+                            'No encontramos ninguna operación activa para cancelar.\n\n'
+                            '¿En qué más puedo ayudarte?',
+                            [
+                                {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
+                                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                            ]
+                        )
+
                 else:
-                    send_buttons(numero,
-                        '⚠️ Esta operación ya no puede cancelarse.\n\n'
-                        'Si necesitas ayuda, habla con un asesor.',
-                        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
-                    )
+                    # ── Caso B: botón lleva op_id ──
+                    _op_cancel = _OpCancel.query.filter_by(
+                        operation_id=_btn_op_id).first()
+
+                    # Si la sesión actual apunta a una operación DISTINTA, no tocar nada.
+                    _session_op_id = session.cotiz_op_id or ''
+                    if (_session_op_id
+                            and _btn_op_id != _session_op_id
+                            and _op_cancel):
+                        # Botón pertenece a una op diferente de la sesión actual.
+                        _cur_op2 = _OpCancel.query.filter_by(
+                            operation_id=_session_op_id).first()
+                        if _cur_op2 and _cur_op2.status == 'Pendiente':
+                            send_buttons(numero,
+                                f'⚠️ Ese botón era de una operación anterior.\n\n'
+                                f'Tu operación actual es *{_cur_op2.operation_id}*. '
+                                'Pulsa el botón de cancelación de la instrucción más reciente si deseas cancelarla.',
+                                [
+                                    {'id': f'btn_cancelar_operacion_{_cur_op2.operation_id}',
+                                     'title': '❌ Cancelar operación actual'},
+                                    {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'},
+                                ]
+                            )
+                        else:
+                            send_buttons(numero,
+                                '⚠️ Ese botón pertenece a una operación que ya no está activa.',
+                                [
+                                    {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
+                                    {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                                ]
+                            )
+
+                    elif not _op_cancel:
+                        send_buttons(numero,
+                            'No encontramos ninguna operación activa para cancelar.\n\n'
+                            '¿En qué más puedo ayudarte?',
+                            [
+                                {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
+                                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                            ]
+                        )
+                    elif _op_cancel.status == 'Cancelado':
+                        send_buttons(numero,
+                            f'ℹ️ La operación *{_op_cancel.operation_id}* ya estaba cancelada.\n\n'
+                            'No se realizó ningún cobro. ¿Deseas iniciar una nueva cotización?',
+                            [
+                                {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
+                                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                            ]
+                        )
+                    elif _op_cancel.status not in ('Pendiente',):
+                        send_buttons(numero,
+                            f'⚠️ La operación *{_op_cancel.operation_id}* está en estado '
+                            f'*{_op_cancel.status}* y no puede cancelarse.\n\n'
+                            'Si tienes dudas, habla con un asesor.',
+                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                        )
+                    else:
+                        # Revalidar bajo lock: estado + pertenencia al cliente + sin depósito.
+                        _op_lock = _OpCancel.query.filter_by(
+                            id=_op_cancel.id).with_for_update().first()
+                        db.session.expire(_op_lock)
+                        # Verificar pertenencia al cliente bajo el lock
+                        _client_for_check = _buscar_cliente(session.cotiz_doc) if session.cotiz_doc else None
+                        _client_id_ok = (
+                            _client_for_check is None  # sin doc → no podemos rechazar por cliente
+                            or _op_lock.client_id == _client_for_check.id
+                        )
+                        if not _client_id_ok:
+                            send_buttons(numero,
+                                '⚠️ Esta operación no corresponde a tu cuenta.',
+                                [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                            )
+                            db.session.commit()
+                        elif _op_lock.status != 'Pendiente':
+                            send_buttons(numero,
+                                f'⚠️ La operación *{_op_lock.operation_id}* ya no está pendiente '
+                                f'(estado actual: *{_op_lock.status}*).\n\nSi necesitas ayuda, habla con un asesor.',
+                                [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                            )
+                            db.session.commit()
+                        elif _op_lock.client_deposits:
+                            send_buttons(numero,
+                                f'⚠️ Ya registramos una transferencia para la operación '
+                                f'*{_op_lock.operation_id}*.\n\n'
+                                'No podemos cancelarla automáticamente. Habla con un asesor para resolverlo.',
+                                [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                            )
+                            db.session.commit()
+                        else:
+                            _op_lock.status = 'Cancelado'
+                            _nota_c = 'Cancelado por el cliente vía WhatsApp bot'
+                            _op_lock.notes = ((_op_lock.notes or '') + f'\n\n[BOT] {_nota_c}').strip()
+                            db.session.commit()
+                            try:
+                                from app.services.notification_service import NotificationService as _NSC
+                                _NSC.notify_operation_updated(_op_lock, old_status='Pendiente')
+                            except Exception:
+                                pass
+                            send_buttons(numero,
+                                f'❌ *Operación {_op_lock.operation_id} cancelada.*\n\n'
+                                'No se realizó ningún cobro. Cuando quieras hacer otro cambio, aquí estaremos. 😊',
+                                [
+                                    {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
+                                    {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                                ]
+                            )
+                            _reset_sesion(session)
 
             elif btn_id == 'btn_modificar_importe':
                 _flujo_modificar_importe(numero, session)
@@ -3646,14 +3823,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         if client.status == 'Activo':
                             primer_nombre = (client.nombres or client.razon_social or '').split()[0].title()
                             send_text(numero, f'✅ ¡Hola de nuevo, {primer_nombre}! Te identificamos correctamente.')
-                            # Continuar directamente a cuenta destino (ya tiene op y monto elegidos)
-                            moneda_recibe_idc = 'USD' if session.cotiz_op == 'compra' else 'PEN'
-                            cuentas_idc = _cuentas_cliente_por_moneda(client, moneda_recibe_idc)
-                            if cuentas_idc:
-                                _seleccionar_cuenta_y_continuar(numero, session, client, cuentas_idc, moneda_recibe_idc)
-                            else:
-                                _flujo_pedir_cuenta_destino(numero, moneda_recibe_idc)
-                                session.estado = 'esperando_cuenta_destino'
+                            # Mostrar cotizacion primero; aceptarla lleva a la cuenta destino.
+                            _continuar_segun_sesion(numero, session)
                         else:
                             send_buttons(numero,
                                 '⏳ Encontramos tu cuenta pero aún no está activa.\n\n'
@@ -4087,18 +4258,37 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         monto_enviar  = nuevo_pen if moneda_enviar == 'PEN' else nuevo_usd
                         cuentas       = _texto_cuentas_qoricash(moneda_enviar)
 
+                        # Plazo real: usa op.created_at, no reinicia el conteo al cambiar importe.
+                        from datetime import timedelta as _td3b
+                        _now3b   = now_peru
+                        _expira3b   = op.created_at + _td3b(minutes=15)
+                        _restante3b = max(0, int((_expira3b - _now3b()).total_seconds() / 60))
+                        _plazo3b = (
+                            f'⏱ *Plazo restante:* {_restante3b} min '
+                            f'(vence {_expira3b.strftime("%I:%M %p").lstrip("0")})'
+                            if _restante3b > 0 else
+                            '⏱ Fuera de horario: procesaremos mañana al inicio de operaciones.'
+                        )
+
+                        _envia_label  = 'S/' if moneda_enviar == 'PEN' else 'USD'
+                        _recibe_label = 'USD' if moneda_enviar == 'PEN' else 'S/'
+                        _recibe_monto = nuevo_usd if moneda_enviar == 'PEN' else nuevo_pen
+
                         msg = (
                             f'✅ *Importe actualizado correctamente*\n\n'
                             f'📋 *Operación:* {op.operation_id}\n'
-                            f'💱 *Nuevo importe:* USD {nuevo_usd:,.2f} → S/ {nuevo_pen:,.2f}\n'
-                            f'📈 *T.C.:* {tc:.4f}\n\n'
-                            f'*Transfiere {simbolo} {monto_enviar:,.2f} a:*\n\n'
+                            f'💵 *Envías:* {_envia_label} {monto_enviar:,.2f}\n'
+                            f'💰 *Recibes:* {_recibe_label} {_recibe_monto:,.2f}\n'
+                            f'📈 *T.C.:* {tc:.4f}\n'
+                            f'{_plazo3b}\n\n'
+                            f'*Transfiere {_envia_label} {monto_enviar:,.2f} a:*\n\n'
                             f'{cuentas}\n\n'
                             f'_Una vez transferido, presiona el botón y te pediremos el código de tu voucher._'
                         )
                         send_buttons(numero, msg, [
-                            {'id': 'btn_ya_transferi',      'title': '✅ Ya transferí'},
-                            {'id': 'btn_modificar_importe', 'title': '✏️ Modificar importe'},
+                            {'id': 'btn_ya_transferi',                            'title': '✅ Ya transferí'},
+                            {'id': 'btn_modificar_importe',                       'title': '✏️ Modificar importe'},
+                            {'id': f'btn_cancelar_operacion_{op.operation_id}',   'title': '❌ Cancelar operación'},
                         ])
                         session.estado = 'op_pendiente_pago'
 
@@ -4492,8 +4682,31 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         # Token for the current quote (used in all accept buttons shown here)
                         _token_v = getattr(session, 'cotiz_token', None) or ''
                         _handled_v = False
+                        # [BUG-2A] Direction change: client wants opposite direction.
+                        # Must run BEFORE the amount-correction block.
+                        # Hypothetical questions ("¿y si cambio X?") must NOT modify the session.
+                        if (not _handled_v
+                                and _interp_v.get('tipo')
+                                and _interp_v['tipo'] != (session.cotiz_op or '')
+                                and _interp_v.get('fuente') != 'fallo'
+                                and not _interp_v.get('es_hipotetico')):
+                            _nuevo_tipo = _interp_v['tipo']
+                            session.cotiz_op     = _nuevo_tipo
+                            session.cotiz_cuenta = ''   # moneda anterior puede ser incompatible
+                            try:
+                                session.cotiz_token = None
+                            except Exception:
+                                pass
+                            # Usar nuevo importe si valido; conservar actual si no se indicó.
+                            if (_interp_v.get('importe')
+                                    and (_interp_v.get('moneda_importe') or 'USD') == 'USD'
+                                    and _interp_v['importe'] >= MONTO_MINIMO_USD):
+                                session.cotiz_importe = _interp_v['importe']
+                            _flujo_mostrar_cotizacion(numero, session)
+                            session.estado = 'viendo_cotizacion'
+                            _handled_v = True
                         # Correction: explicit amount change -> new quote (invalidates previous acceptance)
-                        if (_interp_v.get('es_correccion')
+                        if (not _handled_v and _interp_v.get('es_correccion')
                                 and _interp_v.get('importe')
                                 and (_interp_v.get('moneda_importe') or 'USD') == 'USD'):
                             _nuevo_m = _interp_v['importe']
