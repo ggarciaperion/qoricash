@@ -121,6 +121,14 @@ def create_lead():
     if not tipo_lead:
         return jsonify({'error': 'tipo_lead_required'}), 400
 
+    # ── Filtro anti-contaminación: rechazar leads no comerciales ────────────
+    if _is_non_commercial(email, tipo_lead, data.get('subject_original') or ''):
+        log.info(
+            f"[leads_api] Lead RECHAZADO (no comercial): email={email!r} "
+            f"tipo={tipo_lead!r} subject={data.get('subject_original')!r}"
+        )
+        return jsonify({'status': 'rejected_non_commercial'}), 200
+
     # ── Idempotencia: buscar por gmail_message_id (clave del evento) ─────────
     # Decisión de diseño: la clave de idempotencia es el ID del evento/mensaje
     # que originó la oportunidad, no el email del prospecto. Esto permite que:
@@ -230,6 +238,80 @@ def health():
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
+_INTERNAL_DOMAINS = {'qoricash.pe', 'qoricash.com'}
+
+_TEST_SUBJECT_KW = [
+    '[prueba', '[test', '[demo',
+    'prueba de envio', 'correo de prueba', 'email de prueba',
+    'test email', 'prueba prospeccion', 'prueba prospección',
+]
+
+_PROMO_SUBJECT_KW = [
+    'newsletter', 'boletin', 'boletín', 'oferta especial', 'descuento',
+    'suscripcion', 'suscripción', 'estado de cuenta', 'extracto de cuenta',
+    'factura electronica', 'recibo de pago', 'confirmacion de pago',
+    'confirmación de pago', 'codigo de verificacion', 'código de verificación',
+]
+
+_NON_COMMERCIAL_TIPOS = {
+    'bounce_hard', 'bounce_soft', 'bounce',
+    'fuera_oficina', 'auto_reply', 'irrelevante',
+    'no_interesado', 'no_contactar', 'persona_incorrecta',
+}
+
+_PROMO_SENDER_DOMAINS = {
+    'westernunion.com', 'paypal.com', 'mailchimp.com',
+    'mailjet.com', 'sendgrid.net', 'sendgrid.com',
+    'amazonses.com', 'sparkpost.com', 'constantcontact.com',
+}
+
+
+def _is_non_commercial(email: str, tipo_lead: str, subject: str) -> bool:
+    """
+    Rechaza leads que NO representan oportunidades reales de negocio:
+    - Email de dominio interno @qoricash.pe / @qoricash.com
+    - Tipo de lead no comercial (bounce, auto_reply, irrelevante, etc.)
+    - Asunto que indica prueba, test o demo
+    - Asunto con keywords promocionales / transaccionales
+    - Remitente de dominio de plataformas de mailing / pagos
+
+    Retorna True si el lead DEBE SER RECHAZADO.
+    """
+    # 1. Email interno Qoricash
+    if email:
+        domain = email.split('@')[-1] if '@' in email else ''
+        if domain in _INTERNAL_DOMAINS:
+            return True
+
+    # 2. Tipo no comercial
+    if tipo_lead in _NON_COMMERCIAL_TIPOS:
+        return True
+
+    # 3. Local part sospechoso (noreply, mailer, bounce, etc.)
+    if email:
+        import re as _re
+        local = email.split('@')[0]
+        if _re.match(r'^(noreply|no-?reply|notifications?|alerts?|mailer|bounce|system|postmaster|mailer-daemon)', local):
+            return True
+
+    # 4. Dominio de plataforma de mailing / pagos
+    if email:
+        domain = email.split('@')[-1] if '@' in email else ''
+        if domain in _PROMO_SENDER_DOMAINS:
+            return True
+
+    # 5. Asunto test / demo
+    subj_low = subject.lower()
+    if any(k in subj_low for k in _TEST_SUBJECT_KW):
+        return True
+
+    # 6. Asunto promocional / transaccional
+    if any(k in subj_low for k in _PROMO_SUBJECT_KW):
+        return True
+
+    return False
+
 
 def _prioridad_from_tipo(tipo: str) -> str:
     """Infiere prioridad según el tipo de lead cuando no se provee."""

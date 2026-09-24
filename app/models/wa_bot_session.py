@@ -28,6 +28,11 @@ class WaBotSession(db.Model):
     cotiz_cuenta  = db.Column(db.String(50),  default='')   # cuenta destino del cliente
     cotiz_timestamp = db.Column(db.DateTime, nullable=True)  # timestamp cuando se mostró la cotización
     cotiz_token     = db.Column(db.String(36), nullable=True)  # token UUID corto que identifica la versión de cotización
+    # Control de ciclo de sesión: marca el inicio de un nuevo ciclo tras expiración por inactividad.
+    # Permite acotar el historial de IA y rechazar botones de ciclos anteriores.
+    # NULL = sesión nunca expirada (cliente nuevo o sesión activa sin reset por inactividad).
+    # Non-NULL = timestamp del último reset por inactividad (scheduler o in-band).
+    session_started_at = db.Column(db.DateTime, nullable=True)
     # Control de atención humana
     bot_pausado    = db.Column(db.Boolean, default=False, nullable=False)
     # Intentos fallidos consecutivos en el estado actual (para ofrecer salida tras N errores)

@@ -423,22 +423,23 @@ class Client(db.Model):
 
     def get_total_operations_usd(self):
         """
-        Obtener el total de operaciones completadas en USD
+        Obtener el total de operaciones Completadas en USD.
 
-        Returns:
-            float: Total en USD de operaciones completadas
+        NOTA — Brecha de concurrencia documentada (decisión pendiente):
+        Solo se cuentan ops 'Completada'. Dos ops Pendiente concurrentes pueden
+        pasar ambas el check límite si individualmente están por debajo.
+        La serialización la provee with_for_update() en la sesión de bot durante
+        _crear_operacion_final, pero una segunda operación desde otro canal (web/app)
+        no queda serializada contra la sesión de bot.
+        Pendiente: autorizar si se deben incluir ops Pendiente+En proceso o no.
         """
         if not hasattr(self, 'operations'):
             return 0.0
 
         try:
-            # Obtener operaciones completadas
             from app.models.operation import Operation as _Op
             completed_ops = _Op.query.filter_by(client_id=self.id, status='Completada').all()
-
-            # Sumar montos en USD
-            total = sum(float(op.amount_usd or 0) for op in completed_ops)
-            return total
+            return sum(float(op.amount_usd or 0) for op in completed_ops)
         except Exception:
             return 0.0
 
@@ -446,20 +447,35 @@ class Client(db.Model):
     def kyc_badge(self):
         """Badge visual para el estado KYC.
 
-        has_complete_documents es la fuente autoritativa: si es True el KYC
-        está completo independientemente del valor en la columna kyc_status
-        (evita inconsistencias donde la columna no se actualizó correctamente).
+        Precedencia correcta (alineada con can_create_operation):
+        1. kyc_status == 'bloqueado' → bloqueo administrativo duro; tiene prioridad
+           incluso si has_complete_documents es True.  Documentos completos no
+           levantan un bloqueo manual.
+        2. has_complete_documents == True → KYC completo (sin restricción operativa).
+        3. Todo lo demás → pendiente.
+
+        NOTA: el comportamiento anterior ponía has_complete_documents primero, lo que
+        hacía que la insignia mostrara 'KYC Completo' en clientes bloqueados con docs.
         """
-        if self.has_complete_documents:
-            return {'label': 'KYC Completo', 'color': 'success', 'icon': 'bi-shield-check', 'text_color': 'white'}
         status = self.kyc_status or 'pendiente'
         if status == 'bloqueado':
             return {'label': 'KYC Bloqueado', 'color': 'danger', 'icon': 'bi-shield-x', 'text_color': 'white'}
+        if self.has_complete_documents:
+            return {'label': 'KYC Completo', 'color': 'success', 'icon': 'bi-shield-check', 'text_color': 'white'}
         return {'label': 'KYC Pendiente', 'color': 'warning', 'icon': 'bi-clock', 'text_color': 'dark'}
 
     @property
     def kyc_limit_usd(self):
-        """Límite USD según tipo de documento."""
+        """
+        Límite USD según tipo de documento: RUC → 30,000 USD, DNI/CE → 10,000 USD.
+
+        NOTA — Discrepancia documentada (decisión pendiente):
+        El campo max_amount_without_docs existe en el modelo y puede ser poblado por
+        _auto_crear_cliente con valores distintos (p.ej. 50,000 para RUC).
+        No se usa aquí para evitar elevar el límite efectivo sin autorización explícita
+        de negocio. Pendiente: revisar qué valores escribe _auto_crear_cliente y
+        decidir si max_amount_without_docs debe tener precedencia sobre este valor.
+        """
         return 30000 if self.document_type == 'RUC' else 10000
 
     def increment_operations_without_docs(self):

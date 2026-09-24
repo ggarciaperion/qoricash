@@ -54,6 +54,107 @@ def _notificar_admins_email(asunto, cuerpo_texto):
         log.warning(f'[WaBot] No se pudo preparar email de alerta: {e}')
 
 
+def _download_wa_media_to_cloudinary(media_id, client_id):
+    """
+    Descarga un archivo media de Meta y lo sube a Cloudinary (llamada síncrona).
+
+    Flujo:
+      1. GET https://graph.facebook.com/v19.0/{media_id}  → obtener URL de descarga
+      2. GET dl_url                                         → descargar bytes
+      3. cloudinary.uploader.upload(bytes, resource_type='auto', type='authenticated')
+      4. Construye URL firmada permanente con el resource_type REAL del proveedor.
+         'url'        → campos *_url del cliente (URL firmada, sin firma de tiempo → permanente).
+         'media_path' → JSON con public_id + resource_type + delivery_type, para el proxy CRM.
+                        El proxy usa resource_type real al generar la URL firmada de entrega.
+
+    Returns:
+        dict: {'url', 'public_id', 'resource_type', 'media_path'} si todos los pasos tienen éxito.
+        None: si cualquier paso falla (se registra un warning).
+    """
+    try:
+        import cloudinary.uploader
+
+        # Paso 1: URL de descarga de Meta
+        _meta_r = requests.get(
+            f'https://graph.facebook.com/v19.0/{media_id}',
+            headers={'Authorization': f'Bearer {WA_ACCESS_TOKEN}'},
+            timeout=10,
+        )
+        if not _meta_r.ok:
+            log.warning(f'[KYC] Meta media no disponible: {media_id} ({_meta_r.status_code})')
+            return None
+        _dl_url = _meta_r.json().get('url', '')
+        if not _dl_url:
+            return None
+
+        # Paso 2: Descargar bytes del archivo
+        _media_r = requests.get(
+            _dl_url,
+            headers={'Authorization': f'Bearer {WA_ACCESS_TOKEN}'},
+            timeout=30,
+        )
+        if not _media_r.ok:
+            log.warning(f'[KYC] Error descargando media {media_id}: {_media_r.status_code}')
+            return None
+
+        # Paso 3: Subir con resource_type='auto' (detección automática) y
+        # type='authenticated' (entrega restringida). El proveedor devuelve el
+        # resource_type real en la respuesta ('image', 'video', 'raw', …).
+        _public_id = f'kyc_wa/{client_id}/{media_id}'
+        _upload = cloudinary.uploader.upload(
+            _media_r.content,
+            public_id=_public_id,
+            resource_type='auto',
+            overwrite=False,
+            type='authenticated',
+        )
+        _cld_pub_id  = _upload.get('public_id', '')
+        _cld_res_typ = _upload.get('resource_type', 'image')   # tipo real del proveedor
+        _cld_url     = _upload.get('secure_url') or _upload.get('url', '')
+        if not _cld_pub_id:
+            log.warning(f'[KYC] Cloudinary no devolvió public_id para {media_id}')
+            return None
+
+        # Paso 4: URL firmada permanente (sin expires_at) para la ficha del cliente.
+        # Requiere que api_key/api_secret estén configurados en CLOUDINARY_URL.
+        # Si faltan credenciales, se usa secure_url (será 401 sin firma; entorno dev).
+        import json as _json_cld
+        import cloudinary.utils as _cld_utils
+        try:
+            _signed_url, _ = _cld_utils.cloudinary_url(
+                _cld_pub_id,
+                resource_type=_cld_res_typ,
+                type='authenticated',
+                sign_url=True,
+                secure=True,
+            )
+        except Exception as _sign_err:
+            log.warning(f'[KYC] No se pudo firmar URL Cloudinary: {_sign_err}')
+            _signed_url = _cld_url
+
+        # Metadatos para el proxy del chat (crm.py): resource_type real, no 'auto'.
+        _media_path = _json_cld.dumps({
+            'public_id':     _cld_pub_id,
+            'resource_type': _cld_res_typ,
+            'delivery_type': 'authenticated',
+        })
+
+        log.info(
+            f'[KYC] media_id={media_id} persistido en Cloudinary '
+            f'client={client_id} resource_type={_cld_res_typ}'
+        )
+        return {
+            'url':           _signed_url or _cld_url,  # URL firmada para ficha cliente
+            'public_id':     _cld_pub_id,
+            'resource_type': _cld_res_typ,
+            'media_path':    _media_path,               # JSON para proxy firmado del chat
+        }
+
+    except Exception as _e_cld:
+        log.warning(f'[KYC] Error en _download_wa_media_to_cloudinary {media_id}: {_e_cld}')
+        return None
+
+
 def _notificar_admins_wa(mensaje):
     """
     Envía alerta WA a todos los números de administración.
@@ -462,7 +563,7 @@ def send_list(numero, body, sections):
             'type': 'list',
             'body': {'text': body},
             'action': {
-                'button': 'Ver opciones',
+                'button': 'Continuar',
                 'sections': sections,
             }
         }
@@ -1235,7 +1336,7 @@ def _flujo_mostrar_cotizacion(numero, session):
         'rows': [
             {'id': f'btn_aceptar_cotiz_{_token}', 'title': 'Aceptar cotización'},
             {'id': 'btn_cambiar_monto',            'title': 'Cambiar monto'},
-            {'id': 'btn_cambiar_operacion',        'title': 'Cambiar operación'},
+            {'id': 'btn_cambiar_operacion',        'title': 'Cambiar tipo de operación'},
             {'id': 'btn_cancelar_cotiz',           'title': 'Cancelar cotización'},
             {'id': 'btn_asesor',                   'title': 'Hablar con asesor'},
         ]
@@ -1362,34 +1463,39 @@ def _ultimo_saliente_fue_op_completada(numero):
 
 def _flujo_cotiz_aceptada(numero, session):
     """
-    Flujo post-aceptación: identifica al cliente o solicita documento directamente.
-    No muestra '¿Ya eres cliente?'; continúa según lo que ya se conoce.
+    Flujo post-aceptación: presenta siempre los perfiles disponibles + 'Usar otro documento'.
+    No crea la operación directamente — deja que el cliente confirme el titular.
     """
     log.info(f'[WaBot] {numero} aceptó cotización: {session.cotiz_op} USD {session.cotiz_importe} a S/ {session.cotiz_tc}')
-    # P1 — doc ya en sesión
+    # P1 — doc ya en sesión → ofrecer ese perfil + opción de usar otro documento
     if session.cotiz_doc:
         _client_ca = _buscar_cliente(session.cotiz_doc)
         if _client_ca and _client_ca.status == 'Activo':
-            _moneda_ca = 'USD' if session.cotiz_op == 'compra' else 'PEN'
-            _cuentas_ca = _cuentas_cliente_por_moneda(_client_ca, _moneda_ca)
-            if _cuentas_ca:
-                _seleccionar_cuenta_y_continuar(numero, session, _client_ca, _cuentas_ca, _moneda_ca)
-            else:
-                _flujo_pedir_cuenta_destino(numero, _moneda_ca)
-                session.estado = 'esperando_cuenta_destino'
+            _nombre_ca = (_client_ca.full_name or _client_ca.razon_social or session.cotiz_doc or '').strip()
+            _label_ca  = _nombre_ca[:20] if _nombre_ca else session.cotiz_doc
+            send_buttons(numero,
+                '¿A nombre de quién realizarás este cambio?',
+                [
+                    {'id': f'btn_titular_{_client_ca.dni}', 'title': _label_ca or 'Mi cuenta'},
+                    {'id': 'btn_usar_otro_doc',             'title': '🔄 Usar otro documento'},
+                ]
+            )
+            session.estado = 'eligiendo_titular'
             return
     # P2 — phone lookup
     _clientes_ca = _buscar_clientes_por_telefono(numero)
     if len(_clientes_ca) == 1 and _clientes_ca[0].status == 'Activo':
         _c_ca = _clientes_ca[0]
-        session.cotiz_doc = _c_ca.dni
-        _moneda_ca = 'USD' if session.cotiz_op == 'compra' else 'PEN'
-        _cuentas_ca = _cuentas_cliente_por_moneda(_c_ca, _moneda_ca)
-        if _cuentas_ca:
-            _seleccionar_cuenta_y_continuar(numero, session, _c_ca, _cuentas_ca, _moneda_ca)
-        else:
-            _flujo_pedir_cuenta_destino(numero, _moneda_ca)
-            session.estado = 'esperando_cuenta_destino'
+        _nombre_ca = (_c_ca.full_name or _c_ca.razon_social or '').strip()
+        _label_ca  = _nombre_ca[:20] if _nombre_ca else _c_ca.dni
+        send_buttons(numero,
+            '¿A nombre de quién realizarás este cambio?',
+            [
+                {'id': f'btn_titular_{_c_ca.dni}', 'title': _label_ca or 'Mi cuenta'},
+                {'id': 'btn_usar_otro_doc',        'title': '🔄 Usar otro documento'},
+            ]
+        )
+        session.estado = 'eligiendo_titular'
         return
     elif len(_clientes_ca) > 1:
         _flujo_elegir_cliente_telefono(numero, _clientes_ca)
@@ -1489,9 +1595,12 @@ def _auto_crear_cliente(doc, nombre, es_empresa, phone_numero, email=None):
 
     placeholder_email = email if email else f'{doc}@bot.qoricash.pe'
 
+    _doc_norm = doc.strip()
+    _es_ce = (not es_empresa and len(_doc_norm) == 9)  # CE: 9 dígitos, no empresa
+
     client = Client()
-    client.document_type = 'RUC' if es_empresa else 'DNI'
-    client.dni    = doc
+    client.document_type = 'RUC' if es_empresa else ('CE' if _es_ce else 'DNI')
+    client.dni    = _doc_norm
     client.email  = placeholder_email
     client.phone  = local
     client.status = 'Activo'
@@ -1502,15 +1611,20 @@ def _auto_crear_cliente(doc, nombre, es_empresa, phone_numero, email=None):
 
     if es_empresa:
         client.razon_social = nombre
+    elif _es_ce:
+        # CE: sin API de consulta — guardar nombre declarado íntegro.
+        # Apellidos quedan NULL (campos nullable); back office normaliza.
+        client.nombres = nombre
     else:
+        # DNI: RENIEC devuelve "AP_PAT AP_MAT NOMBRES..."
         parts = nombre.split()
         if len(parts) >= 3:
-            client.nombres           = ' '.join(parts[:-2])
-            client.apellido_paterno  = parts[-2]
-            client.apellido_materno  = parts[-1]
+            client.apellido_paterno = parts[0]
+            client.apellido_materno = parts[1]
+            client.nombres          = ' '.join(parts[2:])
         elif len(parts) == 2:
-            client.nombres          = parts[0]
-            client.apellido_paterno = parts[1]
+            client.apellido_paterno = parts[0]
+            client.nombres          = parts[1]
         else:
             client.nombres = nombre
 
@@ -1617,7 +1731,7 @@ def _flujo_op_ya_activa(numero, op):
     estado_texto = 'pendiente de pago' if op.status == 'Pendiente' else 'siendo procesada'
     botones = [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
     if op.status == 'Pendiente':
-        botones.append({'id': 'btn_modificar_importe',                      'title': '✏️ Modificar importe'})
+        botones.append({'id': f'btn_modificar_importe_{op.operation_id}',   'title': '✏️ Modificar importe'})
         botones.append({'id': f'btn_cancelar_operacion_{op.operation_id}', 'title': '❌ Cancelar operación'})
     send_buttons(numero,
         f'⏳ Tu operación *{op.operation_id}* está {estado_texto}.\n\n'
@@ -1647,19 +1761,43 @@ def _buscar_clientes_por_telefono(numero):
         return []
 
 
+def _buscar_cliente_por_tel_cualquier_kyc(numero):
+    """
+    Busca el cliente registrado con ese teléfono, sin filtrar por kyc_status.
+    Si hay múltiples clientes con el mismo teléfono (compartido entre titular personal
+    y empresa, p.ej.), retorna None para evitar asignar el documento al titular incorrecto.
+    """
+    try:
+        from app.models.client import Client
+        digits = re.sub(r'\D', '', numero)
+        local = digits[-9:] if len(digits) >= 9 else digits
+        if not local:
+            return None
+        results = Client.query.filter(Client.phone.ilike(f'%{local}%')).all()
+        if len(results) == 1:
+            return results[0]
+        # Cero o múltiples clientes: ambigüo — no auto-asignar documento
+        return None
+    except Exception as e:
+        log.warning(f'[WaBot] Error buscando cliente (any KYC) por tel {numero}: {e}')
+        return None
+
+
 def _flujo_elegir_cliente_telefono(numero, clientes):
     """
     Cuando un número de WA tiene múltiples cuentas aprobadas (ej: personal + empresa),
     muestra botones para que el usuario elija con cuál operar.
+    Incluye siempre "Usar otro documento" para que pueda operar en nombre de terceros.
     """
     botones = []
     for c in clientes[:2]:
         nombre = (c.full_name or c.razon_social or c.dni or 'Cliente').strip()
         titulo = nombre[:20]
         botones.append({'id': f'btn_cliente_{c.dni}', 'title': titulo})
-    botones.append({'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'})
+    botones.append({'id': 'btn_usar_otro_doc',  'title': '🔄 Usar otro documento'})
+    botones.append({'id': 'btn_volver_inicio',  'title': '🔙 Volver al inicio'})
     send_buttons(numero,
-        '¿Con cuál de tus cuentas deseas realizar la operación?',
+        '¿A nombre de quién realizarás este cambio?',
         botones
     )
 
@@ -1802,7 +1940,7 @@ def _flujo_op_creada(numero, op, session, client):
     )
     return send_buttons_image(numero, OP_BANNER_URL, msg, [
         {'id': 'btn_ya_transferi',                             'title': '✅ Ya transferí'},
-        {'id': 'btn_modificar_importe',                        'title': '✏️ Cambiar monto'},
+        {'id': f'btn_modificar_importe_{op.operation_id}',     'title': '✏️ Cambiar monto'},
         {'id': f'btn_cancelar_operacion_{op.operation_id}',    'title': '❌ Cancelar operación'},
     ])
 
@@ -2051,11 +2189,33 @@ def _flujo_resumen_final(numero, session, client, regenerar_token=True):
 
 def _seleccionar_cuenta_y_continuar(numero, session, client, cuentas, moneda):
     """
-    Enruta a la cuenta de destino según cuántas haya disponibles:
-    - 1 cuenta: la pre-selecciona y muestra el resumen final.
-    - Varias:   muestra los botones de elección.
-    El llamador no debe asignar session.estado después de esta función.
+    Enruta a la cuenta de destino según cuántas haya disponibles.
+    Verifica límites KYC antes de mostrar el resumen.
     """
+    # KYC check: verificar si el cliente puede crear esta operación
+    try:
+        _kyc_ok, _kyc_msg = client.can_create_operation(float(session.cotiz_importe or 0))
+        if not _kyc_ok:
+            send_buttons(numero,
+                f'⚠️ *Límite operativo alcanzado*\n\n{_kyc_msg}\n\n'
+                'Habla con un asesor para completar tu verificación de identidad.',
+                [
+                    {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                    {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
+                ]
+            )
+            session.estado = 'inicio'
+            return
+        # Aviso preventivo: última operación permitida sin docs
+        _ops_count = client.operations_without_docs_count or 0
+        if not client.has_complete_documents and _ops_count == 1:
+            send_text(numero,
+                '⚠️ _Esta es tu última operación sin verificación de identidad. '
+                'Después necesitarás subir tu documento para seguir operando._'
+            )
+    except Exception as _kyc_err:
+        log.warning(f'[WaBot] Error en KYC check {numero}: {_kyc_err}')
+
     if len(cuentas) == 1:
         acct = cuentas[0]
         banco   = acct.get('bank_name', '')
@@ -2144,6 +2304,58 @@ def _crear_op_y_confirmar(numero, session, client, confirm_token=None):
             )
             db.session.commit()
             return
+
+        # ── KYC3 — Re-verificar límites bajo el lock (previene race condition) ──
+        # Adquirir bloqueo de fila en el cliente para serializar creaciones concurrentes
+        try:
+            from app.models.client import Client as _ClientLock
+            _ClientLock.query.filter_by(id=client.id).with_for_update().first()
+            db.session.expire(client)
+        except Exception as _cl_lock_err:
+            log.warning(f'[WaBot] No se pudo bloquear fila cliente {numero}: {_cl_lock_err}')
+        try:
+            _kyc_ok3, _kyc_msg3 = client.can_create_operation(float(session.cotiz_importe or 0))
+            if not _kyc_ok3:
+                send_buttons(numero,
+                    f'⚠️ *Límite operativo alcanzado*\n\n{_kyc_msg3}\n\n'
+                    'Habla con un asesor para completar tu verificación de identidad.',
+                    [
+                        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                        {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
+                    ]
+                )
+                session.estado = 'inicio'
+                db.session.commit()
+                return
+        except Exception as _kyc3_err:
+            log.warning(f'[WaBot] KYC3 check error {numero}: {_kyc3_err}')
+
+        # ── CV3 — Revalidar cuenta de destino antes de crear la operación ──
+        _cuenta_val     = session.cotiz_cuenta or ''
+        _num_cuenta_val = _cuenta_val.split('|', 1)[1] if '|' in _cuenta_val else _cuenta_val
+        _accts_val      = getattr(client, 'bank_accounts', None) or []
+        if _num_cuenta_val and _accts_val:
+            _cuenta_valida = any(
+                a.get('account_number') == _num_cuenta_val
+                for a in _accts_val
+            )
+            if not _cuenta_valida:
+                log.warning(
+                    f'[WaBot] CV3: cuenta {_num_cuenta_val} no en perfil '
+                    f'cliente {client.id} ({numero}) — rechazando operación'
+                )
+                send_buttons(numero,
+                    '⚠️ La cuenta de destino ya no está disponible. '
+                    'Por favor elige de nuevo.',
+                    [
+                        {'id': 'btn_cotizar', 'title': '🔄 Cotizar de nuevo'},
+                        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                    ]
+                )
+                session.cotiz_cuenta = ''
+                session.estado = 'inicio'
+                db.session.commit()
+                return
 
         # ── Crear operación y actualizar sesión ──
         op = _crear_operacion(session, client)
@@ -2467,13 +2679,18 @@ def _get_anthropic_client():
         return None
 
 
-def _historial_ia(numero, limite=12, wa_id=None):
+def _historial_ia(numero, limite=12, wa_id=None, history_since=None):
     """
     Retorna (filtered, current_in_history) donde:
     - filtered: lista de dicts {'role': 'user'|'assistant', 'content': str}
       listos para la API de Anthropic.
     - current_in_history: True si el mensaje identificado por wa_id fue encontrado
       en la ventana devuelta.
+
+    history_since: datetime opcional. Si se proporciona, solo se incluyen mensajes
+      cuyo created_at >= history_since.  Usado para acotar el contexto de IA al
+      ciclo vigente de sesión y evitar que instrucciones de sesiones expiradas
+      dirijan la nueva conversación.
 
     Los mensajes consecutivos del mismo rol se CONCATENAN (separados por '---')
     para preservar todo el contenido. Ejemplo: si el cliente envió tres mensajes
@@ -2502,6 +2719,10 @@ def _historial_ia(numero, limite=12, wa_id=None):
                           .first())
 
         q = WaMessage.query.filter_by(numero=numero)
+        if history_since is not None:
+            # Acotar al ciclo vigente: excluir mensajes de sesiones anteriores.
+            # history_since = session.session_started_at, establecido al expirar.
+            q = q.filter(WaMessage.created_at >= history_since)
         if current_db is not None:
             # Solo mensajes hasta el registro actual (inclusive).
             # Usa id como desempate cuando dos mensajes tienen el mismo created_at.
@@ -2587,6 +2808,7 @@ def _construir_contexto_sesion(numero, session):
         'confirmando_operacion':     'resumen de operación mostrado; cliente debe confirmar o cambiar cuenta',
         'op_pendiente_pago':         'operación creada; cliente debe realizar la transferencia bancaria',
         'esperando_codigo_op':       'cliente debe ingresar el código de su voucher bancario',
+        'esperando_referencia_yt':   'cliente debe escribir el número de operación (ej: EXP-001) para localizar su transferencia',
         'esperando_nuevo_importe':   'cliente puede modificar el importe de la operación pendiente',
         'eligiendo_tipo':            'registro: eligiendo tipo de cuenta (persona natural / empresa)',
         'esperando_numero_doc':      'registro: ingresando DNI o RUC',
@@ -2762,6 +2984,7 @@ def _construir_contexto_sesion(numero, session):
         'confirmando_operacion':   'cliente debe pulsar "Confirmar cambio" o "Cambiar cuenta" en el resumen',
         'op_pendiente_pago':       'cliente debe realizar la transferencia y pulsar "Ya transferí"',
         'esperando_codigo_op':     'cliente debe ingresar el código de su voucher bancario',
+        'esperando_referencia_yt': 'cliente debe escribir el número de operación (ej: EXP-001) para localizar su transferencia',
         'esperando_nuevo_importe': 'cliente puede modificar el monto escribiendo el nuevo importe en USD',
         'esperando_id_cotizar':    'cliente debe ingresar su DNI (8), CE (9) o RUC (11 dígitos)',
         'esperando_email_cotizar': 'cliente debe ingresar su correo electrónico',
@@ -2878,7 +3101,10 @@ def _respuesta_ia(texto_usuario, numero, session, wa_id=''):
         # _historial_ia preserva todos los mensajes (concatena consecutivos del mismo rol)
         # y devuelve un flag indicando si el mensaje actual (por wa_id) fue encontrado.
         # El wa_id se usa para acotar el techo temporal y garantizar un orden determinista.
-        historia, current_in_history = _historial_ia(numero, wa_id=wa_id)
+        # session_started_at acota el historial al ciclo vigente: mensajes de sesiones
+        # expiradas no deben influir en la interpretación de la nueva conversación.
+        _history_since = getattr(session, 'session_started_at', None)
+        historia, current_in_history = _historial_ia(numero, wa_id=wa_id, history_since=_history_since)
 
         # Garantizar que la secuencia empiece con 'user'
         while historia and historia[0]['role'] == 'assistant':
@@ -2915,6 +3141,25 @@ def _respuesta_ia(texto_usuario, numero, session, wa_id=''):
             f'[WaBot-IA] {numero} → IA respondió ({len(respuesta)} chars, '
             f'ctx={len(historia)} turnos, estado={session.estado})'
         )
+
+        # Guardia de ciclo: verificar que la sesión no fue reiniciada por el scheduler
+        # mientras la IA computaba (puede tardar 2-5 s). Si session_started_at cambió
+        # durante ese tiempo, la respuesta fue generada con contexto del ciclo anterior
+        # y no debe enviarse al usuario.
+        try:
+            _fresh_ssa = WaBotSession.query.filter_by(numero=numero).with_entities(
+                WaBotSession.session_started_at
+            ).scalar()
+            _orig_ssa = getattr(session, 'session_started_at', None)
+            if _fresh_ssa != _orig_ssa:
+                log.info(
+                    f'[WaBot-IA] {numero} — session_started_at cambió mientras IA computaba '
+                    f'({_orig_ssa} → {_fresh_ssa}); descartando respuesta del ciclo vencido.'
+                )
+                return None
+        except Exception as _ssa_chk_err:
+            log.warning(f'[WaBot-IA] No se pudo verificar drift de sesión: {_ssa_chk_err}')
+
         return respuesta
 
     except Exception as e:
@@ -3066,6 +3311,12 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
             else:
                 log.info(f'[WaBot] {numero} — sesión inactiva ({estado}), reiniciando.')
                 _reset_sesion(session)
+                # Marcar inicio del nuevo ciclo: igual que el scheduler
+                try:
+                    from app.utils.formatters import now_peru as _now_inb
+                    session.session_started_at = _now_inb()
+                except Exception:
+                    pass
                 db.session.commit()
                 estado = 'inicio'
 
@@ -3194,7 +3445,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 doc_sel = btn_id[len('btn_bienvenida_'):]
                 client_sel = _buscar_cliente(doc_sel)
                 if client_sel and (client_sel.kyc_status or '').lower() in ('completo', 'aprobado'):
-                    session.cotiz_doc = doc_sel
+                    session.cotiz_doc    = doc_sel
+                    session.cotiz_cuenta = ''  # limpiar cuenta del perfil anterior
                     nombre_db = (client_sel.nombres or client_sel.razon_social or '').strip()
                     session.nombre = nombre_db
                     primer_nombre = nombre_db.split()[0].title() if nombre_db else ''
@@ -3209,10 +3461,11 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     )
                     session.estado = 'inicio'
 
-            elif btn_id.startswith('btn_cliente_') and estado == 'eligiendo_cliente_telefono':
+            elif btn_id.startswith('btn_cliente_') and estado in ('eligiendo_cliente_telefono', 'eligiendo_titular'):
                 # P2 — Cliente eligió con qué cuenta operar (múltiples cuentas en mismo teléfono)
                 doc_sel = btn_id[len('btn_cliente_'):]
-                session.cotiz_doc = doc_sel
+                session.cotiz_doc    = doc_sel
+                session.cotiz_cuenta = ''  # limpiar cuenta del perfil anterior
                 client_sel = _buscar_cliente(doc_sel)
                 if client_sel and (client_sel.kyc_status or '').lower() in ('completo', 'aprobado'):
                     moneda_sel = 'USD' if session.cotiz_op == 'compra' else 'PEN'
@@ -3227,19 +3480,81 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     _flujo_pedir_doc_verificacion(numero)
                     session.estado = 'esperando_doc'
 
+            elif btn_id.startswith('btn_titular_') and estado == 'eligiendo_titular':
+                # Cliente confirma con qué perfil opera (mostrado en _flujo_cotiz_aceptada P1/P2)
+                doc_sel = btn_id[len('btn_titular_'):]
+                session.cotiz_doc    = doc_sel
+                session.cotiz_cuenta = ''  # limpiar cuenta del perfil anterior
+                client_sel = _buscar_cliente(doc_sel)
+                if client_sel and client_sel.status == 'Activo':
+                    moneda_sel = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                    cuentas_sel = _cuentas_cliente_por_moneda(client_sel, moneda_sel)
+                    if cuentas_sel:
+                        _seleccionar_cuenta_y_continuar(numero, session, client_sel, cuentas_sel, moneda_sel)
+                    else:
+                        _flujo_pedir_cuenta_destino(numero, moneda_sel)
+                        session.estado = 'esperando_cuenta_destino'
+                else:
+                    send_buttons(numero,
+                        '⚠️ No encontramos esa cuenta activa. Ingresa tu documento manualmente.',
+                        [
+                            {'id': 'btn_usar_otro_doc', 'title': '🔄 Usar otro documento'},
+                            {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
+                        ]
+                    )
+                    session.estado = 'esperando_id_cotizar'
+
+            elif btn_id == 'btn_usar_otro_doc':
+                # Cliente quiere usar un documento diferente al identificado automáticamente.
+                # Limpia el perfil de sesión sin tocar datos del CRM.
+                session.cotiz_doc    = ''
+                session.cotiz_cuenta = ''
+                session.nombre       = ''
+                send_buttons(numero,
+                    'Ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).\n\n'
+                    'Si tienes Carné de Extranjería, elige CE 👇',
+                    [
+                        {'id': 'btn_tengo_ce',      'title': '🌍 Tengo CE'},
+                        {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
+                    ]
+                )
+                session.estado = 'esperando_id_cotizar'
+
             elif btn_id.startswith('btn_cuenta_') and estado == 'eligiendo_cuenta_destino':
                 num_ctd = btn_id[len('btn_cuenta_'):]
                 client = _buscar_cliente(session.cotiz_doc)
                 if client:
-                    # Resolver banco desde el perfil del cliente para el resumen
-                    banco_ctd = ''
+                    # Verificar que la cuenta pertenece al titular y validar moneda
+                    banco_ctd  = ''
+                    _acct_match = None
                     for _acct in (getattr(client, 'bank_accounts', None) or []):
                         if _acct.get('account_number') == num_ctd:
-                            banco_ctd = _acct.get('bank_name', '')
+                            banco_ctd   = _acct.get('bank_name', '')
+                            _acct_match = _acct
                             break
-                    session.cotiz_cuenta = f'{banco_ctd}|{num_ctd}' if banco_ctd else num_ctd
-                    _flujo_resumen_final(numero, session, client)
-                    session.estado = 'confirmando_operacion'
+                    if not _acct_match:
+                        # Cuenta no registrada a nombre del titular: botón de otro contexto
+                        send_buttons(numero,
+                            '⚠️ Esa cuenta no está registrada a tu nombre.\n\n'
+                            '¿Quieres usar otra cuenta?',
+                            [{'id': 'btn_otra_cuenta', 'title': '🏦 Otra cuenta'}]
+                        )
+                    else:
+                        # Validar moneda: la cuenta debe aceptar la divisa de la operación
+                        moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                        _raw_cur = (_acct_match.get('currency') or '').strip()
+                        _acct_cur = _raw_cur.replace('$', 'USD').replace('S/', 'PEN').upper()
+                        if _acct_cur and _acct_cur != moneda_recibe:
+                            send_buttons(numero,
+                                f'⚠️ Esa cuenta está en {_raw_cur or _acct_cur} '
+                                f'pero necesitas recibir en {moneda_recibe}.\n\n'
+                                '¿Tienes otra cuenta?',
+                                [{'id': 'btn_otra_cuenta', 'title': '🏦 Otra cuenta'}]
+                            )
+                        else:
+                            session.cotiz_cuenta = f'{banco_ctd}|{num_ctd}'
+                            _flujo_resumen_final(numero, session, client)
+                            session.estado = 'confirmando_operacion'
                 else:
                     send_text(numero, '⚠️ Error de sesión. Contacta a un asesor: *+51 910 624 404*')
                     session.estado = 'inicio'
@@ -3251,23 +3566,140 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
 
             elif btn_id == 'btn_ya_transferi':
                 from app.models.operation import Operation as _OpYT
-                _op_yt = _OpYT.query.filter_by(operation_id=session.cotiz_op_id).first() if session.cotiz_op_id else None
-                if _op_yt:
-                    _moneda_yt = 'PEN' if session.cotiz_op == 'compra' else 'USD'
+                _op_yt          = None
+                _yt_ambiguous   = False  # True → múltiples ops, no elegir ninguna
+                _yt_status_info = None   # (op_id, status) cuando P1 halla op no-Pendiente
+
+                # P1 — op referenciada en sesión actual
+                if session.cotiz_op_id:
+                    _op_yt = _OpYT.query.filter_by(operation_id=session.cotiz_op_id).first()
+                    # Si la op existe pero ya no está Pendiente, dar respuesta útil sin reactivar
+                    if _op_yt and _op_yt.status != 'Pendiente':
+                        _yt_status_info = (_op_yt.operation_id, _op_yt.status)
+                        _op_yt = None
+                    # Verificar que pertenece al titular de la sesión (previene cross-op)
+                    if _op_yt and session.cotiz_doc:
+                        _client_yt_ses = _buscar_cliente(session.cotiz_doc)
+                        if _client_yt_ses and _op_yt.client_id != _client_yt_ses.id:
+                            log.warning(
+                                f'[WaBot] btn_ya_transferi: op {session.cotiz_op_id} '
+                                f'no pertenece al titular {session.cotiz_doc}'
+                            )
+                            _op_yt = None
+
+                # P2 — fallback solo cuando sesión expiró y hay titular conocido
+                if not _op_yt and session.cotiz_doc:
+                    _client_yt_fb = _buscar_cliente(session.cotiz_doc)
+                    if _client_yt_fb:
+                        _fb_ops = _OpYT.query.filter(
+                            _OpYT.client_id == _client_yt_fb.id,
+                            _OpYT.status == 'Pendiente',
+                        ).order_by(_OpYT.created_at.desc()).all()
+                        if len(_fb_ops) == 1:
+                            # Única op Pendiente del titular → sin ambigüedad
+                            _op_yt = _fb_ops[0]
+                            session.cotiz_op_id = _op_yt.operation_id
+                            if not session.cotiz_op and hasattr(_op_yt, 'operation_type'):
+                                session.cotiz_op = (
+                                    _op_yt.operation_type.lower()
+                                    if _op_yt.operation_type else 'venta'
+                                )
+                        elif len(_fb_ops) > 1:
+                            _yt_ambiguous = True  # múltiples ops → pedir referencia
+
+                # P3 — fallback sin titular: buscar en TODOS los clientes del teléfono
+                #      Solo si hay exactamente una op Pendiente en total (sin ambigüedad)
+                if not _op_yt and not _yt_ambiguous and not session.cotiz_doc:
+                    try:
+                        from app.models.client import Client as _ClientYT
+                        _digits_yt  = re.sub(r'\D', '', numero)
+                        _local_yt   = _digits_yt[-9:] if len(_digits_yt) >= 9 else _digits_yt
+                        _clients_yt = (
+                            _ClientYT.query.filter(
+                                _ClientYT.phone.ilike(f'%{_local_yt}%')
+                            ).all() if _local_yt else []
+                        )
+                        _all_pending_yt = []
+                        for _c_yt in _clients_yt:
+                            _pending_yt = _OpYT.query.filter(
+                                _OpYT.client_id == _c_yt.id,
+                                _OpYT.status == 'Pendiente',
+                            ).all()
+                            _all_pending_yt.extend(_pending_yt)
+                        if len(_all_pending_yt) == 1:
+                            _op_yt = _all_pending_yt[0]
+                            session.cotiz_op_id = _op_yt.operation_id
+                            if not session.cotiz_op and hasattr(_op_yt, 'operation_type'):
+                                session.cotiz_op = (
+                                    _op_yt.operation_type.lower()
+                                    if _op_yt.operation_type else 'venta'
+                                )
+                        elif len(_all_pending_yt) > 1:
+                            _yt_ambiguous = True
+                    except Exception as _yt_p3_err:
+                        log.warning(f'[WaBot] btn_ya_transferi P3 error {numero}: {_yt_p3_err}')
+
+                # Responder según resultado
+                if _yt_ambiguous:
+                    # No elegir arbitrariamente — pedir número de operación por texto.
+                    # Estado dedicado: evita que el IA procese el texto como mensaje libre
+                    # y garantiza que la referencia sea validada antes de proceder.
+                    send_buttons(numero,
+                        '⚠️ Encontramos varias operaciones pendientes asociadas a tu número.\n\n'
+                        'Para registrar tu transferencia, escríbenos el *número de operación* '
+                        '(ejemplo: *EXP-001*) que aparece en tu confirmación de cotización, '
+                        'o habla con un asesor.',
+                        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                    )
+                    session.estado = 'esperando_referencia_yt'
+                elif _op_yt:
+                    _moneda_yt  = 'PEN' if session.cotiz_op == 'compra' else 'USD'
                     _simbolo_yt = 'S/' if _moneda_yt == 'PEN' else 'USD'
-                    _monto_yt = float(_op_yt.amount_pen) if _moneda_yt == 'PEN' else float(_op_yt.amount_usd)
+                    _monto_yt   = float(_op_yt.amount_pen) if _moneda_yt == 'PEN' else float(_op_yt.amount_usd)
                     _detalle_yt = f'📋 *{_op_yt.operation_id}* · {_simbolo_yt} {_monto_yt:,.2f}\n\n'
+                    send_buttons(numero,
+                        f'🔢 *¿Cuál es el código de tu transferencia?*\n\n'
+                        f'{_detalle_yt}'
+                        'Encuéntralo en tu constancia bancaria como '
+                        '"N° de operación", "referencia" o "código de transacción".\n\n'
+                        'Ejemplo: 12345678',
+                        [{'id': f'btn_modificar_importe_{_op_yt.operation_id}', 'title': '🔙 Volver atrás'}]
+                    )
+                    session.estado = 'esperando_codigo_op'
+                elif _yt_status_info:
+                    # P1 halló la op referenciada en sesión pero ya no es Pendiente:
+                    # responder según estado real sin duplicar ni reactivar la operación.
+                    _yt_op_id_s, _yt_st_s = _yt_status_info
+                    if _yt_st_s == 'En proceso':
+                        send_text(numero,
+                            f'✅ Tu operación *{_yt_op_id_s}* ya está *en proceso*.\n\n'
+                            'Nuestro equipo la está atendiendo. Te avisaremos cuando esté completada.')
+                    elif _yt_st_s == 'Completada':
+                        send_buttons(numero,
+                            f'✅ La operación *{_yt_op_id_s}* ya fue *procesada exitosamente*.\n\n'
+                            '¿Deseas realizar una nueva operación?',
+                            [{'id': 'btn_cotizar', 'title': '💱 Nueva cotización'}]
+                        )
+                    else:
+                        send_buttons(numero,
+                            f'ℹ️ La operación *{_yt_op_id_s}* tiene estado *{_yt_st_s}* '
+                            'y ya no puede recibir pagos.\n\n¿Deseas cotizar de nuevo?',
+                            [
+                                {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
+                                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                            ]
+                        )
+                    session.estado = 'inicio'
                 else:
-                    _detalle_yt = ''
-                send_buttons(numero,
-                    f'🔢 *¿Cuál es el código de tu transferencia?*\n\n'
-                    f'{_detalle_yt}'
-                    'Encuéntralo en tu constancia bancaria como '
-                    '"N° de operación", "referencia" o "código de transacción".\n\n'
-                    'Ejemplo: 12345678',
-                    [{'id': 'btn_modificar_importe', 'title': '🔙 Volver atrás'}]
-                )
-                session.estado = 'esperando_codigo_op'
+                    send_buttons(numero,
+                        '⚠️ No encontramos una operación pendiente de pago.\n\n'
+                        'Si acabas de transferir, dinos tu código de voucher o habla con un asesor.',
+                        [
+                            {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
+                            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                        ]
+                    )
+                    session.estado = 'inicio'
 
             elif btn_id.startswith('btn_cancelar_operacion'):
                 from app.models.operation import Operation as _OpCancel
@@ -3412,8 +3844,25 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             )
                             _reset_sesion(session)
 
-            elif btn_id == 'btn_modificar_importe':
-                _flujo_modificar_importe(numero, session)
+            elif btn_id.startswith('btn_modificar_importe'):
+                # Validar que el botón corresponde a la operación activa de esta sesión.
+                # Formato nuevo: btn_modificar_importe_OPID (embed en generación).
+                # Botones sin op_id embebido o con op_id diferente al de la sesión
+                # son de un ciclo anterior: se rechazan sin tocar ningún estado.
+                _pfx_mod = 'btn_modificar_importe_'
+                _embedded_mod_op = btn_id[len(_pfx_mod):] if btn_id.startswith(_pfx_mod) else ''
+                _session_op_id   = session.cotiz_op_id or ''
+                if not _embedded_mod_op or _embedded_mod_op != _session_op_id:
+                    send_buttons(numero,
+                        '⏱️ Ese botón ya no corresponde a ninguna operación activa.\n\n'
+                        '¿Qué quieres hacer?',
+                        [
+                            {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                        ]
+                    )
+                else:
+                    _flujo_modificar_importe(numero, session)
 
             elif btn_id == 'btn_tengo_cuenta':
                 _flujo_pedir_doc_verificacion(numero)
@@ -3676,9 +4125,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
 
             elif btn_id == 'btn_tengo_ce':
                 send_text(numero,
-                    '🌍 Envíanos los *9 dígitos de tu CE* y tus *nombres y apellidos* '
+                    '🌍 Envíanos los *9 dígitos de tu CE* y tus *nombres y apellidos completos* '
                     'tal como aparecen en el documento.\n\n'
-                    'Puedes enviarnos ambos datos juntos o por separado.\n'
+                    'Puedes enviarnos ambos juntos o por separado.\n'
                     'Ejemplo: *123456789 Juan Pérez García*'
                 )
                 session.estado = 'esperando_ce_numero'
@@ -4060,11 +4509,12 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     )
 
             elif estado == 'esperando_ce_numero':
-                # Acepta CE solo, nombre solo, o ambos en un mismo mensaje.
+                # Acepta CE solo, nombre solo, o ambos en un mismo mensaje (cualquier orden).
                 ce_raw = re.sub(r'\D', '', texto.strip())
-                # Intentar extraer nombre: letras y espacios que quedan tras retirar los dígitos
+                # Extraer nombre: letras y espacios que quedan tras retirar los dígitos
                 _nombre_ce_parte = re.sub(r'\d+', '', texto).strip()
                 _nombre_ce_parte = re.sub(r'[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]', '', _nombre_ce_parte).strip()
+                _tiene_nombre = len(_nombre_ce_parte) >= 3
 
                 if any(k in texto.lower() for k in ('cancelar', 'salir', 'volver', 'no')):
                     _flujo_cotizar_inicio(numero)
@@ -4077,7 +4527,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 elif ce_raw and len(ce_raw) == 9:
                     session.cotiz_doc = ce_raw   # preservar ceros iniciales como texto
                     session.tipo = 'natural'
-                    if len(_nombre_ce_parte) >= 3:
+                    if _tiene_nombre:
                         session.nombre = _nombre_ce_parte
                         send_text(numero,
                             f'✅ CE *{ce_raw}* y nombre *{_nombre_ce_parte.title()}* recibidos.\n\n'
@@ -4088,11 +4538,18 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         send_text(numero, '✍️ Ahora ingresa tu *nombre completo* tal como aparece en el documento:')
                         session.estado = 'esperando_nombre_ce'
                 else:
-                    # Sin dígitos: podría ser el nombre enviado primero
-                    send_text(numero,
-                        '⚠️ No detectamos el número de CE.\n'
-                        'Envíanos los *9 dígitos* de tu Carné de Extranjería:'
-                    )
+                    # Solo texto (sin dígitos): guardar nombre y pedir número de CE
+                    if _tiene_nombre:
+                        session.nombre = _nombre_ce_parte
+                        send_text(numero,
+                            f'✅ Nombre *{_nombre_ce_parte.title()}* guardado.\n\n'
+                            'Ahora envíanos los *9 dígitos* de tu Carné de Extranjería:'
+                        )
+                    else:
+                        send_text(numero,
+                            '⚠️ No detectamos el número de CE.\n'
+                            'Envíanos los *9 dígitos* de tu Carné de Extranjería:'
+                        )
 
             elif estado == 'esperando_nombre_ce':
                 # Recibe nombre del titular CE
@@ -4340,6 +4797,129 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 else:
                     send_text(numero, '🔢 Ingresa el código de operación de tu voucher bancario.')
 
+            elif estado == 'esperando_referencia_yt':
+                # Cliente debe escribir el número de operación para el caso de múltiples ops.
+                # Validar: la referencia debe existir, pertenecer a este teléfono, y ser Pendiente.
+                _ref_raw = texto.strip().upper()
+                if not _ref_raw:
+                    send_text(numero,
+                        '🔢 Escribe el *número de operación* (ejemplo: *EXP-001*) '
+                        'que aparece en tu confirmación de cotización.')
+                else:
+                    try:
+                        from app.models.operation import Operation as _OpRef
+                        # Buscar por id exacto o por sufijo numérico
+                        _op_ref = _OpRef.query.filter_by(operation_id=_ref_raw).first()
+                        if not _op_ref:
+                            _digits_only = re.sub(r'\D', '', _ref_raw)
+                            if _digits_only:
+                                _op_ref = _OpRef.query.filter(
+                                    _OpRef.operation_id.like(f'%{_digits_only}')
+                                ).first()
+
+                        if not _op_ref:
+                            send_buttons(numero,
+                                f'⚠️ No encontramos la operación *{_ref_raw}*.\n\n'
+                                'Verifica el número en tu confirmación de cotización '
+                                'o habla con un asesor.',
+                                [
+                                    {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                                    {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
+                                ]
+                            )
+                            session.estado = 'inicio'
+                        else:
+                            # Verificar que la op pertenece a un cliente de este teléfono
+                            from app.models.client import Client as _ClientRef
+                            _digs_ref  = re.sub(r'\D', '', numero)
+                            _local_ref = _digs_ref[-9:] if len(_digs_ref) >= 9 else _digs_ref
+                            _clients_phone = (
+                                _ClientRef.query.filter(
+                                    _ClientRef.phone.ilike(f'%{_local_ref}%')
+                                ).all() if _local_ref else []
+                            )
+                            _authorized = any(c.id == _op_ref.client_id for c in _clients_phone)
+                            # También aceptar si el doc en sesión coincide con el titular
+                            if not _authorized and session.cotiz_doc:
+                                _c_ses = _buscar_cliente(session.cotiz_doc)
+                                if _c_ses and _c_ses.id == _op_ref.client_id:
+                                    _authorized = True
+
+                            if not _authorized:
+                                # No revelar detalles de ops ajenas
+                                send_buttons(numero,
+                                    f'⚠️ No encontramos esa operación asociada a tu número.\n\n'
+                                    'Si crees que es un error, habla con un asesor.',
+                                    [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                                )
+                                session.estado = 'inicio'
+                            elif _op_ref.status == 'Pendiente':
+                                session.cotiz_op_id = _op_ref.operation_id
+                                _mon_r  = 'PEN' if session.cotiz_op == 'compra' else 'USD'
+                                _sim_r  = 'S/' if _mon_r == 'PEN' else 'USD'
+                                _amt_r  = float(_op_ref.amount_pen) if _mon_r == 'PEN' else float(_op_ref.amount_usd)
+                                send_buttons(numero,
+                                    f'🔢 *¿Cuál es el código de tu transferencia?*\n\n'
+                                    f'📋 *{_op_ref.operation_id}* · {_sim_r} {_amt_r:,.2f}\n\n'
+                                    'Encuéntralo en tu constancia bancaria como '
+                                    '"N° de operación", "referencia" o "código de transacción".\n\n'
+                                    'Ejemplo: 12345678',
+                                    [{'id': f'btn_modificar_importe_{_op_ref.operation_id}', 'title': '🔙 Volver atrás'}]
+                                )
+                                session.estado = 'esperando_codigo_op'
+                            elif _op_ref.status == 'En proceso':
+                                send_text(numero,
+                                    f'✅ Tu operación *{_op_ref.operation_id}* ya está *en proceso*.\n\n'
+                                    'Nuestro equipo la está atendiendo. '
+                                    'Te avisaremos cuando esté completada.')
+                                session.estado = 'inicio'
+                            elif _op_ref.status == 'Completada':
+                                send_buttons(numero,
+                                    f'✅ La operación *{_op_ref.operation_id}* ya fue *procesada exitosamente*.',
+                                    [{'id': 'btn_cotizar', 'title': '💱 Nueva cotización'}]
+                                )
+                                session.estado = 'inicio'
+                            else:
+                                send_buttons(numero,
+                                    f'ℹ️ La operación *{_op_ref.operation_id}* tiene estado '
+                                    f'*{_op_ref.status}* y ya no puede recibir pagos.',
+                                    [
+                                        {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
+                                        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                                    ]
+                                )
+                                session.estado = 'inicio'
+                    except Exception as _ref_err:
+                        log.warning(f'[WaBot] esperando_referencia_yt error {numero}: {_ref_err}')
+                        send_buttons(numero,
+                            '⚠️ Tuvimos un problema verificando la referencia. '
+                            'Habla con un asesor para continuar.',
+                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                        )
+                        session.estado = 'inicio'
+
+            elif estado == 'esperando_doc_kyc_titular':
+                # Cliente con número de teléfono ambiguo (múltiples registros) debe
+                # identificarse con su DNI o RUC antes de asociar el documento enviado.
+                _doc_id_raw = texto.strip().upper()
+                if not _doc_id_raw:
+                    send_text(numero,
+                        '✏️ Por favor escribe tu número de *DNI* o *RUC* para que podamos identificarte.')
+                else:
+                    _c_kyc_id = _buscar_cliente(_doc_id_raw)
+                    if _c_kyc_id:
+                        session.cotiz_doc = _doc_id_raw
+                        send_text(numero,
+                            '✅ Identidad verificada. Por favor envía nuevamente el documento '
+                            'para que lo asociemos a tu cuenta.')
+                    else:
+                        send_buttons(numero,
+                            '⚠️ No encontramos ese número en nuestro sistema.\n\n'
+                            'Verifica que sea correcto o habla con un asesor.',
+                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                        )
+                    session.estado = 'inicio'
+
             elif estado == 'esperando_nuevo_importe':
                 nuevo_monto = _parse_monto(texto)
                 if not nuevo_monto or nuevo_monto <= 0:
@@ -4460,7 +5040,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         )
                         _enviado = send_buttons(numero, msg, [
                             {'id': 'btn_ya_transferi',                          'title': '✅ Ya transferí'},
-                            {'id': 'btn_modificar_importe',                     'title': '✏️ Modificar importe'},
+                            {'id': f'btn_modificar_importe_{op.operation_id}',  'title': '✏️ Modificar importe'},
                             {'id': f'btn_cancelar_operacion_{op.operation_id}', 'title': '❌ Cancelar'},
                         ])
                         if not _enviado:
@@ -4628,14 +5208,36 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                     log.warning(f'[WaBot] Error detectando código tardío en inicio: {_et_i}')
                                     _bienvenida(numero, session)
                             else:
-                                # Intentar respuesta con IA antes de mostrar bienvenida genérica
-                                _ia_resp = _respuesta_ia(texto, numero, session, wa_id=wa_id)
-                                if _ia_resp:
-                                    send_text(numero, _ia_resp)
-                                    _menu_rapido(numero)
+                                # Candidato de importe: número suelto en 'inicio'.
+                                # Válido tanto para clientes nuevos como para sesiones
+                                # post-expiración.  No afirmar que la sesión expiró —
+                                # simplemente confirmar el monto y preguntar dirección.
+                                _texto_clean = texto.strip()
+                                _es_numero_solo = bool(re.match(r'^[\d\.,\$\s]+(?:mil)?$', _texto_clean, re.IGNORECASE))
+                                _monto_candidato = _parse_monto(_texto_clean) if _es_numero_solo else None
+                                if _monto_candidato and _monto_candidato > 0:
+                                    session.cotiz_importe = _monto_candidato
+                                    send_buttons(numero,
+                                        f'*{_monto_candidato:,.0f} USD* 👍\n\n¿Quieres comprarlos o venderlos?',
+                                        [
+                                            {'id': 'btn_comprar', 'title': '🟢 Comprar USD'},
+                                            {'id': 'btn_vender',  'title': '🔴 Vender USD'},
+                                        ]
+                                    )
+                                    session.estado = 'eligiendo_operacion'
                                 else:
-                                    _bienvenida(numero, session)
-                        session.estado = 'menu_mostrado'  # avanza en cualquier caso
+                                    # Texto libre: responder con IA (historial acotado al
+                                    # ciclo vigente — ver _historial_ia history_since).
+                                    # No enviar _menu_rapido después: genera un segundo
+                                    # mensaje contradictorio con la respuesta de la IA.
+                                    _ia_resp = _respuesta_ia(texto, numero, session, wa_id=wa_id)
+                                    if _ia_resp:
+                                        send_text(numero, _ia_resp)
+                                    else:
+                                        _bienvenida(numero, session)
+                                    session.estado = 'menu_mostrado'
+                        if session.estado not in ('eligiendo_operacion', 'eligiendo_cliente_telefono'):
+                            session.estado = 'menu_mostrado'  # avanza en cualquier caso
 
             elif estado == 'menu_mostrado':
                 # El cliente ya recibió la bienvenida. No re-enviarla; responder con inteligencia.
@@ -5126,14 +5728,215 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 elif estado == 'viendo_cotizacion':
                     _flujo_mostrar_cotizacion(numero, session)
                 else:
-                    send_buttons(numero,
-                        '📎 Recibimos tu archivo, pero no estamos esperando documentos en este momento.\n\n'
-                        '¿En qué podemos ayudarte?',
-                        [
-                            {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
-                            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
-                        ]
-                    )
+                    # B7 — Verificar si es cliente registrado enviando documentos KYC
+                    _client_kyc_img = None
+                    if session.cotiz_doc:
+                        _client_kyc_img = _buscar_cliente(session.cotiz_doc)
+                    if _client_kyc_img is None:
+                        _client_kyc_img = _buscar_cliente_por_tel_cualquier_kyc(numero)
+
+                    if _client_kyc_img:
+                        _kyc_img = (_client_kyc_img.kyc_status or 'pendiente').lower()
+                        if _kyc_img == 'bloqueado':
+                            # Bloqueo administrativo: no aceptar docs; derivar a asesor
+                            send_buttons(numero,
+                                '🔒 Tu cuenta tiene una restricción administrativa.\n\n'
+                                'Para resolverla, comunícate directamente con nuestro equipo.',
+                                [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                            )
+                        elif _kyc_img in ('completo', 'aprobado'):
+                            send_buttons(numero,
+                                '📎 Recibimos tu archivo, pero no estamos esperando documentos en este momento.\n\n'
+                                '¿En qué podemos ayudarte?',
+                                [
+                                    {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                                    {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                                ]
+                            )
+                        elif _kyc_img == 'en_revision':
+                            # Documentos ya recibidos y en revisión: no pedir reenvío
+                            send_buttons(numero,
+                                '⏳ Ya recibimos tus documentos y nuestro equipo los está revisando.\n\n'
+                                'No necesitas enviar nada más. Te notificaremos cuando tu cuenta esté activa.',
+                                [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                            )
+                        else:
+                            # pendiente / rechazado — aceptar documento sin auto-aprobar.
+                            # El WaMessage entrante ya fue persistido por webhook_receive ANTES
+                            # de llegar aquí; el admin puede verlo en el CRM vía /crm/api/media/<id>.
+                            # Se descarga y sube a Cloudinary de forma SÍNCRONA para garantizar
+                            # que el archivo esté almacenado antes de confirmarle al usuario.
+                            if media_id:
+                                _doc_marcado   = False   # documents_pending_since establecido
+                                _cld_url_kyc   = None    # URL de Cloudinary tras upload exitoso
+                                try:
+                                    from app.utils.formatters import now_peru as _now_kyc
+                                    from app.models.wa_message import WaMessage as _WaMsgKyc
+
+                                    # Verificar si este media_id ya fue procesado (reenvío de webhook)
+                                    _existing_kyc = _WaMsgKyc.query.filter_by(media_id=media_id).first()
+                                    if _existing_kyc and _existing_kyc.media_local_path:
+                                        log.info(f'[KYC] media_id={media_id} ya procesado — ignorando reintento')
+                                        send_text(numero,
+                                            '📎 Ya registramos ese archivo. Si necesitas enviar otro documento, '
+                                            'por favor tómalo nuevamente desde tu cámara o galería.')
+                                        return
+
+                                    # Marcar que hay documentos pendientes de revisión en DB
+                                    if not _client_kyc_img.documents_pending_since:
+                                        _client_kyc_img.documents_pending_since = _now_kyc()
+                                    _doc_marcado = True
+
+                                    # Determinar qué cara corresponde al paso actual del flujo.
+                                    # La heurística usa el primer campo vacío, pero sólo en
+                                    # el sentido front→back: si ya hay URL en front, el siguiente
+                                    # paso lógico es back (y así el back no puede repetir el front).
+                                    # Si ambos están llenos, el doc es adicional (no avanza KYC).
+                                    _doc_type_kyc = (getattr(_client_kyc_img, 'document_type', None) or 'DNI').upper()
+                                    if _doc_type_kyc == 'RUC':
+                                        _doc_face_kyc = (
+                                            'ficha_ruc' if not getattr(_client_kyc_img, 'ficha_ruc_url', None)
+                                            else 'additional'
+                                        )
+                                    else:
+                                        if not getattr(_client_kyc_img, 'dni_front_url', None):
+                                            _doc_face_kyc = 'front'
+                                        elif not getattr(_client_kyc_img, 'dni_back_url', None):
+                                            _doc_face_kyc = 'back'
+                                        else:
+                                            _doc_face_kyc = 'additional'
+
+                                    # Persistencia síncrona: descarga + subida a Cloudinary
+                                    _cld_result_kyc = _download_wa_media_to_cloudinary(media_id, _client_kyc_img.id)
+
+                                    if _cld_result_kyc:
+                                        _cld_url_kyc  = _cld_result_kyc['url']
+                                        _cld_path_kyc = _cld_result_kyc['media_path']
+                                        # Guardar URL firmada en el campo del cliente
+                                        # (visible en la ficha sin proxy adicional)
+                                        if _doc_face_kyc == 'front':
+                                            _client_kyc_img.dni_front_url = _cld_url_kyc
+                                        elif _doc_face_kyc == 'back':
+                                            _client_kyc_img.dni_back_url = _cld_url_kyc
+                                        elif _doc_face_kyc == 'ficha_ruc':
+                                            _client_kyc_img.ficha_ruc_url = _cld_url_kyc
+
+                                        # Almacenar JSON de metadatos en WaMessage para
+                                        # que el proxy del chat genere URL firmada con
+                                        # el resource_type real (no 'auto')
+                                        _msg_kyc_rec = _WaMsgKyc.query.filter_by(media_id=media_id).first()
+                                        if _msg_kyc_rec:
+                                            _msg_kyc_rec.media_local_path = _cld_path_kyc
+
+                                        # Flush + commit antes de confirmar al usuario.
+                                        # Si commit falla: rollback, log public_id Cloudinary
+                                        # para recuperación manual, sin mensaje de éxito.
+                                        db.session.flush()
+                                        db.session.commit()
+
+                                except Exception as _dp_err:
+                                    log.warning(f'[KYC] Error procesando documento {numero}: {_dp_err}')
+                                    if _cld_result_kyc:
+                                        log.error(
+                                            f'[KYC] Upload exitoso pero DB falló — '
+                                            f'public_id={_cld_result_kyc["public_id"]} '
+                                            f'cliente_id={_client_kyc_img.id} media_id={media_id} — '
+                                            f'archivo en Cloudinary disponible para recuperación manual.'
+                                        )
+                                        try:
+                                            db.session.rollback()
+                                        except Exception:
+                                            pass
+                                    _cld_result_kyc = None   # Garantiza que no se confirme éxito
+                                    _cld_url_kyc    = None   # Impide que la guardia if _cld_url_kyc confirme
+
+                                log.info(
+                                    f'[KYC] {numero} envió doc vía WA '
+                                    f'(kyc={_kyc_img} face={_doc_face_kyc if _doc_marcado else "?"} '
+                                    f'media_id={media_id} persistido={bool(_cld_result_kyc)} '
+                                    f'dni={getattr(_client_kyc_img, "dni", "?")})'
+                                )
+
+                                if _doc_marcado:
+                                    _nombre_kyc = (
+                                        getattr(_client_kyc_img, 'full_name', None)
+                                        or getattr(_client_kyc_img, 'razon_social', None)
+                                        or getattr(_client_kyc_img, 'dni', numero)
+                                    )
+                                    _notificar_admins_wa(
+                                        f'📄 Documento KYC recibido vía WA\n\n'
+                                        f'Cliente: {_nombre_kyc}\n'
+                                        f'WA: {numero}\n'
+                                        f'Estado KYC previo: {_kyc_img}\n'
+                                        f'Almacenado: {"✅ Cloudinary" if _cld_url_kyc else "⚠️ solo Meta (pendiente)"}\n\n'
+                                        f'Revisa el chat en el CRM para aprobar o solicitar corrección.'
+                                    )
+                                    if _cld_url_kyc:
+                                        # Mensaje de siguiente paso según la cara guardada
+                                        _sig_paso_kyc = ''
+                                        if _doc_type_kyc == 'RUC':
+                                            if _doc_face_kyc == 'ficha_ruc':
+                                                _sig_paso_kyc = '\n\n📋 Si cuentas con el DNI del representante legal, envíalo también.'
+                                        else:
+                                            if _doc_face_kyc == 'front':
+                                                _sig_paso_kyc = '\n\n📷 Ahora envía la *foto del reverso* de tu documento.'
+                                            elif _doc_face_kyc == 'back':
+                                                _sig_paso_kyc = '\n\nYa tenemos ambas caras de tu documento. Nuestro equipo lo revisará pronto.'
+                                        send_buttons(numero,
+                                            f'📄 Documento recibido y almacenado.{_sig_paso_kyc}\n\n'
+                                            '✅ Nuestro equipo lo revisará y te avisará por este WhatsApp '
+                                            'cuando tu cuenta esté habilitada.',
+                                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                                        )
+                                    else:
+                                        send_buttons(numero,
+                                            '📎 Recibimos tu archivo, pero ocurrió un problema al guardarlo.\n\n'
+                                            'Por favor envíalo nuevamente o habla con un asesor.',
+                                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                                        )
+                                else:
+                                    send_buttons(numero,
+                                        '📎 Recibimos el archivo, pero tuvimos un problema al registrar tu solicitud.\n\n'
+                                        'Por favor habla con un asesor para confirmar.',
+                                        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                                    )
+                            else:
+                                send_buttons(numero,
+                                    '📎 No pudimos recibir el archivo. Por favor inténtalo de nuevo.',
+                                    [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                                )
+                    else:
+                        # No se identificó un cliente único. Verificar si hay ambigüedad
+                        # (varios clientes comparten este teléfono) para pedir aclaración.
+                        _kyc_ambiguo = False
+                        if not session.cotiz_doc:
+                            try:
+                                from app.models.client import Client as _ClientAmb
+                                _digits_amb = re.sub(r'\D', '', numero)
+                                _local_amb  = _digits_amb[-9:] if len(_digits_amb) >= 9 else _digits_amb
+                                if _local_amb:
+                                    _cnt_amb = _ClientAmb.query.filter(
+                                        _ClientAmb.phone.ilike(f'%{_local_amb}%')
+                                    ).count()
+                                    _kyc_ambiguo = (_cnt_amb > 1)
+                            except Exception:
+                                pass
+
+                        if _kyc_ambiguo:
+                            send_text(numero,
+                                '📎 Recibimos tu archivo, pero necesitamos verificar tu identidad.\n\n'
+                                '✏️ Por favor escribe tu número de *DNI* o *RUC* para asociar el documento.'
+                            )
+                            session.estado = 'esperando_doc_kyc_titular'
+                        else:
+                            send_buttons(numero,
+                                '📎 Recibimos tu archivo, pero no estamos esperando documentos en este momento.\n\n'
+                                '¿En qué podemos ayudarte?',
+                                [
+                                    {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                                    {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                                ]
+                            )
 
         # ── Cualquier otro tipo (audio, video, ubicación, sticker, etc.) ─────
         else:

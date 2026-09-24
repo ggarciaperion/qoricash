@@ -16,9 +16,10 @@ class WaMessage(db.Model):
     direccion = db.Column(db.String(10),  nullable=False)  # 'entrante' | 'saliente'
     wa_id      = db.Column(db.String(120), default='')
     leido      = db.Column(db.Boolean,    default=False)
-    media_id   = db.Column(db.String(120), default='')   # WhatsApp media_id para proxy
-    media_tipo = db.Column(db.String(20),  default='')   # image|audio|video|document|sticker
-    created_at = db.Column(db.DateTime,   default=now_peru, nullable=False)
+    media_id         = db.Column(db.String(120), default='')   # WhatsApp media_id para proxy
+    media_tipo       = db.Column(db.String(20),  default='')   # image|audio|video|document|sticker
+    media_local_path = db.Column(db.String(512), default='')   # URL persistente (Cloudinary) del archivo KYC
+    created_at       = db.Column(db.DateTime,   default=now_peru, nullable=False)
 
     def to_dict(self):
         return {
@@ -29,7 +30,8 @@ class WaMessage(db.Model):
             'mensaje':    self.mensaje,
             'direccion':  self.direccion,
             'leido':      self.leido,
-            'media_id':   self.media_id or '',
-            'media_tipo': self.media_tipo or '',
+            'media_id':         self.media_id or '',
+            'media_tipo':       self.media_tipo or '',
+            'media_local_path': self.media_local_path or '',
             'created_at': self.created_at.strftime('%d/%m/%Y %H:%M') if self.created_at else '',
         }

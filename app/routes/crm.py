@@ -652,8 +652,58 @@ def webhook_receive():
 @login_required
 @require_role('Master')
 def api_media_proxy(media_id):
-    """Descarga el media de Meta y lo sirve al browser (proxy en vivo)."""
+    """
+    Sirve un archivo media de WhatsApp al browser.
+    Prioridad:
+      1. URL persistente en Cloudinary (media_local_path en wa_messages) — sobrevive >30 días.
+      2. Proxy en vivo contra Meta API — funciona mientras el media_id sea válido.
+    """
     from flask import Response, stream_with_context
+    # Intento 1: copia persistente en Cloudinary — servida server-side (no redirect)
+    # para no exponer la URL de Cloudinary y permitir assets con acceso restringido.
+    try:
+        from app.models.wa_message import WaMessage as _WaMsgProxy
+        _persisted = _WaMsgProxy.query.filter_by(media_id=media_id).first()
+        if _persisted and _persisted.media_local_path:
+            import requests as _req_cld
+            _path = _persisted.media_local_path
+            # media_local_path puede contener:
+            #   a) JSON {"public_id": ..., "resource_type": ..., "delivery_type": ...}
+            #      (formato actual) — firmamos con el resource_type real del proveedor.
+            #   b) URL completa (http/https) — registros anteriores; usar directamente
+            #      (sin posibilidad de firma; el acceso depende del tipo de entrega original).
+            if _path.startswith('{'):
+                try:
+                    import json as _json_proxy, cloudinary.utils as _cld_utils
+                    _meta      = _json_proxy.loads(_path)
+                    _pub_id    = _meta.get('public_id', '')
+                    _res_type  = _meta.get('resource_type', 'image')
+                    _del_type  = _meta.get('delivery_type', 'authenticated')
+                    _signed, _ = _cld_utils.cloudinary_url(
+                        _pub_id,
+                        resource_type=_res_type,
+                        type=_del_type,
+                        sign_url=True,
+                        secure=True,
+                    )
+                    _fetch_url = _signed or _pub_id
+                except Exception as _cld_sign_err:
+                    log.warning(f'[CRM] Error firmando URL Cloudinary: {_cld_sign_err}')
+                    _fetch_url = _path
+            else:
+                # URL completa (registros anteriores): usar como está
+                _fetch_url = _path
+            _cld_r = _req_cld.get(_fetch_url, stream=True, timeout=20)
+            if _cld_r.ok:
+                _ct = _cld_r.headers.get('Content-Type', 'application/octet-stream')
+                return Response(
+                    stream_with_context(_cld_r.iter_content(chunk_size=8192)),
+                    content_type=_ct,
+                    headers={'Content-Disposition': f'inline; filename="{media_id}"'},
+                )
+    except Exception as _e_proxy:
+        log.warning(f'[CRM] Error sirviendo media_local_path para {media_id}: {_e_proxy}')
+
     if not WA_ACCESS_TOKEN:
         return 'No access token', 503
     try:

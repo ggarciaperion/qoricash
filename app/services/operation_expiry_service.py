@@ -307,6 +307,30 @@ class OperationExpiryService:
                 if _tiene_op_en_proceso(s.numero):
                     logger.info(f"[SESSION] {s.numero} — op En proceso activa, no expirar sesión.")
                     continue
+
+                # Re-validar bajo lock: previene la carrera scheduler↔webhook donde
+                # un mensaje entrante actualiza updated_at entre la consulta inicial
+                # y el commit. Si el cliente escribió entre ambos instantes, el
+                # updated_at ya superó el cutoff y no se expira la sesión.
+                try:
+                    s_locked = WaBotSession.query.filter_by(id=s.id).with_for_update().populate_existing().first()
+                    if not s_locked:
+                        continue
+                    if s_locked.updated_at >= cutoff:
+                        logger.info(
+                            f"[SESSION] {s.numero} — actividad reciente detectada bajo lock "
+                            f"(updated_at={s_locked.updated_at}), no expirar."
+                        )
+                        db.session.commit()
+                        continue
+                    if s_locked.estado == 'inicio':
+                        # El webhook ya procesó y reseteó la sesión; no tocar.
+                        db.session.commit()
+                        continue
+                    s = s_locked
+                except Exception as _lock_err:
+                    logger.warning(f"[SESSION] Lock fallido para {s.numero}: {_lock_err}")
+
                 s.estado        = 'inicio'
                 s.cotiz_op      = ''
                 s.cotiz_importe = 0.0
@@ -316,6 +340,13 @@ class OperationExpiryService:
                 s.cotiz_op_id   = ''
                 s.cotiz_cuenta  = ''
                 s.updated_at    = now
+                # Marcar inicio del nuevo ciclo: el siguiente mensaje del cliente
+                # es "post-expiración". Permite acotar el historial de IA y detectar
+                # botones de ciclos anteriores. NULL = sesión nueva/activa.
+                try:
+                    s.session_started_at = now
+                except Exception:
+                    pass
                 sessions_to_notify.append(s.numero)
 
             # ── Caso B: sesiones en 'inicio' donde bot envió algo y cliente no respondió ─
@@ -350,6 +381,18 @@ class OperationExpiryService:
                                 .order_by(WaMessage.created_at.desc())
                                 .first())
                     if not last_out:
+                        continue
+                    # Guardia de ciclo: si session_started_at >= last_out.created_at,
+                    # significa que el Caso A ya procesó esta sesión DESPUÉS de ese
+                    # mensaje saliente (y ya envió la notificación de expiración).
+                    # Evitar doble notificación en el mismo ciclo.
+                    if (s.session_started_at is not None
+                            and s.session_started_at >= last_out.created_at):
+                        logger.info(
+                            f"[SESSION] {s.numero} — Caso B omitido: "
+                            f"session_started_at ({s.session_started_at}) >= "
+                            f"last_out ({last_out.created_at}); Caso A ya notificó."
+                        )
                         continue
                     # Verificar que no hay entrante posterior a ese saliente
                     has_reply = WaMessage.query.filter(
