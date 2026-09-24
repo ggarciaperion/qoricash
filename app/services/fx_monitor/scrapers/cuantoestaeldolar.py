@@ -11,10 +11,13 @@ comparten una sola descarga de CED en lugar de hacer N requests paralelas.
 """
 import re
 import time
+import logging
 import threading
 import requests
 from app.utils.formatters import now_peru
 from .base import BaseScraper, RateResult
+
+logger = logging.getLogger(__name__)
 
 _CED_URL = "https://cuantoestaeldolar.pe"
 
@@ -73,9 +76,10 @@ _CED_MAX_STALE_HOURS = 4.0
 
 def _extract_rates_from_text(text: str, ced_path: str) -> tuple:
     """
-    Extrae (buy, sell) para `ced_path` desde el texto ya decodificado de CED.
-    Retorna (buy_float, sell_float) o lanza ValueError.
-    Valida que updated_at de CED no supere _CED_MAX_STALE_HOURS.
+    Extrae (buy, sell, source_updated_at) para `ced_path` desde el texto ya decodificado de CED.
+    - source_updated_at: datetime UTC del proveedor, o None si ausente/inválido/futuro.
+    - Rechaza con ValueError si el dato supera _CED_MAX_STALE_HOURS.
+    - No sustituye timestamps ausentes ni inválidos por la hora actual.
     """
     from datetime import datetime, timezone
 
@@ -89,24 +93,41 @@ def _extract_rates_from_text(text: str, ced_path: str) -> tuple:
     # Ventana de 1500 chars — más robusta ante estructuras JSON con campos adicionales
     window = text[idx: idx + 1500]
 
-    # ── Validar antigüedad del dato CED ──────────────────────────────────────
+    # ── Extraer y validar timestamp del proveedor ─────────────────────────────
+    # CED expone un campo "updated_at" cuya semántica exacta es desconocida
+    # (podría ser el último cambio de precio, la última sincronización de CED con
+    # el proveedor, u otro evento). Se trata como "fecha informada por la fuente",
+    # no como confirmación de actividad del proveedor.
+    # source_updated_at = None cuando el timestamp está ausente, no se puede parsear,
+    # o es futuro. En esos casos la vigencia del dato es "no acreditada".
+    # Separamos el parseo del ISO (swallowed) de la validación de antigüedad (propagada).
+    source_updated_at = None
     upd_m = re.search(r'"updated_at"\s*:\s*"([^"]+)"', window)
     if upd_m:
+        upd_str = upd_m.group(1)
+        upd_dt  = None
         try:
-            upd_str = upd_m.group(1)
-            upd_dt  = datetime.fromisoformat(upd_str.replace("Z", "+00:00"))
+            upd_dt = datetime.fromisoformat(upd_str.replace("Z", "+00:00"))
+        except Exception as exc:
+            logger.debug(f"CED: no se pudo parsear updated_at para '{ced_path}': {exc}")
+            # source_updated_at permanece None — no inventar fecha
+
+        if upd_dt is not None:
             now_utc = datetime.now(timezone.utc)
-            stale_h = (now_utc - upd_dt).total_seconds() / 3600
-            if stale_h > _CED_MAX_STALE_HOURS:
-                raise ValueError(
-                    f"CED: datos de '{ced_path}' tienen {stale_h:.1f}h de antigüedad "
-                    f"(updated_at={upd_str}) — excede límite de {_CED_MAX_STALE_HOURS}h. "
-                    f"CED dejó de actualizar este competidor."
+            if upd_dt > now_utc:
+                # Timestamp futuro — sospechoso; no usar como vigencia pero no rechazar dato
+                logger.warning(
+                    f"CED: timestamp futuro para '{ced_path}': {upd_str} — descartando como vigencia"
                 )
-        except ValueError:
-            raise
-        except Exception:
-            pass  # Si no se puede parsear el timestamp, no bloqueamos
+            else:
+                stale_h = (now_utc - upd_dt).total_seconds() / 3600
+                if stale_h > _CED_MAX_STALE_HOURS:
+                    raise ValueError(
+                        f"CED: datos de '{ced_path}' tienen {stale_h:.1f}h de antigüedad "
+                        f"(updated_at={upd_str}) — excede límite de {_CED_MAX_STALE_HOURS}h. "
+                        f"CED dejó de actualizar este competidor."
+                    )
+                source_updated_at = upd_dt   # datetime UTC aware
 
     buy_m  = re.search(r'"buy"\s*:\s*\{[^}]*"cost"\s*:\s*"([\d.]+)"',  window)
     sell_m = re.search(r'"sale"\s*:\s*\{[^}]*"cost"\s*:\s*"([\d.]+)"', window)
@@ -129,13 +150,14 @@ def _extract_rates_from_text(text: str, ced_path: str) -> tuple:
     if buy >= sell:
         raise ValueError(f"CED: buy ({buy}) >= sell ({sell}) para '{ced_path}' — dato inválido")
 
-    return buy, sell
+    return buy, sell, source_updated_at
 
 
 def _fetch_ced_rates(session, headers, ced_path: str, timeout: int = 15):
     """
-    API de compatibilidad — descarga CED (con caché) y extrae tasas para `ced_path`.
-    Retorna (buy_float, sell_float) o lanza ValueError.
+    Descarga CED (con caché) y extrae tasas para `ced_path`.
+    Retorna (buy_float, sell_float, source_updated_at) o lanza ValueError.
+    source_updated_at es el datetime UTC del proveedor, o None si no disponible/válido.
     """
     text = _get_ced_text(session, headers, timeout=timeout)
     return _extract_rates_from_text(text, ced_path)
@@ -151,7 +173,8 @@ class CedBaseScraper(BaseScraper):
     def fetch(self) -> RateResult:
         t0   = time.monotonic()
         sess = requests.Session()
-        buy, sell = _fetch_ced_rates(sess, self.get_headers(), self.ced_path)
+        buy, sell, src_updated_at = _fetch_ced_rates(sess, self.get_headers(), self.ced_path)
         ms   = int((time.monotonic() - t0) * 1000)
         return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
-                          scraped_at=now_peru(), response_ms=ms)
+                          scraped_at=now_peru(), response_ms=ms,
+                          source='ced_direct', source_updated_at=src_updated_at)

@@ -45,6 +45,23 @@ class Config:
     # Timezone
     TIMEZONE = os.environ.get('TIMEZONE', 'America/Lima')
 
+    # FX Monitor — política de vigencia de datos CED
+    # Horas máximas que puede tener el timestamp informado por CED para que la cotización
+    # sea elegible en rankings, mejores precios, promedios actuales y alertas.
+    #
+    # Justificación del valor por defecto (2.0h):
+    #   - Los scrapers directos actualizan en <1 min; CED se actualiza cuando el precio cambia.
+    #   - El campo "updated_at" de CED representa el último cambio de precio registrado,
+    #     NO una confirmación de que el proveedor sigue activo. Un precio sin cambio durante
+    #     2 horas puede ser legítimo, pero más allá de ese tiempo aumenta la incertidumbre.
+    #   - "Vigencia informada por la fuente" ≠ "dato en tiempo real".
+    #   - 2h equilibra cobertura (3 de 17 fuentes son CED) y calidad del ranking.
+    #
+    # Umbral de aceptación del scraper (4h en cuantoestaeldolar.py) es distinto:
+    #   se aplica ANTES de guardar el dato. El umbral de eligibilidad se aplica
+    #   EN CADA REQUEST al calcular rankings; permite ajustar sin re-scraping.
+    FX_CED_ELIGIBLE_HOURS = float(os.environ.get('FX_CED_ELIGIBLE_HOURS', '2.0'))
+
     # SocketIO
     SOCKETIO_MESSAGE_QUEUE = os.environ.get('SOCKETIO_MESSAGE_QUEUE')
 

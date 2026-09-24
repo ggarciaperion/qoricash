@@ -52,7 +52,7 @@ class OkaneScraper(BaseScraper):
                 resp = sess.get(
                     _SITE_URL + path,
                     headers=headers_json,
-                    timeout=8,
+                    timeout=5,   # reducido: 8 endpoints × 5s = 40s máx (vs 64s antes)
                     verify=False,
                 )
                 if resp.status_code != 200:

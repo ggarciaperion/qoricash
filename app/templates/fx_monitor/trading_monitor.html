@@ -457,6 +457,23 @@ body.has-trading-monitor {
 .vs-neg { background: rgba(255,77,106,0.12); color: var(--tm-red); }
 .vs-zero { background: rgba(74,106,133,0.1); color: var(--tm-muted); }
 
+/* Fuente del dato (CED = agregador externo; direct = scraper propio) */
+.src-badge {
+  display: inline-block;
+  padding: 0 3px;
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+  margin-left: 3px;
+  opacity: 0.75;
+}
+.src-ced       { background: rgba(255,152,0,0.15); color: var(--tm-amber); }
+.src-ced-batch { background: rgba(255,152,0,0.10); color: #c98a00; }
+.src-alias     { background: rgba(120,120,120,0.12); color: #888; }
+
 /* ═══════════════════════════════════════════════════════════════
    5. CHARTS SECTION
 ═══════════════════════════════════════════════════════════════ */
@@ -1107,6 +1124,10 @@ function createRowEl(item, rank, mode, ownBuy, ownSell) {
   const row = document.createElement('div');
   row.className    = rowCls;
   row.dataset.slug = item.slug;
+  // Error tooltip for failed rows
+  if (!isValid && item.last_error) {
+    row.title = 'Error: ' + item.last_error;
+  }
 
   // Rank badge — "—" for invalid/error entries
   const rankCls = !isValid ? 'rank-nd' : rank <= 3 ? 'rank-' + rank : 'rank-n';
@@ -1114,14 +1135,23 @@ function createRowEl(item, rank, mode, ownBuy, ownSell) {
   badge.className   = 'rank-badge ' + rankCls;
   badge.textContent = isValid ? String(rank) : '—';
 
+  // Source badge — CED origin or alias indicator
+  const src = item.data_source || 'direct';
+  const srcHtml = src === 'ced_direct' ? ' <span class="src-badge src-ced">CED</span>'
+                : src === 'ced_batch'  ? ' <span class="src-badge src-ced-batch">CED↑</span>'
+                : '';
+  const aliasHtml = item.is_alias
+    ? ' <span class="src-badge src-alias" title="Comparte cotización con ' + (item.canonical_slug || '') + '">ALIAS</span>'
+    : '';
+
   // Entity name
   const nameEl = document.createElement('div');
   nameEl.className = 'row-entity' + (isOwn ? ' qc-own' : '');
   nameEl.title     = item.name;
   if (vsOwn != null && !isOwn) {
-    nameEl.innerHTML = item.name + ' <span class="vs-badge ' + vsQcClass(vsOwn) + '">' + vsQcLabel(vsOwn) + '</span>';
+    nameEl.innerHTML = item.name + ' <span class="vs-badge ' + vsQcClass(vsOwn) + '">' + vsQcLabel(vsOwn) + '</span>' + srcHtml + aliasHtml;
   } else {
-    nameEl.textContent = item.name;
+    nameEl.innerHTML = item.name + srcHtml + aliasHtml;
   }
 
   // Price
@@ -1134,10 +1164,26 @@ function createRowEl(item, rank, mode, ownBuy, ownSell) {
   deltaEl.className   = 'row-delta ' + deltaClass(delta);
   deltaEl.textContent = deltaArrow(delta);
 
-  // Time
+  // Time — para CED: mostrar antigüedad del dato del proveedor, no hora de descarga
   const timeEl = document.createElement('div');
   timeEl.className = 'row-time';
-  if (item.updated_epoch) {
+  const isCed = src === 'ced_direct' || src === 'ced_batch';
+  if (isCed) {
+    const srcEpoch = item.source_updated_epoch;
+    if (srcEpoch) {
+      timeEl.dataset.epoch = srcEpoch;
+      timeEl.dataset.isCed = '1';
+      timeEl.textContent   = secsAgo(srcEpoch) + ' ago';
+      // Tooltip: distingue "descargado" (updated_epoch) de "proveedor actualizó" (source_updated_epoch)
+      const dlAgo = item.updated_epoch ? secsAgo(item.updated_epoch) : '?';
+      row.title = (row.title ? row.title + ' · ' : '') +
+                  'Fecha de la fuente: hace ' + secsAgo(srcEpoch) +
+                  ' · Descargado hace ' + dlAgo;
+    } else {
+      timeEl.textContent = '? (sin fecha)';
+      row.title = (row.title ? row.title + ' · ' : '') + 'Fecha del proveedor no disponible';
+    }
+  } else if (item.updated_epoch) {
     timeEl.dataset.epoch = item.updated_epoch;
     timeEl.textContent   = secsAgo(item.updated_epoch) + ' ago';
   } else {
@@ -1213,9 +1259,12 @@ function updateListInPlace(items, mode) {
       entry.deltaEl.className   = 'row-delta ' + deltaClass(delta);
     }
 
-    // Time epoch
-    if (item.updated_epoch && entry.timeEl.dataset.epoch !== String(item.updated_epoch)) {
-      entry.timeEl.dataset.epoch = item.updated_epoch;
+    // Time epoch — CED: usar source_updated_epoch (antigüedad del proveedor)
+    const srcData = item.data_source || 'direct';
+    const isCedRow = srcData === 'ced_direct' || srcData === 'ced_batch';
+    const epochForTime = isCedRow ? item.source_updated_epoch : item.updated_epoch;
+    if (epochForTime && entry.timeEl.dataset.epoch !== String(epochForTime)) {
+      entry.timeEl.dataset.epoch = epochForTime;
     }
   });
 }
@@ -1486,7 +1535,11 @@ window.forceRefresh = async function() {
     const j = await r.json();
     if (j.success && j.scrape) {
       const s = j.scrape;
-      btn.textContent = s.ok > 0 ? '⟳ OK (' + s.ok + '✅ ' + s.errors + '❌)' : '⟳ ERR (' + s.errors + ' fallos)';
+      if (s.skipped) {
+        btn.textContent = '⟳ OCUPADO';
+      } else {
+        btn.textContent = s.ok > 0 ? '⟳ OK (' + s.ok + '✅ ' + s.errors + '❌)' : '⟳ ERR (' + s.errors + ' fallos)';
+      }
     } else {
       btn.textContent = j.success ? '⟳ OK' : '⟳ ERR';
     }

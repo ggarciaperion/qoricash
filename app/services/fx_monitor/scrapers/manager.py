@@ -1,10 +1,12 @@
 """
 Orquestador de todos los scrapers — ejecución paralela con ThreadPoolExecutor.
 Circuit breaker por scraper: pausas automáticas ante fallas consecutivas.
+Health tracking por scraper: métricas acumuladas de éxito/fallo/latencia.
 """
 import time
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeout
 
 from .kambista      import KambistaScraper
 from .cambix        import CambixScraper
@@ -37,7 +39,7 @@ def _cb_open(slug: str) -> bool:
     return bool(entry and entry["open_until"] > time.monotonic())
 
 def _cb_record(slug: str, success: bool):
-    """Actualizar estado del circuit breaker tras cada resultado."""
+    """Actualizar estado del circuit breaker y health tracking tras cada resultado."""
     if success:
         _cb.pop(slug, None)          # reset en éxito
         return
@@ -52,6 +54,29 @@ def _cb_record(slug: str, success: bool):
     if cooldown:
         entry["open_until"] = time.monotonic() + cooldown
         logger.warning(f"[CB] {slug}: {fails} fallas → cooldown {cooldown}s")
+
+
+# ── Health tracking ───────────────────────────────────────────────────────────
+# Métricas por scraper: consecutivos OK/fail, último error, último tiempo de respuesta.
+# Acumulado en memoria desde el arranque del proceso; se resetea con cada deploy.
+_health_lock = threading.Lock()
+_health: dict = {}   # slug → {ok: int, fail: int, last_ms: int, last_error: str|None}
+
+def _health_record(slug: str, success: bool, ms: int, error: str = None):
+    with _health_lock:
+        h = _health.setdefault(slug, {"ok": 0, "fail": 0, "last_ms": 0, "last_error": None})
+        if success:
+            h["ok"]         += 1
+            h["last_ms"]     = ms
+            h["last_error"]  = None
+        else:
+            h["fail"]       += 1
+            h["last_error"]  = error
+
+def get_scraper_health() -> dict:
+    """Retorna snapshot de health metrics por slug. Seguro para leer desde cualquier thread."""
+    with _health_lock:
+        return {slug: dict(v) for slug, v in _health.items()}
 
 
 ALL_SCRAPERS = [
@@ -73,6 +98,12 @@ ALL_SCRAPERS = [
     CambiosolScraper(),
     OkaneScraper(),
 ]
+
+# ── In-flight tracking ─────────────────────────────────────────────────────────
+# Evita arrancar un scraper cuando su hilo del ciclo anterior aún corre
+# (ocurre si el ciclo anterior superó CYCLE_TIMEOUT y fue circuit-breaked).
+_inflight_lock = threading.Lock()
+_inflight: set = set()   # slugs cuyo thread OS aún está corriendo
 
 
 # Mapa de slug → ced_path en cuantoestaeldolar.pe
@@ -99,7 +130,7 @@ _CED_FALLBACK = {
 def _ced_batch_fallback(failed_slugs: list) -> dict:
     """
     Descarga cuantoestaeldolar.pe UNA VEZ y extrae tasas para todos los slugs fallidos.
-    Retorna dict slug → (buy, sell) para los que se encontraron.
+    Retorna dict slug → (buy, sell, source_updated_at) donde source_updated_at puede ser None.
     """
     from .cuantoestaeldolar import _fetch_ced_rates
     import re
@@ -129,7 +160,7 @@ def _ced_batch_fallback(failed_slugs: list) -> dict:
             except Exception:
                 text += chunk
 
-        recovered = {}
+        recovered: dict = {}
         for slug, ced_path in slugs_with_path.items():
             try:
                 idx = text.find(f'"path":"{ced_path}"')
@@ -139,18 +170,22 @@ def _ced_batch_fallback(failed_slugs: list) -> dict:
                     continue
                 window = text[idx: idx + 600]
 
-                # Validar antigüedad del dato antes de usar
+                # Validar antigüedad y conservar timestamp del proveedor
                 from datetime import datetime, timezone
+                src_upd = None
                 upd_m = re.search(r'"updated_at"\s*:\s*"([^"]+)"', window)
                 if upd_m:
                     try:
                         upd_dt  = datetime.fromisoformat(upd_m.group(1).replace("Z", "+00:00"))
-                        stale_h = (datetime.now(timezone.utc) - upd_dt).total_seconds() / 3600
+                        now_utc = datetime.now(timezone.utc)
+                        stale_h = (now_utc - upd_dt).total_seconds() / 3600
                         if stale_h > 4.0:
                             logger.warning(f"[CED-BATCH] {slug}: dato CED tiene {stale_h:.1f}h — ignorando")
                             continue
+                        if upd_dt <= now_utc:   # descartar timestamps futuros
+                            src_upd = upd_dt
                     except Exception:
-                        pass
+                        pass   # src_upd permanece None — vigencia no acreditada
 
                 buy_m  = re.search(r'"buy"\s*:\s*\{[^}]*"cost"\s*:\s*"([\d.]+)"',  window)
                 sell_m = re.search(r'"sale"\s*:\s*\{[^}]*"cost"\s*:\s*"([\d.]+)"', window)
@@ -158,7 +193,7 @@ def _ced_batch_fallback(failed_slugs: list) -> dict:
                     buy  = float(buy_m.group(1))
                     sell = float(sell_m.group(1))
                     if buy > 0 and sell > 0:
-                        recovered[slug] = (buy, sell)
+                        recovered[slug] = (buy, sell, src_upd)
             except Exception:
                 continue
 
@@ -173,20 +208,29 @@ def _ced_batch_fallback(failed_slugs: list) -> dict:
 _RATE_MIN = 2.5
 _RATE_MAX = 6.0
 
+# Tiempo máximo que se espera por todos los scrapers en paralelo.
+# Si algún scraper no termina en este tiempo se registra como error y se circuit-breaka.
+# Suficiente para scrapers lentos multi-estrategia (~35-40s con timeouts reducidos).
+CYCLE_TIMEOUT = 40
+
 
 def _is_valid_rate(buy: float, sell: float) -> bool:
     """Verifica que las tasas estén en rango razonable para PEN/USD."""
     return (_RATE_MIN < buy < _RATE_MAX and _RATE_MIN < sell < _RATE_MAX and buy < sell)
 
 
-def scrape_all(active_slugs=None, max_workers=18):
+def scrape_all_gen(active_slugs=None, max_workers=18):
     """
-    Ejecuta todos los scrapers activos en paralelo con circuit breaker.
-    Para scrapers que fallan o están en cooldown y tienen mapping en CED,
-    intenta recuperar las tasas de cuantoestaeldolar.pe en una sola request.
+    Generador: emite RateResult conforme llegan los scrapers.
 
-    FIX: Los scrapers en cooldown (circuit breaker) también se intentan via CED
-    para evitar que los precios queden congelados indefinidamente.
+    Fase 1 — scrapers directos: cada future se emite al terminar, sin esperar al resto.
+    Fase 2 — CED batch: tras completar la fase 1, emite los resultados de fallback.
+
+    El ejecutor usa pool.shutdown(wait=False): as_completed(timeout=CYCLE_TIMEOUT)
+    actúa realmente como límite de tiempo — el contexto manager no lo anula.
+
+    Scrapers cuyo hilo OS aún corre del ciclo anterior (_inflight) se saltan para
+    evitar duplicados en vuelo.
     """
     from .base import RateResult
     from app.utils.formatters import now_peru
@@ -195,63 +239,112 @@ def scrape_all(active_slugs=None, max_workers=18):
     if active_slugs is not None:
         scrapers = [s for s in ALL_SCRAPERS if s.slug in active_slugs]
 
-    # Separar scrapers activos de los que están en cooldown
     ready   = [s for s in scrapers if not _cb_open(s.slug)]
     skipped = [s.slug for s in scrapers if _cb_open(s.slug)]
     if skipped:
-        logger.warning(f"[CB] {len(skipped)} scrapers en cooldown: {skipped} — se intentará CED fallback")
+        logger.warning(f"[CB] {len(skipped)} scrapers en cooldown: {skipped} — CED fallback")
 
-    results = []
-    failed_slugs = []
+    # Excluir scrapers cuyo hilo OS del ciclo anterior aún está corriendo
+    with _inflight_lock:
+        still_running = [s.slug for s in ready if s.slug in _inflight]
+        if still_running:
+            logger.warning(f"[FX] Scrapers aún en vuelo del ciclo anterior: {still_running} — saltando")
+        ready = [s for s in ready if s.slug not in _inflight]
+        for s in ready:
+            _inflight.add(s.slug)
 
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        futures = {pool.submit(s.safe_fetch): s.slug for s in ready}
-        for future in as_completed(futures):
-            slug = futures[future]
-            try:
-                result = future.result()
-                # Validar rango antes de aceptar el resultado
-                if result.success and result.buy_rate > 0:
-                    if not _is_valid_rate(result.buy_rate, result.sell_rate):
-                        logger.warning(
-                            f"[FX] ⚠️  {slug}: tasas fuera de rango "
-                            f"buy={result.buy_rate} sell={result.sell_rate} — descartando"
-                        )
-                        result = RateResult(slug=slug, buy_rate=0.0, sell_rate=0.0,
-                                            scraped_at=result.scraped_at,
-                                            response_ms=result.response_ms,
-                                            success=False,
-                                            error=f"Fuera de rango: {result.buy_rate}/{result.sell_rate}")
-                _cb_record(slug, result.success)
-                results.append(result)
-                status = "✅" if result.success else "❌"
-                logger.info(f"[FX] {status} {slug}: compra={result.buy_rate} venta={result.sell_rate} ({result.response_ms}ms)")
-                if not result.success or result.buy_rate == 0:
+    failed_slugs = list(still_running)   # tratar stuck scrapers como fallidos
+    t_cycle = time.monotonic()
+    pool = ThreadPoolExecutor(max_workers=max_workers)
+
+    def _wrap(scraper):
+        """Ejecuta safe_fetch y retira el slug de _inflight al terminar."""
+        try:
+            return scraper.safe_fetch()
+        finally:
+            with _inflight_lock:
+                _inflight.discard(scraper.slug)
+
+    try:
+        futures = {pool.submit(_wrap, s): s.slug for s in ready}
+        try:
+            for future in as_completed(futures, timeout=CYCLE_TIMEOUT):
+                slug = futures[future]
+                try:
+                    result = future.result()
+                    if result.success and result.buy_rate > 0:
+                        if not _is_valid_rate(result.buy_rate, result.sell_rate):
+                            logger.warning(
+                                f"[FX] ⚠️  {slug}: tasas fuera de rango "
+                                f"buy={result.buy_rate} sell={result.sell_rate} — descartando"
+                            )
+                            result = RateResult(
+                                slug=slug, buy_rate=0.0, sell_rate=0.0,
+                                scraped_at=result.scraped_at,
+                                response_ms=result.response_ms, success=False,
+                                error=f"Fuera de rango: {result.buy_rate}/{result.sell_rate}")
+                    _cb_record(slug, result.success)
+                    _health_record(slug, result.success, result.response_ms, result.error)
+                    status = "✅" if result.success else "❌"
+                    logger.info(f"[FX] {status} {slug}: compra={result.buy_rate} venta={result.sell_rate} ({result.response_ms}ms)")
+                    if not result.success or result.buy_rate == 0:
+                        failed_slugs.append(slug)
+                    yield result
+                except Exception as e:
+                    _cb_record(slug, False)
+                    _health_record(slug, False, 0, str(e)[:255])
+                    logger.error(f"[FX] 💥 {slug}: {e}")
                     failed_slugs.append(slug)
-            except Exception as e:
-                _cb_record(slug, False)
-                logger.error(f"[FX] 💥 {slug}: {e}")
-                failed_slugs.append(slug)
+                    yield RateResult(slug=slug, buy_rate=0.0, sell_rate=0.0,
+                                     scraped_at=now_peru(), response_ms=0,
+                                     success=False, error=str(e)[:255])
 
-    # Fallback CED batch para scrapers que fallaron Y para los que estaban en cooldown.
-    # FIX CRÍTICO: los scrapers en cooldown también se intentan via CED para evitar
-    # que sus precios queden congelados cuando el scraper directo está parado.
-    all_fallback_slugs = list(set(failed_slugs + skipped))
-    if all_fallback_slugs:
+        except FuturesTimeout:
+            elapsed = int((time.monotonic() - t_cycle) * 1000)
+            for future, slug in futures.items():
+                if not future.done():
+                    # Hilo sigue corriendo — NO retirar de _inflight (lo hará él mismo)
+                    logger.error(f"[FX] ⏰ {slug}: timeout después de {elapsed}ms — circuit-breaking")
+                    _cb_record(slug, False)
+                    _health_record(slug, False, elapsed, f"Cycle timeout >{CYCLE_TIMEOUT}s")
+                    failed_slugs.append(slug)
+                    yield RateResult(
+                        slug=slug, buy_rate=0.0, sell_rate=0.0,
+                        scraped_at=now_peru(), response_ms=elapsed,
+                        success=False, error=f"Cycle timeout >{CYCLE_TIMEOUT}s",
+                    )
+    finally:
+        # shutdown(wait=False): el generador no bloquea esperando hilos timeout.
+        # Los hilos vivos limpian _inflight solos al terminar vía _wrap/finally.
+        pool.shutdown(wait=False)
+
+    # ── Fase 2: CED batch ──────────────────────────────────────────────────────
+    # Scrapers cooldown (skipped) + scrapers directos fallidos + stuck scrapers
+    all_fallback = list(set(failed_slugs + skipped))
+    if all_fallback:
         t0 = time.monotonic()
-        recovered = _ced_batch_fallback(all_fallback_slugs)
+        recovered = _ced_batch_fallback(all_fallback)
         ms = int((time.monotonic() - t0) * 1000)
-        for slug, (buy, sell) in recovered.items():
+        for slug, (buy, sell, src_upd) in recovered.items():
             if not _is_valid_rate(buy, sell):
-                logger.warning(f"[CED-BATCH] ⚠️  {slug}: tasas CED fuera de rango {buy}/{sell} — ignorando")
+                logger.warning(f"[CED-BATCH] ⚠️  {slug}: fuera de rango {buy}/{sell} — ignorando")
                 continue
-            # Reemplazar el resultado fallido con el dato de CED
-            results = [r for r in results if r.slug != slug]
-            results.append(RateResult(
+            _cb_record(slug, True)
+            _health_record(slug, True, ms)
+            logger.info(f"[CED-BATCH] ✅ {slug} recuperado: compra={buy} venta={sell}")
+            yield RateResult(
                 slug=slug, buy_rate=buy, sell_rate=sell,
                 scraped_at=now_peru(), response_ms=ms, success=True,
-            ))
-            _cb_record(slug, True)  # resetear circuit breaker si CED funciona
-            logger.info(f"[CED-BATCH] ✅ {slug} recuperado: compra={buy} venta={sell}")
+                source='ced_batch', source_updated_at=src_upd,
+            )
 
-    return results
+
+def scrape_all(active_slugs=None, max_workers=18):
+    """
+    Wrapper síncrono sobre scrape_all_gen: retorna lista completa (fase 1 + fase 2).
+    Último resultado por slug prevalece (CED batch sobreescribe fallo directo).
+    """
+    results_by_slug = {}
+    for r in scrape_all_gen(active_slugs=active_slugs, max_workers=max_workers):
+        results_by_slug[r.slug] = r
+    return list(results_by_slug.values())

@@ -52,7 +52,7 @@ class TKambioScraper(BaseScraper):
                 resp = sess.get(
                     _SITE_URL + path,
                     headers=headers_json,
-                    timeout=8,
+                    timeout=5,   # reducido: 9 endpoints × 5s = 45s máx (vs 72s antes)
                     verify=False,
                 )
                 if resp.status_code != 200:

@@ -604,3 +604,49 @@ except Exception as e:
     print(f"   ⚠️  Error en patch cotiz_* wa_bot_sessions: {e}")
 PYEOF
 echo ""
+
+# ── Patch directo: columnas de calidad de datos en fx_rate_current ─────────────
+# Agrega last_attempt_at, data_source, last_error para diagnóstico del FX Monitor.
+# Totalmente idempotente (ADD COLUMN IF NOT EXISTS).
+echo "⚡ Garantizando columnas de calidad en fx_rate_current..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando patch directo")
+    sys.exit(0)
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    print("   DATABASE_URL no definida — saltando patch directo")
+    sys.exit(0)
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name='fx_rate_current'")
+    if not cur.fetchone():
+        print("   ⏭  fx_rate_current aún no existe — se creará en upgrade")
+        conn.close()
+        sys.exit(0)
+    cur.execute("ALTER TABLE fx_rate_current ADD COLUMN IF NOT EXISTS last_attempt_at TIMESTAMP WITHOUT TIME ZONE")
+    cur.execute("ALTER TABLE fx_rate_current ADD COLUMN IF NOT EXISTS last_valid_at TIMESTAMP WITHOUT TIME ZONE")
+    cur.execute("ALTER TABLE fx_rate_current ADD COLUMN IF NOT EXISTS data_source VARCHAR(20)")
+    cur.execute("ALTER TABLE fx_rate_current ADD COLUMN IF NOT EXISTS last_error VARCHAR(255)")
+    cur.execute("ALTER TABLE fx_rate_current ADD COLUMN IF NOT EXISTS source_updated_at TIMESTAMP WITHOUT TIME ZONE")
+    cur.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name='fx_rate_current' AND column_name IN "
+        "('last_attempt_at','last_valid_at','data_source','last_error','source_updated_at')"
+    )
+    found = [r[0] for r in cur.fetchall()]
+    conn.close()
+    if len(found) == 5:
+        print("   ✅ last_attempt_at, last_valid_at, data_source, last_error, source_updated_at confirmadas en fx_rate_current")
+    else:
+        print(f"   ❌ Solo encontradas: {found}")
+        sys.exit(1)
+except Exception as e:
+    print(f"   ⚠️  Error en patch fx_rate_current: {e}")
+PYEOF
+echo ""

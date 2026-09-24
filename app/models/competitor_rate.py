@@ -62,25 +62,36 @@ class CompetitorRateCurrent(db.Model):
     """Último tipo de cambio conocido por competidor (tabla de lectura rápida)"""
     __tablename__ = 'fx_rate_current'
 
-    competitor_id  = db.Column(db.Integer, db.ForeignKey('fx_competitors.id'), primary_key=True)
-    buy_rate       = db.Column(db.Numeric(8, 4), nullable=False)
-    sell_rate      = db.Column(db.Numeric(8, 4), nullable=False)
-    prev_buy_rate  = db.Column(db.Numeric(8, 4))
-    prev_sell_rate = db.Column(db.Numeric(8, 4))
-    updated_at     = db.Column(db.DateTime, nullable=False, default=now_peru)
-    scrape_ok      = db.Column(db.Boolean, default=True)   # False si el último scrape falló
+    competitor_id   = db.Column(db.Integer, db.ForeignKey('fx_competitors.id'), primary_key=True)
+    buy_rate        = db.Column(db.Numeric(8, 4), nullable=False)
+    sell_rate       = db.Column(db.Numeric(8, 4), nullable=False)
+    prev_buy_rate   = db.Column(db.Numeric(8, 4))
+    prev_sell_rate  = db.Column(db.Numeric(8, 4))
+    updated_at      = db.Column(db.DateTime, nullable=False, default=now_peru)
+    scrape_ok       = db.Column(db.Boolean, default=True)   # False si el último scrape falló
+    # Campos de calidad de datos — agregados 2026-09
+    last_attempt_at = db.Column(db.DateTime, nullable=True)   # último intento (éxito o fallo)
+    last_valid_at   = db.Column(db.DateTime, nullable=True)   # última vez con tasa válida
+    data_source     = db.Column(db.String(20), nullable=True)  # 'direct'|'ced_direct'|'ced_batch'
+    last_error        = db.Column(db.String(255), nullable=True) # último mensaje de error
+    source_updated_at = db.Column(db.DateTime, nullable=True)   # timestamp informado por el proveedor (ej. CED updated_at)
 
     def spread(self):
         return float(self.sell_rate) - float(self.buy_rate)
 
     def to_dict(self):
         return {
-            'buy_rate':       float(self.buy_rate),
-            'sell_rate':      float(self.sell_rate),
-            'prev_buy_rate':  float(self.prev_buy_rate)  if self.prev_buy_rate  else None,
-            'prev_sell_rate': float(self.prev_sell_rate) if self.prev_sell_rate else None,
-            'updated_at':     self.updated_at.isoformat(),
-            'scrape_ok':      self.scrape_ok,
+            'buy_rate':        float(self.buy_rate),
+            'sell_rate':       float(self.sell_rate),
+            'prev_buy_rate':   float(self.prev_buy_rate)  if self.prev_buy_rate  else None,
+            'prev_sell_rate':  float(self.prev_sell_rate) if self.prev_sell_rate else None,
+            'updated_at':      self.updated_at.isoformat(),
+            'scrape_ok':       self.scrape_ok,
+            'last_attempt_at': self.last_attempt_at.isoformat() if self.last_attempt_at else None,
+            'last_valid_at':      self.last_valid_at.isoformat()      if self.last_valid_at      else None,
+            'data_source':        self.data_source,
+            'last_error':         self.last_error,
+            'source_updated_at':  self.source_updated_at.isoformat()  if self.source_updated_at  else None,
         }
 
 

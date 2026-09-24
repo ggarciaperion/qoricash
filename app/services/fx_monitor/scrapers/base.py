@@ -25,8 +25,10 @@ class RateResult:
     sell_rate:   float
     scraped_at:  datetime
     response_ms: int
-    success:     bool  = True
-    error:       str   = None
+    success:           bool     = True
+    error:             str      = None
+    source:            str      = 'direct'   # 'direct' | 'ced_direct' | 'ced_batch'
+    source_updated_at: datetime = None       # timestamp del proveedor (solo CED); None si ausente/inválido/futuro
 
 
 class BaseScraper:

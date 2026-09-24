@@ -58,7 +58,7 @@ class CambioMundialScraper(BaseScraper):
                 resp = sess.get(
                     _SITE_URL + path,
                     headers=headers_json,
-                    timeout=10,
+                    timeout=6,   # reducido: 7 endpoints × 6s = 42s máx (vs 70s antes)
                     verify=False,
                 )
                 if resp.status_code != 200:

@@ -3,6 +3,7 @@ Rutas del módulo FX Monitor — /monitor
 """
 import logging
 from datetime import datetime, timezone, timedelta
+import os
 from flask import Blueprint, render_template, jsonify, request, Response
 from flask_login import login_required, current_user
 from app.extensions import db
@@ -16,6 +17,27 @@ fx_monitor_bp = Blueprint("fx_monitor", __name__, url_prefix="/monitor")
 
 _LIMA = timezone(timedelta(hours=-5))
 _MON  = ("Master",)   # solo Master + Presidente de Negocios (normalizado en decorator)
+
+# ── Política de vigencia CED (fuente única para todo el módulo) ──────────────
+# Umbral de elegibilidad para rankings, mejores precios, promedios y alertas.
+# Configurable vía env var FX_CED_ELIGIBLE_HOURS (ver app/config/__init__.py).
+#
+# Consumidores de esta política:
+#   - api_live()  : ranking, best_buy/best_sell, market_avg_buy/sell, market_spread
+#   - El dashboard (dashboard.html) muestra TODOS los competidores para diagnóstico,
+#     incluyendo los CED vencidos como referencia. No realiza cálculos de ranking
+#     ni promedios — solo lista datos con scrape_ok/stale_min visible al operador.
+#   - api_current(): endpoint de datos crudos para herramientas internas; no filtra.
+#
+# Distinto del umbral de aceptación del scraper (4h en cuantoestaeldolar.py):
+#   ese se aplica al guardar. Este se aplica al calcular en cada request.
+#
+# Nota sobre source_updated_at de CED:
+#   El campo "updated_at" de cuantoestaeldolar.pe tiene semántica exacta desconocida
+#   (podría ser el último cambio de precio, la última sincronización de CED u otro evento).
+#   Se describe como "fecha informada por la fuente", no como confirmación de actividad.
+#   Si source_updated_at es None (ausente/inválido/futuro): vigencia no acreditada → referencia.
+_CED_ELIGIBLE_HOURS: float = float(os.environ.get('FX_CED_ELIGIBLE_HOURS', '2.0'))
 
 
 @fx_monitor_bp.route("/")
@@ -76,8 +98,9 @@ def api_scrape_now():
 def api_debug():
     """Diagnóstico del estado interno del monitor FX (solo Master)."""
     from app.services.fx_monitor import live_cache
-    from app.services.fx_monitor.scrapers.manager import _cb
+    from app.services.fx_monitor.scrapers.manager import _cb, get_scraper_health
     from app.models.competitor_rate import Competitor, CompetitorRateCurrent
+    import time as _time
 
     try:
         competitors_total = Competitor.query.count()
@@ -94,17 +117,25 @@ def api_debug():
             .join(Competitor, CompetitorRateCurrent.competitor_id == Competitor.id)
             .all()
         )
+        health = get_scraper_health()
         details = []
         for curr, comp in rows:
+            h = health.get(comp.slug, {})
             details.append({
-                "slug":      comp.slug,
-                "buy":       float(curr.buy_rate),
-                "sell":      float(curr.sell_rate),
-                "scrape_ok": curr.scrape_ok,
-                "updated_at": curr.updated_at.isoformat() if curr.updated_at else None,
+                "slug":             comp.slug,
+                "buy":              float(curr.buy_rate),
+                "sell":             float(curr.sell_rate),
+                "scrape_ok":        curr.scrape_ok,
+                "updated_at":       curr.updated_at.isoformat() if curr.updated_at else None,
+                "last_attempt_at":  curr.last_attempt_at.isoformat() if curr.last_attempt_at else None,
+                "data_source":      curr.data_source,
+                "last_error":       curr.last_error,
+                "health_ok":        h.get("ok", 0),
+                "health_fail":      h.get("fail", 0),
+                "health_last_ms":   h.get("last_ms", 0),
             })
 
-        cb_state = {slug: {"fails": v["fails"], "cooldown_secs": max(0, round(v["open_until"] - __import__('time').monotonic()))}
+        cb_state = {slug: {"fails": v["fails"], "cooldown_secs": max(0, round(v["open_until"] - _time.monotonic()))}
                     for slug, v in _cb.items()}
 
     except Exception as e:
@@ -118,6 +149,7 @@ def api_debug():
         "current_with_prices":   current_with_prices,
         "cache_version":         live_cache.get_version(),
         "circuit_breaker":       cb_state,
+        "scraper_health":        get_scraper_health(),
         "details":               details,
     })
 
@@ -203,28 +235,11 @@ def api_live():
 
     competitors = data["competitors"]
 
-    # Enrich with epoch timestamp for "X ago" display
-    slug_epoch = {}
-    try:
-        rows = (
-            db.session.query(CompetitorRateCurrent, Competitor)
-            .join(Competitor, CompetitorRateCurrent.competitor_id == Competitor.id)
-            .filter(Competitor.is_active == True)
-            .all()
-        )
-        for curr, comp in rows:
-            ts = curr.updated_at
-            if ts.tzinfo is None:
-                ts = ts.replace(tzinfo=_LIMA)  # DB guarda hora Lima naive
-            slug_epoch[comp.slug] = int(ts.timestamp())
-    except Exception:
-        pass
-
-    for c in competitors:
-        c["updated_epoch"] = slug_epoch.get(c["slug"], 0)
+    # updated_epoch ya viene calculado por get_dashboard_data() usando last_valid_at.
+    # No sobreescribir — el servicio ya aplica el fallback correcto para registros antiguos.
 
     # Rankings — solo entidades con AMBOS precios válidos y frescos
-    # Stale threshold: durante horario de mercado (9:00-13:30) = 10 min
+    # Stale threshold: durante horario de mercado (9:00-13:30) = 3 min
     # Fuera de horario el scraper duerme 30 min — no aplicar stale check
     now_lima    = datetime.now(_LIMA)
     server_now  = int(now_lima.timestamp())
@@ -235,6 +250,7 @@ def api_live():
     valid   = []
     invalid = []
     for c in competitors:
+        src = c.get("data_source") or "direct"
         has_prices = c.get("buy", 0) > 0 and c.get("sell", 0) > 0
         if not has_prices:
             c["is_valid"] = False
@@ -246,19 +262,66 @@ def api_live():
             c["is_stale"] = True
             invalid.append(c)
             continue
-        ep = slug_epoch.get(c["slug"], 0)
-        is_stale = STALE_SECS and ep > 0 and (server_now - ep) > STALE_SECS
-        if is_stale:
-            c["is_valid"] = False
-            c["is_stale"] = True
-            invalid.append(c)
+
+        if src in ('ced_direct', 'ced_batch'):
+            # Para datos CED: la vigencia se juzga por source_updated_at (timestamp del proveedor),
+            # NO por updated_epoch (= hora en que nosotros descargamos, que siempre es reciente).
+            # Una descarga reciente no oculta que el precio del proveedor es antiguo.
+            src_upd_epoch = c.get("source_updated_epoch")
+            if src_upd_epoch is None:
+                # Vigencia no acreditada: timestamp ausente/inválido/futuro.
+                # Mostrar como referencia fuera del ranking.
+                c["is_valid"] = False
+                c["is_ced_unknown_ts"] = True
+                invalid.append(c)
+                continue
+            ced_age_secs = server_now - src_upd_epoch
+            if ced_age_secs > _CED_ELIGIBLE_HOURS * 3600:
+                c["is_valid"] = False
+                c["is_stale"] = True
+                invalid.append(c)
+            else:
+                c["is_valid"] = True
+                valid.append(c)
         else:
-            c["is_valid"] = True
-            valid.append(c)
+            # Scrapers directos: lógica existente de STALE_SECS (3 min en horario de mercado)
+            ep = c.get("updated_epoch", 0)
+            is_stale = STALE_SECS and ep > 0 and (server_now - ep) > STALE_SECS
+            if is_stale:
+                c["is_valid"] = False
+                c["is_stale"] = True
+                invalid.append(c)
+            else:
+                c["is_valid"] = True
+                valid.append(c)
+
+    # ── Dedup: eliminar doble ponderación de aliases ──────────────────────────
+    # Debe ejecutarse ANTES del filtro de outliers para que el alias no influya
+    # en el cálculo de medianas del conjunto válido.
+    #
+    # Regla de representación del grupo:
+    #   - Canónico válido + alias válido → retirar alias; canónico representa al grupo.
+    #   - Canónico NO válido + alias válido → alias queda como único representante
+    #     elegible del grupo (no se descarta la cotización por falla del canónico).
+    #   - Canónico válido + alias NO válido → alias ya está en invalid; sin cambio.
+    #   - Ambos NO válidos → sin cambio.
+    #
+    # Los aliases retirados van a 'aliases' (categoría neutral), NO a 'invalid'
+    # (que agrupa errores de captura). Siguen siendo visibles con su etiqueta ALIAS.
+    aliases = []
+    _valid_slugs = {c["slug"] for c in valid}
+    for c in list(valid):
+        if c.get("is_alias"):
+            if c.get("canonical_slug") in _valid_slugs:
+                # Canónico disponible como representante → retirar alias de cálculos
+                c["is_valid"] = False
+                valid.remove(c)
+                aliases.append(c)
+            # Si el canónico no está en valid, el alias permanece como representante
 
     # ── Filtro de outliers ────────────────────────────────────────────────────
     # Excluye tasas que se desvíen >6% de la mediana del grupo válido.
-    # Evita que scrapers con datos erróneos contaminen el ranking de mejor compra/venta.
+    # Se ejecuta después del dedup; las medianas no están sesgadas por aliases.
     def _median(values):
         s = sorted(values)
         n = len(s)
@@ -285,10 +348,14 @@ def api_live():
 
     active = valid
     errors = invalid
-    buy_ranked  = sorted(active, key=lambda c: c["buy"],  reverse=True) + \
-                  sorted(errors, key=lambda c: c["buy"],  reverse=True)
-    sell_ranked = sorted(active, key=lambda c: c["sell"]) + \
-                  sorted(errors, key=lambda c: c["sell"])
+    # aliases: categoría neutral — visibles en el monitor con badge ALIAS,
+    # excluidos de promedios, rankings y conteos competitivos.
+    buy_ranked  = sorted(active,  key=lambda c: c["buy"],  reverse=True) + \
+                  sorted(errors,  key=lambda c: c["buy"],  reverse=True) + \
+                  sorted(aliases, key=lambda c: c["buy"],  reverse=True)
+    sell_ranked = sorted(active,  key=lambda c: c["sell"]) + \
+                  sorted(errors,  key=lambda c: c["sell"]) + \
+                  sorted(aliases, key=lambda c: c["sell"])
 
     # best_buy / best_sell: mejor entre frescos y válidos; fallback a stale (ya ordenado)
     def _best(ranked, key):
