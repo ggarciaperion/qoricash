@@ -1232,7 +1232,7 @@ def _bienvenida(numero, session):
     else:
         tc_text = '\nCambia dólares sin salir de tu WhatsApp, sin comisiones.'
 
-    msg = f'{saludo}\nCambia tus dólares con un excelente tipo de cambio, sin salir de WhatsApp.{tc_text}'
+    msg = f'{saludo}\nCambia soles y dólares sin salir de tu WhatsApp.{tc_text}'
     send_buttons_image(numero, BANNER_URL, msg, [
         {'id': 'btn_comprar',       'title': 'Soles a dólares'},
         {'id': 'btn_vender',        'title': 'Dólares a soles'},
@@ -5520,6 +5520,22 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     elif any(k in txt_lower for k in _cancelar_kw):
                         _reset_sesion(session)
                         _menu_rapido(numero)
+                    elif any(k in txt_lower for k in (
+                        'dolares a soles', 'dólares a soles', 'dolares por soles', 'dólares por soles',
+                        'vender dolares', 'vender dólares', 'vendo dolares', 'vendo dólares',
+                        'tengo dolares', 'tengo dólares', 'cambiar dolares', 'cambiar dólares',
+                    )):
+                        # Dirección explícita: venta (cliente da USD, recibe soles)
+                        session.cotiz_op = 'venta'
+                        _continuar_segun_sesion(numero, session)
+                    elif any(k in txt_lower for k in (
+                        'soles a dolares', 'soles a dólares', 'soles por dolares', 'soles por dólares',
+                        'comprar dolares', 'comprar dólares', 'compro dolares', 'compro dólares',
+                        'quiero dolares', 'quiero dólares', 'necesito dolares', 'necesito dólares',
+                    )):
+                        # Dirección explícita: compra (cliente da soles, recibe USD)
+                        session.cotiz_op = 'compra'
+                        _continuar_segun_sesion(numero, session)
                     elif any(k in txt_lower for k in _cotizar_kw):
                         # Interpretation: extract direction/amount from the message
                         try:
@@ -6087,8 +6103,15 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
         db.session.commit()
 
     except Exception as e:
-        log.error(f'[WaBot] Error en handle_message {numero}: {e}')
+        log.error(f'[WaBot] Error en handle_message {numero}: {e}', exc_info=True)
         try:
             db.session.rollback()
+        except Exception:
+            pass
+        try:
+            send_text(numero,
+                'Ocurrió un error procesando tu mensaje. Por favor intenta de nuevo '
+                'o escribe *Hola* para reiniciar.'
+            )
         except Exception:
             pass
