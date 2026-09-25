@@ -1363,11 +1363,12 @@ def _flujo_mostrar_cotizacion(numero, session):
         ]
     }])
     if not ok:
-        # Fallback: send plain text if interactive list fails (WhatsApp API issue)
-        send_text(numero,
-            resumen + '\n\n'
-            'Responde *1* para aceptar, *2* para cambiar monto, o escribe *asesor* para hablar con un asesor.'
-        )
+        # Fallback: send buttons if interactive list fails (WhatsApp API issue)
+        send_buttons(numero, resumen, [
+            {'id': f'btn_aceptar_cotiz_{_token}', 'title': '✅ Aceptar'},
+            {'id': 'btn_cambiar_monto',            'title': '✏️ Cambiar monto'},
+            {'id': 'btn_asesor',                   'title': '💬 Hablar con asesor'},
+        ])
 
 
 def _menu_rapido(numero):
