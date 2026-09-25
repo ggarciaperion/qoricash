@@ -642,7 +642,7 @@ def _parse_monto(texto):
 
     # Quitar símbolos de moneda y espacios, conservar dígitos, puntos y comas
     limpio = re.sub(r'[^\d.,]', '', t)
-    if not limpio:
+    if not limpio or not re.search(r'\d', limpio):
         return None
 
     # Caso 1: solo dígitos
@@ -739,6 +739,9 @@ def _detectar_intencion(texto):
     for frase in ('asesor', 'agente', 'persona', 'humano', 'ayuda', 'hablar con'):
         if frase in t:
             return 'asesor'
+    # Sin dígitos: no puede ser un intento de monto → tratar como consulta
+    if not re.search(r'\d', texto):
+        return 'otro'
     return None
 
 
@@ -800,10 +803,12 @@ def _interpretar_solicitud(texto, session=None):
     _venta_sig = (
         'vender dolares', 'vendo dolares', 'quiero soles', 'necesito soles',
         'tengo dolares', 'dolares a soles', 'dolares por soles', 'de dolares a',
-        'envio dolares', 'mando dolares', 'cambiar dolares', 'vender usd',
+        'envio dolares', 'mando dolares', 'vender usd',
         u'vender dólares', u'vendo dólares', u'tengo dólares',
         u'dólares a soles', u'dólares por soles', u'de dólares a',
-        u'envío dólares', u'mando dólares', u'cambiar dólares',
+        u'envío dólares', u'mando dólares',
+        # 'cambiar dolares'/'cambiar dólares' eliminado: es ambiguo (venta o compra).
+        # Sin contexto explícito, se pide aclaración.
     )
     es_compra = any(k in t for k in _compra_sig)
     es_venta  = any(k in t for k in _venta_sig)
@@ -817,10 +822,13 @@ def _interpretar_solicitud(texto, session=None):
         'usd a soles', 'usd por soles',
         'dólares a soles', 'dólares por soles', 'de dólares a',
     ))
+    # "quiero/necesito + dólares" → compra, pero solo si "cambiar" no aparece entre medias:
+    # "quiero cambiar dólares" es ambiguo (puede ser venta o compra); se pide aclaración.
     if (not es_compra
             and re.search(r'\b(quiero|necesito)\b.{0,30}\b(d[oó]lares?|usd)\b', t)
             and not re.search(r'\b(vender?|vendo)\b', t)
-            and not _venta_dir_explicit):
+            and not _venta_dir_explicit
+            and not re.search(r'\bcambiar?\b', t)):
         es_compra = True
     if not es_venta and re.search(r'\b(vender?|vendo)\b.{0,30}\b(d[oó]lares?|usd)\b', t):
         es_venta = True
@@ -846,6 +854,18 @@ def _interpretar_solicitud(texto, session=None):
     elif es_venta and not es_compra:
         resultado['tipo'] = 'venta'
 
+    # ── Exclusión: contexto de préstamo / servicio no ofrecido ──────
+    # "necesito que me presten 500 dólares" ≠ compra de dólares.
+    # Si el texto contiene verbos de préstamo, cancelar señales de cambio
+    # y no capturar el importe como monto de cotización.
+    _prestamo_pat = r'\bpr[eé]stamos?\b|\bprest[ae][nr]?\b|\bprestame\b|\bpresten\b|\bpres[tt]es\b'
+    if re.search(_prestamo_pat, t):
+        resultado['tipo'] = None
+        es_compra = False
+        es_venta  = False
+        # importe se parsea abajo pero se ignorará porque tipo=None y
+        # _aplicar_interpretacion_pre_op no aplica importe sin tipo.
+
     # ── Importe y moneda ───────────────────────────────────────────
     monto = _parse_monto(texto)
     if monto and monto > 0:
@@ -857,6 +877,10 @@ def _interpretar_solicitud(texto, session=None):
             resultado['moneda_importe'] = 'PEN'
         else:
             resultado['moneda_importe'] = 'USD'
+
+    # Si hay contexto de préstamo: borrar importe para no capturarlo.
+    if re.search(_prestamo_pat, t):
+        resultado['importe'] = None
 
     # ── Si el determinista aporto algo, devolver sin IA ─────────────
     if resultado['tipo'] is not None or resultado['importe'] is not None:
@@ -1092,7 +1116,7 @@ def _aplicar_interpretacion_pre_op(numero, session, interp):
     """
     if interp.get('fuente') == 'fallo':
         _intentar_identificar_y_cotizar(numero, session)
-        return
+        return True  # handled (guided flow started)
 
     tipo    = interp.get('tipo')
     importe = interp.get('importe')
@@ -1109,7 +1133,7 @@ def _aplicar_interpretacion_pre_op(numero, session, interp):
         if tipo:
             session.cotiz_op = tipo
         session.estado = 'esperando_importe' if session.cotiz_op else 'eligiendo_operacion'
-        return
+        return True  # handled (asked for USD amount)
 
     # Apply direction if unambiguous
     if tipo:
@@ -1125,7 +1149,7 @@ def _aplicar_interpretacion_pre_op(numero, session, interp):
                 f'\u00bfCu\u00e1ntos d\u00f3lares deseas {verbo2}?'
             )
             session.estado = 'esperando_importe' if session.cotiz_op else 'eligiendo_operacion'
-            return
+            return True  # handled (minimum amount message sent)
         session.cotiz_importe = importe
 
     # Route based on what is now known
@@ -1137,7 +1161,24 @@ def _aplicar_interpretacion_pre_op(numero, session, interp):
         _flujo_pedir_importe(numero, session.cotiz_op)
         session.estado = 'esperando_importe'
     else:
-        _intentar_identificar_y_cotizar(numero, session)
+        # Si hay un importe guardado ≥ mínimo pero la dirección es desconocida,
+        # es una frase ambigua como "quiero cambiar 100 dólares" — preguntar dirección.
+        _importe_amb = session.cotiz_importe or 0
+        if _importe_amb >= MONTO_MINIMO_USD:
+            send_buttons(numero,
+                f'\u00bfQu\u00e9 quieres hacer con los *USD {_importe_amb:,.0f}*?\n\n'
+                f'\u2022 D\u00f3lares a soles \u2014 me das USD y recibes soles\n'
+                f'\u2022 Soles a d\u00f3lares \u2014 me das soles y recibes USD',
+                [
+                    {'id': 'btn_vender',  'title': 'D\u00f3lares a soles'},
+                    {'id': 'btn_comprar', 'title': 'Soles a d\u00f3lares'},
+                ]
+            )
+            session.estado = 'eligiendo_operacion'
+            return True
+        # Sin señal de cambio ni importe útil: dejar al caller (IA/fallback).
+        return False
+    return True
 
 
 # ── Flujos del bot ─────────────────────────────────────────────────
@@ -3027,20 +3068,45 @@ def _respuesta_ia(texto_usuario, numero, session, wa_id=''):
         # Contexto estructurado de la sesión actual (estado, cotización, op, cuenta)
         contexto_sesion = _construir_contexto_sesion(numero, session)
 
+        # Instrucciones adicionales según el estado del flujo actual
+        _estado_sesion = session.estado or 'inicio'
+        _instruc_estado = ''
+        if _estado_sesion != 'inicio':
+            _instruc_estado += (
+                '- La conversación ya está en curso; omite saludos ("Hola", "Buenas") '
+                'y presentaciones de la empresa. Ve directo al punto.\n'
+                '- No menciones tipos de cambio, horarios ni datos del servicio a menos '
+                'que el cliente los solicite explícitamente.\n'
+            )
+        if _estado_sesion == 'esperando_importe':
+            _op_dir = 'vender' if (session.cotiz_op or '') == 'venta' else 'recibir'
+            _instruc_estado += (
+                f'- El cliente debe indicar cuántos dólares quiere {_op_dir}. '
+                'Tras responder su pregunta, termina tu mensaje con esa pregunta directa. '
+                'No uses la palabra "Cotizar" ni pidas usar botones.\n'
+            )
+
         system_prompt = (
             'Eres el asistente virtual de Qoricash, una casa de cambio digital peruana '
             'inscrita en la SBS. '
             'Tu función es responder preguntas y aclarar dudas. No vendes ni eres insistente.\n\n'
 
             'REGLAS GENERALES:\n'
-            '- Responde en español, breve y amable (máximo 2-3 oraciones).\n'
+            '- Responde en español, breve y amable (máximo 2 oraciones).\n'
             '- Texto plano sin asteriscos ni markdown. Emojis ocasionales y naturales.\n'
             '- No inventes tipos de cambio distintos a los proporcionados.\n'
             '- No afirmes haber realizado acciones que el sistema no ejecutó. '
             'No puedes crear, modificar, cancelar ni completar operaciones.\n'
             '- Si el cliente pide un cambio que el flujo actual no puede aplicar '
             '(ej: corregir cuenta ya confirmada), explícaselo y oriéntalo al asesor '
-            'o al botón correspondiente — no digas que lo cambiaste.\n\n'
+            'o al botón correspondiente — no digas que lo cambiaste.\n'
+            '- Si el servicio solicitado está fuera del alcance de Qoricash '
+            '(préstamos, otras monedas, etc.), explícalo en 1-2 oraciones sin ofrecer '
+            'alternativas externas ni repetir información del servicio.\n'
+            '- No incluyas el número de asesor (+51 910 624 404) ni la URL (www.qoricash.pe) '
+            'en respuestas conversacionales; el cliente ya está en este canal. '
+            'Si necesita asesor, el flujo tiene un botón para eso.\n'
+            + (_instruc_estado if _instruc_estado else '') + '\n'
 
             'SOBRE EL ESTADO ACTUAL:\n'
             '- El CONTEXTO DE SESIÓN muestra el estado real del flujo y los datos disponibles.\n'
@@ -3064,6 +3130,9 @@ def _respuesta_ia(texto_usuario, numero, session, wa_id=''):
             'DATOS ACTUALES DEL SERVICIO:\n'
             f'- Tipo de cambio hoy: {tc_str}\n'
             '- Solo operamos USD ↔ PEN (dólares americanos / soles peruanos)\n'
+            '- Comisiones: Qoricash no cobra comisión adicional sobre el tipo de cambio. '
+            'Si te preguntan por comisiones, responde solo eso. '
+            'No menciones cargos de terceros (bancos, pasarelas) a menos que el cliente los señale.\n'
             f'- Horario de atención: {horario_txt}\n'
             f'- Estado del servicio ahora: {disponibilidad}\n'
             f'- Nombre del cliente: {nombre_cliente}\n'
@@ -4177,14 +4246,18 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                         )
                     elif intencion == 'otro':
-                        # Pregunta distinta durante el flujo → responder con IA y redirigir
+                        # Pregunta distinta durante el flujo → responder con IA, que incluye
+                        # la redirección al monto (instruida en el system prompt).
+                        # Si IA no disponible: respuesta mínima con la pregunta de monto.
                         respuesta_ia = _respuesta_ia(texto, numero, session, wa_id=wa_id)
                         if respuesta_ia:
                             send_text(numero, respuesta_ia)
-                        send_text(numero,
-                            'Cuando quieras continuar con la cotización, escribe el monto en dólares. '
-                            'Ejemplo: *1000*'
-                        )
+                        else:
+                            _op_txt = 'vender' if session.cotiz_op == 'venta' else 'recibir'
+                            send_text(numero,
+                                f'\u00bfCu\u00e1ntos d\u00f3lares quieres {_op_txt}? '
+                                f'Escribe el monto, por ejemplo: *1000*'
+                            )
                         # No reseteamos el estado — el flujo sigue esperando el monto
                     else:
                         # No se entendió el monto → incrementar contador
@@ -5024,8 +5097,36 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
             elif estado == 'inicio':
                 txt_lower = texto.lower()
                 if any(k in txt_lower for k in ('hola', 'buenas', 'buenos', 'hi ', 'hey', 'saludos', 'buen dia', 'buen día')):
-                    _bienvenida(numero, session)
-                    session.estado = 'menu_mostrado'
+                    # Detectar si hay contenido adicional más allá del saludo.
+                    # "Hola" → bienvenida genérica. "Hola, quiero préstamo" → atender intención.
+                    _resto_sal = re.sub(
+                        r'\b(hola|buenas?\s*(?:tardes?|noches?|d[ií]as?)?|buenos?\s*d[ií]as?'
+                        r'|hi|hey|saludos?|buen\s+d[ií]a)\b',
+                        '', txt_lower
+                    )
+                    _resto_sal = re.sub(r'[!¡,\.\s]+', ' ', _resto_sal).strip()
+                    if len(_resto_sal) > 4:
+                        # Saludo + intención: procesar la intención sin mostrar bienvenida genérica
+                        try:
+                            _interp_sal = _interpretar_solicitud(texto, session)
+                        except Exception:
+                            _interp_sal = {'fuente': 'fallo'}
+                        _routed_sal = _aplicar_interpretacion_pre_op(numero, session, _interp_sal)
+                        if not _routed_sal:
+                            _ia_sal = _respuesta_ia(texto, numero, session, wa_id=wa_id)
+                            if _ia_sal:
+                                send_text(numero, _ia_sal)
+                            else:
+                                send_text(numero,
+                                    '¡Hola! 👋 En Qoricash te ayudamos a comprar y vender dólares. '
+                                    '¿En qué puedo ayudarte?'
+                                )
+                        if session.estado not in ('eligiendo_operacion', 'eligiendo_cliente_telefono',
+                                                   'viendo_cotizacion', 'esperando_importe'):
+                            session.estado = 'menu_mostrado'
+                    else:
+                        _bienvenida(numero, session)
+                        session.estado = 'menu_mostrado'
                 elif any(k in txt_lower for k in ('como funciona', 'cómo funciona', 'como opera', 'es seguro', 'es confiable', 'información', 'informacion', 'info', 'cuéntame', 'cuentame')):
                     _flujo_como_funciona(numero)
                 elif any(k in txt_lower for k in ('horario', 'hora', 'atienden', 'trabajan', 'abren', 'cierran', 'disponible', 'disponibles')):
@@ -5077,7 +5178,16 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         except Exception as _ei:
                             log.warning(f'[WaBot] Error interpretando solicitud: {_ei}')
                             _interp_i = {'fuente': 'fallo'}
-                        _aplicar_interpretacion_pre_op(numero, session, _interp_i)
+                        _routed_i = _aplicar_interpretacion_pre_op(numero, session, _interp_i)
+                        if not _routed_i:
+                            # Sin señal de cambio: responder con IA sin asumir intención de cotizar
+                            _ia_resp_i = _respuesta_ia(texto, numero, session, wa_id=wa_id)
+                            if _ia_resp_i:
+                                send_text(numero, _ia_resp_i)
+                            else:
+                                _menu_rapido(numero)
+                            if session.estado not in ('eligiendo_operacion', 'eligiendo_cliente_telefono'):
+                                session.estado = 'menu_mostrado'
                 else:
                     # Despedida en estado inicio
                     if any(k in txt_lower for k in _despedida_kw):
@@ -5202,14 +5312,35 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 _entendido = True  # flag para resetear contador si se entiende el mensaje
 
                 if any(k in txt_lower for k in ('hola', 'buenas', 'buenos', 'hi ', 'hey', 'saludos', 'buen dia', 'buen día')):
-                    send_buttons(numero,
-                        '¡Hola! 👋 ¿En qué te puedo ayudar hoy?',
-                        [
-                            {'id': 'btn_cotizar',       'title': '💱 Cotizar'},
-                            {'id': 'btn_como_funciona', 'title': 'ℹ️ ¿Cómo funciona?'},
-                            {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
-                        ]
+                    _resto_sal_m = re.sub(
+                        r'\b(hola|buenas?\s*(?:tardes?|noches?|d[ií]as?)?|buenos?\s*d[ií]as?'
+                        r'|hi|hey|saludos?|buen\s+d[ií]a)\b',
+                        '', txt_lower
                     )
+                    _resto_sal_m = re.sub(r'[!¡,\.\s]+', ' ', _resto_sal_m).strip()
+                    if len(_resto_sal_m) > 4:
+                        try:
+                            _interp_sal_m = _interpretar_solicitud(texto, session)
+                        except Exception:
+                            _interp_sal_m = {'fuente': 'fallo'}
+                        _routed_sal_m = _aplicar_interpretacion_pre_op(numero, session, _interp_sal_m)
+                        if not _routed_sal_m:
+                            _ia_sal_m = _respuesta_ia(texto, numero, session, wa_id=wa_id)
+                            if _ia_sal_m:
+                                send_text(numero, _ia_sal_m)
+                            else:
+                                send_buttons(numero, '¡Hola! 👋 ¿En qué te puedo ayudar hoy?',
+                                    [{'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                                     {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'}])
+                    else:
+                        send_buttons(numero,
+                            '¡Hola! 👋 ¿En qué te puedo ayudar hoy?',
+                            [
+                                {'id': 'btn_cotizar',       'title': '💱 Cotizar'},
+                                {'id': 'btn_como_funciona', 'title': 'ℹ️ ¿Cómo funciona?'},
+                                {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
+                            ]
+                        )
                 elif any(k in txt_lower for k in ('ok', 'okey', 'okay', 'entendido', 'gracias', 'listo', 'perfecto', 'bien', 'dale', 'claro', 'de acuerdo')):
                     send_buttons(numero,
                         '😊 ¿Hay algo más en lo que pueda ayudarte?',
@@ -5254,7 +5385,14 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         except Exception as _em:
                             log.warning(f'[WaBot] Error interpretando solicitud: {_em}')
                             _interp_m = {'fuente': 'fallo'}
-                        _aplicar_interpretacion_pre_op(numero, session, _interp_m)
+                        _routed_m = _aplicar_interpretacion_pre_op(numero, session, _interp_m)
+                        if not _routed_m:
+                            # Sin señal de cambio: responder con IA sin asumir intención de cotizar
+                            _ia_resp_m = _respuesta_ia(texto, numero, session, wa_id=wa_id)
+                            if _ia_resp_m:
+                                send_text(numero, _ia_resp_m)
+                            else:
+                                _menu_rapido(numero)
                 elif any(k in txt_lower for k in ('asesor', 'ayuda', 'ayúdame', 'ayudame', 'hablar', 'persona', 'humano', 'soporte', 'contacto')):
                     _flujo_asesor(numero)
                     try:
@@ -5298,7 +5436,6 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             _ia_resp = _respuesta_ia(texto, numero, session, wa_id=wa_id)
                             if _ia_resp:
                                 send_text(numero, _ia_resp)
-                                _menu_rapido(numero)
                                 _entendido = True  # IA respondió correctamente, resetear contador
                             else:
                                 # Contar mensajes no entendidos consecutivamente para evitar loop
