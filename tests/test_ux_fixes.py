@@ -120,11 +120,11 @@ class TestCotizacionListaNativa(unittest.TestCase):
                          f'No debe llamarse send_buttons, se llamó con: {btn_calls}')
 
     def test_boton_apertura_ver_opciones(self):
-        """El campo 'button' del payload es 'Continuar'."""
+        """El valor por defecto de button en send_list es 'Continuar'."""
         with open(SVC_PATH, encoding='utf-8') as f:
             src = f.read()
-        self.assertIn("'button': 'Continuar'", src,
-                      "send_list debe configurar button='Continuar'")
+        self.assertIn("button='Continuar'", src,
+                      "send_list debe tener button='Continuar' como valor por defecto")
 
     def test_opciones_en_un_solo_mensaje(self):
         list_calls, _, _ = self._call_mostrar()

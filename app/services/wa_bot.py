@@ -554,7 +554,7 @@ def send_buttons_image(numero, image_url, body, buttons):
         log.error(f'[WaBot] Error send_buttons_image a {numero}: {e}')
         return send_buttons(numero, body, buttons)
 
-def send_list(numero, body, sections):
+def send_list(numero, body, sections, button='Continuar'):
     payload = {
         'messaging_product': 'whatsapp',
         'to': numero.lstrip('+'),
@@ -563,7 +563,7 @@ def send_list(numero, body, sections):
             'type': 'list',
             'body': {'text': body},
             'action': {
-                'button': 'Continuar',
+                'button': button,
                 'sections': sections,
             }
         }
@@ -1144,81 +1144,39 @@ def _aplicar_interpretacion_pre_op(numero, session, interp):
 
 def _bienvenida(numero, session):
     """
-    Saludo de bienvenida personalizado según identidad del cliente:
-    - 0 clientes encontrados por teléfono → saludo genérico (nuevo cliente)
-    - 1 cliente encontrado → saludo con nombre de BD, auto-fija cotiz_doc
-    - 2+ clientes (persona natural + empresa) → selector de cuenta directo
+    Saludo de bienvenida:
+    - 1 persona natural (DNI/CE) vinculada al número → saludo por nombre.
+    - Cualquier otro caso (0, 1 empresa/RUC, 2+) → saludo genérico Qoricash.
+    Siempre muestra TC actual + 3 botones de operación. No pre-popula cotiz_doc.
     """
     BANNER_URL = 'https://qoricash.pe/213.jpg'
-    nombre = session.nombre if hasattr(session, 'nombre') else (session or '')
-
     clientes = _buscar_clientes_por_telefono(numero)
 
+    saludo = '¡Hola! 👋 Bienvenido a Qoricash.'
     if len(clientes) == 1:
         c = clientes[0]
-        nombre_db = (c.nombres or c.razon_social or '').strip()
-        primer_nombre = nombre_db.split()[0].title() if nombre_db else (nombre.split()[0] if nombre else '')
-        # Actualizar sesión con nombre fresco y doc conocido
-        session.nombre = nombre_db or nombre
-        if not session.cotiz_doc:
-            session.cotiz_doc = c.dni
-        saludo = f'¡Hola, {primer_nombre}! 👋' if primer_nombre else '¡Hola! 👋'
-        _c_bv1, _v_bv1 = _get_tc()
-        if _c_bv1 and _v_bv1:
-            tc_bv1 = (
-                f'\n💵 Compramos tus dólares: *S/ {_c_bv1:.4f}*\n'
-                f'💵 Te vendemos dólares:   *S/ {_v_bv1:.4f}*\n\n'
-                '¿Qué monto quieres cambiar y a qué moneda?'
-            )
-        else:
-            tc_bv1 = '\nCambia dólares sin salir de tu WhatsApp, sin comisiones.'
-        msg = f'{saludo} Soy el asistente de Qoricash.{tc_bv1}'
-        send_buttons_image(numero, BANNER_URL, msg, [
-            {'id': 'btn_comprar',       'title': 'Soles a dólares'},
-            {'id': 'btn_vender',        'title': 'Dólares a soles'},
-            {'id': 'btn_como_funciona', 'title': '› ¿Cómo funciona?'},
-        ])
+        if (c.document_type or '').upper() in ('DNI', 'CE'):
+            nombre_db = (c.nombres or '').strip()
+            primer_nombre = nombre_db.split()[0].title() if nombre_db else ''
+            if primer_nombre:
+                saludo = f'¡Hola, {primer_nombre}! 👋'
 
-    elif len(clientes) > 1:
-        # Múltiples cuentas: mostrar selector inmediato en el saludo
-        primer_nombre = nombre.split()[0].title() if nombre else ''
-        saludo = f'¡Hola, {primer_nombre}! 👋 Bienvenido de vuelta.' if primer_nombre else '¡Hola de nuevo! 👋'
-        msg = (
-            f'{saludo}\n\n'
-            'Tenemos *más de una cuenta* vinculada a tu número.\n\n'
-            '¿Con cuál deseas operar hoy? 👇'
+    _c, _v = _get_tc()
+    if _c and _v:
+        tc_text = (
+            f'\n💵 Compramos tus dólares: *S/ {_c:.4f}*\n'
+            f'💵 Te vendemos dólares:   *S/ {_v:.4f}*\n\n'
+            '¿Qué monto quieres cambiar y a qué moneda?'
         )
-        botones = []
-        for c in clientes[:2]:
-            if c.document_type == 'RUC':
-                label = (c.razon_social or 'Empresa').strip()[:14]
-                botones.append({'id': f'btn_bienvenida_{c.dni}', 'title': f'🏢 {label}'[:20]})
-            else:
-                pnombre = (c.nombres or '').split()[0].title() if c.nombres else 'Personal'
-                botones.append({'id': f'btn_bienvenida_{c.dni}', 'title': f'👤 {pnombre} - Personal'[:20]})
-        botones.append({'id': 'btn_asesor', 'title': '💬 Hablar con asesor'})
-        send_buttons_image(numero, BANNER_URL, msg, botones)
-        session.estado = 'eligiendo_cuenta_bienvenida'
-
     else:
-        # Nuevo cliente o no registrado
-        primer_nombre = nombre.split()[0] if nombre else ''
-        saludo = f'¡Hola, {primer_nombre}! 👋' if primer_nombre else '¡Hola! 👋'
-        _c_bv2, _v_bv2 = _get_tc()
-        if _c_bv2 and _v_bv2:
-            tc_bv2 = (
-                f'\n💵 Compramos tus dólares: *S/ {_c_bv2:.4f}*\n'
-                f'💵 Te vendemos dólares:   *S/ {_v_bv2:.4f}*\n\n'
-                '¿Qué monto quieres cambiar y a qué moneda?'
-            )
-        else:
-            tc_bv2 = '\nCambia dólares sin salir de tu WhatsApp, sin comisiones.'
-        msg = f'{saludo} Soy el asistente de Qoricash.{tc_bv2}'
-        send_buttons_image(numero, BANNER_URL, msg, [
-            {'id': 'btn_comprar',       'title': 'Soles a dólares'},
-            {'id': 'btn_vender',        'title': 'Dólares a soles'},
-            {'id': 'btn_como_funciona', 'title': '› ¿Cómo funciona?'},
-        ])
+        tc_text = '\nCambia dólares sin salir de tu WhatsApp, sin comisiones.'
+
+    msg = f'{saludo} Cambia tus dólares con un excelente tipo de cambio, sin salir de WhatsApp. 💵{tc_text}'
+    send_buttons_image(numero, BANNER_URL, msg, [
+        {'id': 'btn_comprar',       'title': 'Soles a dólares'},
+        {'id': 'btn_vender',        'title': 'Dólares a soles'},
+        {'id': 'btn_como_funciona', 'title': '› ¿Cómo funciona?'},
+    ])
 
 
 def _flujo_cotizar_inicio(numero):
@@ -1461,56 +1419,76 @@ def _ultimo_saliente_fue_op_completada(numero):
     return ultimo is not None and '[template:qoricash_operacion_completada]' in (ultimo.mensaje or '')
 
 
-def _flujo_cotiz_aceptada(numero, session):
+def _flujo_seleccionar_titular(numero, session):
     """
-    Flujo post-aceptación: presenta siempre los perfiles disponibles + 'Usar otro documento'.
-    No crea la operación directamente — deja que el cliente confirme el titular.
+    Presenta los titulares activos vinculados al número de WA para que el cliente
+    confirme quién realiza el cambio. Lógica por cantidad:
+      0 activos → pedir documento directamente.
+      1 activo  → 2 botones: [Titular] [Usar otro documento].
+      2 activos → 3 botones: [Titular 1] [Titular 2] [Usar otro documento].
+      3+ activos → lista desplegable ('Elegir titular') + fila 'Usar otro documento'.
     """
-    log.info(f'[WaBot] {numero} aceptó cotización: {session.cotiz_op} USD {session.cotiz_importe} a S/ {session.cotiz_tc}')
-    # P1 — doc ya en sesión → ofrecer ese perfil + opción de usar otro documento
-    if session.cotiz_doc:
-        _client_ca = _buscar_cliente(session.cotiz_doc)
-        if _client_ca and _client_ca.status == 'Activo':
-            _nombre_ca = (_client_ca.full_name or _client_ca.razon_social or session.cotiz_doc or '').strip()
-            _label_ca  = _nombre_ca[:20] if _nombre_ca else session.cotiz_doc
-            send_buttons(numero,
-                '¿A nombre de quién realizarás este cambio?',
-                [
-                    {'id': f'btn_titular_{_client_ca.dni}', 'title': _label_ca or 'Mi cuenta'},
-                    {'id': 'btn_usar_otro_doc',             'title': '🔄 Usar otro documento'},
-                ]
-            )
-            session.estado = 'eligiendo_titular'
-            return
-    # P2 — phone lookup
-    _clientes_ca = _buscar_clientes_por_telefono(numero)
-    if len(_clientes_ca) == 1 and _clientes_ca[0].status == 'Activo':
-        _c_ca = _clientes_ca[0]
-        _nombre_ca = (_c_ca.full_name or _c_ca.razon_social or '').strip()
-        _label_ca  = _nombre_ca[:20] if _nombre_ca else _c_ca.dni
+    clientes = _buscar_clientes_por_telefono(numero)
+    activos = [c for c in clientes if (c.status or '').lower() == 'activo']
+
+    if len(activos) == 0:
+        send_buttons(numero,
+            'Para continuar, ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).\n\n'
+            'Si tienes Carné de Extranjería, elige CE 👇',
+            [
+                {'id': 'btn_tengo_ce',       'title': '🌍 Tengo CE'},
+                {'id': 'btn_volver_cotizar',  'title': '🔙 Volver'},
+            ]
+        )
+        session.estado = 'esperando_id_cotizar'
+
+    elif len(activos) == 1:
+        c = activos[0]
+        label = (c.full_name or c.razon_social or c.dni or '').strip()[:20]
         send_buttons(numero,
             '¿A nombre de quién realizarás este cambio?',
             [
-                {'id': f'btn_titular_{_c_ca.dni}', 'title': _label_ca or 'Mi cuenta'},
-                {'id': 'btn_usar_otro_doc',        'title': '🔄 Usar otro documento'},
+                {'id': f'btn_titular_{c.dni}', 'title': label or 'Mi cuenta'},
+                {'id': 'btn_usar_otro_doc',    'title': '🔄 Usar otro documento'},
             ]
         )
         session.estado = 'eligiendo_titular'
-        return
-    elif len(_clientes_ca) > 1:
-        _flujo_elegir_cliente_telefono(numero, _clientes_ca)
-        session.estado = 'eligiendo_cliente_telefono'
-        return
-    # P3 — solicitar documento directamente
-    send_buttons(numero,
-        'Para continuar, ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).\n\n'
-        'Si tienes Carné de Extranjería, elige CE 👇',
-        [
-            {'id': 'btn_tengo_ce',      'title': '🌍 Tengo CE'},
-            {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
-        ]
-    )
-    session.estado = 'esperando_id_cotizar'
+
+    elif len(activos) == 2:
+        c1, c2 = activos[0], activos[1]
+        label1 = (c1.full_name or c1.razon_social or c1.dni or '').strip()[:20]
+        label2 = (c2.full_name or c2.razon_social or c2.dni or '').strip()[:20]
+        send_buttons(numero,
+            '¿A nombre de quién realizarás este cambio?',
+            [
+                {'id': f'btn_titular_{c1.dni}', 'title': label1 or 'Cuenta 1'},
+                {'id': f'btn_titular_{c2.dni}', 'title': label2 or 'Cuenta 2'},
+                {'id': 'btn_usar_otro_doc',     'title': '🔄 Usar otro documento'},
+            ]
+        )
+        session.estado = 'eligiendo_titular'
+
+    else:
+        # 3+ titulares: lista desplegable (máx 9 filas + "Usar otro doc")
+        rows = []
+        for c in activos[:9]:
+            label = (c.full_name or c.razon_social or c.dni or '').strip()[:24]
+            rows.append({'id': f'btn_titular_LIST_{c.dni}', 'title': label or c.dni})
+        rows.append({'id': 'btn_usar_otro_doc', 'title': '🔄 Usar otro documento'})
+        send_list(numero,
+            '¿A nombre de quién realizarás este cambio?\n\nElige un titular de la lista:',
+            [{'title': 'Titulares', 'rows': rows}],
+            button='Elegir titular',
+        )
+        session.estado = 'eligiendo_titular'
+
+
+def _flujo_cotiz_aceptada(numero, session):
+    """
+    Flujo post-aceptación: delega la selección de titular a _flujo_seleccionar_titular.
+    """
+    log.info(f'[WaBot] {numero} aceptó cotización: {session.cotiz_op} USD {session.cotiz_importe} a S/ {session.cotiz_tc}')
+    _flujo_seleccionar_titular(numero, session)
 
 
 def _flujo_pedir_doc_verificacion(numero):
@@ -1794,8 +1772,7 @@ def _flujo_elegir_cliente_telefono(numero, clientes):
         nombre = (c.full_name or c.razon_social or c.dni or 'Cliente').strip()
         titulo = nombre[:20]
         botones.append({'id': f'btn_cliente_{c.dni}', 'title': titulo})
-    botones.append({'id': 'btn_usar_otro_doc',  'title': '🔄 Usar otro documento'})
-    botones.append({'id': 'btn_volver_inicio',  'title': '🔙 Volver al inicio'})
+    botones.append({'id': 'btn_usar_otro_doc', 'title': '🔄 Usar otro documento'})
     send_buttons(numero,
         '¿A nombre de quién realizarás este cambio?',
         botones
@@ -3440,27 +3417,6 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         )
                         session.estado = 'esperando_id_cotizar'
 
-            elif btn_id.startswith('btn_bienvenida_'):
-                # Selector de cuenta desde el saludo de bienvenida (multi-cuenta)
-                doc_sel = btn_id[len('btn_bienvenida_'):]
-                client_sel = _buscar_cliente(doc_sel)
-                if client_sel and (client_sel.kyc_status or '').lower() in ('completo', 'aprobado'):
-                    session.cotiz_doc    = doc_sel
-                    session.cotiz_cuenta = ''  # limpiar cuenta del perfil anterior
-                    nombre_db = (client_sel.nombres or client_sel.razon_social or '').strip()
-                    session.nombre = nombre_db
-                    primer_nombre = nombre_db.split()[0].title() if nombre_db else ''
-                    conf = f', {primer_nombre}' if primer_nombre else ''
-                    send_text(numero, f'✅ Perfecto{conf}. Operas con esa cuenta.')
-                    _menu_rapido(numero)
-                    session.estado = 'menu_mostrado'
-                else:
-                    send_buttons(numero,
-                        '⚠️ No encontramos esa cuenta activa. Habla con un asesor.',
-                        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
-                    )
-                    session.estado = 'inicio'
-
             elif btn_id.startswith('btn_cliente_') and estado in ('eligiendo_cliente_telefono', 'eligiendo_titular'):
                 # P2 — Cliente eligió con qué cuenta operar (múltiples cuentas en mismo teléfono)
                 doc_sel = btn_id[len('btn_cliente_'):]
@@ -3481,8 +3437,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     session.estado = 'esperando_doc'
 
             elif btn_id.startswith('btn_titular_') and estado == 'eligiendo_titular':
-                # Cliente confirma con qué perfil opera (mostrado en _flujo_cotiz_aceptada P1/P2)
-                doc_sel = btn_id[len('btn_titular_'):]
+                # Cliente confirma con qué perfil opera (botón directo o lista desplegable)
+                _raw = btn_id[len('btn_titular_'):]
+                doc_sel = _raw[len('LIST_'):] if _raw.startswith('LIST_') else _raw
                 session.cotiz_doc    = doc_sel
                 session.cotiz_cuenta = ''  # limpiar cuenta del perfil anterior
                 client_sel = _buscar_cliente(doc_sel)
