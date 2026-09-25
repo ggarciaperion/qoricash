@@ -591,8 +591,10 @@ def send_list(numero, body, sections, button='Continuar'):
         r = requests.post(WA_API_URL, json=payload, headers=_headers(), timeout=10)
         r.raise_for_status()
         _save_outgoing(numero, body)
+        return True
     except Exception as e:
         log.error(f'[WaBot] Error send_list a {numero}: {e}')
+        return False
 
 
 # ── Helpers de TC ──────────────────────────────────────────────────
@@ -1350,7 +1352,7 @@ def _flujo_mostrar_cotizacion(numero, session):
     except Exception:
         pass
 
-    send_list(numero, resumen, [{
+    ok = send_list(numero, resumen, [{
         'title': 'Opciones',
         'rows': [
             {'id': f'btn_aceptar_cotiz_{_token}', 'title': 'Aceptar cotización'},
@@ -1360,6 +1362,12 @@ def _flujo_mostrar_cotizacion(numero, session):
             {'id': 'btn_asesor',                   'title': 'Hablar con asesor'},
         ]
     }])
+    if not ok:
+        # Fallback: send plain text if interactive list fails (WhatsApp API issue)
+        send_text(numero,
+            resumen + '\n\n'
+            'Responde *1* para aceptar, *2* para cambiar monto, o escribe *asesor* para hablar con un asesor.'
+        )
 
 
 def _menu_rapido(numero):
@@ -4240,16 +4248,6 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         )
                     else:
                         session.cotiz_importe = monto
-                        # Detect direction change in rich messages (e.g. "Mejor vender 800 dólares")
-                        if re.search(r'[a-záéíóúñü]', texto.lower()):
-                            try:
-                                _interp_imp = _interpretar_solicitud(texto, session)
-                                if (_interp_imp.get('tipo')
-                                        and _interp_imp['tipo'] != (session.cotiz_op or '')
-                                        and _interp_imp.get('fuente') == 'determinista'):
-                                    session.cotiz_op = _interp_imp['tipo']
-                            except Exception:
-                                pass
                         _flujo_mostrar_cotizacion(numero, session)
                         session.estado = 'viendo_cotizacion'
                 else:
