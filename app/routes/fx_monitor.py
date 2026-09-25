@@ -353,15 +353,15 @@ def api_live():
 
     stale_ranked = [c for c in valid if c.get("is_stale")]
     errors = invalid
-    # Ranking: frescos primero (ordenados por precio), luego vencidos, luego sin precio, luego aliases.
-    buy_ranked  = sorted(fresh,        key=lambda c: c["buy"],  reverse=True) + \
-                  sorted(stale_ranked, key=lambda c: c["buy"],  reverse=True) + \
-                  sorted(errors,       key=lambda c: c["buy"],  reverse=True) + \
-                  sorted(aliases,      key=lambda c: c["buy"],  reverse=True)
-    sell_ranked = sorted(fresh,        key=lambda c: c["sell"]) + \
-                  sorted(stale_ranked, key=lambda c: c["sell"]) + \
-                  sorted(errors,       key=lambda c: c["sell"]) + \
-                  sorted(aliases,      key=lambda c: c["sell"])
+    # Ranking: frescos + vencidos mezclados y ordenados por precio (el precio manda,
+    # no la frescura); luego sin precio (errores); luego aliases.
+    priced = fresh + stale_ranked
+    buy_ranked  = sorted(priced,  key=lambda c: c["buy"],  reverse=True) + \
+                  sorted(errors,  key=lambda c: c["buy"],  reverse=True) + \
+                  sorted(aliases, key=lambda c: c["buy"],  reverse=True)
+    sell_ranked = sorted(priced,  key=lambda c: c["sell"]) + \
+                  sorted(errors,  key=lambda c: c["sell"]) + \
+                  sorted(aliases, key=lambda c: c["sell"])
 
     # best_buy / best_sell: mejor entre frescos y válidos; fallback a stale (ya ordenado)
     def _best(ranked, key):

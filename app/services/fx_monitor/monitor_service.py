@@ -36,7 +36,8 @@ _cycle_lock = threading.Lock()
 # El alias conserva sus registros históricos pero no participa en promedios,
 # rankings competitivos, conteos activos ni alertas de competencia.
 SAME_SOURCE_ALIASES: dict = {
-    "tucambio": "cambiafx",  # TuCambioScraper.api_url == CambiaFXScraper._API_URL == cambiafx.pe/api/tc
+    # tucambio tenía el mismo endpoint que cambiafx (cambiafx.pe/api/tc),
+    # pero ahora usa su propio scraper independiente y debe rankear por separado.
 }
 
 # ── Muestreo temporal del historial ──────────────────────────────────────────
