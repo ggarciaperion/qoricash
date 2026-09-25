@@ -1226,7 +1226,8 @@ def _bienvenida(numero, session):
         tc_text = (
             f'\n\n💵 Compramos tus dólares: *S/ {_c:.4f}*\n'
             f'💵 Te vendemos dólares:   *S/ {_v:.4f}*\n\n'
-            '¿Qué monto quieres cambiar y a qué moneda?'
+            '¿Qué operación deseas realizar?\n'
+            '> Mejor tasa para montos + $3,000'
         )
     else:
         tc_text = '\nCambia dólares sin salir de tu WhatsApp, sin comisiones.'
@@ -2792,6 +2793,13 @@ def _historial_ia(numero, limite=12, wa_id=None, history_since=None):
             # Normalizar templates de Meta en algo legible por la IA
             if texto.startswith('[template:'):
                 texto = f'[Mensaje automático del sistema: {texto}]'
+            # Limpiar tag interno [botones: ...] para que la IA no lo imite
+            texto = re.sub(r'\s*\[botones:[^\]]*\]', '', texto).strip()
+            # Limpiar prefix [imagen] de mensajes con foto
+            if texto.startswith('[imagen] '):
+                texto = texto[9:]
+            if not texto:
+                continue
             historia.append({'role': role, 'content': texto})
 
         # Anthropic requiere alternancia user/assistant.
@@ -3202,6 +3210,8 @@ def _respuesta_ia(texto_usuario, numero, session, wa_id=''):
             messages=historia,
         )
         respuesta = response.content[0].text.strip()
+        # Sanitizar: quitar [botones: ...] si la IA lo incluyó en su respuesta
+        respuesta = re.sub(r'\s*\[botones:[^\]]*\]', '', respuesta).strip()
         log.info(
             f'[WaBot-IA] {numero} → IA respondió ({len(respuesta)} chars, '
             f'ctx={len(historia)} turnos, estado={session.estado})'
