@@ -2103,6 +2103,11 @@ def _flujo_registrar_codigo_op(numero, codigo, session):
             f'Recibimos tu código *{codigo}*. '
             f'Verificaremos el abono y te avisaremos cuando el cambio esté completado.'
         )
+        send_buttons(numero,
+            '⏳ Estamos procesando tu operación.\n\n'
+            'Si tienes alguna duda puedes hablar con un asesor.',
+            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+        )
         session.cotiz_op_id = ''
         session.estado = 'inicio'
 
