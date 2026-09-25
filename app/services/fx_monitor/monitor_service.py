@@ -49,7 +49,6 @@ _HISTORY_INTERVAL = 900       # 15 minutos entre muestras forzadas
 # Datos iniciales de competidores
 COMPETITORS_SEED = [
     {"slug": "kambista",     "name": "Kambista",     "website": "https://kambista.com"},
-    {"slug": "cambix",       "name": "Cambix",       "website": "https://cambix.pe"},
     {"slug": "cambioseguro", "name": "Cambio Seguro","website": "https://cambioseguro.com"},
     {"slug": "tucambio",     "name": "TuCambio",     "website": "https://tucambio.pe"},
     {"slug": "tucambista",   "name": "TuCambista",   "website": "https://tucambista.pe"},

@@ -9,7 +9,6 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeout
 
 from .kambista      import KambistaScraper
-from .cambix        import CambixScraper
 from .cambioseguro  import CambioSeguroScraper
 from .tucambio      import TuCambioScraper
 from .tucambista    import TuCambistaScraper
@@ -81,7 +80,6 @@ def get_scraper_health() -> dict:
 
 ALL_SCRAPERS = [
     KambistaScraper(),
-    CambixScraper(),
     CambioSeguroScraper(),
     TuCambioScraper(),
     TuCambistaScraper(),
@@ -109,7 +107,6 @@ _inflight: set = set()   # slugs cuyo thread OS aún está corriendo
 # Mapa de slug → ced_path en cuantoestaeldolar.pe
 # Usado como fallback cuando el scraper directo falla (ej. Cloudflare en cloud IPs)
 _CED_FALLBACK = {
-    "cambix":      "cambix",
     "cambioseguro":"cambio-seguro",
     "tucambista":  "tu-cambista",
     "dollarhouse": "dollar-house",
