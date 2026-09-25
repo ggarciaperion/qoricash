@@ -28,14 +28,14 @@ _THEMES = {
         'bg':       '#F0FDF4',
         'info_bg':  '#F0FDF4',
         'info_txt': '#14532d',
-        'banner':   'https://app.qoricash.pe/static/images/logopn.jpg',
+        'banner':   'https://app.qoricash.pe/static/images/banner_pn.jpg',
     },
     'empresa': {
         'accent':   '#1A3D58',
         'bg':       '#EEF2F8',
         'info_bg':  '#EEF4FF',
         'info_txt': '#1e3a5f',
-        'banner':   'https://app.qoricash.pe/static/images/logocorpo.jpg',
+        'banner':   'https://app.qoricash.pe/static/images/banner_corp.jpg',
     },
 }
 
@@ -515,7 +515,7 @@ class EmailService:
                 <!-- BADGE -->
                 <table cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 22px;">
                   <tr>
-                    <td style="background:#16a34a;border-radius:4px;padding:4px 12px;font-size:10px;font-weight:700;color:#FFFFFF;text-transform:uppercase;letter-spacing:1.8px;">Nueva Operación</td>
+                    <td style="background:#286cea;border-radius:4px;padding:4px 12px;font-size:10px;font-weight:700;color:#FFFFFF;text-transform:uppercase;letter-spacing:1.8px;">Nueva Operación</td>
                   </tr>
                 </table>
 
@@ -524,11 +524,11 @@ class EmailService:
                   {% if is_ruc %}Operación registrada{% else %}Operación registrada{% endif %}
                 </p>
                 <p style="margin:0 0 32px;font-size:14px;color:#64748B;line-height:1.6;">
-                  {% if is_ruc %}Estimado(a) <strong style="color:#1E293B;font-weight:600;">{{ operation.client.full_name or operation.client.razon_social }}</strong>, su operación ha sido recibida y está siendo procesada.{% else %}Hola <strong style="color:#1E293B;font-weight:600;">{{ operation.client.full_name or operation.client.razon_social }}</strong>, tu operación ha sido recibida y está siendo procesada.{% endif %}
+                  {% if is_ruc %}Estimado(a) <strong style="color:#1E293B;font-weight:600;">{{ operation.client.full_name or operation.client.razon_social }}</strong>, se ha registrado la siguiente operación de cambio,{% else %}Hola <strong style="color:#1E293B;font-weight:600;">{{ operation.client.full_name or operation.client.razon_social }}</strong>, se ha registrado la siguiente operación de cambio,{% endif %}
                 </p>
 
                 <!-- ── HERO CARD: MONTOS ──────────────────── -->
-                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#000000;border-radius:16px;margin:0 0 32px;">
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#286cea;border-radius:16px;margin:0 0 32px;">
                   <tr>
                     <td style="padding:28px 32px 22px;">
 
@@ -551,11 +551,7 @@ class EmailService:
                           </td>
                           <td width="72" style="text-align:center;vertical-align:middle;padding:0 4px;">
                             <p style="margin:0 0 6px;font-size:9px;font-weight:600;color:rgba(255,255,255,0.30);text-transform:uppercase;letter-spacing:1px;">T.C.</p>
-                            {% if is_ruc %}
                             <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#60A5FA;">{{ "%.4f"|format(operation.exchange_rate) }}</p>
-                            {% else %}
-                            <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#4ADE80;">{{ "%.4f"|format(operation.exchange_rate) }}</p>
-                            {% endif %}
                             <p style="margin:0;font-size:20px;color:rgba(255,255,255,0.20);">&#8594;</p>
                           </td>
                           <td style="vertical-align:middle;text-align:right;">
@@ -584,11 +580,7 @@ class EmailService:
                             {{ operation.created_at.strftime('%d %b %Y · %H:%M') }}
                           </td>
                           <td style="text-align:right;">
-                            {% if is_ruc %}
                             <span style="background:rgba(26,61,88,0.80);border:1px solid rgba(42,96,128,0.60);color:#93C5FD;font-size:10px;font-weight:600;padding:3px 12px;border-radius:20px;letter-spacing:0.5px;">{{ operation.status }}</span>
-                            {% else %}
-                            <span style="background:rgba(21,128,61,0.30);border:1px solid rgba(34,197,94,0.40);color:#4ADE80;font-size:10px;font-weight:600;padding:3px 12px;border-radius:20px;letter-spacing:0.5px;">{{ operation.status }}</span>
-                            {% endif %}
                           </td>
                         </tr>
                       </table>
@@ -730,52 +722,65 @@ class EmailService:
         <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
 
           <div style="margin:0 0 16px 0;">
-            <span style="display:inline-block;background:linear-gradient(135deg,#1A6EAD 0%,#1A3D58 100%);color:#ffffff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:6px 16px;border-radius:20px;box-shadow:0 4px 14px rgba(26,61,88,0.35);">✓ Operación Completada</span>
+            <span style="display:inline-block;background:#286cea;color:#ffffff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:6px 16px;border-radius:20px;">✓ Operación Completada</span>
           </div>
 
           <h1 style="margin:0 0 6px 0;font-size:21px;font-weight:700;color:#0D1B2A;line-height:1.3;">Su operación fue procesada con éxito</h1>
           <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Estimado(a) <strong style="color:#1e293b;">{{ operation.client.full_name or operation.client.razon_social }}</strong>, a continuación el detalle de su operación completada.</p>
 
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
-            <tr style="border-bottom:1px solid #F1F5F9;">
-              <td class="ops-label" style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Código</td>
-              <td style="padding:11px 14px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:middle;border-right:1px solid #F1F5F9;">{{ operation.operation_id }}</td>
-              <td class="ops-label" style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo</td>
-              <td style="padding:11px 14px;vertical-align:middle;">
-                {% if operation.operation_type == 'Compra' %}
-                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DCFCE7;color:#15803D;letter-spacing:0.3px;white-space:nowrap;">COMPRA USD</span>
-                {% else %}
-                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DBEAFE;color:#1D4ED8;letter-spacing:0.3px;white-space:nowrap;">VENTA USD</span>
-                {% endif %}
-              </td>
-            </tr>
-            <tr style="border-bottom:1px solid #F1F5F9;">
-              <td colspan="4" style="padding:12px 14px;">
-                <table width="100%" cellspacing="0" cellpadding="0">
+          <!-- ── HERO CARD ──────────────────────────── -->
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#286cea;border-radius:16px;margin:0 0 24px 0;">
+            <tr>
+              <td style="padding:28px 32px 22px;">
+                <p style="margin:0 0 24px;font-size:11px;font-weight:600;color:#FFFFFF;text-transform:uppercase;letter-spacing:2px;">
+                  {% if operation.operation_type == 'Compra' %}Qoricash Compra{% else %}Qoricash Vende{% endif %}
+                </p>
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                   <tr>
-                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;border-top:3px solid rgba(0,0,0,0.90);">
-                      <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto USD</div>
-                      <div style="font-size:17px;font-weight:800;color:#1e293b;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</div>
+                    <td style="vertical-align:middle;">
+                      <p style="margin:0 0 6px;font-size:11px;color:rgba(255,255,255,0.40);text-transform:uppercase;letter-spacing:1.2px;">Enviaste</p>
+                      <p style="margin:0;font-size:32px;font-weight:700;color:#FFFFFF;letter-spacing:-1px;line-height:1;">
+                        {% if operation.operation_type == 'Compra' %}${% else %}S/{% endif %}&thinsp;{{ "{:,.2f}".format(operation.amount_usd if operation.operation_type == 'Compra' else operation.amount_pen) }}
+                      </p>
+                      <p style="margin:6px 0 0;font-size:12px;color:rgba(255,255,255,0.35);">
+                        {% if operation.operation_type == 'Compra' %}Dólares (USD){% else %}Soles (PEN){% endif %}
+                      </p>
                     </td>
-                    <td class="metric-spacer" width="8">&nbsp;</td>
-                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;border-top:3px solid rgba(0,0,0,0.90);">
-                      <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Tipo de Cambio</div>
-                      <div style="font-size:15px;font-weight:700;color:#1e293b;">{{ "%.4f"|format(operation.exchange_rate) }}</div>
+                    <td width="72" style="text-align:center;vertical-align:middle;padding:0 4px;">
+                      <p style="margin:0 0 6px;font-size:9px;font-weight:600;color:rgba(255,255,255,0.30);text-transform:uppercase;letter-spacing:1px;">T.C.</p>
+                      <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#60A5FA;">{{ "%.4f"|format(operation.exchange_rate) }}</p>
+                      <p style="margin:0;font-size:20px;color:rgba(255,255,255,0.20);">&#8594;</p>
                     </td>
-                    <td class="metric-spacer" width="8">&nbsp;</td>
-                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;border-top:3px solid rgba(0,0,0,0.90);">
-                      <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto PEN</div>
-                      <div style="font-size:17px;font-weight:800;color:#1e293b;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</div>
+                    <td style="vertical-align:middle;text-align:right;">
+                      <p style="margin:0 0 6px;font-size:11px;color:rgba(255,255,255,0.40);text-transform:uppercase;letter-spacing:1.2px;">Recibiste</p>
+                      <p style="margin:0;font-size:32px;font-weight:700;color:#FFFFFF;letter-spacing:-1px;line-height:1;">
+                        {% if operation.operation_type == 'Compra' %}S/{% else %}${% endif %}&thinsp;{{ "{:,.2f}".format(operation.amount_pen if operation.operation_type == 'Compra' else operation.amount_usd) }}
+                      </p>
+                      <p style="margin:6px 0 0;font-size:12px;color:rgba(255,255,255,0.35);">
+                        {% if operation.operation_type == 'Compra' %}Soles (PEN){% else %}Dólares (USD){% endif %}
+                      </p>
                     </td>
                   </tr>
                 </table>
               </td>
             </tr>
+            <!-- Barra estado -->
             <tr>
-              <td class="ops-label" style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Creación</td>
-              <td style="padding:11px 14px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;border-right:1px solid #F1F5F9;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
-              <td class="ops-label" style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Completado</td>
-              <td style="padding:11px 14px;color:#1e293b;font-size:13px;font-weight:600;vertical-align:middle;">{{ operation.completed_at.strftime('%d/%m/%Y %H:%M') if operation.completed_at else '-' }}</td>
+              <td style="padding:14px 32px;border-top:1px solid rgba(255,255,255,0.07);">
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                  <tr>
+                    <td style="font-size:12px;color:rgba(255,255,255,0.40);">
+                      <span style="font-family:'Courier New',monospace;color:rgba(255,255,255,0.60);letter-spacing:0.3px;">{{ operation.operation_id }}</span>
+                    </td>
+                    <td style="text-align:center;font-size:12px;color:rgba(255,255,255,0.35);">
+                      {{ operation.completed_at.strftime('%d %b %Y · %H:%M') if operation.completed_at else operation.created_at.strftime('%d %b %Y · %H:%M') }}
+                    </td>
+                    <td style="text-align:right;">
+                      <span style="background:rgba(26,61,88,0.80);border:1px solid rgba(42,96,128,0.60);color:#93C5FD;font-size:10px;font-weight:600;padding:3px 12px;border-radius:20px;letter-spacing:0.5px;">Completado</span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
             </tr>
           </table>
 
@@ -839,7 +844,7 @@ class EmailService:
                 <!-- BADGE -->
                 <table cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 22px;">
                   <tr>
-                    <td style="background:#16a34a;border-radius:4px;padding:4px 12px;font-size:10px;font-weight:700;color:#FFFFFF;text-transform:uppercase;letter-spacing:1.8px;">✓ Operación Completada</td>
+                    <td style="background:#286cea;border-radius:4px;padding:4px 12px;font-size:10px;font-weight:700;color:#FFFFFF;text-transform:uppercase;letter-spacing:1.8px;">✓ Operación Completada</td>
                   </tr>
                 </table>
 
@@ -850,7 +855,7 @@ class EmailService:
                 </p>
 
                 <!-- ── HERO CARD ──────────────────────────── -->
-                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#000000;border-radius:16px;margin:0 0 32px;">
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#286cea;border-radius:16px;margin:0 0 32px;">
                   <tr>
                     <td style="padding:28px 32px 22px;">
                       <p style="margin:0 0 24px;font-size:11px;font-weight:600;color:#FFFFFF;text-transform:uppercase;letter-spacing:2px;">
@@ -1570,7 +1575,7 @@ class EmailService:
                 </p>
 
                 <!-- ── HERO CARD ──────────────────────────── -->
-                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#000000;border-radius:16px;margin:0 0 32px;">
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#286cea;border-radius:16px;margin:0 0 32px;">
                   <tr>
                     <td style="padding:28px 32px 22px;">
                       <p style="margin:0 0 24px;font-size:11px;font-weight:600;color:#FFFFFF;text-transform:uppercase;letter-spacing:2px;">
