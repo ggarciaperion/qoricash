@@ -4454,11 +4454,6 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     try:
                         client = _auto_crear_cliente(doc, nombre_reg, es_empresa, numero, email=email_raw)
                         saludo = (client.razon_social or client.nombres or '').split()[0].title()
-                        send_text(numero,
-                            f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
-                            f'Recibirás las confirmaciones de tus operaciones en *{email_raw}*.\n\n'
-                            f'Continuemos con tu operación 👇'
-                        )
                         _notificar_admins_wa(
                             f'🆕 Cliente auto-registrado vía bot:\n'
                             f'Doc: {doc} | {nombre_reg}\n'
@@ -4466,7 +4461,33 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             f'Cotiz: {session.cotiz_op} USD {session.cotiz_importe}'
                         )
                         moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
-                        _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                        _simbolo_r = 'dólares (USD)' if moneda_recibe == 'USD' else 'soles (S/)'
+                        _label_r   = 'dólares' if moneda_recibe == 'USD' else 'soles'
+                        _ok_reg = send_list(numero,
+                            f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
+                            f'Recibirás las confirmaciones en *{email_raw}*.\n\n'
+                            f'¿A qué cuenta quieres recibir tus *{_simbolo_r}*?\n\nSelecciona tu banco 👇',
+                            [{'title': f'Bancos para cuenta en {_label_r}', 'rows': [
+                                {'id': 'btn_banco_bcp',        'title': 'BCP'},
+                                {'id': 'btn_banco_interbank',  'title': 'Interbank'},
+                                {'id': 'btn_banco_banbif',     'title': 'BanBif'},
+                                {'id': 'btn_banco_bbva',       'title': 'BBVA'},
+                                {'id': 'btn_banco_scotiabank', 'title': 'Scotiabank'},
+                                {'id': 'btn_banco_pichincha',  'title': 'Pichincha'},
+                                {'id': 'btn_banco_otras',      'title': 'Otras entidades'},
+                            ]}],
+                            button='🏦 Elegir banco'
+                        )
+                        if not _ok_reg:
+                            send_buttons(numero,
+                                f'🎉 ¡Listo, {saludo}! Perfil creado.\n\n'
+                                f'¿A qué banco quieres recibir tus *{_simbolo_r}*?',
+                                [
+                                    {'id': 'btn_banco_bcp',       'title': 'BCP'},
+                                    {'id': 'btn_banco_interbank', 'title': 'Interbank'},
+                                    {'id': 'btn_banco_bbva',      'title': 'BBVA'},
+                                ]
+                            )
                         session.estado = 'esperando_cuenta_destino'
                     except Exception as _e:
                         log.error(f'[WaBot] Error auto-creando cliente {doc}: {_e}')
@@ -4674,19 +4695,39 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     try:
                         client = _auto_crear_cliente(doc, nombre_reg, es_empresa, numero, email=email_raw)
                         saludo = (client.razon_social or client.nombres or '').split()[0].title()
-                        send_text(numero,
-                            f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
-                            f'Recibirás las confirmaciones de tus operaciones en *{email_raw}*.\n\n'
-                            f'Continuemos con tu operación 👇'
-                        )
                         _notificar_admins_wa(
                             f'🆕 Cliente auto-registrado vía bot (cotizar):\n'
                             f'Doc: {doc} | {nombre_reg}\n'
                             f'Email: {email_raw} | Tel: {numero}'
                         )
-                        # Continuar directamente a cuenta destino (ya tiene op y monto elegidos)
                         moneda_recibe_ec = 'USD' if session.cotiz_op == 'compra' else 'PEN'
-                        _flujo_pedir_cuenta_destino(numero, moneda_recibe_ec)
+                        _simbolo_ec = 'dólares (USD)' if moneda_recibe_ec == 'USD' else 'soles (S/)'
+                        _label_ec   = 'dólares' if moneda_recibe_ec == 'USD' else 'soles'
+                        _ok_ec = send_list(numero,
+                            f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
+                            f'Recibirás las confirmaciones en *{email_raw}*.\n\n'
+                            f'¿A qué cuenta quieres recibir tus *{_simbolo_ec}*?\n\nSelecciona tu banco 👇',
+                            [{'title': f'Bancos para cuenta en {_label_ec}', 'rows': [
+                                {'id': 'btn_banco_bcp',        'title': 'BCP'},
+                                {'id': 'btn_banco_interbank',  'title': 'Interbank'},
+                                {'id': 'btn_banco_banbif',     'title': 'BanBif'},
+                                {'id': 'btn_banco_bbva',       'title': 'BBVA'},
+                                {'id': 'btn_banco_scotiabank', 'title': 'Scotiabank'},
+                                {'id': 'btn_banco_pichincha',  'title': 'Pichincha'},
+                                {'id': 'btn_banco_otras',      'title': 'Otras entidades'},
+                            ]}],
+                            button='🏦 Elegir banco'
+                        )
+                        if not _ok_ec:
+                            send_buttons(numero,
+                                f'🎉 ¡Listo, {saludo}! Perfil creado.\n\n'
+                                f'¿A qué banco quieres recibir tus *{_simbolo_ec}*?',
+                                [
+                                    {'id': 'btn_banco_bcp',       'title': 'BCP'},
+                                    {'id': 'btn_banco_interbank', 'title': 'Interbank'},
+                                    {'id': 'btn_banco_bbva',      'title': 'BBVA'},
+                                ]
+                            )
                         session.estado = 'esperando_cuenta_destino'
                     except Exception as _e:
                         log.error(f'[WaBot] Error auto-creando cliente {doc}: {_e}')
