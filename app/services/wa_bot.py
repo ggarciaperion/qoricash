@@ -5907,6 +5907,17 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     )
                 elif estado == 'viendo_cotizacion':
                     _flujo_mostrar_cotizacion(numero, session)
+                elif estado in ('inicio', 'menu_mostrado', 'eligiendo_operacion',
+                               'esperando_importe', 'eligiendo_cliente_telefono'):
+                    # Cliente en flujo de saludo/cotización — no espera imágenes todavía
+                    send_buttons(numero,
+                        'Solo puedo procesar texto o botones por ahora. 😊\n\n'
+                        '¿En qué te puedo ayudar?',
+                        [
+                            {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                        ]
+                    )
                 else:
                     # B7 — Verificar si es cliente registrado enviando documentos KYC
                     _client_kyc_img = None
