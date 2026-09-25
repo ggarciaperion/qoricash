@@ -2,12 +2,31 @@
 WaBot — Chatbot de WhatsApp para Qoricash
 Flujo: Bienvenida → Cotizar / Registrarme / Hablar con asesor
 """
-import os, re, logging, requests, uuid
+import os, re, logging, requests, uuid, time as _time
 from app.extensions import db
 from app.models.wa_bot_session import WaBotSession
 from app.models.wa_message import WaMessage
 
 log = logging.getLogger(__name__)
+
+# ── Deduplicación de webhooks duplicados ──────────────────────────────────────
+# Meta/WhatsApp a veces entrega el mismo evento dos veces.  Guardamos los
+# wa_id ya procesados durante 2 min para descartar el segundo procesamiento.
+_wa_id_cache: dict = {}
+_WA_ID_TTL = 120  # segundos
+
+def _wa_id_ya_procesado(wa_id: str) -> bool:
+    """Retorna True si este wa_id fue procesado en los últimos 2 min."""
+    if not wa_id:
+        return False
+    now = _time.time()
+    vencidos = [k for k, t in _wa_id_cache.items() if now - t > _WA_ID_TTL]
+    for k in vencidos:
+        del _wa_id_cache[k]
+    if wa_id in _wa_id_cache:
+        return True
+    _wa_id_cache[wa_id] = now
+    return False
 
 WA_ACCESS_TOKEN = os.environ.get('WA_ACCESS_TOKEN', '')
 WA_PHONE_ID     = os.environ.get('WA_PHONE_NUMBER_ID', '1118979324636599')
@@ -1205,14 +1224,14 @@ def _bienvenida(numero, session):
     _c, _v = _get_tc()
     if _c and _v:
         tc_text = (
-            f'\n💵 Compramos tus dólares: *S/ {_c:.4f}*\n'
+            f'\n\n💵 Compramos tus dólares: *S/ {_c:.4f}*\n'
             f'💵 Te vendemos dólares:   *S/ {_v:.4f}*\n\n'
             '¿Qué monto quieres cambiar y a qué moneda?'
         )
     else:
         tc_text = '\nCambia dólares sin salir de tu WhatsApp, sin comisiones.'
 
-    msg = f'{saludo} Cambia tus dólares con un excelente tipo de cambio, sin salir de WhatsApp. 💵{tc_text}'
+    msg = f'{saludo}\nCambia tus dólares con un excelente tipo de cambio, sin salir de WhatsApp.{tc_text}'
     send_buttons_image(numero, BANNER_URL, msg, [
         {'id': 'btn_comprar',       'title': 'Soles a dólares'},
         {'id': 'btn_vender',        'title': 'Dólares a soles'},
@@ -3327,6 +3346,11 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
     texto: cuerpo del mensaje o button_id si es interactive
     """
     try:
+        # Descartar webhooks duplicados (Meta puede entregar el mismo evento 2x)
+        if _wa_id_ya_procesado(wa_id):
+            log.info(f'[WaBot] Duplicado wa_id={wa_id} para {numero}, ignorado.')
+            return
+
         session = WaBotSession.get_or_create(numero)
         nombre = _nombre_valido(nombre)
         if nombre and not session.nombre:
