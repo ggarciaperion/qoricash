@@ -11,10 +11,16 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
 
     # Database
-    # Render puede usar DATABASE_URL. Convertir postgres:// a postgresql://
+    # Seleccionar explícitamente el driver psycopg2 para SQLAlchemy.
+    # SQLAlchemy >=2.1 cambió el driver predeterminado de postgresql:// a psycopg (psycopg3).
+    # DATABASE_URL se deja intacto para los scripts que lo leen directamente con psycopg2.
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
-    if SQLALCHEMY_DATABASE_URI and SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
-        SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgres://', 'postgresql://', 1)
+    if SQLALCHEMY_DATABASE_URI:
+        _db_uri = SQLALCHEMY_DATABASE_URI
+        for _scheme in ('postgresql+psycopg://', 'postgresql://', 'postgres://'):
+            if _db_uri.startswith(_scheme):
+                SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://' + _db_uri[len(_scheme):]
+                break
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = False  # Set True for SQL debugging
