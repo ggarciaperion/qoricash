@@ -4231,6 +4231,18 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     ]
                 )
 
+            # N2 — moneda no soportada: euros, libras, yuan, etc. (universal, cualquier estado)
+            elif re.search(r'\b(euros?|eur\b|libras?|gbp|yuan|yenes?|pesos?|bitcoin|btc|cripto|crypto)\b', txt_lower) and re.search(r'\d', txt_lower):
+                send_buttons(numero,
+                    '💱 Por el momento solo operamos cambio de *USD ↔ PEN* '
+                    '(dólares americanos y soles peruanos).\n\n'
+                    '¿Deseas cotizar dólares?',
+                    [
+                        {'id': 'btn_cotizar', 'title': '💱 Cotizar USD'},
+                        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                    ]
+                )
+
             elif estado in _ESTADOS_CON_HORARIO and not _is_horario_atencion():
                 _flujo_fuera_horario(numero)
 
