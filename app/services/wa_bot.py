@@ -491,9 +491,13 @@ def wa_notify_operacion_cancelada(client, op_id, titular, reason):
     mensaje = (
         f'❌ Tu operación *{op_id}* a nombre de *{titular}* ha sido cancelada.\n\n'
         f'*Motivo:* {reason}\n\n'
-        f'Si tienes alguna consulta escríbenos o llámanos al *+51 910 624 404*.'
+        f'Si tienes alguna consulta contacta con un asesor.'
     )
-    send_text(phone_digits, mensaje)
+    send_buttons(phone_digits, mensaje, [
+        {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
+        {'id': 'btn_cotizar',       'title': '💱 Volver a cotizar'},
+        {'id': 'btn_cerrar_sesion', 'title': '🚪 Cerrar sesión'},
+    ])
 
 
 def send_text(numero, texto):
