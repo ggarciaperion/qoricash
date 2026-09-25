@@ -1,16 +1,20 @@
 """
 Scraper para Cambio Mundial — cambiomundial.com
-SPA Angular con backend propio. Se prueban varios endpoints en orden hasta
-obtener tasas válidas. Fallback final: parsing del HTML principal.
+SPA Angular protegida por Cloudflare.
 
-Endpoints conocidos (más reciente primero):
-  /backend/tasaCambio/daily  — formato [{buy, sell, tipoTasa, fecha}]
-  /backend/tasaCambio/today  — mismo formato, posible alias
-  /backend/tasaCambio        — sin sufijo
-  /api/tasaCambio/daily      — variante con prefijo /api
-  /api/tipo-cambio           — formato genérico
+Estado observado (2026-09-24 desde IP cloud de Render):
+  GET /backend/tasaCambio/daily → HTTP 403, Content-Type text/html,
+  página "Just a moment…" (desafío Cloudflare antibot).
+  La petición directa sin warm-up también recibió 403; el warm-up previo
+  no era la causa del problema.
+  No se identificó en ese momento una alternativa pública accesible.
 
-Fuente CED descartada: data congelada desde 2026-05-25.
+  Comportamiento actual: scrape_ok=False, last_attempt_at actualizado.
+  Último precio almacenado conservado como referencia vencida y excluido
+  del ranking activo mientras el scrape siga fallando.
+  Si el endpoint vuelve a responder con JSON válido, se recupera normalmente.
+
+Fuente CED: path="cambiomundial", updated_at=2026-08-24 (31d > 4h límite) → rechazada.
 """
 import re
 import time
@@ -22,7 +26,7 @@ from .base import BaseScraper, RateResult
 _SITE_URL = "https://www.cambiomundial.com"
 
 _API_CANDIDATES = [
-    "/backend/tasaCambio/daily",
+    "/backend/tasaCambio/daily",   # confirmado: devuelve JSON en <500ms
     "/backend/tasaCambio/today",
     "/backend/tasaCambio",
     "/backend/api/tasaCambio/daily",
@@ -37,14 +41,7 @@ class CambioMundialScraper(BaseScraper):
     url  = _SITE_URL
 
     def fetch(self) -> RateResult:
-        t0   = time.monotonic()
-        sess = requests.Session()
-
-        # Warm-up: obtener cookies de sesión y parecer navegador real
-        try:
-            sess.get(_SITE_URL, headers=self.get_headers(), timeout=8, verify=False)
-        except Exception:
-            pass
+        t0 = time.monotonic()
 
         headers_json = self.get_json_headers()
         headers_json.update({
@@ -52,15 +49,20 @@ class CambioMundialScraper(BaseScraper):
             "Origin":  _SITE_URL,
         })
 
-        # 1. Intentar endpoints API conocidos
+        sess = requests.Session()
         for path in _API_CANDIDATES:
             try:
                 resp = sess.get(
                     _SITE_URL + path,
                     headers=headers_json,
-                    timeout=6,   # reducido: 7 endpoints × 6s = 42s máx (vs 70s antes)
+                    timeout=8,
                     verify=False,
                 )
+                if resp.status_code == 403:
+                    raise ConnectionError(
+                        "CambioMundial: HTTP 403 — acceso bloqueado por Cloudflare antibot "
+                        "desde IP cloud. Último precio conservado como referencia vencida."
+                    )
                 if resp.status_code != 200:
                     continue
                 data = resp.json()
@@ -69,12 +71,19 @@ class CambioMundialScraper(BaseScraper):
                     ms = int((time.monotonic() - t0) * 1000)
                     return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
                                       scraped_at=now_peru(), response_ms=ms)
+            except ConnectionError:
+                raise
             except Exception:
                 continue
 
-        # 2. Fallback: buscar tasas en el HTML (script tags / JSON embebido)
+        # Fallback: buscar tasas en el HTML (script tags / JSON embebido)
         try:
             resp = sess.get(_SITE_URL, headers=self.get_headers(), timeout=12, verify=False)
+            if resp.status_code == 403:
+                raise ConnectionError(
+                    "CambioMundial: HTTP 403 — acceso bloqueado por Cloudflare antibot "
+                    "desde IP cloud. Último precio conservado como referencia vencida."
+                )
             ms   = int((time.monotonic() - t0) * 1000)
             soup = BeautifulSoup(resp.text, "lxml")
             for script in soup.find_all("script"):
@@ -83,12 +92,14 @@ class CambioMundialScraper(BaseScraper):
                 if buy and sell and buy < sell:
                     return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
                                       scraped_at=now_peru(), response_ms=ms)
+        except ConnectionError:
+            raise
         except Exception:
             pass
 
         raise ConnectionError(
             "CambioMundial: todos los endpoints fallaron. "
-            "Verificar si /backend/tasaCambio/daily cambió de path o requiere auth."
+            "Sin alternativa pública accesible desde IP cloud."
         )
 
     def _extract_from_json(self, data):

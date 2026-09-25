@@ -64,7 +64,7 @@ COMPETITORS_SEED = [
     {"slug": "cambiomundial", "name": "Cambio Mundial", "website": "https://www.cambiomundial.com"},
     {"slug": "tkambio",       "name": "TKambio",        "website": "https://tkambio.com"},
     {"slug": "cambiosol",     "name": "Cambiosol",      "website": "https://cambiosol.pe"},
-    {"slug": "okane",         "name": "Okane",          "website": "https://okane.pe"},
+    {"slug": "okane",         "name": "Okane",          "website": "https://okanecambiodigital.com"},
 ]
 
 

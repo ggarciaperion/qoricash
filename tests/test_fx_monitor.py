@@ -1,7 +1,7 @@
 """
 tests/test_fx_monitor.py — Suite de tests de comportamiento para el módulo FX Monitor
 
-Cubre (31 tests):
+Cubre (43 tests):
   CB1: circuit breaker inicia sin cooldown
   CB2: 5 fallas → cooldown 30s
   CB3: éxito resetea circuit breaker
@@ -33,6 +33,18 @@ Cubre (31 tests):
   DG1: alias va a categoría neutral 'aliases' (no a 'errors'); canónico cuenta una vez
   DG2: dos competidores con precios iguales pero fuentes distintas cuentan por separado
   DG3: canónico no válido → alias queda como representante elegible del grupo
+  TK1: TKambio parser: buying_rate→buy_rate (Compra), selling_rate→sell_rate (Venta)
+  TK2: campo faltante → failure (no crash silencioso)
+  TK3: tasas fuera del rango 2.5–6.0 → failure
+  TK4: spread invertido (buy >= sell) → failure
+  TK5: pipeline captura → validación → persistencia → ranking elegible
+  OK1: Okane selección explícita de USD cuando la respuesta incluye múltiples monedas
+  OK2: valorCompra→buy_rate / valorVenta→sell_rate / source_updated_at desde fecha
+  OK3: campo obligatorio ausente → failure
+  OK4: spread invertido → failure
+  OK5: fecha sin offset interpretada como Lima UTC-5; incertidumbre documentada
+  OK6: fecha ausente o inválida → source_updated_at=None sin crash
+  OK7: respuesta vacía o tipo inesperado → failure
 """
 import time
 import pytest
@@ -1034,3 +1046,385 @@ def test_DG3_alias_stays_as_representative_when_canonical_not_valid():
     assert alias_entry["is_valid"] is True,    "is_valid debe permanecer True"
     assert alias_entry["buy"]  == pytest.approx(3.410, abs=1e-4)
     assert alias_entry["sell"] == pytest.approx(3.450, abs=1e-4)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  TK1 — TKambio: parser mapea buying_rate → buy_rate / selling_rate → sell_rate
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def test_TK1_tkambio_parse_valid_response():
+    """
+    TKambio expone 'Compra' y 'Venta' en su calculadora pública.
+    La acción WP-AJAX get_exchange_rate devuelve:
+      buying_rate  = Compra = tasa a la que TKambio compra USD del cliente
+      selling_rate = Venta  = tasa a la que TKambio vende USD al cliente
+    Respuesta real sanitizada capturada el 2026-09-24.
+    """
+    from unittest.mock import patch, MagicMock
+    from app.services.fx_monitor.scrapers.tkambio import TKambioScraper
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = {
+        "buying_rate": 3.401,
+        "selling_rate": 3.431,
+        "text_updated_at": "28 minutos",   # cadena legible, no parseable
+        "outdates_in": 49440,
+        "discounts": [
+            {"min_amount": 5000,  "buying_rate": 3.404, "selling_rate": 3.428},
+            {"min_amount": 10000, "buying_rate": 3.405, "selling_rate": 3.427},
+        ],
+        "ibk_buying_rate": 0,
+        "ibk_selling_rate": 0,
+        "campaigns": [],
+    }
+
+    with patch("app.services.fx_monitor.scrapers.tkambio.requests.Session") as mock_sess:
+        mock_sess.return_value.post.return_value = mock_resp
+        result = TKambioScraper().fetch()
+
+    assert result.slug      == "tkambio"
+    assert result.buy_rate  == pytest.approx(3.401, abs=1e-4), "buying_rate → buy_rate (Compra)"
+    assert result.sell_rate == pytest.approx(3.431, abs=1e-4), "selling_rate → sell_rate (Venta)"
+    assert result.buy_rate < result.sell_rate,  "spread debe ser positivo"
+    assert result.source == "direct"
+    assert result.source_updated_at is None, (
+        "text_updated_at es cadena relativa ('28 minutos'), no parseable; "
+        "source_updated_at debe ser None"
+    )
+    assert result.scraped_at is not None, "scraped_at debe registrar la hora de observación"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  TK2 — TKambio: campo faltante → failure (no crash silencioso)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def test_TK2_tkambio_missing_field_raises():
+    """Respuesta incompleta (sin buying_rate) produce failure, no crash silencioso."""
+    from unittest.mock import patch, MagicMock
+    from app.services.fx_monitor.scrapers.tkambio import TKambioScraper
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = {"selling_rate": 3.431}   # falta buying_rate
+
+    with patch("app.services.fx_monitor.scrapers.tkambio.requests.Session") as mock_sess:
+        mock_sess.return_value.post.return_value = mock_resp
+        result = TKambioScraper().safe_fetch()
+
+    assert result.success  is False
+    assert result.buy_rate == 0.0
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  TK3 — TKambio: tasas fuera del rango 2.5–6.0 → failure
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def test_TK3_tkambio_out_of_range_raises():
+    """Tasas fuera del rango PEN/USD válido levantan ValueError."""
+    from unittest.mock import patch, MagicMock
+    from app.services.fx_monitor.scrapers.tkambio import TKambioScraper
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = {"buying_rate": 1.5, "selling_rate": 1.8}  # < 2.5
+
+    with patch("app.services.fx_monitor.scrapers.tkambio.requests.Session") as mock_sess:
+        mock_sess.return_value.post.return_value = mock_resp
+        result = TKambioScraper().safe_fetch()
+
+    assert result.success is False
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  TK4 — TKambio: buy >= sell → failure (spread negativo o nulo)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def test_TK4_tkambio_buy_ge_sell_raises():
+    """Spread invertido (buying_rate >= selling_rate) levanta ValueError."""
+    from unittest.mock import patch, MagicMock
+    from app.services.fx_monitor.scrapers.tkambio import TKambioScraper
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = {"buying_rate": 3.45, "selling_rate": 3.40}
+
+    with patch("app.services.fx_monitor.scrapers.tkambio.requests.Session") as mock_sess:
+        mock_sess.return_value.post.return_value = mock_resp
+        result = TKambioScraper().safe_fetch()
+
+    assert result.success is False
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  TK5 — TKambio: pipeline captura → _persist_one() (DB mock) → ranking
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def test_TK5_tkambio_pipeline_capture_to_ranking():
+    """
+    Valida el pipeline completo del scraper recién reescrito:
+      1. fetch() produce RateResult con buy/sell correctos y scraped_at
+      2. _persist_one() acepta el resultado (_rate_ok=True)
+      3. manager._is_valid_rate() lo declara elegible para ranking
+      4. scraped_at registra la hora de observación (no es None ni futuro)
+    """
+    from unittest.mock import patch, MagicMock
+    from decimal import Decimal
+    from datetime import datetime, timezone, timedelta
+    from app.services.fx_monitor.scrapers.tkambio import TKambioScraper
+    from app.services.fx_monitor.scrapers.manager import _is_valid_rate
+    from app.services.fx_monitor import monitor_service as ms
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = {
+        "buying_rate": 3.401, "selling_rate": 3.431,
+        "text_updated_at": "1 hora", "outdates_in": 3600,
+        "discounts": [], "ibk_buying_rate": 0, "ibk_selling_rate": 0, "campaigns": [],
+    }
+
+    with patch("app.services.fx_monitor.scrapers.tkambio.requests.Session") as mock_sess:
+        mock_sess.return_value.post.return_value = mock_resp
+        result = TKambioScraper().fetch()
+
+    # 1. scraped_at registra la hora de observación
+    now_utc = datetime.now(timezone.utc)
+    assert result.scraped_at is not None
+    assert result.success is True
+
+    # 2. _persist_one acepta el dato (_rate_ok)
+    _valid_range = 2.5 < result.buy_rate < 6.0 and 2.5 < result.sell_rate < 6.0
+    _valid_order = result.buy_rate < result.sell_rate
+    _rate_ok     = result.success and result.buy_rate > 0 and _valid_range and _valid_order
+    assert _rate_ok, (
+        f"_persist_one debe aceptar: buy={result.buy_rate} sell={result.sell_rate}"
+    )
+
+    # 3. _is_valid_rate: elegible para ranking
+    assert _is_valid_rate(result.buy_rate, result.sell_rate)
+
+    # 4. _persist_one invocado sin error con prev existente
+    comp = MagicMock(); comp.id = 77; comp.name = "TKambio"
+    prev = MagicMock()
+    prev.buy_rate      = Decimal("3.400")
+    prev.sell_rate     = Decimal("3.430")
+    prev.scrape_ok     = True
+    prev.last_valid_at = datetime.now(timezone.utc) - timedelta(minutes=10)
+    prev.data_source   = "direct"
+    slug_map = {"tkambio": prev}
+
+    added = []
+    with patch("app.services.fx_monitor.monitor_service.db") as mock_db, \
+         patch("app.services.fx_monitor.monitor_service.CompetitorRateHistory",
+               side_effect=lambda **kw: added.append(kw) or MagicMock()), \
+         patch("app.services.fx_monitor.monitor_service.CompetitorRateChangeEvent"), \
+         patch("app.services.fx_monitor.monitor_service.detect_change", return_value=None):
+        mock_db.session = MagicMock()
+        rate_ok, _ = ms._persist_one(result, comp, prev, slug_map, 0)
+
+    assert rate_ok is True, "_persist_one debe retornar rate_ok=True para TKambio"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  OK1 — Okane: selección explícita de USD en respuesta multi-moneda
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def test_OK1_okane_selects_usd_entry_from_multi_currency_response():
+    """
+    Si la respuesta incluye múltiples monedas, el scraper debe seleccionar
+    la entrada con idMoneda="USD", no tomar data[0] a ciegas.
+    """
+    from unittest.mock import patch, MagicMock
+    from app.services.fx_monitor.scrapers.okane import OkaneScraper
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = [
+        {"idTipoCambio": "000001", "fecha": "2026-09-24T18:00:00",
+         "idMoneda": "EUR", "valorCompra": 3.80, "valorVenta": 3.90},   # NO elegir
+        {"idTipoCambio": "064427", "fecha": "2026-09-24T18:04:35",
+         "idMoneda": "USD", "valorCompra": 3.3700, "valorVenta": 3.4500},  # elegir
+    ]
+
+    with patch("app.services.fx_monitor.scrapers.okane.requests.Session") as mock_sess:
+        mock_sess.return_value.get.return_value = mock_resp
+        result = OkaneScraper().fetch()
+
+    assert result.buy_rate  == pytest.approx(3.3700, abs=1e-4), "debe tomar USD valorCompra"
+    assert result.sell_rate == pytest.approx(3.4500, abs=1e-4), "debe tomar USD valorVenta"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  OK2 — Okane: valorCompra→buy_rate, valorVenta→sell_rate, fecha→source_updated_at
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def test_OK2_okane_parse_fields_and_source():
+    """
+    Respuesta real sanitizada (2026-09-24):
+    valorCompra=3.3700 → buy_rate, valorVenta=3.4500 → sell_rate
+    source='direct', source_updated_at parseable desde fecha.
+    """
+    from unittest.mock import patch, MagicMock
+    from app.services.fx_monitor.scrapers.okane import OkaneScraper
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = [{
+        "idTipoCambio": "064427",
+        "fecha":        "2026-09-24T18:04:35",
+        "idMoneda":     "USD",
+        "valorCompra":  3.3700,
+        "valorVenta":   3.4500,
+        "tipoModalidad": "01",
+    }]
+
+    with patch("app.services.fx_monitor.scrapers.okane.requests.Session") as mock_sess:
+        mock_sess.return_value.get.return_value = mock_resp
+        result = OkaneScraper().fetch()
+
+    assert result.slug      == "okane"
+    assert result.buy_rate  == pytest.approx(3.3700, abs=1e-4)
+    assert result.sell_rate == pytest.approx(3.4500, abs=1e-4)
+    assert result.buy_rate < result.sell_rate
+    assert result.source == "direct"
+    assert result.source_updated_at is not None, "fecha debe producir source_updated_at"
+    # source_updated_at es datetime UTC aware
+    from datetime import timezone
+    assert result.source_updated_at.tzinfo == timezone.utc, "source_updated_at debe estar en UTC"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  OK3 — Okane: campo obligatorio ausente → failure
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def test_OK3_okane_missing_field_raises():
+    """Respuesta sin valorCompra produce failure."""
+    from unittest.mock import patch, MagicMock
+    from app.services.fx_monitor.scrapers.okane import OkaneScraper
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = [{"idMoneda": "USD", "valorVenta": 3.45}]  # sin valorCompra
+
+    with patch("app.services.fx_monitor.scrapers.okane.requests.Session") as mock_sess:
+        mock_sess.return_value.get.return_value = mock_resp
+        result = OkaneScraper().safe_fetch()
+
+    assert result.success is False
+    assert result.buy_rate == 0.0
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  OK4 — Okane: spread invertido → failure
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def test_OK4_okane_buy_ge_sell_raises():
+    """valorCompra >= valorVenta levanta ValueError."""
+    from unittest.mock import patch, MagicMock
+    from app.services.fx_monitor.scrapers.okane import OkaneScraper
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = [
+        {"idMoneda": "USD", "valorCompra": 3.50, "valorVenta": 3.40, "fecha": "2026-09-24T18:00:00"}
+    ]
+
+    with patch("app.services.fx_monitor.scrapers.okane.requests.Session") as mock_sess:
+        mock_sess.return_value.get.return_value = mock_resp
+        result = OkaneScraper().safe_fetch()
+
+    assert result.success is False
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  OK5 — Okane: fecha sin offset → interpretada como Lima UTC-5; incertidumbre acotada
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def test_OK5_okane_fecha_no_offset_treated_as_lima():
+    """
+    Okane devuelve fecha sin offset de zona horaria ("2026-09-24T18:04:35").
+    El scraper la trata como hora Lima (UTC-5) porque:
+      - El negocio opera en Lima (San Isidro)
+      - La antigüedad resultante (~1.4h en la prueba de 2026-09-24) es
+        consistente con horario comercial Lima
+    Incertidumbre: si el servidor usa reloj UTC, source_updated_at estaría
+    5 horas adelante de la actualización real (dato parecería más fresco).
+    Impacto: limitado — Okane usa source='direct', no sujeto a _CED_ELIGIBLE_HOURS.
+    """
+    from unittest.mock import patch, MagicMock
+    from datetime import datetime, timezone, timedelta
+    from app.services.fx_monitor.scrapers.okane import OkaneScraper
+
+    # Fecha fija para el test: 12:00 hora Lima = 17:00 UTC
+    fecha_local = "2026-06-15T12:00:00"   # sin tz — interpretaremos como Lima
+    expected_utc = datetime(2026, 6, 15, 17, 0, 0, tzinfo=timezone.utc)  # +5h desde Lima
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = [{
+        "idMoneda": "USD", "valorCompra": 3.37, "valorVenta": 3.45,
+        "fecha": fecha_local, "tipoModalidad": "01",
+    }]
+
+    with patch("app.services.fx_monitor.scrapers.okane.requests.Session") as mock_sess:
+        mock_sess.return_value.get.return_value = mock_resp
+        result = OkaneScraper().fetch()
+
+    assert result.source_updated_at is not None
+    assert result.source_updated_at == expected_utc, (
+        f"Lima 12:00 → UTC 17:00; obtenido {result.source_updated_at.isoformat()}"
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  OK6 — Okane: fecha ausente o inválida → source_updated_at=None, no crash
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def test_OK6_okane_missing_or_invalid_fecha_gives_none():
+    """
+    Fecha ausente o no parseable → source_updated_at=None.
+    Las tasas siguen siendo válidas; la incertidumbre de la fuente se absorbe.
+    """
+    from unittest.mock import patch, MagicMock
+    from app.services.fx_monitor.scrapers.okane import OkaneScraper
+
+    for bad_fecha in [None, "", "not-a-date", "hoy"]:
+        entry = {"idMoneda": "USD", "valorCompra": 3.37, "valorVenta": 3.45}
+        if bad_fecha is not None:
+            entry["fecha"] = bad_fecha
+
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+        mock_resp.json.return_value = [entry]
+
+        with patch("app.services.fx_monitor.scrapers.okane.requests.Session") as mock_sess:
+            mock_sess.return_value.get.return_value = mock_resp
+            result = OkaneScraper().fetch()
+
+        assert result.success is True, f"fecha={bad_fecha!r} no debe causar failure"
+        assert result.source_updated_at is None, (
+            f"fecha={bad_fecha!r} → source_updated_at debe ser None"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  OK7 — Okane: respuesta vacía o tipo inesperado → failure limpio
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def test_OK7_okane_empty_or_unexpected_response_raises():
+    """Lista vacía y tipo inesperado producen failure, no crash con traceback."""
+    from unittest.mock import patch, MagicMock
+    from app.services.fx_monitor.scrapers.okane import OkaneScraper
+
+    for bad_payload in [[], 42, "string", None]:
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+        mock_resp.json.return_value = bad_payload
+
+        with patch("app.services.fx_monitor.scrapers.okane.requests.Session") as mock_sess:
+            mock_sess.return_value.get.return_value = mock_resp
+            result = OkaneScraper().safe_fetch()
+
+        assert result.success is False, (
+            f"payload={bad_payload!r} debe producir failure"
+        )
