@@ -257,10 +257,11 @@ def api_live():
             invalid.append(c)
             continue
         if not c.get("scrape_ok"):
-            # Scraper falló pero conserva precios anteriores → stale, no totalmente inválido
-            c["is_valid"] = False
+            # Scraper falló pero conserva precios → incluir en ranking como referencia vencida.
+            # Solo se excluye del ranking si no tiene precio (ya manejado antes de este bloque).
+            c["is_valid"] = True
             c["is_stale"] = True
-            invalid.append(c)
+            valid.append(c)
             continue
 
         if src in ('ced_direct', 'ced_batch'):
@@ -269,28 +270,28 @@ def api_live():
             # Una descarga reciente no oculta que el precio del proveedor es antiguo.
             src_upd_epoch = c.get("source_updated_epoch")
             if src_upd_epoch is None:
-                # Vigencia no acreditada: timestamp ausente/inválido/futuro.
-                # Mostrar como referencia fuera del ranking.
-                c["is_valid"] = False
+                # Vigencia no acreditada: timestamp ausente/inválido/futuro → referencia vencida.
+                c["is_valid"] = True
+                c["is_stale"] = True
                 c["is_ced_unknown_ts"] = True
-                invalid.append(c)
+                valid.append(c)
                 continue
             ced_age_secs = server_now - src_upd_epoch
             if ced_age_secs > _CED_ELIGIBLE_HOURS * 3600:
-                c["is_valid"] = False
+                c["is_valid"] = True
                 c["is_stale"] = True
-                invalid.append(c)
+                valid.append(c)
             else:
                 c["is_valid"] = True
                 valid.append(c)
         else:
-            # Scrapers directos: lógica existente de STALE_SECS (3 min en horario de mercado)
+            # Scrapers directos: lógica de STALE_SECS (3 min en horario de mercado)
             ep = c.get("updated_epoch", 0)
             is_stale = STALE_SECS and ep > 0 and (server_now - ep) > STALE_SECS
             if is_stale:
-                c["is_valid"] = False
+                c["is_valid"] = True
                 c["is_stale"] = True
-                invalid.append(c)
+                valid.append(c)
             else:
                 c["is_valid"] = True
                 valid.append(c)
@@ -321,7 +322,9 @@ def api_live():
 
     # ── Filtro de outliers ────────────────────────────────────────────────────
     # Excluye tasas que se desvíen >6% de la mediana del grupo válido.
-    # Se ejecuta después del dedup; las medianas no están sesgadas por aliases.
+    # Se calcula solo sobre entradas frescas (no vencidas) para que las medianas
+    # no estén sesgadas por precios antiguos. Las entradas vencidas quedan en el
+    # ranking pero no participan en el cálculo de la mediana ni en los promedios.
     def _median(values):
         s = sorted(values)
         n = len(s)
@@ -329,10 +332,11 @@ def api_live():
 
     OUTLIER_PCT = 0.06   # 6 % de tolerancia
 
-    if valid:
-        med_buy  = _median([c["buy"]  for c in valid])
-        med_sell = _median([c["sell"] for c in valid])
-        for c in valid[:]:
+    fresh = [c for c in valid if not c.get("is_stale")]
+    if fresh:
+        med_buy  = _median([c["buy"]  for c in fresh])
+        med_sell = _median([c["sell"] for c in fresh])
+        for c in fresh[:]:
             buy_ok  = abs(c["buy"]  - med_buy)  / med_buy  <= OUTLIER_PCT
             sell_ok = abs(c["sell"] - med_sell) / med_sell <= OUTLIER_PCT
             if not (buy_ok and sell_ok):
@@ -345,17 +349,19 @@ def api_live():
                 c["is_valid"]   = False
                 valid.remove(c)
                 invalid.append(c)
+        fresh = [c for c in valid if not c.get("is_stale")]   # recalcular tras outliers
 
-    active = valid
+    stale_ranked = [c for c in valid if c.get("is_stale")]
     errors = invalid
-    # aliases: categoría neutral — visibles en el monitor con badge ALIAS,
-    # excluidos de promedios, rankings y conteos competitivos.
-    buy_ranked  = sorted(active,  key=lambda c: c["buy"],  reverse=True) + \
-                  sorted(errors,  key=lambda c: c["buy"],  reverse=True) + \
-                  sorted(aliases, key=lambda c: c["buy"],  reverse=True)
-    sell_ranked = sorted(active,  key=lambda c: c["sell"]) + \
-                  sorted(errors,  key=lambda c: c["sell"]) + \
-                  sorted(aliases, key=lambda c: c["sell"])
+    # Ranking: frescos primero (ordenados por precio), luego vencidos, luego sin precio, luego aliases.
+    buy_ranked  = sorted(fresh,        key=lambda c: c["buy"],  reverse=True) + \
+                  sorted(stale_ranked, key=lambda c: c["buy"],  reverse=True) + \
+                  sorted(errors,       key=lambda c: c["buy"],  reverse=True) + \
+                  sorted(aliases,      key=lambda c: c["buy"],  reverse=True)
+    sell_ranked = sorted(fresh,        key=lambda c: c["sell"]) + \
+                  sorted(stale_ranked, key=lambda c: c["sell"]) + \
+                  sorted(errors,       key=lambda c: c["sell"]) + \
+                  sorted(aliases,      key=lambda c: c["sell"])
 
     # best_buy / best_sell: mejor entre frescos y válidos; fallback a stale (ya ordenado)
     def _best(ranked, key):
@@ -368,8 +374,8 @@ def api_live():
     best_buy  = _best(buy_ranked,  "buy")
     best_sell = _best(sell_ranked, "sell")
 
-    # Market stats (solo sobre frescos; si no hay, usar stale con precios)
-    stats_pool = active or [c for c in errors if c.get("buy", 0) > 0]
+    # Market stats: solo entradas frescas; fallback a vencidas si no hay ninguna fresca
+    stats_pool = fresh or [c for c in stale_ranked if c.get("buy", 0) > 0]
     avg_buy  = round(sum(c["buy"]  for c in stats_pool) / len(stats_pool), 4) if stats_pool else 0
     avg_sell = round(sum(c["sell"] for c in stats_pool) / len(stats_pool), 4) if stats_pool else 0
 
@@ -391,7 +397,7 @@ def api_live():
         "market_avg_buy":  avg_buy,
         "market_avg_sell": avg_sell,
         "market_spread":   round(avg_sell - avg_buy, 4) if avg_buy and avg_sell else 0,
-        "total_active":      len(active),
+        "total_active":      len(fresh),
         "total_errors":      len(errors),
         "own_updated_epoch": own_updated_epoch,
     })

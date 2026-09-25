@@ -1118,7 +1118,7 @@ function createRowEl(item, rank, mode, ownBuy, ownSell) {
   const delta  = prevDb != null ? price - prevDb : null;
   const vsOwn  = mode === 'buy' ? item.vs_own_buy : item.vs_own_sell;
 
-  const isValid = item.is_valid !== false && price > 0 && item.scrape_ok !== false;
+  const isValid = item.is_valid !== false && price > 0;
   const isStale = !!item.is_stale;
   const rowCls  = 'list-row' + (!isValid ? ' row-err' : isStale ? ' row-stale' : '');
   const row = document.createElement('div');
@@ -1206,7 +1206,7 @@ function buildListDOM(container, items, mode, ownBuy, ownSell) {
   let separatorInserted = false;
   let validRank = 0;
   items.forEach((item) => {
-    const isInvalid = item.is_valid === false || (mode==='buy' ? item.buy : item.sell) <= 0 || item.scrape_ok === false;
+    const isInvalid = item.is_valid === false || (mode==='buy' ? item.buy : item.sell) <= 0;
     // Insert visual separator between valid and invalid sections
     if (isInvalid && !separatorInserted) {
       separatorInserted = true;
@@ -1236,7 +1236,7 @@ function updateListInPlace(items, mode) {
     const delta  = prevDb != null ? price - prevDb : null;
 
     // Update row validity class
-    const isNowValid = item.is_valid !== false && price > 0 && item.scrape_ok !== false;
+    const isNowValid = item.is_valid !== false && price > 0;
     const wasErr = entry.row.classList.contains('row-err');
     if (!isNowValid && !wasErr) entry.row.classList.add('row-err');
     if (isNowValid  &&  wasErr) entry.row.classList.remove('row-err');
@@ -1273,8 +1273,8 @@ function updateListInPlace(items, mode) {
 function buildRankedList(serverRanked, own, mode) {
   const key = mode === 'buy' ? 'buy' : 'sell';
   // Strict separation: valid = has data + price > 0 + not stale
-  const valid   = serverRanked.filter(c => c.is_valid !== false && c[key] > 0 && c.scrape_ok !== false);
-  const invalid = serverRanked.filter(c => c.is_valid === false  || c[key] <= 0 || c.scrape_ok === false);
+  const valid   = serverRanked.filter(c => c.is_valid !== false && c[key] > 0);
+  const invalid = serverRanked.filter(c => c.is_valid === false  || c[key] <= 0);
   // Insert QoriCash among valid at correct rank (never mix with invalid section)
   const ownP = own[key];
   let pos = valid.length;
