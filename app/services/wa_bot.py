@@ -4243,6 +4243,25 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     ]
                 )
 
+            # N3 — consulta TC universal: redirige a _flujo_tc_publico (con botones)
+            # Excluye estados donde el texto tiene significado específico (número de cuenta,
+            # documento, email, fotos) para no interrumpir esos flujos.
+            elif (
+                estado not in (
+                    'esperando_num_cuenta', 'esperando_doc', 'esperando_numero_doc',
+                    'esperando_email', 'esperando_dni_front', 'esperando_dni_back',
+                    'esperando_codigo_otp',
+                )
+                and re.search(
+                    r'\b(tipo\s+de\s+cambio|precio\s+del\s+d[oó]lar|tc\b|'
+                    r'cuanto\s+est[aá]\s+el\s+d[oó]lar|a\s+cuanto\s+est[aá]'
+                    r'|cu[aá]nto\s+vale\s+el\s+d[oó]lar|tasa\s+de\s+cambio'
+                    r'|precio\s+de\s+hoy|cambio\s+de\s+hoy)\b',
+                    txt_lower,
+                )
+            ):
+                _flujo_tc_publico(numero)
+
             elif estado in _ESTADOS_CON_HORARIO and not _is_horario_atencion():
                 _flujo_fuera_horario(numero)
 
@@ -5155,11 +5174,14 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             _ia_sal = _respuesta_ia(texto, numero, session, wa_id=wa_id)
                             if _ia_sal:
                                 send_text(numero, _ia_sal)
+                                send_buttons(numero, '¿En qué te puedo ayudar?',
+                                    [{'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                                     {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'}])
                             else:
-                                send_text(numero,
-                                    '¡Hola! 👋 En Qoricash te ayudamos a comprar y vender dólares. '
-                                    '¿En qué puedo ayudarte?'
-                                )
+                                send_buttons(numero,
+                                    '¡Hola! 👋 En Qoricash te ayudamos a comprar y vender dólares.',
+                                    [{'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                                     {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'}])
                         if session.estado not in ('eligiendo_operacion', 'eligiendo_cliente_telefono',
                                                    'viendo_cotizacion', 'esperando_importe'):
                             session.estado = 'menu_mostrado'
@@ -5367,6 +5389,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             _ia_sal_m = _respuesta_ia(texto, numero, session, wa_id=wa_id)
                             if _ia_sal_m:
                                 send_text(numero, _ia_sal_m)
+                                send_buttons(numero, '¿En qué te puedo ayudar?',
+                                    [{'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                                     {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'}])
                             else:
                                 send_buttons(numero, '¡Hola! 👋 ¿En qué te puedo ayudar hoy?',
                                     [{'id': 'btn_cotizar', 'title': '💱 Cotizar'},
@@ -5430,6 +5455,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             _ia_resp_m = _respuesta_ia(texto, numero, session, wa_id=wa_id)
                             if _ia_resp_m:
                                 send_text(numero, _ia_resp_m)
+                                send_buttons(numero, '¿Deseas hacer una operación?',
+                                    [{'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                                     {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'}])
                             else:
                                 _menu_rapido(numero)
                 elif any(k in txt_lower for k in ('asesor', 'ayuda', 'ayúdame', 'ayudame', 'hablar', 'persona', 'humano', 'soporte', 'contacto')):
@@ -5475,6 +5503,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             _ia_resp = _respuesta_ia(texto, numero, session, wa_id=wa_id)
                             if _ia_resp:
                                 send_text(numero, _ia_resp)
+                                send_buttons(numero, '¿Puedo ayudarte con algo más?',
+                                    [{'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                                     {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'}])
                                 _entendido = True  # IA respondió correctamente, resetear contador
                             else:
                                 # Contar mensajes no entendidos consecutivamente para evitar loop
