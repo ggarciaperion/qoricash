@@ -233,7 +233,8 @@ def _notificar_admins_wa(mensaje):
             log.warning(f'[WaBot] Error texto admin {num}: {e2}')
 
 # 1 pip = 0.0001 (estándar forex para pares con PEN)
-SPREAD_TC = 0.0020   # 20 pips: spread que aplica el bot sobre el TC oficial
+SPREAD_TC      = 0.0020   # 20 pips: spread estándar (personas naturales)
+SPREAD_EMPRESA = 0.0010   # 10 pips: spread preferencial para empresas (RUC verificado)
 
 COTIZ_VALIDEZ_MIN      = 15   # minutos de validez de la cotización
 SESSION_INACTIVIDAD_MIN = 15  # minutos de inactividad para expirar sesión
@@ -1240,9 +1241,9 @@ def _bienvenida(numero, session):
 
     msg = f'{saludo}\nCambia soles y dólares sin salir de tu WhatsApp.{tc_text}'
     send_buttons_image(numero, BANNER_URL, msg, [
-        {'id': 'btn_comprar',       'title': 'Soles a dólares'},
-        {'id': 'btn_vender',        'title': 'Dólares a soles'},
-        {'id': 'btn_como_funciona', 'title': '› ¿Cómo funciona?'},
+        {'id': 'btn_comprar',    'title': 'Soles a dólares'},
+        {'id': 'btn_vender',     'title': 'Dólares a soles'},
+        {'id': 'btn_soy_empresa','title': '🏢 Soy empresa'},
     ])
 
 
@@ -1292,27 +1293,32 @@ def _flujo_mostrar_cotizacion(numero, session):
     importe = session.cotiz_importe
     mejora  = _mejora_tc(importe)
 
+    # Spread preferencial para empresas (RUC verificado en bienvenida)
+    _es_empresa_cot = (session.tipo == 'empresa') or _es_ruc(session.cotiz_doc or '')
+    _spread_cot     = SPREAD_EMPRESA if _es_empresa_cot else SPREAD_TC
+    _label_cotiz    = '💼 *Cotización corporativa*' if _es_empresa_cot else '💱 *Tu cotización*'
+
     # Hora de expiración de la cotización
     expira_hora = (now_peru() + timedelta(minutes=COTIZ_VALIDEZ_MIN)).strftime('%I:%M %p').lstrip('0')
 
     if op == 'compra':
         # Cliente compra dólares → empresa le vende → usa TC venta + spread
-        tc_base  = round(venta + SPREAD_TC, 4)
+        tc_base  = round(venta + _spread_cot, 4)
         tc_final = round(tc_base - mejora, 4)
         soles    = round(importe * tc_final, 2)
         resumen  = (
-            f'💱 *Tu cotización*\n\n'
+            f'{_label_cotiz}\n\n'
             f'› Tú envías:    *S/ {soles:,.2f}*\n'
             f'› Tú recibes:  *USD {importe:,.2f}*\n\n'
             f'Tipo de cambio: S/ {tc_final:.4f}'
         )
     else:
         # Cliente vende dólares → empresa le compra → usa TC compra - spread
-        tc_base  = round(compra - SPREAD_TC, 4)
+        tc_base  = round(compra - _spread_cot, 4)
         tc_final = round(tc_base + mejora, 4)
         soles    = round(importe * tc_final, 2)
         resumen  = (
-            f'💱 *Tu cotización*\n\n'
+            f'{_label_cotiz}\n\n'
             f'› Tú envías:    *USD {importe:,.2f}*\n'
             f'› Tú recibes:  *S/ {soles:,.2f}*\n\n'
             f'Tipo de cambio: S/ {tc_final:.4f}'
@@ -3461,6 +3467,14 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     _flujo_tc_publico(numero)
                     session.estado = 'eligiendo_operacion'
 
+            elif btn_id == 'btn_soy_empresa':
+                session.tipo = 'empresa'
+                send_text(numero,
+                    '🏢 Para mostrarte la *tasa corporativa* necesito verificar tu empresa.\n\n'
+                    'Ingresa el *RUC* de tu empresa (11 dígitos):'
+                )
+                session.estado = 'esperando_ruc_cotizar'
+
             elif btn_id == 'btn_comprar':
                 _op_activa = _operacion_activa_cliente(numero)
                 if _op_activa:
@@ -4273,6 +4287,48 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
 
             elif estado in _ESTADOS_CON_HORARIO and not _is_horario_atencion():
                 _flujo_fuera_horario(numero)
+
+            elif estado == 'esperando_ruc_cotizar':
+                _ruc_raw = re.sub(r'\D', '', texto.strip())
+                if _es_ruc(_ruc_raw):
+                    send_text(numero, '🔍 Verificando RUC en SUNAT...')
+                    _razon_emp = _lookup_ruc(_ruc_raw)
+                    if _razon_emp:
+                        session.cotiz_doc = _ruc_raw
+                        session.nombre    = _razon_emp
+                        session.tipo      = 'empresa'
+                        _c_emp, _v_emp = _get_tc()
+                        _tc_comp_emp = round(_c_emp - SPREAD_EMPRESA, 4)
+                        _tc_vent_emp = round(_v_emp + SPREAD_EMPRESA, 4)
+                        send_buttons(numero,
+                            f'✅ Empresa verificada: *{_razon_emp}*\n\n'
+                            f'💼 *Tipo de cambio corporativo:*\n\n'
+                            f'💵 Compramos tus dólares: *S/ {_tc_comp_emp:.4f}*\n'
+                            f'💵 Te vendemos dólares:   *S/ {_tc_vent_emp:.4f}*\n\n'
+                            f'¿Qué operación deseas realizar?',
+                            [
+                                {'id': 'btn_vender',  'title': 'Dólares a soles'},
+                                {'id': 'btn_comprar', 'title': 'Soles a dólares'},
+                                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                            ]
+                        )
+                        session.estado = 'eligiendo_operacion'
+                    else:
+                        send_buttons(numero,
+                            f'⚠️ No encontré el RUC *{_ruc_raw}* en SUNAT.\n\n'
+                            'Verifica el número o continúa como persona natural.',
+                            [
+                                {'id': 'btn_cotizar', 'title': '💱 Cotizar sin RUC'},
+                                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                            ]
+                        )
+                        session.tipo   = ''
+                        session.estado = 'menu_mostrado'
+                else:
+                    send_text(numero,
+                        '⚠️ El RUC debe tener exactamente *11 dígitos*.\n\n'
+                        'Inténtalo de nuevo o escribe *cancelar* para volver.'
+                    )
 
             elif estado == 'esperando_importe':
                 monto = _parse_monto(texto)
