@@ -2130,10 +2130,22 @@ def _flujo_elegir_cuenta(numero, cuentas, moneda):
 def _flujo_pedir_cuenta_destino(numero, moneda):
     """Pide al cliente banco + número de cuenta cuando no tiene ninguna registrada en esa moneda."""
     simbolo = 'dólares (USD)' if moneda == 'USD' else 'soles (S/)'
-    send_buttons(numero,
-        f'¿A qué cuenta quieres recibir tus *{simbolo}*?\n\n'
-        f'Selecciona tu banco 👇',
-        [{'id': 'btn_elegir_banco', 'title': '🏦 Elegir banco'}]
+    moneda_label = 'dólares' if moneda == 'USD' else 'soles'
+    send_list(numero,
+        f'¿A qué cuenta quieres recibir tus *{simbolo}*?\n\nSelecciona tu banco 👇',
+        [{
+            'title': f'Bancos para cuenta en {moneda_label}',
+            'rows': [
+                {'id': 'btn_banco_bcp',        'title': 'BCP'},
+                {'id': 'btn_banco_interbank',   'title': 'Interbank'},
+                {'id': 'btn_banco_banbif',      'title': 'BanBif'},
+                {'id': 'btn_banco_bbva',        'title': 'BBVA'},
+                {'id': 'btn_banco_scotiabank',  'title': 'Scotiabank'},
+                {'id': 'btn_banco_pichincha',   'title': 'Pichincha'},
+                {'id': 'btn_banco_otras',       'title': 'Otras entidades'},
+            ]
+        }],
+        button='🏦 Elegir banco'
     )
 
 
@@ -4006,24 +4018,6 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
                         {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
                     ]
-                )
-
-            elif btn_id == 'btn_elegir_banco':
-                moneda_b = 'USD' if session.cotiz_op == 'compra' else 'PEN'
-                send_list(numero,
-                    f'¿En qué banco tienes tu cuenta en {"dólares" if moneda_b == "USD" else "soles"}?',
-                    [{
-                        'title': 'Selecciona tu banco',
-                        'rows': [
-                            {'id': 'btn_banco_bcp',        'title': 'BCP'},
-                            {'id': 'btn_banco_interbank',  'title': 'Interbank'},
-                            {'id': 'btn_banco_banbif',     'title': 'BanBif'},
-                            {'id': 'btn_banco_bbva',       'title': 'BBVA'},
-                            {'id': 'btn_banco_scotiabank', 'title': 'Scotiabank'},
-                            {'id': 'btn_banco_pichincha',  'title': 'Pichincha'},
-                            {'id': 'btn_banco_otras',      'title': 'Otras entidades'},
-                        ]
-                    }]
                 )
 
             elif btn_id in ('btn_banco_bcp', 'btn_banco_interbank', 'btn_banco_banbif'):
