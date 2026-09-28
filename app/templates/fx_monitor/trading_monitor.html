@@ -1124,9 +1124,12 @@ function createRowEl(item, rank, mode, ownBuy, ownSell) {
   const row = document.createElement('div');
   row.className    = rowCls;
   row.dataset.slug = item.slug;
-  // Error tooltip for failed rows
+  // Error tooltip for failed/stale rows
   if (!isValid && item.last_error) {
     row.title = 'Error: ' + item.last_error;
+  } else if (isStale && item.last_error) {
+    const attemptStr = item.last_attempt_at ? ' · Último intento: ' + item.last_attempt_at : '';
+    row.title = 'Fallo: ' + item.last_error + attemptStr;
   }
 
   // Rank badge — "—" for invalid/error entries

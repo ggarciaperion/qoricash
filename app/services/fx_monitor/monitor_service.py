@@ -47,6 +47,13 @@ SAME_SOURCE_ALIASES: dict = {
 _last_history_ts: dict = {}   # slug → monotonic timestamp (float)
 _HISTORY_INTERVAL = 900       # 15 minutos entre muestras forzadas
 
+# Slugs permanentemente desactivados — sin fuente de datos accesible desde cloud IPs.
+# seed_competitors() los desactiva en cada arranque. Agregar aquí solo cuando no exista
+# ninguna fuente alternativa (directo ni CED) que devuelva datos frescos.
+_FORCE_INACTIVE_SLUGS: set = {
+    "cambiomundial",   # HTTP 403 Cloudflare permanente desde IPs cloud; CED 31d desactualizado
+}
+
 # Datos iniciales de competidores
 COMPETITORS_SEED = [
     {"slug": "kambista",     "name": "Kambista",     "website": "https://kambista.com"},
@@ -232,9 +239,15 @@ class FXMonitorService:
             if not comp:
                 db.session.add(Competitor(**data))
                 logger.info(f"[FX] Competidor nuevo insertado: {data['slug']}")
-            elif not comp.is_active:
+            elif not comp.is_active and data["slug"] not in _FORCE_INACTIVE_SLUGS:
                 comp.is_active = True
                 logger.info(f"[FX] Competidor reactivado: {data['slug']}")
+        # Desactivar permanentemente los slugs sin fuente disponible
+        for slug in _FORCE_INACTIVE_SLUGS:
+            comp = Competitor.query.filter_by(slug=slug).first()
+            if comp and comp.is_active:
+                comp.is_active = False
+                logger.info(f"[FX] {slug}: sin fuente accesible desde cloud → desactivado")
         db.session.commit()
         logger.info("[FX] Competidores sincronizados.")
 

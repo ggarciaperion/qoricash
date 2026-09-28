@@ -363,13 +363,18 @@ def api_live():
                   sorted(errors,  key=lambda c: c["sell"]) + \
                   sorted(aliases, key=lambda c: c["sell"])
 
-    # best_buy / best_sell: mejor entre frescos y válidos; fallback a stale (ya ordenado)
+    # best_buy / best_sell: preferir frescos; fallback a válidos; último recurso con precio
     def _best(ranked, key):
-        fresh = [c for c in ranked if c.get("is_valid")]
-        if fresh:
-            return fresh[0]
-        stale = [c for c in ranked if c.get(key, 0) > 0]
-        return stale[0] if stale else None
+        # Nivel 1: fresco + válido (no stale)
+        fresh_only = [c for c in ranked if c.get("is_valid") and not c.get("is_stale")]
+        if fresh_only:
+            return fresh_only[0]
+        # Nivel 2: válido aunque stale (precio antiguo pero conocido)
+        any_valid = [c for c in ranked if c.get("is_valid")]
+        if any_valid:
+            return any_valid[0]
+        # Nivel 3: cualquiera con precio
+        return next((c for c in ranked if c.get(key, 0) > 0), None)
 
     best_buy  = _best(buy_ranked,  "buy")
     best_sell = _best(sell_ranked, "sell")

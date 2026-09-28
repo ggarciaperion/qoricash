@@ -118,9 +118,11 @@ _CED_FALLBACK = {
     "tkambio":     "tkambio",
     "cambiosol":   "cambiosol",
     "cambiafx":    "cambia-fx",
-    # "cambiomundial": CED desactualizado desde 2026-05 — usa API directa ahora
+    # "cambiomundial": CED desactualizado desde 2026-05 — permanentemente desactivado
     "westernunion":"western-union",
     "okane":       "okane",
+    "tucambio":    "tu-cambio",    # comparte backend con cambiafx; CED puede tener entrada
+    "jetperu":     "jet-peru",     # 2-step auth; CED como fallback si disponible
 }
 
 
