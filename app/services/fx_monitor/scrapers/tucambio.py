@@ -18,7 +18,7 @@ class TuCambioScraper(BaseScraper):
     def fetch(self) -> RateResult:
         t0 = time.monotonic()
 
-        resp = requests.get(
+        resp = self.get_session().get(
             self.api_url,
             headers={**self.get_json_headers(), "Referer": "https://www.tucambio.pe/"},
             timeout=10,

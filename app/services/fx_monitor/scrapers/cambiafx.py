@@ -20,7 +20,7 @@ class CambiaFXScraper(BaseScraper):
 
     def fetch(self) -> RateResult:
         t0 = time.monotonic()
-        resp = requests.get(
+        resp = self.get_session().get(
             _API_URL,
             headers={**self.get_json_headers(), "Referer": self.url + "/"},
             timeout=10,

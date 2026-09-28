@@ -30,7 +30,7 @@ class TKambioScraper(BaseScraper):
         headers["Referer"]      = "https://tkambio.com/"
         headers["Origin"]       = "https://tkambio.com"
 
-        sess = requests.Session()
+        sess = self.get_session()
         resp = sess.post(
             _AJAX_URL,
             data="action=get_exchange_rate",

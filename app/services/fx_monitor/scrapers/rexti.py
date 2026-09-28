@@ -35,7 +35,7 @@ class RextiScraper(BaseScraper):
             "rextie-app-version":  "6.0.20",
         })
 
-        resp = requests.post(
+        resp = self.get_session().post(
             _GQL_URL,
             headers=headers,
             json={"query": _GQL_QUERY, "variables": {"sources": ["REXTIE"]}},

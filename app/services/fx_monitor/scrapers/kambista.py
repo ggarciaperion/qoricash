@@ -16,7 +16,7 @@ class KambistaScraper(BaseScraper):
 
     def fetch(self) -> RateResult:
         t0   = time.monotonic()
-        sess = requests.Session()
+        sess = self.get_session()
         resp = sess.get(self.url, headers=self.get_headers(), timeout=12, verify=False)
         ms   = int((time.monotonic() - t0) * 1000)
         resp.raise_for_status()

@@ -20,7 +20,7 @@ class DollarHouseScraper(BaseScraper):
 
     def fetch(self) -> RateResult:
         t0   = time.monotonic()
-        sess = requests.Session()
+        sess = self.get_session()
         # Primera request a la homepage para obtener connect.sid (sesión Express)
         try:
             sess.get(self.url, headers=self.get_headers(), timeout=8, verify=False)

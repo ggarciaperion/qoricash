@@ -1,14 +1,24 @@
 """
 Clase base para todos los scrapers de competidores
 """
+import os
 import time
 import random
 import logging
+import requests
 from dataclasses import dataclass
 from datetime import datetime
 from app.utils.formatters import now_peru
 
 logger = logging.getLogger(__name__)
+
+# ── Proxy HTTP opcional ───────────────────────────────────────────────────────
+# Si se define SCRAPER_PROXY_URL en las variables de entorno, TODOS los scrapers
+# enrutarán sus requests a través de ese proxy (residencial o datacenter alternativo).
+# Formato: http://user:pass@host:port  o  http://host:port  (sin auth)
+# Servicios compatibles: WebShare.io, BrightData, Oxylabs, ScraperAPI, etc.
+# Ejemplo ScraperAPI: http://scraperapi:TU_API_KEY@proxy-server.scraperapi.com:8001
+_PROXY_URL: str = os.environ.get('SCRAPER_PROXY_URL', '')
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -38,20 +48,41 @@ class BaseScraper:
     def get_headers(self):
         # NOTE: Accept-Encoding is intentionally omitted — setting it manually
         # prevents requests from auto-decompressing the response.
+        # sec-* headers imitan un navegador real — ayudan a pasar filtros bot básicos.
         return {
-            "User-Agent":      random.choice(USER_AGENTS),
-            "Accept":          "text/html,application/xhtml+xml,*/*;q=0.9",
-            "Accept-Language": "es-PE,es;q=0.9,en;q=0.8",
-            "DNT":             "1",
-            "Connection":      "keep-alive",
+            "User-Agent":                random.choice(USER_AGENTS),
+            "Accept":                    "text/html,application/xhtml+xml,*/*;q=0.9",
+            "Accept-Language":           "es-PE,es;q=0.9,en;q=0.8",
+            "DNT":                       "1",
+            "Connection":                "keep-alive",
             "Upgrade-Insecure-Requests": "1",
+            "sec-ch-ua":                 '"Google Chrome";v="124", "Chromium";v="124", "Not-A.Brand";v="99"',
+            "sec-ch-ua-mobile":          "?0",
+            "sec-ch-ua-platform":        '"Windows"',
+            "sec-fetch-dest":            "document",
+            "sec-fetch-mode":            "navigate",
+            "sec-fetch-site":            "none",
+            "sec-fetch-user":            "?1",
+            "Cache-Control":             "max-age=0",
         }
 
     def get_json_headers(self):
         h = self.get_headers()
-        h["Accept"] = "application/json, text/plain, */*"
-        h["Referer"] = self.url
+        h["Accept"]        = "application/json, text/plain, */*"
+        h["Referer"]       = self.url
+        h["sec-fetch-dest"] = "empty"
+        h["sec-fetch-mode"] = "cors"
+        h["sec-fetch-site"] = "same-origin"
+        del h["sec-fetch-user"]
+        del h["Upgrade-Insecure-Requests"]
         return h
+
+    def get_session(self) -> requests.Session:
+        """Session con proxy configurado si SCRAPER_PROXY_URL está definido."""
+        sess = requests.Session()
+        if _PROXY_URL:
+            sess.proxies.update({"http": _PROXY_URL, "https": _PROXY_URL})
+        return sess
 
     def fetch(self) -> RateResult:
         raise NotImplementedError

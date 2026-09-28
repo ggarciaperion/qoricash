@@ -18,7 +18,7 @@ class DichikashScraper(BaseScraper):
 
     def fetch(self) -> RateResult:
         t0   = time.monotonic()
-        resp = requests.get(self.url, headers=self.get_headers(), timeout=12, verify=False)
+        resp = self.get_session().get(self.url, headers=self.get_headers(), timeout=12, verify=False)
         ms   = int((time.monotonic() - t0) * 1000)
         resp.raise_for_status()
 

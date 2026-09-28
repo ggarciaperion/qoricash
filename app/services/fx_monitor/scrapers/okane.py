@@ -44,7 +44,7 @@ class OkaneScraper(BaseScraper):
         headers["Referer"] = _SITE_URL + "/"
         headers["Origin"]  = _SITE_URL
 
-        sess = requests.Session()
+        sess = self.get_session()
         resp = sess.get(_API_URL, headers=headers, timeout=12, verify=False)
         resp.raise_for_status()
 

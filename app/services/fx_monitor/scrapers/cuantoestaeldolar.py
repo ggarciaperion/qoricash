@@ -172,7 +172,7 @@ class CedBaseScraper(BaseScraper):
 
     def fetch(self) -> RateResult:
         t0   = time.monotonic()
-        sess = requests.Session()
+        sess = self.get_session()
         buy, sell, src_updated_at = _fetch_ced_rates(sess, self.get_headers(), self.ced_path)
         ms   = int((time.monotonic() - t0) * 1000)
         return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,

@@ -21,10 +21,11 @@ class JetperuScraper(BaseScraper):
     url  = "https://www.jetperu.com.pe"
 
     def fetch(self) -> RateResult:
-        t0 = time.monotonic()
+        t0   = time.monotonic()
+        sess = self.get_session()
 
         # Paso 1: Obtener JWT
-        r_token = requests.post(
+        r_token = sess.post(
             _TOKEN_URL,
             data={"action": "tc_token"},
             headers={
@@ -42,7 +43,7 @@ class JetperuScraper(BaseScraper):
             raise ValueError("JetPerú: no se obtuvo token JWT")
 
         # Paso 2: Llamar a la API con el token
-        r_rates = requests.get(
+        r_rates = sess.get(
             _RATES_URL,
             params={"monedaOrigenId": "PEN"},
             headers={

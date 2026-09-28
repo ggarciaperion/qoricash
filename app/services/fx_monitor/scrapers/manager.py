@@ -132,6 +132,7 @@ def _ced_batch_fallback(failed_slugs: list) -> dict:
     Retorna dict slug → (buy, sell, source_updated_at) donde source_updated_at puede ser None.
     """
     from .cuantoestaeldolar import _fetch_ced_rates
+    from .base import _PROXY_URL
     import re
     import requests
 
@@ -142,6 +143,8 @@ def _ced_batch_fallback(failed_slugs: list) -> dict:
     # Descargar CED una sola vez para todos
     try:
         sess = requests.Session()
+        if _PROXY_URL:
+            sess.proxies.update({"http": _PROXY_URL, "https": _PROXY_URL})
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                           "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
