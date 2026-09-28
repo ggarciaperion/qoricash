@@ -3193,6 +3193,10 @@ def _respuesta_ia(texto_usuario, numero, session, wa_id=''):
             '- NO termines tu respuesta con preguntas del tipo "¿En qué más puedo ayudarte?", '
             '"¿Hay algo más en lo que pueda ayudarte?", "¿Puedo ayudarte con algo más?" ni '
             'variantes similares. El sistema ya envía botones de seguimiento; no repitas esa oferta.\n'
+            '- NUNCA menciones ni confirmes cuentas bancarias específicas del cliente '
+            '(ni números de cuenta, ni banco, ni últimos dígitos). Si el cliente pregunta '
+            'a qué cuenta se abonarán sus fondos, indícale que el flujo se lo confirmará '
+            'o que consulte con un asesor.\n'
             '- No inventes tipos de cambio distintos a los proporcionados.\n'
             '- No afirmes haber realizado acciones que el sistema no ejecutó. '
             'No puedes crear, modificar, cancelar ni completar operaciones.\n'
@@ -5682,13 +5686,12 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             ]
                         )
                 elif any(k in txt_lower for k in ('ok', 'okey', 'okay', 'entendido', 'gracias', 'listo', 'perfecto', 'bien', 'dale', 'claro', 'de acuerdo')):
-                    send_buttons(numero,
-                        '😊 ¿Hay algo más en lo que pueda ayudarte?',
-                        [
-                            {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
-                            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
-                        ]
-                    )
+                    # Acuse breve — IA responde sin preguntar de vuelta (system prompt lo prohíbe)
+                    _ia_ok = _respuesta_ia(texto, numero, session, wa_id=wa_id)
+                    if _ia_ok:
+                        send_text(numero, _ia_ok)
+                    else:
+                        send_text(numero, '😊 ¡Con gusto! Estamos aquí cuando lo necesites.')
                 elif any(k in txt_lower for k in ('como funciona', 'cómo funciona', 'como opera', 'es seguro', 'es confiable', 'información', 'informacion', 'info', 'cuéntame', 'cuentame')):
                     _flujo_como_funciona(numero)
                 elif any(k in txt_lower for k in ('horario', 'hora', 'atienden', 'trabajan', 'abren', 'cierran', 'disponible', 'disponibles')):
