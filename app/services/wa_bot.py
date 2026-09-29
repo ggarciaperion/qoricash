@@ -1379,20 +1379,20 @@ def _flujo_mostrar_cotizacion(numero, session):
         tc_final = round(venta + _spread_cot, 4)
         soles    = round(importe * tc_final, 2)
         resumen  = (
-            f'*Super Tasa!*\n\n'
-            f'>Envias:  S/ {soles:,.2f} |\n'
-            f'>Recibes:  $ {importe:,.2f} |\n'
-            f'>Tipo de cambio: {tc_final:.4f}'
+            f'*¡Súper Tasa!*\n\n'
+            f'Envias:  S/ {soles:,.2f} |\n'
+            f'Recibes:  $ {importe:,.2f} |\n'
+            f'Tipo de cambio: {tc_final:.4f}'
         )
     else:
         # Cliente vende dólares → Qoricash le compra → usa TC compra - spread
         tc_final = round(compra - _spread_cot, 4)
         soles    = round(importe * tc_final, 2)
         resumen  = (
-            f'*Super Tasa!*\n\n'
-            f'>Envias:  $ {importe:,.2f} |\n'
-            f'>Recibes:  S/ {soles:,.2f} |\n'
-            f'>Tipo de cambio: {tc_final:.4f}'
+            f'*¡Súper Tasa!*\n\n'
+            f'Envias:  $ {importe:,.2f} |\n'
+            f'Recibes:  S/ {soles:,.2f} |\n'
+            f'Tipo de cambio: {tc_final:.4f}'
         )
 
     # Guardia: tc_final debe ser finito y positivo antes de asignar o mostrar.
@@ -1443,8 +1443,8 @@ def _flujo_mostrar_cotizacion(numero, session):
     if not ok:
         # Fallback: send buttons if interactive list fails (WhatsApp API issue)
         send_buttons(numero, resumen, [
-            {'id': f'btn_aceptar_cotiz_{_token}', 'title': '> Aceptar Cotizacion'},
-            {'id': 'btn_cambiar_monto',            'title': '> Cambiar importe'},
+            {'id': f'btn_aceptar_cotiz_{_token}', 'title': 'Aceptar Cotizacion'},
+            {'id': 'btn_cambiar_monto',            'title': 'Cambiar importe'},
             {'id': 'btn_asesor',                   'title': '💬 Hablar con asesor'},
         ])
 
