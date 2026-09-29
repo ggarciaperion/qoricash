@@ -1329,7 +1329,10 @@ def _flujo_pedir_importe(numero, operacion):
         pregunta = f'¿Cuántos dólares quieres recibir? Mínimo: USD {MONTO_MINIMO_USD:,.0f}.'
     else:
         pregunta = f'¿Cuántos dólares quieres cambiar a soles? Mínimo: USD {MONTO_MINIMO_USD:,.0f}.'
-    send_buttons(numero, pregunta, [{'id': 'btn_volver_cotizar', 'title': '🔙 Volver atrás'}])
+    send_buttons(numero, pregunta, [
+        {'id': 'btn_volver_cotizar',  'title': '🔙 Volver atrás'},
+        {'id': 'btn_como_funciona',   'title': 'ℹ️ ¿Cómo funciona?'},
+    ])
 
 
 def _flujo_mostrar_cotizacion(numero, session):
