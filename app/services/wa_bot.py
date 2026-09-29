@@ -1379,20 +1379,20 @@ def _flujo_mostrar_cotizacion(numero, session):
         tc_final = round(venta + _spread_cot, 4)
         soles    = round(importe * tc_final, 2)
         resumen  = (
-            f'{_label_cotiz}\n\n'
-            f'› Tú envías:    *S/ {soles:,.2f}*\n'
-            f'› Tú recibes:  *USD {importe:,.2f}*\n\n'
-            f'Tipo de cambio: S/ {tc_final:.4f}'
+            f'*Super Tasa!*\n\n'
+            f'>Envias:  S/ {soles:,.2f} |\n'
+            f'>Recibes:  $ {importe:,.2f} |\n'
+            f'>Tipo de cambio: {tc_final:.4f}'
         )
     else:
         # Cliente vende dólares → Qoricash le compra → usa TC compra - spread
         tc_final = round(compra - _spread_cot, 4)
         soles    = round(importe * tc_final, 2)
         resumen  = (
-            f'{_label_cotiz}\n\n'
-            f'› Tú envías:    *USD {importe:,.2f}*\n'
-            f'› Tú recibes:  *S/ {soles:,.2f}*\n\n'
-            f'Tipo de cambio: S/ {tc_final:.4f}'
+            f'*Super Tasa!*\n\n'
+            f'>Envias:  $ {importe:,.2f} |\n'
+            f'>Recibes:  S/ {soles:,.2f} |\n'
+            f'>Tipo de cambio: {tc_final:.4f}'
         )
 
     # Guardia: tc_final debe ser finito y positivo antes de asignar o mostrar.
@@ -1433,8 +1433,8 @@ def _flujo_mostrar_cotizacion(numero, session):
     ok = send_list(numero, resumen, [{
         'title': 'Opciones',
         'rows': [
-            {'id': f'btn_aceptar_cotiz_{_token}', 'title': 'Aceptar cotización'},
-            {'id': 'btn_cambiar_monto',            'title': 'Cambiar monto'},
+            {'id': f'btn_aceptar_cotiz_{_token}', 'title': 'Aceptar Cotizacion'},
+            {'id': 'btn_cambiar_monto',            'title': 'Cambiar importe'},
             {'id': 'btn_cambiar_operacion',        'title': 'Cambiar tipo de operación'},
             {'id': 'btn_cancelar_cotiz',           'title': 'Cancelar cotización'},
             {'id': 'btn_asesor',                   'title': 'Hablar con asesor'},
@@ -1443,8 +1443,8 @@ def _flujo_mostrar_cotizacion(numero, session):
     if not ok:
         # Fallback: send buttons if interactive list fails (WhatsApp API issue)
         send_buttons(numero, resumen, [
-            {'id': f'btn_aceptar_cotiz_{_token}', 'title': '✅ Aceptar'},
-            {'id': 'btn_cambiar_monto',            'title': '✏️ Cambiar monto'},
+            {'id': f'btn_aceptar_cotiz_{_token}', 'title': '> Aceptar Cotizacion'},
+            {'id': 'btn_cambiar_monto',            'title': '> Cambiar importe'},
             {'id': 'btn_asesor',                   'title': '💬 Hablar con asesor'},
         ])
 
