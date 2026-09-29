@@ -1326,9 +1326,17 @@ def _flujo_cotizar_inicio(numero):
 def _flujo_pedir_importe(numero, operacion):
     """Solicita el importe en USD."""
     if operacion == 'compra':
-        pregunta = f'¿Cuántos dólares quieres recibir? Mínimo: USD {MONTO_MINIMO_USD:,.0f}.'
+        pregunta = (
+            f'¿Cuántos dólares quieres recibir?\n'
+            f'Mínimo: USD {MONTO_MINIMO_USD:,.0f}.\n\n'
+            '> 👇 Escribe el importe'
+        )
     else:
-        pregunta = f'¿Cuántos dólares quieres cambiar a soles? Mínimo: USD {MONTO_MINIMO_USD:,.0f}.'
+        pregunta = (
+            f'¿Cuántos dólares quieres cambiar a soles?\n'
+            f'Mínimo: USD {MONTO_MINIMO_USD:,.0f}.\n\n'
+            '> 👇 Escribe el importe'
+        )
     send_buttons(numero, pregunta, [
         {'id': 'btn_volver_cotizar',  'title': '🔙 Volver atrás'},
         {'id': 'btn_como_funciona',   'title': 'ℹ️ ¿Cómo funciona?'},
