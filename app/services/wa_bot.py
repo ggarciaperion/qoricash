@@ -4422,7 +4422,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 )
 
             # N1 — "cancelar" universal: cualquier estado activo (excepto inicio)
-            elif estado != 'inicio' and any(k in txt_lower for k in ('cancelar', 'salir', 'no gracias', 'stop', 'quiero salir')):
+            elif (estado != 'inicio'
+                    and not (estado == 'viendo_cotizacion' and (session.cotiz_intentos or 0) >= 2)
+                    and any(k in txt_lower for k in ('cancelar', 'salir', 'no gracias', 'stop', 'quiero salir'))):
                 _reset_sesion(session)
                 send_buttons(numero,
                     '✅ Proceso cancelado. ¿Hay algo más en lo que pueda ayudarte?',
