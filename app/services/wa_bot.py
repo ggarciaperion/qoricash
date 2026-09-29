@@ -5945,7 +5945,18 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     _seguridad_kw = ('es seguro', 'seguro', 'confiable', 'confianza',
                                      'riesgo', 'estafa', 'fraude')
                     _cancelar_kw = ('cancelar', 'salir', 'no gracias', 'volver', 'inicio', 'menu', 'no quiero')
-                    if any(k in txt_lower for k in _despedida_kw):
+                    # Tercer intento: bloquear cualquier texto antes de keyword checks
+                    if (session.cotiz_intentos or 0) >= 2:
+                        _reset_sesion(session)
+                        send_buttons(numero,
+                            'No hemos podido continuar con tu cotización. '
+                            'Por favor vuelve a cotizar cuando quieras 😊',
+                            [
+                                {'id': 'btn_cotizar', 'title': '🔄 Volver a cotizar'},
+                                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                            ]
+                        )
+                    elif any(k in txt_lower for k in _despedida_kw):
                         primer_nombre = (session.nombre or '').split()[0].title() if session.nombre else ''
                         _reset_sesion(session)
                         send_text(numero,
@@ -6068,16 +6079,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                     ]
                                 )
                             else:
-                                # Tercer intento: cancelar cotización
-                                _reset_sesion(session)
-                                send_buttons(numero,
-                                    'No hemos podido continuar con tu cotización. '
-                                    'Por favor vuelve a cotizar cuando quieras 😊',
-                                    [
-                                        {'id': 'btn_cotizar', 'title': '🔄 Volver a cotizar'},
-                                        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
-                                    ]
-                                )
+                                # Tercer intento: ya manejado al inicio del bloque viendo_cotizacion
+                                pass
 
                 elif estado == 'decidiendo_registro':
                     # P1 — Cliente escribió texto en lugar de usar los botones "¿Ya eres cliente?"
