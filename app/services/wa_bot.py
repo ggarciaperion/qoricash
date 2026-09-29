@@ -632,10 +632,12 @@ def _flujo_tc_publico(numero):
             ]
         )
         return False
+    _c_pub = round(compra - SPREAD_TC, 4)
+    _v_pub = round(venta  + SPREAD_TC, 4)
     send_buttons(numero,
         f'💵 *Tipo de cambio vigente*\n\n'
-        f'› Compramos tus dólares: *S/ {compra:.4f}*\n'
-        f'› Te vendemos dólares:   *S/ {venta:.4f}*\n\n'
+        f'› Compramos tus dólares: *S/ {_c_pub:.4f}*\n'
+        f'› Te vendemos dólares:   *S/ {_v_pub:.4f}*\n\n'
         '¿Qué quieres hacer?',
         [
             {'id': 'btn_comprar', 'title': 'Soles a dólares'},
@@ -1230,11 +1232,12 @@ def _bienvenida(numero, session):
 
     _c, _v = _get_tc()
     if _c and _v:
+        _c_disp = round(_c - SPREAD_TC, 4)
+        _v_disp = round(_v + SPREAD_TC, 4)
         tc_text = (
-            f'\n\n💵 Compramos tus dólares: *S/ {_c:.4f}*\n'
-            f'💵 Te vendemos dólares:   *S/ {_v:.4f}*\n\n'
-            '¿Qué operación deseas realizar?\n'
-            '> Mejor tasa para montos + $3,000'
+            f'\n\n💵 Compramos tus dólares: *S/ {_c_disp:.4f}*\n'
+            f'💵 Te vendemos dólares:   *S/ {_v_disp:.4f}*\n\n'
+            '¿Qué operación deseas realizar?'
         )
     else:
         tc_text = '\nCambia dólares sin salir de tu WhatsApp, sin comisiones.'
@@ -1320,9 +1323,8 @@ def _flujo_mostrar_cotizacion(numero, session):
 
     op      = session.cotiz_op
     importe = session.cotiz_importe
-    mejora  = _mejora_tc(importe)
 
-    # Spread preferencial para empresas (RUC verificado en bienvenida)
+    # Spread: 20 pips fijo para personas naturales, 10 pips para empresas (RUC verificado)
     _es_empresa_cot = (session.tipo == 'empresa') or _es_ruc(session.cotiz_doc or '')
     _spread_cot     = SPREAD_EMPRESA if _es_empresa_cot else SPREAD_TC
     _label_cotiz    = '💼 *Cotización corporativa*' if _es_empresa_cot else '💱 *Tu cotización*'
@@ -1331,9 +1333,8 @@ def _flujo_mostrar_cotizacion(numero, session):
     expira_hora = (now_peru() + timedelta(minutes=COTIZ_VALIDEZ_MIN)).strftime('%I:%M %p').lstrip('0')
 
     if op == 'compra':
-        # Cliente compra dólares → empresa le vende → usa TC venta + spread
-        tc_base  = round(venta + _spread_cot, 4)
-        tc_final = round(tc_base - mejora, 4)
+        # Cliente compra dólares → Qoricash le vende → usa TC venta + spread
+        tc_final = round(venta + _spread_cot, 4)
         soles    = round(importe * tc_final, 2)
         resumen  = (
             f'{_label_cotiz}\n\n'
@@ -1342,9 +1343,8 @@ def _flujo_mostrar_cotizacion(numero, session):
             f'Tipo de cambio: S/ {tc_final:.4f}'
         )
     else:
-        # Cliente vende dólares → empresa le compra → usa TC compra - spread
-        tc_base  = round(compra - _spread_cot, 4)
-        tc_final = round(tc_base + mejora, 4)
+        # Cliente vende dólares → Qoricash le compra → usa TC compra - spread
+        tc_final = round(compra - _spread_cot, 4)
         soles    = round(importe * tc_final, 2)
         resumen  = (
             f'{_label_cotiz}\n\n'
@@ -1371,9 +1371,6 @@ def _flujo_mostrar_cotizacion(numero, session):
         )
         session.estado = 'inicio'
         return
-
-    if mejora > 0:
-        resumen += f'\n> ✨ TC preferencial por monto especial'
 
     resumen += f'\n> ⏱ Válido hasta las {expira_hora}'
 
@@ -4032,8 +4029,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 _c_vr, _v_vr = _get_tc()
                 if _c_vr and _v_vr:
                     send_buttons(numero,
-                        f'💵 Compramos tus dólares: *S/ {_c_vr:.4f}*\n'
-                        f'💵 Te vendemos dólares:   *S/ {_v_vr:.4f}*\n\n'
+                        f'💵 Compramos tus dólares: *S/ {round(_c_vr - SPREAD_TC, 4):.4f}*\n'
+                        f'💵 Te vendemos dólares:   *S/ {round(_v_vr + SPREAD_TC, 4):.4f}*\n\n'
                         '¿Qué operación de cambio deseas hacer hoy?',
                         [
                             {'id': 'btn_vender',      'title': 'Dólares a soles'},
@@ -6076,8 +6073,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             _tc_op_ses = float(session.cotiz_tc) if session.cotiz_tc else None
                             _tc_resp = (
                                 f'💵 *TC vigente*\n'
-                                f'› Compramos: S/ {_c_op:.4f}\n'
-                                f'› Vendemos:  S/ {_v_op:.4f}'
+                                f'› Compramos: S/ {round(_c_op - SPREAD_TC, 4):.4f}\n'
+                                f'› Vendemos:  S/ {round(_v_op + SPREAD_TC, 4):.4f}'
                             )
                             if _tc_op_ses and abs(_tc_op_ses - _c_op) > 0.0005:
                                 _tc_resp += (
