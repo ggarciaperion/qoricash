@@ -1419,6 +1419,7 @@ def _flujo_mostrar_cotizacion(numero, session):
     session.cotiz_tc = tc_final
     try:
         session.cotiz_timestamp = now_peru()
+        session.cotiz_intentos  = 0   # resetear contador de intentos por texto libre
     except Exception:
         pass
 
@@ -6052,23 +6053,31 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             _handled_v = True
 
                         if not _handled_v:
-                            if any(k in txt_lower for k in _dudas_kw):
+                            _intentos_cot = (session.cotiz_intentos or 0) + 1
+                            session.cotiz_intentos = _intentos_cot
+                            if _intentos_cot == 1:
+                                # Primer intento: reenviar la cotización completa
+                                _flujo_mostrar_cotizacion(numero, session)
+                                session.cotiz_intentos = 1  # restaurar tras el reset interno
+                            elif _intentos_cot == 2:
+                                # Segundo intento: recordatorio amable
                                 send_buttons(numero,
-                                    '¿Tienes dudas sobre el tipo de cambio o el proceso? '
-                                    'Un asesor puede orientarte de inmediato 😊',
+                                    'Si deseas continuar con tu cotización, por favor elige una opción 👇',
                                     [
-                                        {'id': 'btn_asesor',                 'title': '💬 Hablar con asesor'},
-                                        {'id': f'btn_aceptar_cotiz_{_token_v}', 'title': '✅ Aceptar precio'},
-                                        {'id': 'btn_volver_cotizar',         'title': '🔄 Nueva cotización'},
+                                        {'id': f'btn_aceptar_cotiz_{_token_v}', 'title': 'Aceptar Cotizacion'},
+                                        {'id': 'btn_volver_cotizar',            'title': '🔄 Nueva cotización'},
+                                        {'id': 'btn_asesor',                    'title': '💬 Hablar con asesor'},
                                     ]
                                 )
                             else:
+                                # Tercer intento: cancelar cotización
+                                _reset_sesion(session)
                                 send_buttons(numero,
-                                    '¿Continúas con tu cotización?',
+                                    'No hemos podido continuar con tu cotización. '
+                                    'Por favor vuelve a cotizar cuando quieras 😊',
                                     [
-                                        {'id': f'btn_aceptar_cotiz_{_token_v}', 'title': '✅ Aceptar precio'},
-                                        {'id': 'btn_volver_cotizar',         'title': '🔄 Nueva cotización'},
-                                        {'id': 'btn_asesor',                 'title': '💬 Hablar con asesor'},
+                                        {'id': 'btn_cotizar', 'title': '🔄 Volver a cotizar'},
+                                        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
                                     ]
                                 )
 
