@@ -4453,10 +4453,11 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     and any(k in txt_lower for k in ('cancelar', 'salir', 'no gracias', 'stop', 'quiero salir'))):
                 _reset_sesion(session)
                 send_buttons(numero,
-                    '✅ Proceso cancelado. ¿Hay algo más en lo que pueda ayudarte?',
+                    'Cotizacion cancelada\n\n'
+                    'Si deseas volver a cotizar solo presiona el botón de abajo 👇',
                     [
-                        {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
-                        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                        {'id': 'btn_elegir_operacion', 'title': 'Volver a cotizar'},
+                        {'id': 'btn_asesor',           'title': '💬 Hablar con asesor'},
                     ]
                 )
 
