@@ -1271,7 +1271,7 @@ def _bienvenida(numero, session):
     msg = (
         f'{saludo}\n'
         '📲 Cambia soles y dólares sin salir de tu WhatsApp.\n\n'
-        '¿Qué operación deseas realizar?\n'
+        '¿Qué operación deseas cotizar?\n'
         '> Mejor tasa para montos + $3,000'
     )
     send_buttons_image(numero, BANNER_URL, msg, [
@@ -3544,7 +3544,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
 
             elif btn_id == 'btn_elegir_operacion':
                 send_buttons(numero,
-                    '¿Qué operación deseas realizar?\n'
+                    '¿Qué operación deseas cotizar?\n'
                     '> Mejor tasa para montos + $3,000',
                     [
                         {'id': 'btn_comprar',     'title': 'Soles a dólares'},
@@ -4139,7 +4139,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 session.nombre    = ''
                 session.tipo      = ''
                 send_buttons(numero,
-                    '¿Qué operación deseas realizar?\n'
+                    '¿Qué operación deseas cotizar?\n'
                     '> Mejor tasa para montos + $3,000',
                     [
                         {'id': 'btn_comprar',     'title': 'Soles a dólares'},
