@@ -4409,11 +4409,37 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 'eligiendo_tipo', 'esperando_numero_doc',
             }
 
-            # N0 — despedida universal: "cierra sesion", "chau", "adios", etc.
+            # N0 — despedida universal (definida aquí para uso en estados específicos también)
             _despedida_kw = ('cierra sesion', 'cierra sesión', 'cerrar sesion', 'cerrar sesión',
                              'chau', 'adios', 'adiós', 'bye bye', 'nos vemos',
                              'hasta mañana', 'hasta manana', 'hasta pronto')
-            if any(k in txt_lower for k in _despedida_kw):
+
+            # GUARDIA viendo_cotizacion: cualquier texto tras el primer intento va directo
+            # al contador de intentos, sin pasar por keywords ni handlers globales.
+            if estado == 'viendo_cotizacion' and (session.cotiz_intentos or 0) >= 1:
+                _token_gv = getattr(session, 'cotiz_token', None) or ''
+                _intentos_gv = (session.cotiz_intentos or 0) + 1
+                session.cotiz_intentos = _intentos_gv
+                if _intentos_gv == 2:
+                    send_buttons(numero,
+                        'Si deseas continuar con tu cotización, por favor elige una opción 👇',
+                        [
+                            {'id': f'btn_aceptar_cotiz_{_token_gv}', 'title': 'Aceptar Cotizacion'},
+                        ]
+                    )
+                else:
+                    _reset_sesion(session)
+                    send_buttons(numero,
+                        'No hemos podido continuar con tu cotización. '
+                        'Por favor vuelve a cotizar cuando quieras 😊',
+                        [
+                            {'id': 'btn_cotizar', 'title': '🔄 Volver a cotizar'},
+                            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                        ]
+                    )
+
+            # N0 — despedida universal
+            elif any(k in txt_lower for k in _despedida_kw):
                 primer_nombre = (session.nombre or '').split()[0].title() if session.nombre else ''
                 _reset_sesion(session)
                 send_text(numero,
