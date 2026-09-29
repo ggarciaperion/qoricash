@@ -6065,8 +6065,6 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                     'Si deseas continuar con tu cotización, por favor elige una opción 👇',
                                     [
                                         {'id': f'btn_aceptar_cotiz_{_token_v}', 'title': 'Aceptar Cotizacion'},
-                                        {'id': 'btn_volver_cotizar',            'title': '🔄 Nueva cotización'},
-                                        {'id': 'btn_asesor',                    'title': '💬 Hablar con asesor'},
                                     ]
                                 )
                             else:
