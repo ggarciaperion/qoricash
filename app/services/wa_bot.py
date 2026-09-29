@@ -1472,8 +1472,8 @@ def _flujo_como_funciona(numero):
         '🕐 Lun–Vie 9am–6pm · Sáb 9am–2pm'
     )
     send_buttons_image(numero, BANNER_URL, msg, [
-        {'id': 'btn_cotizar', 'title': '💱 Ver tipo de cambio'},
-        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+        {'id': 'btn_elegir_operacion', 'title': '💱 Cotizar'},
+        {'id': 'btn_asesor',           'title': '💬 Hablar con asesor'},
     ])
 
 
@@ -3541,6 +3541,18 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
             }
             if btn_id in _BTNS_CON_HORARIO and not _is_horario_atencion():
                 _flujo_fuera_horario(numero)
+
+            elif btn_id == 'btn_elegir_operacion':
+                send_buttons(numero,
+                    '¿Qué operación deseas realizar?\n'
+                    '> Mejor tasa para montos + $3,000',
+                    [
+                        {'id': 'btn_comprar',     'title': 'Soles a dólares'},
+                        {'id': 'btn_vender',      'title': 'Dólares a soles'},
+                        {'id': 'btn_soy_empresa', 'title': '🏢 Soy empresa'},
+                    ]
+                )
+                session.estado = 'eligiendo_operacion'
 
             elif btn_id == 'btn_cotizar':
                 _op_activa = _operacion_activa_cliente(numero)
