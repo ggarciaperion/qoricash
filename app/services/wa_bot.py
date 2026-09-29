@@ -3541,9 +3541,63 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
 
             elif btn_id == 'btn_soy_empresa':
                 session.tipo = 'empresa'
+                # Verificar si hay empresas (RUC) vinculadas al número
+                _empresas_tel = [c for c in _buscar_clientes_por_telefono(numero)
+                                 if (c.document_type or '').upper() == 'RUC']
+                if len(_empresas_tel) == 1:
+                    _emp = _empresas_tel[0]
+                    _razon = (_emp.razon_social or '').strip() or _emp.dni
+                    send_buttons(numero,
+                        f'¿Confirmas que la operación es a nombre de:\n\n'
+                        f'🏢 *{_razon}*',
+                        [
+                            {'id': f'btn_confirmar_empresa_{_emp.dni}', 'title': '✅ Sí, operar como empresa'},
+                            {'id': 'btn_otra_empresa',                  'title': '🔄 Usar otra empresa'},
+                        ]
+                    )
+                elif len(_empresas_tel) > 1:
+                    _botones_emp = []
+                    for _emp in _empresas_tel[:2]:
+                        _razon = (_emp.razon_social or '').strip() or _emp.dni
+                        _botones_emp.append({'id': f'btn_confirmar_empresa_{_emp.dni}', 'title': _razon[:20]})
+                    _botones_emp.append({'id': 'btn_otra_empresa', 'title': '🔄 Otra empresa'})
+                    send_buttons(numero,
+                        'Tenemos varias empresas vinculadas a tu número.\n'
+                        '¿A nombre de cuál deseas operar?',
+                        _botones_emp
+                    )
+                else:
+                    # Sin empresa registrada → pedir RUC directamente (flujo actual)
+                    send_text(numero,
+                        '🏢 Para mostrarte la *tasa corporativa* necesito verificar tu empresa.\n\n'
+                        'Ingresa el *RUC* de tu empresa (11 dígitos):'
+                    )
+                    session.estado = 'esperando_ruc_cotizar'
+
+            elif btn_id.startswith('btn_confirmar_empresa_'):
+                # Cliente confirmó operar con una empresa vinculada al número
+                _ruc_conf = btn_id[len('btn_confirmar_empresa_'):]
+                _emp_conf = _buscar_cliente(_ruc_conf)
+                if _emp_conf and (_emp_conf.kyc_status or '').lower() in ('completo', 'aprobado'):
+                    session.cotiz_doc = _emp_conf.dni
+                    session.tipo      = 'empresa'
+                    session.nombre    = (_emp_conf.razon_social or _ruc_conf).strip()
+                    _flujo_menu_operacion_empresa(numero, session.nombre)
+                    session.estado = 'menu_mostrado'
+                else:
+                    send_buttons(numero,
+                        '⚠️ No encontramos esa empresa activa en nuestro sistema.\n\n'
+                        'Ingresa el *RUC* manualmente para verificarla:',
+                        [{'id': 'btn_otra_empresa', 'title': '🔄 Ingresar RUC'}]
+                    )
+                    session.tipo   = 'empresa'
+                    session.estado = 'esperando_ruc_cotizar'
+
+            elif btn_id == 'btn_otra_empresa':
+                # Cliente quiere operar con una empresa distinta a las vinculadas
+                session.tipo = 'empresa'
                 send_text(numero,
-                    '🏢 Para mostrarte la *tasa corporativa* necesito verificar tu empresa.\n\n'
-                    'Ingresa el *RUC* de tu empresa (11 dígitos):'
+                    '🏢 Ingresa el *RUC* de la empresa (11 dígitos):'
                 )
                 session.estado = 'esperando_ruc_cotizar'
 
