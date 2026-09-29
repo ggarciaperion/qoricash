@@ -1211,38 +1211,69 @@ def _aplicar_interpretacion_pre_op(numero, session, interp):
 
 # ── Flujos del bot ─────────────────────────────────────────────────
 
+def _nombre_saludo_db(numero):
+    """
+    Determina el nombre a usar en el saludo de bienvenida según la BD de clientes.
+    Prioridad:
+      1. Hay al menos una persona natural (DNI/CE) → primer nombre de la persona.
+      2. Solo una empresa (RUC) → razon_social de la empresa (no nombre de contacto).
+      3. Múltiples empresas sin persona natural → None (saludo genérico; regla pendiente).
+      4. Sin clientes registrados → None (saludo genérico).
+    Retorna (nombre_display, tipo):  tipo es 'persona', 'empresa' o None.
+    """
+    clientes = _buscar_clientes_por_telefono(numero)
+    if not clientes:
+        return None, None
+
+    personas = [c for c in clientes if (c.document_type or '').upper() in ('DNI', 'CE')]
+    empresas = [c for c in clientes if (c.document_type or '').upper() == 'RUC']
+
+    # Regla 1 y 2: persona natural tiene prioridad sobre empresa(s)
+    if personas:
+        p = personas[0]
+        nombre_db = (p.nombres or '').strip()
+        primer = nombre_db.split()[0].title() if nombre_db else ''
+        return (primer or None), 'persona'
+
+    # Regla 3: solo una empresa identificada
+    if len(empresas) == 1:
+        razon = (empresas[0].razon_social or '').strip()
+        return (razon or None), 'empresa'
+
+    # Regla 4: múltiples empresas sin persona → saludo genérico hasta definir regla
+    return None, None
+
+
 def _bienvenida(numero, session):
     """
-    Saludo de bienvenida:
-    - 1 persona natural (DNI/CE) vinculada al número → saludo por nombre.
-    - Cualquier otro caso (0, 1 empresa/RUC, 2+) → saludo genérico Qoricash.
+    Saludo de bienvenida. El nombre proviene exclusivamente de la BD de clientes
+    según la siguiente prioridad (nunca del perfil de WhatsApp):
+      - Persona natural → primer nombre de la persona.
+      - Persona natural + empresa(s) → primer nombre de la persona.
+      - Solo una empresa → razon_social.
+      - Múltiples empresas sin persona / sin registro → saludo genérico.
     Siempre muestra TC actual + 3 botones de operación. No pre-popula cotiz_doc.
     """
     BANNER_URL = 'https://qoricash.pe/213.jpg'
-    clientes = _buscar_clientes_por_telefono(numero)
+    nombre_disp, tipo_nombre = _nombre_saludo_db(numero)
 
-    saludo = '¡Hola! 👋 Bienvenido a Qoricash.'
-    if len(clientes) == 1:
-        c = clientes[0]
-        if (c.document_type or '').upper() in ('DNI', 'CE'):
-            nombre_db = (c.nombres or '').strip()
-            primer_nombre = nombre_db.split()[0].title() if nombre_db else ''
-            if primer_nombre:
-                saludo = f'¡Hola, {primer_nombre}! 👋'
-
-    _c, _v = _get_tc()
-    if _c and _v:
-        _c_disp = round(_c - SPREAD_TC, 4)
-        _v_disp = round(_v + SPREAD_TC, 4)
-        tc_text = (
-            f'\n\n💵 Compramos tus dólares: *S/ {_c_disp:.4f}*\n'
-            f'💵 Te vendemos dólares:   *S/ {_v_disp:.4f}*\n\n'
-            '¿Qué operación deseas realizar?'
-        )
+    if nombre_disp and tipo_nombre == 'persona':
+        saludo = f'¡Hola, {nombre_disp}! 👋 Bienvenido a Qoricash.'
+    elif nombre_disp and tipo_nombre == 'empresa':
+        saludo = f'¡Hola, equipo de {nombre_disp}! 👋 Bienvenidos a Qoricash.'
     else:
-        tc_text = '\nCambia dólares sin salir de tu WhatsApp, sin comisiones.'
+        saludo = '¡Hola! 👋 Bienvenido a Qoricash.'
 
-    msg = f'{saludo}\nCambia soles y dólares sin salir de tu WhatsApp.{tc_text}'
+    # MANTENER COMPATIBILIDAD: si la sesión no tiene nombre aún, seméntalo desde DB
+    if nombre_disp and not session.nombre:
+        session.nombre = nombre_disp
+
+    msg = (
+        f'{saludo}\n'
+        '📲 Cambia soles y dólares sin salir de tu WhatsApp.\n\n'
+        '¿Qué operación deseas realizar?\n'
+        '> Mejor tasa para montos + $3,000'
+    )
     send_buttons_image(numero, BANNER_URL, msg, [
         {'id': 'btn_comprar',    'title': 'Soles a dólares'},
         {'id': 'btn_vender',     'title': 'Dólares a soles'},
@@ -3435,9 +3466,13 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
             return
 
         session = WaBotSession.get_or_create(numero)
-        nombre = _nombre_valido(nombre)
-        if nombre and not session.nombre:
-            session.nombre = nombre
+        # Nombre: proviene exclusivamente de la BD de clientes (nunca del perfil WA).
+        # Se siembra una sola vez por sesión; las asignaciones posteriores (RENIEC,
+        # SUNAT, registro) sobrescriben con el nombre verificado correspondiente.
+        if not session.nombre:
+            _db_nombre_seed, _ = _nombre_saludo_db(numero)
+            if _db_nombre_seed:
+                session.nombre = _db_nombre_seed
 
         estado = session.estado
 
@@ -4448,18 +4483,13 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                         )
                     elif intencion == 'otro':
-                        # Pregunta distinta durante el flujo → responder con IA, que incluye
-                        # la redirección al monto (instruida en el system prompt).
-                        # Si IA no disponible: respuesta mínima con la pregunta de monto.
-                        respuesta_ia = _respuesta_ia(texto, numero, session, wa_id=wa_id)
-                        if respuesta_ia:
-                            send_text(numero, respuesta_ia)
-                        else:
-                            _op_txt = 'vender' if session.cotiz_op == 'venta' else 'recibir'
-                            send_text(numero,
-                                f'\u00bfCu\u00e1ntos d\u00f3lares quieres {_op_txt}? '
-                                f'Escribe el monto, por ejemplo: *1000*'
-                            )
+                        # Mensaje no reconocido — mantener estado y pedir el monto
+                        _op_txt = 'vender' if session.cotiz_op == 'venta' else 'recibir'
+                        send_buttons(numero,
+                            f'Para continuar, escribe cuántos dólares quieres {_op_txt}.\n\n'
+                            f'Ejemplo: *500* o *1000*',
+                            [{'id': 'btn_volver_cotizar', 'title': '🔙 Volver atrás'}]
+                        )
                         # No reseteamos el estado — el flujo sigue esperando el monto
                     else:
                         # No se entendió el monto → incrementar contador
@@ -5451,17 +5481,10 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             _interp_sal = {'fuente': 'fallo'}
                         _routed_sal = _aplicar_interpretacion_pre_op(numero, session, _interp_sal)
                         if not _routed_sal:
-                            _ia_sal = _respuesta_ia(texto, numero, session, wa_id=wa_id)
-                            if _ia_sal:
-                                send_text(numero, _ia_sal)
-                                send_buttons(numero, '¿En qué te puedo ayudar?',
-                                    [{'id': 'btn_cotizar', 'title': '💱 Cotizar'},
-                                     {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'}])
-                            else:
-                                send_buttons(numero,
-                                    '¡Hola! 👋 En Qoricash te ayudamos a comprar y vender dólares.',
-                                    [{'id': 'btn_cotizar', 'title': '💱 Cotizar'},
-                                     {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'}])
+                            send_buttons(numero,
+                                '¡Hola! 👋 ¿Qué operación deseas hacer hoy?',
+                                [{'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                                 {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'}])
                         if session.estado not in ('eligiendo_operacion', 'eligiendo_cliente_telefono',
                                                    'viendo_cotizacion', 'esperando_importe'):
                             session.estado = 'menu_mostrado'
@@ -5521,12 +5544,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             _interp_i = {'fuente': 'fallo'}
                         _routed_i = _aplicar_interpretacion_pre_op(numero, session, _interp_i)
                         if not _routed_i:
-                            # Sin señal de cambio: responder con IA sin asumir intención de cotizar
-                            _ia_resp_i = _respuesta_ia(texto, numero, session, wa_id=wa_id)
-                            if _ia_resp_i:
-                                send_text(numero, _ia_resp_i)
-                            else:
-                                _menu_rapido(numero)
+                            _menu_rapido(numero)
                             if session.estado not in ('eligiendo_operacion', 'eligiendo_cliente_telefono'):
                                 session.estado = 'menu_mostrado'
                 else:
@@ -5634,15 +5652,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                     )
                                     session.estado = 'eligiendo_operacion'
                                 else:
-                                    # Texto libre: responder con IA (historial acotado al
-                                    # ciclo vigente — ver _historial_ia history_since).
-                                    # No enviar _menu_rapido después: genera un segundo
-                                    # mensaje contradictorio con la respuesta de la IA.
-                                    _ia_resp = _respuesta_ia(texto, numero, session, wa_id=wa_id)
-                                    if _ia_resp:
-                                        send_text(numero, _ia_resp)
-                                    else:
-                                        _bienvenida(numero, session)
+                                    _bienvenida(numero, session)
                                     session.estado = 'menu_mostrado'
                         if session.estado not in ('eligiendo_operacion', 'eligiendo_cliente_telefono'):
                             session.estado = 'menu_mostrado'  # avanza en cualquier caso
@@ -5666,13 +5676,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             _interp_sal_m = {'fuente': 'fallo'}
                         _routed_sal_m = _aplicar_interpretacion_pre_op(numero, session, _interp_sal_m)
                         if not _routed_sal_m:
-                            _ia_sal_m = _respuesta_ia(texto, numero, session, wa_id=wa_id)
-                            if _ia_sal_m:
-                                send_text(numero, _ia_sal_m)
-                            else:
-                                send_buttons(numero, '¡Hola! 👋 ¿En qué te puedo ayudar hoy?',
-                                    [{'id': 'btn_cotizar', 'title': '💱 Cotizar'},
-                                     {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'}])
+                            send_buttons(numero, '¡Hola! 👋 ¿En qué te puedo ayudar hoy?',
+                                [{'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                                 {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'}])
                     else:
                         send_buttons(numero,
                             '¡Hola! 👋 ¿En qué te puedo ayudar hoy?',
@@ -5683,12 +5689,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             ]
                         )
                 elif any(k in txt_lower for k in ('ok', 'okey', 'okay', 'entendido', 'gracias', 'listo', 'perfecto', 'bien', 'dale', 'claro', 'de acuerdo')):
-                    # Acuse breve — IA responde sin preguntar de vuelta (system prompt lo prohíbe)
-                    _ia_ok = _respuesta_ia(texto, numero, session, wa_id=wa_id)
-                    if _ia_ok:
-                        send_text(numero, _ia_ok)
-                    else:
-                        send_text(numero, '😊 ¡Con gusto! Estamos aquí cuando lo necesites.')
+                    send_text(numero, '😊 ¡Con gusto! Estamos aquí cuando lo necesites.')
                 elif any(k in txt_lower for k in ('como funciona', 'cómo funciona', 'como opera', 'es seguro', 'es confiable', 'información', 'informacion', 'info', 'cuéntame', 'cuentame')):
                     _flujo_como_funciona(numero)
                 elif any(k in txt_lower for k in ('horario', 'hora', 'atienden', 'trabajan', 'abren', 'cierran', 'disponible', 'disponibles')):
@@ -5727,12 +5728,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             _interp_m = {'fuente': 'fallo'}
                         _routed_m = _aplicar_interpretacion_pre_op(numero, session, _interp_m)
                         if not _routed_m:
-                            # Sin señal de cambio: responder con IA sin asumir intención de cotizar
-                            _ia_resp_m = _respuesta_ia(texto, numero, session, wa_id=wa_id)
-                            if _ia_resp_m:
-                                send_text(numero, _ia_resp_m)
-                            else:
-                                _menu_rapido(numero)
+                            _menu_rapido(numero)
                 elif any(k in txt_lower for k in ('asesor', 'ayuda', 'ayúdame', 'ayudame', 'hablar', 'persona', 'humano', 'soporte', 'contacto')):
                     _flujo_asesor(numero)
                     try:
@@ -5772,35 +5768,29 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         if _op_activa_txt:
                             _flujo_op_ya_activa(numero, _op_activa_txt)
                         else:
-                            # Intentar respuesta con IA primero
-                            _ia_resp = _respuesta_ia(texto, numero, session, wa_id=wa_id)
-                            if _ia_resp:
-                                send_text(numero, _ia_resp)
-                                _entendido = True  # IA respondió correctamente, resetear contador
-                            else:
-                                # Contar mensajes no entendidos consecutivamente para evitar loop
-                                try:
-                                    session.cotiz_intentos = (session.cotiz_intentos or 0) + 1
-                                    _no_entendidos = session.cotiz_intentos
-                                except Exception:
-                                    _no_entendidos = 1
+                            # Contar mensajes no entendidos consecutivamente para evitar loop
+                            try:
+                                session.cotiz_intentos = (session.cotiz_intentos or 0) + 1
+                                _no_entendidos = session.cotiz_intentos
+                            except Exception:
+                                _no_entendidos = 1
 
-                                if _no_entendidos >= 2:
-                                    # Tras 2 mensajes sin entender: derivar a asesor automáticamente
-                                    try:
-                                        session.cotiz_intentos = 0
-                                    except Exception:
-                                        pass
-                                    send_buttons(numero,
-                                        'Parece que no logro entenderte bien. 😊\n\n'
-                                        'Te conecto con un asesor para que pueda ayudarte mejor.',
-                                        [
-                                            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
-                                            {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
-                                        ]
-                                    )
-                                else:
-                                    _menu_rapido(numero)
+                            if _no_entendidos >= 2:
+                                # Tras 2 mensajes sin entender: derivar a asesor automáticamente
+                                try:
+                                    session.cotiz_intentos = 0
+                                except Exception:
+                                    pass
+                                send_buttons(numero,
+                                    'Parece que no logro entenderte bien. 😊\n\n'
+                                    'Te conecto con un asesor para que pueda ayudarte mejor.',
+                                    [
+                                        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                                        {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                                    ]
+                                )
+                            else:
+                                _menu_rapido(numero)
 
                 if _entendido:
                     try:
@@ -5853,13 +5843,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             session.cotiz_op = _interp_e['tipo']
                         _aplicar_interpretacion_pre_op(numero, session, _interp_e)
                     else:
-                        # Pregunta fuera del flujo → intentar IA, si falla re-mostrar botones
-                        _ia_resp = _respuesta_ia(texto, numero, session, wa_id=wa_id)
-                        if _ia_resp:
-                            send_text(numero, _ia_resp)
-                            _flujo_cotizar_inicio(numero)
-                        else:
-                            _flujo_cotizar_inicio(numero)
+                        _flujo_cotizar_inicio(numero)
 
                 elif estado == 'esperando_importe':
                     _flujo_pedir_importe(numero, session.cotiz_op or 'compra')
@@ -6014,10 +5998,6 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                     ]
                                 )
                             else:
-                                # Texto libre -> IA breve + recordatorio de opciones
-                                _ia_resp = _respuesta_ia(texto, numero, session, wa_id=wa_id)
-                                if _ia_resp:
-                                    send_text(numero, _ia_resp)
                                 send_buttons(numero,
                                     '¿Continúas con tu cotización?',
                                     [
@@ -6029,9 +6009,6 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
 
                 elif estado == 'decidiendo_registro':
                     # P1 — Cliente escribió texto en lugar de usar los botones "¿Ya eres cliente?"
-                    _ia_resp = _respuesta_ia(texto, numero, session, wa_id=wa_id)
-                    if _ia_resp:
-                        send_text(numero, _ia_resp)
                     _flujo_cotiz_aceptada(numero, session)
 
                 elif estado == 'op_pendiente_pago':
@@ -6096,9 +6073,6 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             simbolo_e = 'S/' if moneda_e == 'PEN' else 'USD'
                             monto_e = float(op_act.amount_pen) if moneda_e == 'PEN' else float(op_act.amount_usd)
                             _cuentas_q = _texto_cuentas_qoricash(moneda_e)
-                            _ia_resp = _respuesta_ia(texto, numero, session, wa_id=wa_id)
-                            if _ia_resp:
-                                send_text(numero, _ia_resp)
                             send_buttons(numero,
                                 f'📋 Tu operación *{op_act.operation_id}* sigue pendiente de pago.\n\n'
                                 f'Transfiere *{simbolo_e} {monto_e:,.2f}* a:\n\n'
