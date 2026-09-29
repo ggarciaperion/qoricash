@@ -3625,6 +3625,14 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 )
                 session.estado = 'esperando_ruc_cotizar'
 
+            elif btn_id == 'btn_cerrar_sesion':
+                primer_nombre = (session.nombre or '').split()[0].title() if session.nombre else ''
+                _reset_sesion(session)
+                send_text(numero,
+                    f'¡Hasta luego{", " + primer_nombre if primer_nombre else ""}! 👋 '
+                    'Cuando necesites cambiar, aquí estaremos.'
+                )
+
             elif btn_id == 'btn_comprar':
                 _op_activa = _operacion_activa_cliente(numero)
                 if _op_activa:
@@ -4433,8 +4441,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         'No hemos podido continuar con tu cotización. '
                         'Por favor vuelve a cotizar cuando quieras 😊',
                         [
-                            {'id': 'btn_cotizar', 'title': '🔄 Volver a cotizar'},
-                            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                            {'id': 'btn_elegir_operacion', 'title': 'Volver a cotizar'},
+                            {'id': 'btn_asesor',           'title': '💬 Hablar con asesor'},
+                            {'id': 'btn_cerrar_sesion',    'title': 'Cerrar sesión'},
                         ]
                     )
 
@@ -5981,8 +5990,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             'No hemos podido continuar con tu cotización. '
                             'Por favor vuelve a cotizar cuando quieras 😊',
                             [
-                                {'id': 'btn_cotizar', 'title': '🔄 Volver a cotizar'},
-                                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                                {'id': 'btn_elegir_operacion', 'title': 'Volver a cotizar'},
+                                {'id': 'btn_asesor',           'title': '💬 Hablar con asesor'},
+                                {'id': 'btn_cerrar_sesion',    'title': 'Cerrar sesión'},
                             ]
                         )
                     elif any(k in txt_lower for k in _despedida_kw):
@@ -6504,9 +6514,6 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
         except Exception:
             pass
         try:
-            send_text(numero,
-                'Ocurrió un error procesando tu mensaje. Por favor intenta de nuevo '
-                'o escribe *Hola* para reiniciar.'
-            )
+            pass  # Error interno: no notificar al usuario para evitar mensajes confusos
         except Exception:
             pass
