@@ -4135,30 +4135,18 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
 
             elif btn_id == 'btn_volver_ruc':
                 # Vuelve al menú de operaciones sin repetir el saludo de bienvenida
-                session.cotiz_doc   = ''
-                session.nombre      = ''
-                session.tipo        = ''
-                _c_vr, _v_vr = _get_tc()
-                if _c_vr and _v_vr:
-                    send_buttons(numero,
-                        f'💵 Compramos tus dólares: *S/ {round(_c_vr - SPREAD_TC, 4):.4f}*\n'
-                        f'💵 Te vendemos dólares:   *S/ {round(_v_vr + SPREAD_TC, 4):.4f}*\n\n'
-                        '¿Qué operación de cambio deseas hacer hoy?',
-                        [
-                            {'id': 'btn_vender',      'title': 'Dólares a soles'},
-                            {'id': 'btn_comprar',     'title': 'Soles a dólares'},
-                            {'id': 'btn_asesor',      'title': '💬 Hablar con asesor'},
-                        ]
-                    )
-                else:
-                    send_buttons(numero,
-                        '¿Qué operación de cambio deseas hacer hoy?',
-                        [
-                            {'id': 'btn_vender',  'title': 'Dólares a soles'},
-                            {'id': 'btn_comprar', 'title': 'Soles a dólares'},
-                            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
-                        ]
-                    )
+                session.cotiz_doc = ''
+                session.nombre    = ''
+                session.tipo      = ''
+                send_buttons(numero,
+                    '¿Qué operación deseas realizar?\n'
+                    '> Mejor tasa para montos + $3,000',
+                    [
+                        {'id': 'btn_comprar',     'title': 'Soles a dólares'},
+                        {'id': 'btn_vender',      'title': 'Dólares a soles'},
+                        {'id': 'btn_soy_empresa', 'title': '🏢 Soy empresa'},
+                    ]
+                )
                 session.estado = 'eligiendo_operacion'
 
             elif btn_id == 'btn_volver_cotizar':
