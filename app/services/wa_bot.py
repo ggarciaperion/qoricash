@@ -4696,7 +4696,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     if client:
                         if client.status == 'Activo':
                             primer_nombre = (client.nombres or client.razon_social or '').split()[0].title()
-                            send_text(numero, f'✅ ¡Hola de nuevo, {primer_nombre}! Te identificamos correctamente.')
+                            send_text(numero, f'🎉 ¡Hola de nuevo, {primer_nombre}!')
                             moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
                             cuentas = _cuentas_cliente_por_moneda(client, moneda_recibe)
                             if cuentas:
@@ -4864,9 +4864,14 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     if client:
                         if client.status == 'Activo':
                             primer_nombre = (client.nombres or client.razon_social or '').split()[0].title()
-                            send_text(numero, f'✅ ¡Hola de nuevo, {primer_nombre}! Te identificamos correctamente.')
-                            # Mostrar cotizacion primero; aceptarla lleva a la cuenta destino.
-                            _continuar_segun_sesion(numero, session)
+                            send_text(numero, f'🎉 ¡Hola de nuevo, {primer_nombre}!')
+                            moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                            cuentas = _cuentas_cliente_por_moneda(client, moneda_recibe)
+                            if cuentas:
+                                _seleccionar_cuenta_y_continuar(numero, session, client, cuentas, moneda_recibe)
+                            else:
+                                _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                                session.estado = 'esperando_cuenta_destino'
                         else:
                             send_buttons(numero,
                                 '⏳ Encontramos tu cuenta pero aún no está activa.\n\n'
