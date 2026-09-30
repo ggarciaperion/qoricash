@@ -265,7 +265,7 @@ def _lookup_dni(dni):
         ap_mat  = (data.get('apellidoMaterno') or data.get('apellido_materno') or '').strip().title()
         if not nombres and not ap_pat:
             return None
-        return f'{nombres} {ap_pat} {ap_mat}'.strip()
+        return f'{ap_pat} {ap_mat} {nombres}'.strip()
     except Exception as e:
         log.warning(f'[WaBot] _lookup_dni error: {e}')
         return None
@@ -4776,7 +4776,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     es_empresa = (session.tipo == 'empresa')
                     try:
                         client = _auto_crear_cliente(doc, nombre_reg, es_empresa, numero, email=email_raw)
-                        saludo = (client.razon_social or client.nombres or '').split()[0].title()
+                        _nombres_reg = (client.nombres or '').strip()
+                        saludo = (_nombres_reg.split()[0].title() if _nombres_reg else
+                                  (client.razon_social or '').split()[0].title() or 'Cliente')
                         _notificar_admins_wa(
                             f'🆕 Cliente auto-registrado vía bot:\n'
                             f'Doc: {doc} | {nombre_reg}\n'
@@ -4789,27 +4791,32 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         _ok_reg = send_list(numero,
                             f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
                             f'Recibirás las confirmaciones en *{email_raw}*.\n\n'
-                            f'¿A qué cuenta quieres recibir tus *{_simbolo_r}*?\n\nSelecciona tu banco 👇',
+                            f'¿En qué banco quieres recibir tus *{_simbolo_r}*?\n\n> 👇 Selecciona tu banco',
                             [{'title': f'Bancos para cuenta en {_label_r}', 'rows': [
                                 {'id': 'btn_banco_bcp',        'title': 'BCP'},
-                                {'id': 'btn_banco_interbank',  'title': 'Interbank'},
-                                {'id': 'btn_banco_banbif',     'title': 'BanBif'},
+                                {'id': 'btn_banco_interbank',  'title': 'INTERBANK'},
+                                {'id': 'btn_banco_banbif',     'title': 'BANBIF'},
                                 {'id': 'btn_banco_bbva',       'title': 'BBVA'},
-                                {'id': 'btn_banco_scotiabank', 'title': 'Scotiabank'},
-                                {'id': 'btn_banco_pichincha',  'title': 'Pichincha'},
-                                {'id': 'btn_banco_otras',      'title': 'Otras entidades'},
+                                {'id': 'btn_banco_scotiabank', 'title': 'SCOTIABANK'},
+                                {'id': 'btn_banco_pichincha',  'title': 'PICHINCHA'},
+                                {'id': 'btn_banco_otras',      'title': 'OTROS BANCOS'},
                             ]}],
-                            button='🏦 Elegir banco'
+                            button='🏦 Ver bancos'
                         )
                         if not _ok_reg:
-                            send_buttons(numero,
-                                f'🎉 ¡Listo, {saludo}! Perfil creado.\n\n'
-                                f'¿A qué banco quieres recibir tus *{_simbolo_r}*?',
-                                [
-                                    {'id': 'btn_banco_bcp',       'title': 'BCP'},
-                                    {'id': 'btn_banco_interbank', 'title': 'Interbank'},
-                                    {'id': 'btn_banco_bbva',      'title': 'BBVA'},
-                                ]
+                            send_list(numero,
+                                f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
+                                f'¿En qué banco quieres recibir tus *{_simbolo_r}*?\n\n> 👇 Selecciona tu banco',
+                                [{'title': f'Bancos para cuenta en {_label_r}', 'rows': [
+                                    {'id': 'btn_banco_bcp',        'title': 'BCP'},
+                                    {'id': 'btn_banco_interbank',  'title': 'INTERBANK'},
+                                    {'id': 'btn_banco_banbif',     'title': 'BANBIF'},
+                                    {'id': 'btn_banco_bbva',       'title': 'BBVA'},
+                                    {'id': 'btn_banco_scotiabank', 'title': 'SCOTIABANK'},
+                                    {'id': 'btn_banco_pichincha',  'title': 'PICHINCHA'},
+                                    {'id': 'btn_banco_otras',      'title': 'OTROS BANCOS'},
+                                ]}],
+                                button='🏦 Ver bancos'
                             )
                         session.estado = 'esperando_cuenta_destino'
                     except Exception as _e:
@@ -5112,7 +5119,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     es_empresa = (session.tipo == 'empresa')
                     try:
                         client = _auto_crear_cliente(doc, nombre_reg, es_empresa, numero, email=email_raw)
-                        saludo = (client.razon_social or client.nombres or '').split()[0].title()
+                        _nombres_reg = (client.nombres or '').strip()
+                        saludo = (_nombres_reg.split()[0].title() if _nombres_reg else
+                                  (client.razon_social or '').split()[0].title() or 'Cliente')
                         _notificar_admins_wa(
                             f'🆕 Cliente auto-registrado vía bot (cotizar):\n'
                             f'Doc: {doc} | {nombre_reg}\n'
@@ -5193,7 +5202,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         if nombre:
                             try:
                                 client = _auto_crear_cliente(doc, nombre, es_empresa, numero)
-                                saludo = (client.razon_social or client.nombres or '').split()[0].title()
+                                _nombres_reg = (client.nombres or '').strip()
+                                saludo = (_nombres_reg.split()[0].title() if _nombres_reg else
+                                          (client.razon_social or '').split()[0].title() or 'Cliente')
                                 send_text(numero,
                                     f'✅ ¡Bienvenido, {saludo}! Hemos verificado y creado tu perfil en Qoricash.'
                                 )
