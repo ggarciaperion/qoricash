@@ -3684,9 +3684,12 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     _flujo_op_ya_activa(numero, _op_activa)
                     session.estado = 'inicio'
                 else:
-                    session.cotiz_op = 'compra'
-                    # Preserve existing importe if already set
-                    _continuar_segun_sesion(numero, session)
+                    session.cotiz_op      = 'compra'
+                    session.cotiz_importe = 0.0
+                    session.cotiz_tc      = 0.0
+                    session.cotiz_token   = None
+                    _flujo_pedir_importe(numero, 'compra')
+                    session.estado = 'esperando_importe'
 
             elif btn_id == 'btn_vender':
                 _op_activa = _operacion_activa_cliente(numero)
@@ -3694,9 +3697,12 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     _flujo_op_ya_activa(numero, _op_activa)
                     session.estado = 'inicio'
                 else:
-                    session.cotiz_op = 'venta'
-                    # Preserve existing importe if already set
-                    _continuar_segun_sesion(numero, session)
+                    session.cotiz_op      = 'venta'
+                    session.cotiz_importe = 0.0
+                    session.cotiz_tc      = 0.0
+                    session.cotiz_token   = None
+                    _flujo_pedir_importe(numero, 'venta')
+                    session.estado = 'esperando_importe'
 
             elif btn_id.startswith('btn_aceptar_cotiz'):
                 # Exact token identity: each quote gets a unique 8-char UUID fragment.
@@ -4421,14 +4427,18 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 session.estado = 'esperando_id_cotizar'
 
             elif btn_id == 'btn_volver_inicio':
-                session.estado      = 'inicio'
-                session.tipo        = ''
-                session.cotiz_doc   = ''
-                session.cotiz_email = ''
-                session.dni_front   = ''
-                session.dni_back    = ''
-                session.ruc_doc     = ''
-                _bienvenida(numero, session)
+                session.estado        = 'eligiendo_operacion'
+                session.tipo          = ''
+                session.cotiz_doc     = ''
+                session.cotiz_email   = ''
+                session.dni_front     = ''
+                session.dni_back      = ''
+                session.ruc_doc       = ''
+                session.cotiz_op      = ''
+                session.cotiz_importe = 0.0
+                session.cotiz_tc      = 0.0
+                session.cotiz_token   = None
+                _flujo_cotizar_inicio(numero)
 
             elif btn_id == 'btn_natural':
                 session.tipo = 'natural'
