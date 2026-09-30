@@ -2053,7 +2053,7 @@ def _flujo_op_creada(numero, op, session, client):
     cuentas = _texto_cuentas_qoricash(moneda_enviar)
 
     if _is_horario_atencion():
-        aviso_plazo = '⏱ *Plazo:* 15 minutos para transferir.'
+        aviso_plazo = '⏱ *Plazo:* 20 minutos para transferir.'
         aviso_horario = ''
     else:
         proximo = _next_business_day()
@@ -2062,14 +2062,13 @@ def _flujo_op_creada(numero, op, session, client):
 
     OP_BANNER_URL = 'https://qoricash.pe/hj.png'
     msg = (
-        f'✅ *Operación registrada*\n\n'
         f'📋 *N°:* {op.operation_id}'
         + (f'\n👤 *Titular:* {titular}' if titular else '')
         + f'\n\n{aviso_plazo}\n{aviso_horario}'
         f'Transfiérenos *{simbolo} {monto_enviar:,.2f}* a:\n\n'
         f'{cuentas}\n\n'
-        f'Transfiere el importe indicado a nuestra cuenta. '
-        f'Luego envíanos aquí el código de tu transferencia.'
+        f'Si tus fondos provienen de un banco distinto usa nuestro CCI Interbank, es inmediato.\n\n'
+        f'> Luego de transferir, pícale al botón. Te pediremos el número de operación de tu transferencia.'
     )
     return send_buttons_image(numero, OP_BANNER_URL, msg, [
         {'id': 'btn_ya_transferi',                             'title': '✅ Ya transferí'},
