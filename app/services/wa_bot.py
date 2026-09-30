@@ -2340,7 +2340,7 @@ def _flujo_resumen_final(numero, session, client, regenerar_token=True):
     else:
         _resumen_token = session.cotiz_token or str(uuid.uuid4())
     send_buttons(numero, resumen, [
-        {'id': f'btn_confirmar_operacion_{_resumen_token}', 'title': '✅ Confirmar operacion'},
+        {'id': f'btn_confirmar_operacion_{_resumen_token}', 'title': 'Crear Operacion'},
         {'id': 'btn_modificar_importe_resumen',             'title': '✏️ Modificar importe'},
         {'id': 'btn_asesor',                               'title': '💬 Hablar con asesor'},
     ])
