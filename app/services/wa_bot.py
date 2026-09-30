@@ -4735,12 +4735,11 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             session.tipo   = 'empresa' if es_empresa else 'natural'
                             saludo = nombre_api.split()[0].title()
                             send_buttons(numero,
-                                f'✅ Verificamos tu documento en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
-                                f'Y para finalizar, coloca tu *correo electrónico*:\n\n'
-                                f'Revísalo bien antes de enviarlo.',
+                                f'Documento verificado con éxito ✅\n\n'
+                                f'Para finalizar, coloca tu *correo electrónico*:\n\n'
+                                f'> Revísalo bien tu correo antes de enviarlo.',
                                 [
-                                    {'id': 'btn_asesor',       'title': '💬 Hablar con asesor'},
-                                    {'id': 'btn_volver_inicio', 'title': '🔙 Cancelar'},
+                                    {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'},
                                 ]
                             )
                             session.estado = 'esperando_email_registro'
@@ -4901,12 +4900,11 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             session.nombre = nombre_api
                             session.tipo   = 'empresa' if es_empresa else 'natural'
                             send_buttons(numero,
-                                f'✅ Verificamos tu documento en {"SUNAT" if es_empresa else "RENIEC"}.\n\n'
+                                f'Documento verificado con éxito ✅\n\n'
                                 f'Para finalizar, coloca tu *correo electrónico*:\n\n'
-                                f'Revísalo bien antes de enviarlo.',
+                                f'> Revísalo bien tu correo antes de enviarlo.',
                                 [
-                                    {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
-                                    {'id': 'btn_no_ahora', 'title': '❌ Cancelar'},
+                                    {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'},
                                 ]
                             )
                             session.estado = 'esperando_email_cotizar'
