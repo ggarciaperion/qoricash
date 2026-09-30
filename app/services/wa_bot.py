@@ -4776,10 +4776,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
             elif estado == 'esperando_email_registro':
                 # Recibe email para completar auto-registro
                 email_raw = texto.strip().lower()
-                if any(k in email_raw for k in ('cancelar', 'salir', 'no quiero', 'volver', 'no', 'exit')):
-                    _reset_sesion(session)
-                    _menu_rapido(numero)
-                elif _es_email(email_raw):
+                if _es_email(email_raw):
                     doc        = session.cotiz_doc or ''
                     nombre_reg = session.nombre    or ''
                     es_empresa = (session.tipo == 'empresa')
@@ -5119,19 +5116,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
             elif estado == 'esperando_email_cotizar':
                 # Recibe email para nuevo cliente que quiere cotizar
                 email_raw = texto.strip().lower()
-                if any(k in email_raw for k in ('cancelar', 'salir', 'no quiero', 'volver', 'no', 'exit')):
-                    send_buttons(numero,
-                        'No hay problema 😊 Cuando quieras cotizar o necesites cambiar divisas, '
-                        'aquí estaremos.\n\n'
-                        '¿Hay algo más en lo que pueda ayudarte?',
-                        [
-                            {'id': 'btn_cerrar_sesion', 'title': '🔒 Cerrar sesión'},
-                            {'id': 'btn_cotizar',       'title': '💱 Cotizar'},
-                            {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
-                        ]
-                    )
-                    session.estado = 'menu_mostrado'
-                elif _es_email(email_raw):
+                if _es_email(email_raw):
                     doc        = session.cotiz_doc or ''
                     nombre_reg = session.nombre    or ''
                     es_empresa = (session.tipo == 'empresa')
