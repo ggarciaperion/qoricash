@@ -236,7 +236,7 @@ def _notificar_admins_wa(mensaje):
 SPREAD_TC      = 0.0020   # 20 pips: spread estándar (personas naturales)
 SPREAD_EMPRESA = 0.0010   # 10 pips: spread preferencial para empresas (RUC verificado)
 
-COTIZ_VALIDEZ_MIN      = 15   # minutos de validez de la cotización
+COTIZ_VALIDEZ_MIN      = 20   # minutos de validez de la cotización
 SESSION_INACTIVIDAD_MIN = 15  # minutos de inactividad para expirar sesión
 MONTO_MINIMO_USD       = 50   # mínimo de operación en USD
 
@@ -2321,7 +2321,7 @@ def _flujo_resumen_final(numero, session, client, regenerar_token=True):
     try:
         from datetime import timedelta as _td_rs
         from app.utils.formatters import now_peru as _now_rs
-        _expira_rs = (_now_rs() + _td_rs(minutes=20)).strftime('%I:%M %p').lstrip('0')
+        _expira_rs = (_now_rs() + _td_rs(minutes=COTIZ_VALIDEZ_MIN)).strftime('%I:%M %p').lstrip('0')
     except Exception:
         _expira_rs = '—'
 
