@@ -1764,7 +1764,12 @@ def _auto_crear_cliente(doc, nombre, es_empresa, phone_numero, email=None):
             break
 
     db.session.add(client)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception as _commit_err:
+        db.session.rollback()
+        log.error(f'[WaBot] Error commit auto-creando cliente {doc}: {_commit_err}')
+        raise
     log.info(f'[WaBot] Cliente auto-creado: {doc} | {nombre} | tel={local}')
     return client
 
@@ -4826,6 +4831,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             )
                         session.estado = 'esperando_cuenta_destino'
                     except Exception as _e:
+                        db.session.rollback()
                         log.error(f'[WaBot] Error auto-creando cliente {doc}: {_e}')
                         send_buttons(numero,
                             '⚠️ No pudimos completar tu registro. Un asesor te ayudará.',
@@ -5097,6 +5103,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             )
                         session.estado = 'esperando_cuenta_destino'
                     except Exception as _e_emp:
+                        db.session.rollback()
                         log.error(f'[WaBot] Error registrando empresa {doc_emp}: {_e_emp}')
                         send_buttons(numero,
                             '⚠️ No pudimos completar el registro. Un asesor te ayudará.',
@@ -5165,6 +5172,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             )
                         session.estado = 'esperando_cuenta_destino'
                     except Exception as _e:
+                        db.session.rollback()
                         log.error(f'[WaBot] Error auto-creando cliente {doc}: {_e}')
                         send_buttons(numero,
                             '⚠️ No pudimos completar tu registro. Un asesor te ayudará.',
@@ -6578,6 +6586,13 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
         except Exception:
             pass
         try:
-            pass  # Error interno: no notificar al usuario para evitar mensajes confusos
+            send_buttons(numero,
+                '⚠️ Ocurrió un problema procesando tu mensaje.\n\n'
+                'Por favor intenta de nuevo o habla con un asesor.',
+                [
+                    {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
+                    {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
+                ]
+            )
         except Exception:
             pass
