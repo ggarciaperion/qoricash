@@ -1354,12 +1354,14 @@ def _flujo_pedir_importe(numero, operacion):
         pregunta = (
             f'¿Cuántos dólares quieres recibir?\n'
             f'Mínimo: USD {MONTO_MINIMO_USD:,.0f}.\n\n'
+            '> Mejor tasa para montos + $3,000\n'
             '> 👇 Escribe el importe'
         )
     else:
         pregunta = (
             f'¿Cuántos dólares quieres cambiar a soles?\n'
             f'Mínimo: USD {MONTO_MINIMO_USD:,.0f}.\n\n'
+            '> Mejor tasa para montos + $3,000\n'
             '> 👇 Escribe el importe'
         )
     send_buttons(numero, pregunta, [
