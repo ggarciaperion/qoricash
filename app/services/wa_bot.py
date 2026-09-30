@@ -2234,7 +2234,7 @@ def _flujo_pedir_cuenta_destino(numero, moneda):
     send_list(numero,
         f'¿A qué cuenta quieres recibir tus *{simbolo}*?\n\nSelecciona tu banco 👇',
         [{
-            'title': f'Bancos para cuenta en {moneda_label}',
+            'title': 'Selecciona tu banco',
             'rows': [
                 {'id': 'btn_banco_bcp',        'title': 'BCP'},
                 {'id': 'btn_banco_interbank',   'title': 'Interbank'},
@@ -4809,7 +4809,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
                             f'Recibirás las confirmaciones en *{email_raw}*.\n\n'
                             f'¿En qué banco quieres recibir tus *{_simbolo_r}*?\n\n> 👇 Selecciona tu banco',
-                            [{'title': f'Bancos para cuenta en {_label_r}', 'rows': [
+                            [{'title': 'Selecciona tu banco', 'rows': [
                                 {'id': 'btn_banco_bcp',        'title': 'BCP'},
                                 {'id': 'btn_banco_interbank',  'title': 'INTERBANK'},
                                 {'id': 'btn_banco_banbif',     'title': 'BANBIF'},
@@ -4824,7 +4824,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             send_list(numero,
                                 f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
                                 f'¿En qué banco quieres recibir tus *{_simbolo_r}*?\n\n> 👇 Selecciona tu banco',
-                                [{'title': f'Bancos para cuenta en {_label_r}', 'rows': [
+                                [{'title': 'Selecciona tu banco', 'rows': [
                                     {'id': 'btn_banco_bcp',        'title': 'BCP'},
                                     {'id': 'btn_banco_interbank',  'title': 'INTERBANK'},
                                     {'id': 'btn_banco_banbif',     'title': 'BANBIF'},
@@ -5081,7 +5081,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             f'🎉 ¡Listo! La empresa *{razon_social}* ya está registrada en Qoricash.\n\n'
                             f'Recibirás las confirmaciones en *{email_raw}*.\n\n'
                             f'¿En qué banco quieres recibir tus *{_simbolo_em}*?\n\n> 👇 Selecciona tu banco',
-                            [{'title': f'Bancos para cuenta en {_label_em}', 'rows': [
+                            [{'title': 'Selecciona tu banco', 'rows': [
                                 {'id': 'btn_banco_bcp',        'title': 'BCP'},
                                 {'id': 'btn_banco_interbank',  'title': 'Interbank'},
                                 {'id': 'btn_banco_banbif',     'title': 'BanBif'},
@@ -5096,7 +5096,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             send_list(numero,
                                 f'🎉 ¡Listo! La empresa *{razon_social}* ya está registrada en Qoricash.\n\n'
                                 f'¿En qué banco quieres recibir tus *{_simbolo_em}*?\n\n> 👇 Selecciona tu banco',
-                                [{'title': f'Bancos para cuenta en {_label_em}', 'rows': [
+                                [{'title': 'Selecciona tu banco', 'rows': [
                                     {'id': 'btn_banco_bcp',        'title': 'BCP'},
                                     {'id': 'btn_banco_interbank',  'title': 'INTERBANK'},
                                     {'id': 'btn_banco_banbif',     'title': 'BANBIF'},
@@ -5150,7 +5150,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
                             f'Recibirás las confirmaciones en *{email_raw}*.\n\n'
                             f'¿En qué banco quieres recibir tus *{_simbolo_ec}*?\n\n> 👇 Selecciona tu banco',
-                            [{'title': f'Bancos para cuenta en {_label_ec}', 'rows': [
+                            [{'title': 'Selecciona tu banco', 'rows': [
                                 {'id': 'btn_banco_bcp',        'title': 'BCP'},
                                 {'id': 'btn_banco_interbank',  'title': 'Interbank'},
                                 {'id': 'btn_banco_banbif',     'title': 'BanBif'},
@@ -5165,7 +5165,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             send_list(numero,
                                 f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
                                 f'¿En qué banco quieres recibir tus *{_simbolo_ec}*?\n\n> 👇 Selecciona tu banco',
-                                [{'title': f'Bancos para cuenta en {_label_ec}', 'rows': [
+                                [{'title': 'Selecciona tu banco', 'rows': [
                                     {'id': 'btn_banco_bcp',        'title': 'BCP'},
                                     {'id': 'btn_banco_interbank',  'title': 'INTERBANK'},
                                     {'id': 'btn_banco_banbif',     'title': 'BANBIF'},
