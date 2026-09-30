@@ -3503,9 +3503,19 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
         except Exception:
             _bot_pausado = False
         if _bot_pausado:
-            log.info(f'[WaBot] {numero} — bot pausado (asesor activo), mensaje ignorado.')
-            db.session.commit()
-            return
+            # Si el cliente presiona un botón mientras el asesor está activo,
+            # reactivar el bot y procesar el botón normalmente.
+            if tipo_msg == 'interactive':
+                log.info(f'[WaBot] {numero} — bot pausado pero cliente presionó botón, reactivando.')
+                try:
+                    session.bot_pausado = False
+                except Exception:
+                    pass
+                _bot_pausado = False
+            else:
+                log.info(f'[WaBot] {numero} — bot pausado (asesor activo), mensaje ignorado.')
+                db.session.commit()
+                return
 
         # ── Sesión expirada por inactividad (cliente escribe tras 15 min) ──
         # Excepción: si el cliente tiene una operación En proceso, no expirar —
