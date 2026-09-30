@@ -222,6 +222,12 @@ class OperationExpiryService:
                     except Exception as wa_err:
                         logger.warning(f"[EOD] Error WA para {op.operation_id}: {wa_err}")
 
+                    try:
+                        from app.services.email_service import EmailService
+                        EmailService.send_canceled_operation_email(op, motivo)
+                    except Exception as email_err:
+                        logger.warning(f"[EOD] Error email cancelación para {op.operation_id}: {email_err}")
+
                     cancelled_count += 1
 
                 except Exception as op_error:

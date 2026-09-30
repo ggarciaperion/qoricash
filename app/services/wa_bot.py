@@ -4198,6 +4198,11 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                 _NSC.notify_operation_updated(_op_lock, old_status='Pendiente')
                             except Exception:
                                 pass
+                            try:
+                                from app.services.email_service import EmailService as _ESC
+                                _ESC.send_canceled_operation_email(_op_lock, 'Cancelado por el cliente vía WhatsApp bot')
+                            except Exception as _ec:
+                                log.warning(f'[WaBot] No se pudo enviar email cancelación {_op_lock.operation_id}: {_ec}')
                             send_buttons(numero,
                                 f'❌ *Operación {_op_lock.operation_id} cancelada.*\n\n'
                                 'No se realizó ningún cobro. Cuando quieras hacer otro cambio, aquí estaremos. 😊',
