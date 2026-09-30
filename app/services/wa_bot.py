@@ -1380,7 +1380,7 @@ def _flujo_mostrar_cotizacion(numero, session):
         tc_final = round(venta + _spread_cot, 4)
         soles    = round(importe * tc_final, 2)
         resumen  = (
-            f'*¡Súper Tasa!*\n\n'
+            f'*¡Súper Tasa! 🔥*\n\n'
             f'Envias:  S/ {soles:,.2f} |\n'
             f'Recibes:  $ {importe:,.2f} |\n'
             f'Tipo de cambio: {tc_final:.4f}'
@@ -1390,7 +1390,7 @@ def _flujo_mostrar_cotizacion(numero, session):
         tc_final = round(compra - _spread_cot, 4)
         soles    = round(importe * tc_final, 2)
         resumen  = (
-            f'*¡Súper Tasa!*\n\n'
+            f'*¡Súper Tasa! 🔥*\n\n'
             f'Envias:  $ {importe:,.2f} |\n'
             f'Recibes:  S/ {soles:,.2f} |\n'
             f'Tipo de cambio: {tc_final:.4f}'
