@@ -5073,7 +5073,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         _ok_em = send_list(numero,
                             f'🎉 ¡Listo! La empresa *{razon_social}* ya está registrada en Qoricash.\n\n'
                             f'Recibirás las confirmaciones en *{email_raw}*.\n\n'
-                            f'¿A qué cuenta quieres recibir los *{_simbolo_em}*?\n\nSelecciona tu banco 👇',
+                            f'¿En qué banco quieres recibir tus *{_simbolo_em}*?\n\n> 👇 Selecciona tu banco',
                             [{'title': f'Bancos para cuenta en {_label_em}', 'rows': [
                                 {'id': 'btn_banco_bcp',        'title': 'BCP'},
                                 {'id': 'btn_banco_interbank',  'title': 'Interbank'},
@@ -5086,14 +5086,19 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             button='🏦 Elegir banco'
                         )
                         if not _ok_em:
-                            send_buttons(numero,
-                                f'🎉 ¡Listo! Empresa registrada.\n\n'
-                                f'¿A qué banco quieres recibir tus *{_simbolo_em}*?',
-                                [
-                                    {'id': 'btn_banco_bcp',       'title': 'BCP'},
-                                    {'id': 'btn_banco_interbank', 'title': 'Interbank'},
-                                    {'id': 'btn_banco_bbva',      'title': 'BBVA'},
-                                ]
+                            send_list(numero,
+                                f'🎉 ¡Listo! La empresa *{razon_social}* ya está registrada en Qoricash.\n\n'
+                                f'¿En qué banco quieres recibir tus *{_simbolo_em}*?\n\n> 👇 Selecciona tu banco',
+                                [{'title': f'Bancos para cuenta en {_label_em}', 'rows': [
+                                    {'id': 'btn_banco_bcp',        'title': 'BCP'},
+                                    {'id': 'btn_banco_interbank',  'title': 'INTERBANK'},
+                                    {'id': 'btn_banco_banbif',     'title': 'BANBIF'},
+                                    {'id': 'btn_banco_bbva',       'title': 'BBVA'},
+                                    {'id': 'btn_banco_scotiabank', 'title': 'SCOTIABANK'},
+                                    {'id': 'btn_banco_pichincha',  'title': 'PICHINCHA'},
+                                    {'id': 'btn_banco_otras',      'title': 'OTROS BANCOS'},
+                                ]}],
+                                button='🏦 Ver bancos'
                             )
                         session.estado = 'esperando_cuenta_destino'
                     except Exception as _e_emp:
@@ -5148,7 +5153,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         _ok_ec = send_list(numero,
                             f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
                             f'Recibirás las confirmaciones en *{email_raw}*.\n\n'
-                            f'¿A qué cuenta quieres recibir tus *{_simbolo_ec}*?\n\nSelecciona tu banco 👇',
+                            f'¿En qué banco quieres recibir tus *{_simbolo_ec}*?\n\n> 👇 Selecciona tu banco',
                             [{'title': f'Bancos para cuenta en {_label_ec}', 'rows': [
                                 {'id': 'btn_banco_bcp',        'title': 'BCP'},
                                 {'id': 'btn_banco_interbank',  'title': 'Interbank'},
@@ -5161,14 +5166,19 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             button='🏦 Elegir banco'
                         )
                         if not _ok_ec:
-                            send_buttons(numero,
-                                f'🎉 ¡Listo, {saludo}! Perfil creado.\n\n'
-                                f'¿A qué banco quieres recibir tus *{_simbolo_ec}*?',
-                                [
-                                    {'id': 'btn_banco_bcp',       'title': 'BCP'},
-                                    {'id': 'btn_banco_interbank', 'title': 'Interbank'},
-                                    {'id': 'btn_banco_bbva',      'title': 'BBVA'},
-                                ]
+                            send_list(numero,
+                                f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
+                                f'¿En qué banco quieres recibir tus *{_simbolo_ec}*?\n\n> 👇 Selecciona tu banco',
+                                [{'title': f'Bancos para cuenta en {_label_ec}', 'rows': [
+                                    {'id': 'btn_banco_bcp',        'title': 'BCP'},
+                                    {'id': 'btn_banco_interbank',  'title': 'INTERBANK'},
+                                    {'id': 'btn_banco_banbif',     'title': 'BANBIF'},
+                                    {'id': 'btn_banco_bbva',       'title': 'BBVA'},
+                                    {'id': 'btn_banco_scotiabank', 'title': 'SCOTIABANK'},
+                                    {'id': 'btn_banco_pichincha',  'title': 'PICHINCHA'},
+                                    {'id': 'btn_banco_otras',      'title': 'OTROS BANCOS'},
+                                ]}],
+                                button='🏦 Ver bancos'
                             )
                         session.estado = 'esperando_cuenta_destino'
                     except Exception as _e:
