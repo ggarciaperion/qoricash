@@ -1314,8 +1314,8 @@ def _flujo_cotizar_inicio(numero):
     """Pregunta si el cliente desea comprar o vender dólares."""
     send_buttons(numero,
         '💱 ¿Qué deseas hacer hoy?\n\n'
-        '• *Soles → Dólares* — comprar USD\n'
-        '• *Dólares → Soles* — vender USD\n\n'
+        '• *Soles → Dólares* — Tú compras USD\n'
+        '• *Dólares → Soles* — Tú vendes USD\n\n'
         '> 👇 Elige una opción',
         [
             {'id': 'btn_comprar', 'title': 'Soles a dólares'},
