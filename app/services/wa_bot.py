@@ -1313,9 +1313,10 @@ def _flujo_menu_operacion_empresa(numero, razon_social=None):
 def _flujo_cotizar_inicio(numero):
     """Pregunta si el cliente desea comprar o vender dólares."""
     send_buttons(numero,
-        'Cotiza el tipo de operacion\n\n'
-        '• *Tengo soles* y quiero dólares — primera opción\n'
-        '• *Tengo dólares* y quiero soles — segunda opción',
+        '💱 ¿Qué deseas hacer hoy?\n\n'
+        '• *Soles → Dólares* — comprar USD\n'
+        '• *Dólares → Soles* — vender USD\n\n'
+        '> 👇 Elige una opción',
         [
             {'id': 'btn_comprar', 'title': 'Soles a dólares'},
             {'id': 'btn_vender',  'title': 'Dólares a soles'},
