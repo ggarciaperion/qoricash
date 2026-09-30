@@ -2313,27 +2313,36 @@ def _flujo_resumen_final(numero, session, client, regenerar_token=True):
         monto_envia  = importe
         monto_recibe = round(importe * tc, 2)
 
-    # Mostrar el número completo de cuenta para que el cliente pueda verificar lo ingresado
-    cuenta_desc = (f'{banco_d} · {sim_recibe} · {num_d}' if banco_d
-                   else f'{sim_recibe} · {num_d}')
+    # Cuenta enmascarada: BCP USD ***1234
+    _ultimos = (num_d or '')[-4:]
+    _cuenta_mask = f'{banco_d} {sim_recibe} ***{_ultimos}' if banco_d else f'{sim_recibe} ***{_ultimos}'
+
+    # Hora de expiración (20 min desde ahora)
+    try:
+        from datetime import timedelta as _td_rs
+        from app.utils.formatters import now_peru as _now_rs
+        _expira_rs = (_now_rs() + _td_rs(minutes=20)).strftime('%I:%M %p').lstrip('0')
+    except Exception:
+        _expira_rs = '—'
 
     resumen = (
-        f'💱 *Resumen de tu operación*\n\n'
-        f'› Tú envías:      *{sim_envia} {monto_envia:,.2f}*\n'
-        f'› Tú recibes:     *{sim_recibe} {monto_recibe:,.2f}*\n'
-        f'› Tipo de cambio: *S/ {tc:.4f}*\n'
-        f'› Cuenta destino: *{cuenta_desc}*'
+        f'📋 *Resumen de tu cotización*\n\n'
+        f'Envias:  {sim_envia} {monto_envia:,.2f} |\n'
+        f'Recibes:  {sim_recibe} {monto_recibe:,.2f} |\n'
+        f'Tipo de cambio: {tc:.4f}\n\n'
+        f'🏦 {_cuenta_mask}\n\n'
+        f'> ⏱️ Válido hasta las {_expira_rs}'
     )
-    # Generar (o reutilizar) token de resumen: identifica esta versión exacta (cotización + cuenta).
-    # El botón "Confirmar cambio" lleva el token → botones viejos son rechazados automáticamente.
+    # Generar (o reutilizar) token de resumen
     if regenerar_token:
         _resumen_token = str(uuid.uuid4())
         session.cotiz_token = _resumen_token
     else:
         _resumen_token = session.cotiz_token or str(uuid.uuid4())
     send_buttons(numero, resumen, [
-        {'id': f'btn_confirmar_operacion_{_resumen_token}', 'title': '✅ Confirmar cambio'},
-        {'id': 'btn_cambiar_cuenta_resumen',                'title': '🔄 Cambiar cuenta'},
+        {'id': f'btn_confirmar_operacion_{_resumen_token}', 'title': '✅ Confirmar operacion'},
+        {'id': 'btn_modificar_importe_resumen',             'title': '✏️ Modificar importe'},
+        {'id': 'btn_asesor',                               'title': '💬 Hablar con asesor'},
     ])
 
 
@@ -2371,9 +2380,8 @@ def _seleccionar_cuenta_y_continuar(numero, session, client, cuentas, moneda):
         banco   = acct.get('bank_name', '')
         num_ctd = acct.get('account_number', '')
         session.cotiz_cuenta = f'{banco}|{num_ctd}'
+        _flujo_resumen_final(numero, session, client)
         session.estado = 'confirmando_operacion'
-        db.session.commit()
-        _crear_op_y_confirmar(numero, session, client)
     else:
         _flujo_elegir_cuenta(numero, cuentas, moneda)
         session.estado = 'eligiendo_cuenta_destino'
@@ -3887,9 +3895,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             )
                         else:
                             session.cotiz_cuenta = f'{banco_ctd}|{num_ctd}'
+                            _flujo_resumen_final(numero, session, client)
                             session.estado = 'confirmando_operacion'
-                            db.session.commit()
-                            _crear_op_y_confirmar(numero, session, client)
                 else:
                     send_text(numero, '⚠️ Error de sesión. Contacta a un asesor: *+51 910 624 404*')
                     session.estado = 'inicio'
@@ -4361,9 +4368,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
             elif btn_id == 'btn_confirmar_cuenta':
                 client = _buscar_cliente(session.cotiz_doc)
                 if client:
+                    _flujo_resumen_final(numero, session, client)
                     session.estado = 'confirmando_operacion'
-                    db.session.commit()
-                    _crear_op_y_confirmar(numero, session, client)
                 else:
                     send_buttons(numero,
                         '⚠️ Error de sesión. Por favor contacta a un asesor.',
@@ -4394,11 +4400,10 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         ]
                     )
                 elif not _co_token or _co_token != _sesion_token:
-                    # Token vacío o no coincide: crear operación directamente (resumen eliminado).
+                    # Token vacío o no coincide: re-mostrar resumen con token actual.
                     _client_stale = _buscar_cliente(session.cotiz_doc)
-                    if _client_stale:
-                        _crear_op_y_confirmar(numero, session, _client_stale)
-                    # estado permanece 'confirmando_operacion' si falla
+                    _flujo_resumen_final(numero, session, _client_stale, regenerar_token=False)
+                    # estado permanece 'confirmando_operacion'
                 else:
                     client_op = _buscar_cliente(session.cotiz_doc)
                     if client_op:
@@ -4426,6 +4431,15 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 else:
                     _flujo_pedir_cuenta_destino(numero, moneda_recibe)
                     session.estado = 'esperando_cuenta_nueva'
+
+            elif btn_id == 'btn_modificar_importe_resumen':
+                # Desde el resumen: volver a ingresar un importe diferente
+                session.cotiz_importe = 0.0
+                session.cotiz_tc      = 0.0
+                session.cotiz_token   = None
+                session.cotiz_cuenta  = ''
+                _flujo_pedir_importe(numero, session.cotiz_op or 'compra')
+                session.estado = 'esperando_importe'
 
             elif btn_id == 'btn_confirmar_ce':
                 send_text(numero, '✍️ Ingresa tu *nombre completo*:')
@@ -5262,9 +5276,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     else:
                         session.cotiz_cuenta = f'{_banco_n}|{_num_raw}'
                         _client_nc = _buscar_cliente(session.cotiz_doc)
+                        _flujo_resumen_final(numero, session, _client_nc)
                         session.estado = 'confirmando_operacion'
-                        db.session.commit()
-                        _crear_op_y_confirmar(numero, session, _client_nc)
                 else:
                     if len(_num_raw) < 6:
                         send_text(numero,
@@ -5273,9 +5286,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     else:
                         session.cotiz_cuenta = f'{_banco_n}|{_num_raw}'
                         _client_nc = _buscar_cliente(session.cotiz_doc)
+                        _flujo_resumen_final(numero, session, _client_nc)
                         session.estado = 'confirmando_operacion'
-                        db.session.commit()
-                        _crear_op_y_confirmar(numero, session, _client_nc)
 
             elif estado == 'esperando_cuenta_destino':
                 # Cliente ingresa "BANCO NUMERO" para cuenta sin registrar
@@ -5290,9 +5302,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     if len(_digits_cd) >= 6:
                         session.cotiz_cuenta = f'{_banco_cd}|{_digits_cd}'
                         _client_cd = _buscar_cliente(session.cotiz_doc)
+                        _flujo_resumen_final(numero, session, _client_cd)
                         session.estado = 'confirmando_operacion'
-                        db.session.commit()
-                        _crear_op_y_confirmar(numero, session, _client_cd)
                     else:
                         send_text(numero,
                             '⚠️ El número de cuenta debe tener al menos 6 dígitos.\n\n'
@@ -5318,9 +5329,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     if len(num_digits) >= 6:
                         session.cotiz_cuenta = f'{banco}|{num_digits}'
                         _client_cn = _buscar_cliente(session.cotiz_doc)
+                        _flujo_resumen_final(numero, session, _client_cn)
                         session.estado = 'confirmando_operacion'
-                        db.session.commit()
-                        _crear_op_y_confirmar(numero, session, _client_cn)
                     else:
                         send_text(numero,
                             'El número de cuenta debe tener al menos 6 dígitos.\n\n'
@@ -6281,16 +6291,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             session.estado = 'inicio'
 
                 elif estado == 'confirmando_operacion':
-                    # Cliente escribió texto mientras esperaba: crear operación directamente
+                    # Cliente escribió texto mientras esperaba confirmar el resumen
                     _client_co = _buscar_cliente(session.cotiz_doc)
-                    if _client_co:
-                        _crear_op_y_confirmar(numero, session, _client_co)
-                    else:
-                        send_buttons(numero,
-                            '⚠️ Error de sesión. Por favor contacta a un asesor.',
-                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
-                        )
-                        session.estado = 'inicio'
+                    _flujo_resumen_final(numero, session, _client_co)
 
                 elif estado == 'confirmando_cuenta':
                     # Cliente escribió texto en lugar de usar los botones de confirmación
