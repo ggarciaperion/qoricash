@@ -73,6 +73,29 @@ def _notificar_admins_email(asunto, cuerpo_texto):
         log.warning(f'[WaBot] No se pudo preparar email de alerta: {e}')
 
 
+def _enviar_bienvenida_wa(client_id):
+    """Envía el email de cuenta activa al cliente recién registrado vía bot (async)."""
+    try:
+        from flask import current_app
+        import eventlet as _ev
+
+        def _send():
+            with current_app.app_context():
+                try:
+                    from app.models.client import Client
+                    from app.services.email_templates import EmailTemplates
+                    client = Client.query.get(client_id)
+                    if client:
+                        ok, msg = EmailTemplates.send_welcome_email_from_mobile(client)
+                        log.info(f'[WaBot] Bienvenida email → {client_id}: {ok} {msg}')
+                except Exception as _e:
+                    log.warning(f'[WaBot] Error enviando bienvenida a {client_id}: {_e}')
+
+        _ev.spawn_n(_send)
+    except Exception as e:
+        log.warning(f'[WaBot] No se pudo preparar bienvenida a {client_id}: {e}')
+
+
 def _download_wa_media_to_cloudinary(media_id, client_id):
     """
     Descarga un archivo media de Meta y lo sube a Cloudinary (llamada síncrona).
@@ -4815,6 +4838,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             f'Email: {email_raw} | Tel: {numero}\n'
                             f'Cotiz: {session.cotiz_op} USD {session.cotiz_importe}'
                         )
+                        _enviar_bienvenida_wa(client.id)
                         moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
                         _simbolo_r = 'dólares (USD)' if moneda_recibe == 'USD' else 'soles (S/)'
                         _label_r   = 'dólares' if moneda_recibe == 'USD' else 'soles'
@@ -5087,6 +5111,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             f'Contacto: {nombre_contacto} | Email: {email_raw} | Tel: {numero}\n'
                             f'Cotiz: {session.cotiz_op} USD {session.cotiz_importe}'
                         )
+                        _enviar_bienvenida_wa(client_emp.id)
                         moneda_emp  = 'USD' if session.cotiz_op == 'compra' else 'PEN'
                         _simbolo_em = 'dólares (USD)' if moneda_emp == 'USD' else 'soles (S/)'
                         _label_em   = 'dólares' if moneda_emp == 'USD' else 'soles'
@@ -5156,6 +5181,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             f'Doc: {doc} | {nombre_reg}\n'
                             f'Email: {email_raw} | Tel: {numero}'
                         )
+                        _enviar_bienvenida_wa(client.id)
                         moneda_recibe_ec = 'USD' if session.cotiz_op == 'compra' else 'PEN'
                         _simbolo_ec = 'dólares (USD)' if moneda_recibe_ec == 'USD' else 'soles (S/)'
                         _label_ec   = 'dólares' if moneda_recibe_ec == 'USD' else 'soles'
