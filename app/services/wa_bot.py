@@ -2604,11 +2604,17 @@ def _flujo_pedir_numero_doc(numero, tipo):
         send_text(numero, '🏢 Ingresa el *RUC* de tu empresa (11 dígitos):')
 
 
-def _flujo_asesor(numero):
-    send_text(numero,
+def _flujo_asesor(numero, estado_anterior=None):
+    _btn_volver = (
+        '🔙 Volver a mi cotización'
+        if estado_anterior == 'viendo_cotizacion'
+        else '🔙 Volver al menú'
+    )
+    send_buttons(numero,
         '💬 *Conectando con un asesor...*\n\n'
         'En breve alguien de nuestro equipo te escribe por este mismo chat.\n\n'
-        'Cuéntanos tu consulta mientras tanto 👇'
+        'Cuéntanos tu consulta mientras tanto 👇',
+        [{'id': 'btn_volver_de_asesor', 'title': _btn_volver}]
     )
     log.info(f'[WaBot] {numero} solicitó hablar con asesor.')
     _msg_asesor = (
@@ -3625,6 +3631,34 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 )
                 session.estado = 'esperando_ruc_cotizar'
 
+            elif btn_id == 'btn_volver_de_asesor':
+                # Cliente cancela la solicitud de asesor — reactivar bot
+                try:
+                    session.bot_pausado = False
+                except Exception:
+                    pass
+                # Si hay cotización vigente, reenviarla; si no, menú genérico
+                _tiene_cotiz = (
+                    getattr(session, 'cotiz_token', None)
+                    and (session.cotiz_importe or 0) > 0
+                    and (session.cotiz_tc or 0) > 0
+                    and not _cotiz_expirada(session)
+                )
+                if _tiene_cotiz:
+                    _flujo_mostrar_cotizacion(numero, session)
+                    session.estado = 'viendo_cotizacion'
+                else:
+                    send_buttons(numero,
+                        '¿Qué operación deseas cotizar?\n'
+                        '> Mejor tasa para montos + $3,000',
+                        [
+                            {'id': 'btn_comprar',     'title': 'Soles a dólares'},
+                            {'id': 'btn_vender',      'title': 'Dólares a soles'},
+                            {'id': 'btn_soy_empresa', 'title': '🏢 Soy empresa'},
+                        ]
+                    )
+                    session.estado = 'eligiendo_operacion'
+
             elif btn_id == 'btn_cerrar_sesion':
                 primer_nombre = (session.nombre or '').split()[0].title() if session.nombre else ''
                 _reset_sesion(session)
@@ -4268,7 +4302,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 session.estado = 'eligiendo_tipo'
 
             elif btn_id == 'btn_asesor':
-                _flujo_asesor(numero)
+                _flujo_asesor(numero, estado_anterior=estado)
                 try:
                     session.bot_pausado = True
                 except Exception:
@@ -5834,7 +5868,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         if not _routed_m:
                             _menu_rapido(numero)
                 elif any(k in txt_lower for k in ('asesor', 'ayuda', 'ayúdame', 'ayudame', 'hablar', 'persona', 'humano', 'soporte', 'contacto')):
-                    _flujo_asesor(numero)
+                    _flujo_asesor(numero, estado_anterior=estado)
                     try:
                         session.bot_pausado = True
                     except Exception:
