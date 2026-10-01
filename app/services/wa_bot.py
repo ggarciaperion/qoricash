@@ -2354,7 +2354,7 @@ def _flujo_resumen_final(numero, session, client, regenerar_token=True):
         f'Envias:  {sim_envia} {monto_envia:,.2f} |\n'
         f'Recibes:  {sim_recibe} {monto_recibe:,.2f} |\n'
         f'Tipo de cambio: {tc:.4f}\n\n'
-        f'🏦 {_cuenta_mask}\n\n'
+        f'💳 Te abonamos en: *{_cuenta_mask}*\n\n'
         f'> ⏱️ Válido hasta las {_expira_rs}'
     )
     # Generar (o reutilizar) token de resumen
@@ -2366,7 +2366,7 @@ def _flujo_resumen_final(numero, session, client, regenerar_token=True):
     send_buttons(numero, resumen, [
         {'id': f'btn_confirmar_operacion_{_resumen_token}', 'title': 'Crear Operacion'},
         {'id': 'btn_modificar_importe_resumen',             'title': '✏️ Modificar importe'},
-        {'id': 'btn_asesor',                               'title': '💬 Hablar con asesor'},
+        {'id': 'btn_cambiar_cuenta_resumen',                'title': '🏦 Cambiar cuenta'},
     ])
 
 
@@ -4469,6 +4469,20 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 session.cotiz_cuenta  = ''
                 _flujo_pedir_importe(numero, session.cotiz_op or 'compra')
                 session.estado = 'esperando_importe'
+
+            elif btn_id == 'btn_cambiar_cuenta_resumen':
+                # Desde el resumen: el cliente quiere usar otra cuenta de destino
+                _moneda_cr = 'USD' if (session.cotiz_op or 'compra') == 'compra' else 'PEN'
+                session.cotiz_cuenta = ''
+                session.cotiz_token  = None
+                _client_cr = _buscar_cliente(session.cotiz_doc) if session.cotiz_doc else None
+                _cuentas_cr = _cuentas_cliente_por_moneda(_client_cr, _moneda_cr) if _client_cr else []
+                if _cuentas_cr:
+                    _flujo_elegir_cuenta(numero, _cuentas_cr, _moneda_cr)
+                    session.estado = 'eligiendo_cuenta_destino'
+                else:
+                    _flujo_pedir_cuenta_destino(numero, _moneda_cr)
+                    session.estado = 'esperando_banco_destino'
 
             elif btn_id == 'btn_confirmar_ce':
                 send_text(numero, '✍️ Ingresa tu *nombre completo*:')
