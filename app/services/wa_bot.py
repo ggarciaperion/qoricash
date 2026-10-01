@@ -3592,6 +3592,21 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
         if tipo_msg == 'interactive':
             btn_id = texto
 
+            # Sesión en blanco = cliente nuevo o sesión completamente reseteada.
+            # Cualquier botón que llegue en este estado (ej. CTA de campaña Meta)
+            # se trata como primer contacto → mostrar bienvenida y no procesar el botón.
+            _sesion_en_blanco = (
+                estado == 'inicio'
+                and not (session.cotiz_op   or '').strip()
+                and not (session.cotiz_doc  or '').strip()
+                and not (session.nombre     or '').strip()
+            )
+            if _sesion_en_blanco:
+                _bienvenida(numero, session)
+                session.estado = 'eligiendo_operacion'
+                db.session.commit()
+                return
+
             # Solo el registro manual requiere horario de atención
             _BTNS_CON_HORARIO = {
                 'btn_registro', 'btn_registrarme',
