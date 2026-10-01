@@ -57,6 +57,16 @@ def create_app(config_name=None):
     
     # Registrar blueprints
     register_blueprints(app)
+
+    # Bloquear rastreo de Google en la plataforma operativa
+    @app.route('/robots.txt')
+    def robots_txt():
+        from flask import Response
+        return Response(
+            "User-agent: *\nDisallow: /\n",
+            mimetype='text/plain'
+        )
+
     
     # Configurar logging
     configure_logging(app)
@@ -1358,6 +1368,9 @@ def configure_security_headers(flask_app):
                 "connect-src 'self' https://app.qoricash.pe wss://app.qoricash.pe https://qoricash.vercel.app https://vitals.vercel-insights.com; "
                 "frame-ancestors 'none';"
             )
+
+        # Bloquear indexación de Google en app.qoricash.pe (plataforma privada)
+        response.headers['X-Robots-Tag'] = 'noindex, nofollow'
 
         # Referrer Policy
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
