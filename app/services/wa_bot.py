@@ -3616,7 +3616,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 if _op_activa:
                     _flujo_op_ya_activa(numero, _op_activa)
                 else:
-                    _flujo_tc_publico(numero)
+                    _flujo_cotizar_inicio(numero, session)
                     session.estado = 'eligiendo_operacion'
 
             elif btn_id == 'btn_soy_empresa':
