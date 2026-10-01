@@ -2022,7 +2022,7 @@ def _crear_operacion(session, client):
         client_id             = client.id,
         user_id               = uid,
         operation_type        = op_type,
-        origen                = 'app',
+        origen                = 'bot',
         amount_usd            = amount_u,
         exchange_rate         = tc,
         amount_pen            = amount_p,

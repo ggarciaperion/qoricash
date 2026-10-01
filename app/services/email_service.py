@@ -483,25 +483,32 @@ class EmailService:
 
         from app.config.bank_accounts import QORICASH_ACCOUNTS as _QA, QORICASH_TITULAR, QORICASH_RUC
 
+        _op_currency = 'USD' if getattr(operation, 'operation_type', '') == 'Compra' else 'PEN'
+        es_bot = getattr(operation, 'origen', '') == 'bot'
+
+        # Cuentas para operaciones del bot: mostrar siempre BCP + Interbank + CCI
+        bcp_account = _QA['BCP'][_op_currency]
+        ibk_account = _QA['INTERBANK'][_op_currency]
+
         # Determinar cuenta QoriCash exacta según banco de origen del cliente
         # BCP → cuenta BCP | INTERBANK → cuenta IBK | BANBIF → cuenta BANBIF
         # Otro banco (BBVA, Scotiabank, Pichincha, etc.) → CCI INTERBANK
+        # Operaciones del bot: no tienen source_bank → NO usar esa ausencia como criterio
         _BANCOS_DIRECTOS = ('BCP', 'INTERBANK', 'BANBIF')
         _src_bank_raw = getattr(operation, 'source_bank_name', None) or ''
         _src_bank = _src_bank_raw.upper().strip()
         _banco_match = next((b for b in _BANCOS_DIRECTOS if b in _src_bank), None)
         _es_interbancaria = _banco_match is None
-        _op_currency = 'USD' if getattr(operation, 'operation_type', '') == 'Compra' else 'PEN'
         qori_account = _QA[_banco_match][_op_currency] if _banco_match else _QA['INTERBANK'][_op_currency]
 
-        logger.info(f'[email] nueva_op {getattr(operation, "operation_id", "?")} source_bank="{_src_bank_raw}" banco_match={_banco_match} interbancaria={_es_interbancaria}')
+        logger.info(f'[email] nueva_op {getattr(operation, "operation_id", "?")} origen={getattr(operation,"origen","?")} source_bank="{_src_bank_raw}" banco_match={_banco_match} es_bot={es_bot}')
 
         body = """
       <tr>
         <td class="email-body-cell" style="padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;">
 
-          <!-- ── BARRA ACENTO ──────────────────────────────── -->
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+          <!-- ── BARRA ACENTO (oculta en móvil — el wrapper ya tiene su línea) ── -->
+          <table width="100%" cellspacing="0" cellpadding="0" class="hide-mob" style="border-collapse:collapse;">
             <tr>
               <td style="height:1px;background:linear-gradient(90deg,#1E293B 0%,#334155 100%);font-size:0;line-height:0;">&nbsp;</td>
             </tr>
@@ -592,6 +599,69 @@ class EmailService:
                 <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;">
                   {% if operation.operation_type == 'Compra' %}Deposita aquí tus dólares{% else %}Deposita aquí tus soles{% endif %}
                 </p>
+
+                {% if es_bot %}
+                {# ── Canal WhatsApp Bot: mostrar BCP + Interbank + CCI ── #}
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 10px;">
+                  <tr>
+                    <td style="border-left:3px solid #3B82F6;padding:10px 14px;font-size:13px;color:#3B82F6;line-height:1.6;background:#EFF6FF;border-radius:0 8px 8px 0;">
+                      Si tus fondos provienen de un banco distinto, usa nuestro <strong>CCI Interbank</strong>.
+                    </td>
+                  </tr>
+                </table>
+                {# Tarjeta BCP #}
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;margin:0 0 10px;">
+                  <tr>
+                    <td style="padding:18px 24px;">
+                      <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td style="vertical-align:top;">
+                            <p style="margin:0 0 2px;font-size:17px;font-weight:700;color:#0F1C2E;">{{ bcp_account.banco }}</p>
+                            <p style="margin:0 0 14px;font-size:13px;color:#94A3B8;">{{ bcp_account.tipo }} &nbsp;·&nbsp; {% if operation.operation_type == 'Compra' %}USD{% else %}PEN{% endif %}</p>
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">N° de Cuenta</p>
+                            <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;font-family:'Courier New',monospace;letter-spacing:0.5px;">{{ bcp_account.numero }}</p>
+                          </td>
+                          <td width="1" style="background:#F1F5F9;">&nbsp;</td>
+                          <td width="140" style="padding-left:24px;vertical-align:top;">
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">Titular</p>
+                            <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#0F1C2E;line-height:1.4;">{{ qoricash_titular }}</p>
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">RUC</p>
+                            <p style="margin:0;font-size:13px;color:#64748B;">{{ qoricash_ruc }}</p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+                {# Tarjeta INTERBANK + CCI #}
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;margin:0 0 28px;">
+                  <tr>
+                    <td style="padding:18px 24px;">
+                      <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td style="vertical-align:top;">
+                            <p style="margin:0 0 2px;font-size:17px;font-weight:700;color:#0F1C2E;">{{ ibk_account.banco }}</p>
+                            <p style="margin:0 0 14px;font-size:13px;color:#94A3B8;">{{ ibk_account.tipo }} &nbsp;·&nbsp; {% if operation.operation_type == 'Compra' %}USD{% else %}PEN{% endif %}</p>
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">N° de Cuenta</p>
+                            <p style="margin:0 0 10px;font-size:14px;font-weight:600;color:#1E293B;font-family:'Courier New',monospace;letter-spacing:0.5px;">{{ ibk_account.numero }}</p>
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">CCI</p>
+                            <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;font-family:'Courier New',monospace;letter-spacing:0.5px;">{{ ibk_account.cci }}</p>
+                          </td>
+                          <td width="1" style="background:#F1F5F9;">&nbsp;</td>
+                          <td width="140" style="padding-left:24px;vertical-align:top;">
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">Titular</p>
+                            <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#0F1C2E;line-height:1.4;">{{ qoricash_titular }}</p>
+                            <p style="margin:0 0 3px;font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:1.2px;">RUC</p>
+                            <p style="margin:0;font-size:13px;color:#64748B;">{{ qoricash_ruc }}</p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+
+                {% else %}
+                {# ── Otros canales: lógica existente por banco de origen ── #}
                 {% if es_interbancaria %}
                 <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 10px;">
                   <tr>
@@ -629,6 +699,7 @@ class EmailService:
                     </td>
                   </tr>
                 </table>
+                {% endif %}
 
                 <!-- ── CUENTA CLIENTE ────────────────────── -->
                 <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;">
@@ -707,6 +778,9 @@ class EmailService:
             destination_acc=destination_acc,
             es_interbancaria=_es_interbancaria,
             qori_account=qori_account,
+            es_bot=es_bot,
+            bcp_account=bcp_account,
+            ibk_account=ibk_account,
         )
         return _apply_theme_colors(html, _theme)
 
@@ -829,8 +903,8 @@ class EmailService:
       <tr>
         <td class="email-body-cell" style="padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;">
 
-          <!-- ── BARRA ACENTO ──────────────────────────────── -->
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+          <!-- ── BARRA ACENTO (oculta en móvil — el wrapper ya tiene su línea) ── -->
+          <table width="100%" cellspacing="0" cellpadding="0" class="hide-mob" style="border-collapse:collapse;">
             <tr>
               <td style="height:1px;background:linear-gradient(90deg,#1E293B 0%,#334155 100%);font-size:0;line-height:0;">&nbsp;</td>
             </tr>
@@ -1243,8 +1317,8 @@ class EmailService:
       <tr>
         <td class="email-body-cell" style="padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;">
 
-          <!-- ── BARRA ACENTO ──────────────────────────────── -->
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+          <!-- ── BARRA ACENTO (oculta en móvil — el wrapper ya tiene su línea) ── -->
+          <table width="100%" cellspacing="0" cellpadding="0" class="hide-mob" style="border-collapse:collapse;">
             <tr>
               <td style="height:1px;background:linear-gradient(90deg,#1E293B 0%,#334155 100%);font-size:0;line-height:0;">&nbsp;</td>
             </tr>
@@ -1549,8 +1623,8 @@ class EmailService:
       <tr>
         <td class="email-body-cell" style="padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;">
 
-          <!-- ── BARRA ACENTO ──────────────────────────────── -->
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+          <!-- ── BARRA ACENTO (oculta en móvil — el wrapper ya tiene su línea) ── -->
+          <table width="100%" cellspacing="0" cellpadding="0" class="hide-mob" style="border-collapse:collapse;">
             <tr>
               <td style="height:1px;background:linear-gradient(90deg,#1E293B 0%,#334155 100%);font-size:0;line-height:0;">&nbsp;</td>
             </tr>

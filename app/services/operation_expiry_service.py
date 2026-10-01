@@ -46,7 +46,7 @@ class OperationExpiryService:
                 Operation.status == 'Pendiente',
                 Operation.created_at < cutoff_time,
                 Operation.created_at > protection_cutoff,  # Solo últimas 24 horas
-                Operation.origen.in_(['web', 'app', 'plataforma'])  # Excluir 'sistema'
+                Operation.origen.in_(['web', 'app', 'plataforma', 'bot'])  # Excluir 'sistema'
             ).all()
 
             if not expired_operations:
