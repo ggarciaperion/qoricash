@@ -1441,7 +1441,7 @@ def _flujo_mostrar_cotizacion(numero, session):
         session.estado = 'inicio'
         return
 
-    resumen += f'\n> ⏱ Válido hasta las {expira_hora}'
+    resumen += f'\n\n> ⏱ Válido hasta las {expira_hora}'
 
     session.cotiz_tc = tc_final
     try:
