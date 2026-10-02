@@ -2058,13 +2058,6 @@ def _crear_operacion(session, client):
         except Exception as _acct_err:
             log.warning(f'[WaBot] No se pudo guardar cuenta en perfil cliente: {_acct_err}')
 
-    # Enviar email de confirmación igual que las operaciones creadas por otros canales
-    try:
-        from app.services.email_service import EmailService
-        EmailService.send_new_operation_email(op)
-    except Exception as _email_err:
-        log.warning(f'[WaBot] No se pudo enviar email nueva op {op.operation_id}: {_email_err}')
-
     return op
 
 
@@ -2553,6 +2546,22 @@ def _crear_op_y_confirmar(numero, session, client, confirm_token=None):
         # ── Commit ANTES de llamadas externas (libera el lock de fila) ──
         db.session.commit()
 
+        # ── Email de nueva operación al cliente ──
+        try:
+            from app.services.email_service import EmailService
+            import eventlet as _ev
+            _op_ref = op
+            def _send_new_op_email():
+                from flask import current_app
+                with current_app.app_context():
+                    try:
+                        EmailService.send_new_operation_email(_op_ref)
+                    except Exception as _ee:
+                        log.warning(f'[WaBot] Error enviando email nueva op: {_ee}')
+            _ev.spawn_n(_send_new_op_email)
+        except Exception as _email_err:
+            log.warning(f'[WaBot] No se pudo despachar email nueva op: {_email_err}')
+
         # ── Enviar instrucciones al cliente ──
         sent = _flujo_op_creada(numero, op, session, client)
         if not sent:
@@ -2588,7 +2597,8 @@ def _crear_op_y_confirmar(numero, session, client, confirm_token=None):
         except Exception as _wa_err:
             log.warning(f'[WaBot] Error notificando nueva op a admins: {_wa_err}')
     except Exception as _oe:
-        log.error(f'[WaBot] Error creando op: {_oe}')
+        log.error(f'[WaBot] Error creando op: {_oe}', exc_info=True)
+        db.session.rollback()
         send_buttons(numero,
             'Ocurrió un error al crear la operación. Por favor contacta a un asesor.',
             [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
@@ -4460,21 +4470,18 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         session.estado = 'inicio'
 
             elif btn_id == 'btn_cambiar_cuenta_resumen':
-                # Desde el resumen: volver a elegir o ingresar cuenta
-                moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                # Desde el resumen: el cliente quiere usar otra cuenta de destino
+                moneda_recibe = 'USD' if (session.cotiz_op or 'compra') == 'compra' else 'PEN'
                 session.cotiz_cuenta = ''
-                client_ccr = _buscar_cliente(session.cotiz_doc)
-                if client_ccr:
-                    _cuentas_ccr = _cuentas_cliente_por_moneda(client_ccr, moneda_recibe)
-                    if _cuentas_ccr:
-                        _flujo_elegir_cuenta(numero, _cuentas_ccr, moneda_recibe)
-                        session.estado = 'eligiendo_cuenta_destino'
-                    else:
-                        _flujo_pedir_cuenta_destino(numero, moneda_recibe)
-                        session.estado = 'esperando_cuenta_nueva'
+                session.cotiz_token  = None
+                client_ccr = _buscar_cliente(session.cotiz_doc) if session.cotiz_doc else None
+                _cuentas_ccr = _cuentas_cliente_por_moneda(client_ccr, moneda_recibe) if client_ccr else []
+                if _cuentas_ccr:
+                    _flujo_elegir_cuenta(numero, _cuentas_ccr, moneda_recibe)
+                    session.estado = 'eligiendo_cuenta_destino'
                 else:
                     _flujo_pedir_cuenta_destino(numero, moneda_recibe)
-                    session.estado = 'esperando_cuenta_nueva'
+                    session.estado = 'esperando_banco_destino'
 
             elif btn_id == 'btn_modificar_importe_resumen':
                 # Desde el resumen: volver a ingresar un importe diferente
@@ -4484,20 +4491,6 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 session.cotiz_cuenta  = ''
                 _flujo_pedir_importe(numero, session.cotiz_op or 'compra')
                 session.estado = 'esperando_importe'
-
-            elif btn_id == 'btn_cambiar_cuenta_resumen':
-                # Desde el resumen: el cliente quiere usar otra cuenta de destino
-                _moneda_cr = 'USD' if (session.cotiz_op or 'compra') == 'compra' else 'PEN'
-                session.cotiz_cuenta = ''
-                session.cotiz_token  = None
-                _client_cr = _buscar_cliente(session.cotiz_doc) if session.cotiz_doc else None
-                _cuentas_cr = _cuentas_cliente_por_moneda(_client_cr, _moneda_cr) if _client_cr else []
-                if _cuentas_cr:
-                    _flujo_elegir_cuenta(numero, _cuentas_cr, _moneda_cr)
-                    session.estado = 'eligiendo_cuenta_destino'
-                else:
-                    _flujo_pedir_cuenta_destino(numero, _moneda_cr)
-                    session.estado = 'esperando_banco_destino'
 
             elif btn_id == 'btn_confirmar_ce':
                 send_text(numero, '✍️ Ingresa tu *nombre completo*:')
