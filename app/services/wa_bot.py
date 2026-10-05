@@ -2000,9 +2000,7 @@ def _flujo_telefono_no_autorizado(numero: str, nombre_cliente: str) -> None:
     """
     send_buttons(numero,
         f'⚠️ El documento ingresado corresponde a una cuenta activa en Qoricash '
-        f'(*{nombre_cliente}*), pero este número de WhatsApp no está vinculado a ella.
-
-'
+        f'(*{nombre_cliente}*), pero este número de WhatsApp no está vinculado a ella.\n\n'
         'Por seguridad, comunícate desde el número registrado o habla con un asesor '
         'para verificar tu identidad.',
         [
