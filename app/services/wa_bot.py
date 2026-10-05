@@ -1244,7 +1244,7 @@ def _nombre_saludo_db(numero):
       4. Sin clientes registrados → None (saludo genérico).
     Retorna (nombre_display, tipo):  tipo es 'persona', 'empresa' o None.
     """
-    clientes = _buscar_clientes_por_telefono(numero)
+    clientes = _buscar_clientes_por_telefono_saludo(numero)
     if not clientes:
         return None, None
 
@@ -1275,9 +1275,9 @@ def _recomprometer_perfil(numero, session) -> bool:
     """
     if (session.tipo or '').strip() and (session.cotiz_doc or '').strip():
         return True  # ya comprometido
-    todos = _buscar_clientes_por_telefono(numero)
-    personas = [c for c in todos if (c.document_type or '').upper() in ('DNI', 'CE') and (c.status or '').lower() == 'activo']
-    empresas = [c for c in todos if (c.document_type or '').upper() == 'RUC' and (c.status or '').lower() == 'activo']
+    todos = _buscar_clientes_por_telefono_saludo(numero)
+    personas = [c for c in todos if (c.document_type or '').upper() in ('DNI', 'CE')]
+    empresas = [c for c in todos if (c.document_type or '').upper() == 'RUC']
     if len(personas) == 1 and not empresas:
         p = personas[0]
         primer = (p.nombres or '').strip().split()[0].title() if (p.nombres or '').strip() else ''
@@ -1306,9 +1306,9 @@ def _bienvenida(numero, session):
       - Sin perfil             → botones "Como persona" / "Como empresa"
     """
     BANNER_URL = 'https://qoricash.pe/213.jpg'
-    todos = _buscar_clientes_por_telefono(numero)
-    personas = [c for c in todos if (c.document_type or '').upper() in ('DNI', 'CE') and (c.status or '').lower() == 'activo']
-    empresas = [c for c in todos if (c.document_type or '').upper() == 'RUC' and (c.status or '').lower() == 'activo']
+    todos = _buscar_clientes_por_telefono_saludo(numero)
+    personas = [c for c in todos if (c.document_type or '').upper() in ('DNI', 'CE')]
+    empresas = [c for c in todos if (c.document_type or '').upper() == 'RUC']
 
     if len(personas) == 1 and not empresas:
         # Único perfil: persona natural
@@ -2020,6 +2020,32 @@ def _buscar_clientes_por_telefono(numero):
         return [c for c in todos if (c.kyc_status or '').lower() in ('completo', 'aprobado')]
     except Exception as e:
         log.warning(f'[WaBot] Error buscando clientes por teléfono {numero}: {e}')
+        return []
+
+
+def _buscar_clientes_por_telefono_saludo(numero):
+    """
+    Búsqueda para bienvenida y _recomprometer_perfil únicamente.
+    Sin filtro de kyc_status — solo requiere status='Activo'.
+    Normaliza dígitos en ambos lados para evitar fallos por teléfonos
+    almacenados con espacios, guiones o prefijo +51.
+    NO usar en flujos operativos (cotización, accept-time, validación).
+    """
+    try:
+        from app.models.client import Client
+        digits = re.sub(r'\D', '', numero)
+        local = digits[-9:] if len(digits) >= 9 else digits
+        if not local:
+            return []
+        candidatos = Client.query.filter(Client.phone.ilike(f'%{local}%')).all()
+        resultado = []
+        for c in candidatos:
+            stored_digits = re.sub(r'\D', '', c.phone or '')
+            if local in stored_digits and (c.status or '').lower() == 'activo':
+                resultado.append(c)
+        return resultado
+    except Exception as e:
+        log.warning(f'[WaBot] Error buscando clientes saludo {numero}: {e}')
         return []
 
 
