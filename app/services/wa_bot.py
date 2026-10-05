@@ -3820,10 +3820,32 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     session.cotiz_importe = 0.0
                     session.cotiz_tc      = 0.0
                     session.cotiz_token   = None
-                    # Preservar cotiz_doc en flujo empresa (contiene el RUC verificado)
                     if session.tipo != 'empresa':
+                        # Fijar tipo persona y buscar cliente por teléfono de inmediato
+                        session.tipo      = 'persona'
                         session.cotiz_doc = ''
-                    _flujo_pedir_importe(numero, 'compra')
+                        _personas_tel = [c for c in _buscar_clientes_por_telefono(numero)
+                                         if (c.document_type or '').upper() in ('DNI', 'CE')
+                                         and c.status == 'Activo']
+                        if len(_personas_tel) == 1:
+                            _p = _personas_tel[0]
+                            session.cotiz_doc = _p.dni
+                            _primer = (_p.nombres or '').strip().split()[0].title() if (_p.nombres or '').strip() else ''
+                            _saludo = f'¡Hola, {_primer}! 👋\n\n' if _primer else ''
+                            send_buttons(numero,
+                                f'{_saludo}¿Cuántos dólares quieres recibir?\n'
+                                f'Mínimo: USD {MONTO_MINIMO_USD:,.0f}.\n\n'
+                                '> Mejor tasa para montos + $3,000\n'
+                                '> 👇 Escribe el importe',
+                                [
+                                    {'id': 'btn_volver_cotizar', 'title': '🔙 Volver atrás'},
+                                    {'id': 'btn_como_funciona',  'title': 'ℹ️ ¿Cómo funciona?'},
+                                ]
+                            )
+                        else:
+                            _flujo_pedir_importe(numero, 'compra')
+                    else:
+                        _flujo_pedir_importe(numero, 'compra')
                     session.estado = 'esperando_importe'
 
             elif btn_id == 'btn_vender':
@@ -3836,10 +3858,32 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     session.cotiz_importe = 0.0
                     session.cotiz_tc      = 0.0
                     session.cotiz_token   = None
-                    # Preservar cotiz_doc en flujo empresa (contiene el RUC verificado)
                     if session.tipo != 'empresa':
+                        # Fijar tipo persona y buscar cliente por teléfono de inmediato
+                        session.tipo      = 'persona'
                         session.cotiz_doc = ''
-                    _flujo_pedir_importe(numero, 'venta')
+                        _personas_tel = [c for c in _buscar_clientes_por_telefono(numero)
+                                         if (c.document_type or '').upper() in ('DNI', 'CE')
+                                         and c.status == 'Activo']
+                        if len(_personas_tel) == 1:
+                            _p = _personas_tel[0]
+                            session.cotiz_doc = _p.dni
+                            _primer = (_p.nombres or '').strip().split()[0].title() if (_p.nombres or '').strip() else ''
+                            _saludo = f'¡Hola, {_primer}! 👋\n\n' if _primer else ''
+                            send_buttons(numero,
+                                f'{_saludo}¿Cuántos dólares quieres cambiar a soles?\n'
+                                f'Mínimo: USD {MONTO_MINIMO_USD:,.0f}.\n\n'
+                                '> Mejor tasa para montos + $3,000\n'
+                                '> 👇 Escribe el importe',
+                                [
+                                    {'id': 'btn_volver_cotizar', 'title': '🔙 Volver atrás'},
+                                    {'id': 'btn_como_funciona',  'title': 'ℹ️ ¿Cómo funciona?'},
+                                ]
+                            )
+                        else:
+                            _flujo_pedir_importe(numero, 'venta')
+                    else:
+                        _flujo_pedir_importe(numero, 'venta')
                     session.estado = 'esperando_importe'
 
             elif btn_id.startswith('btn_aceptar_cotiz'):
@@ -3897,7 +3941,16 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         session.estado = 'inicio'
                 else:
                     # Intentar identificar por teléfono (P2 phone lookup)
-                    _clientes_tel = _buscar_clientes_por_telefono(numero)
+                    # Filtrar por tipo elegido para no mezclar persona y empresa
+                    _todos_tel = _buscar_clientes_por_telefono(numero)
+                    if (session.tipo or '') == 'persona':
+                        _clientes_tel = [c for c in _todos_tel
+                                         if (c.document_type or '').upper() in ('DNI', 'CE')]
+                    elif (session.tipo or '') == 'empresa':
+                        _clientes_tel = [c for c in _todos_tel
+                                         if (c.document_type or '').upper() == 'RUC']
+                    else:
+                        _clientes_tel = _todos_tel
                     if len(_clientes_tel) == 1 and _clientes_tel[0].status == 'Activo':
                         _c = _clientes_tel[0]
                         session.cotiz_doc = _c.dni
