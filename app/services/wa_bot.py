@@ -1267,41 +1267,116 @@ def _nombre_saludo_db(numero):
     return None, None
 
 
+def _recomprometer_perfil(numero, session) -> bool:
+    """
+    Si session.tipo y session.cotiz_doc están vacíos, re-compromete el perfil
+    desde la BD usando el teléfono. Retorna True si el perfil quedó comprometido.
+    No hace nada si ya hay un perfil activo en la sesión.
+    """
+    if (session.tipo or '').strip() and (session.cotiz_doc or '').strip():
+        return True  # ya comprometido
+    todos = _buscar_clientes_por_telefono(numero)
+    personas = [c for c in todos if (c.document_type or '').upper() in ('DNI', 'CE') and (c.status or '').lower() == 'activo']
+    empresas = [c for c in todos if (c.document_type or '').upper() == 'RUC' and (c.status or '').lower() == 'activo']
+    if len(personas) == 1 and not empresas:
+        p = personas[0]
+        primer = (p.nombres or '').strip().split()[0].title() if (p.nombres or '').strip() else ''
+        session.tipo      = 'persona'
+        session.cotiz_doc = p.dni
+        if not session.nombre:
+            session.nombre = primer or (p.full_name or '').strip()
+        return True
+    if len(empresas) == 1 and not personas:
+        emp = empresas[0]
+        session.tipo      = 'empresa'
+        session.cotiz_doc = emp.dni
+        session.nombre    = (emp.razon_social or emp.dni or '').strip()
+        return True
+    return False  # sin perfil único: nuevo usuario o multi-perfil
+
+
 def _bienvenida(numero, session):
     """
-    Saludo de bienvenida. El nombre proviene exclusivamente de la BD de clientes
-    según la siguiente prioridad (nunca del perfil de WhatsApp):
-      - Persona natural → primer nombre de la persona.
-      - Persona natural + empresa(s) → primer nombre de la persona.
-      - Solo una empresa → razon_social.
-      - Múltiples empresas sin persona / sin registro → saludo genérico.
-    Siempre muestra TC actual + 3 botones de operación. No pre-popula cotiz_doc.
+    Saludo de bienvenida. Compromete el perfil en la sesión según el teléfono.
+
+    Escenarios:
+      - 1 persona, 0 empresas  → commit persona + botones dirección + Cambiar perfil
+      - 1 empresa, 0 personas  → commit empresa + botones dirección + Cambiar perfil
+      - Múltiples perfiles     → selector de perfil sin commit
+      - Sin perfil             → botones "Como persona" / "Como empresa"
     """
     BANNER_URL = 'https://qoricash.pe/213.jpg'
-    nombre_disp, tipo_nombre = _nombre_saludo_db(numero)
+    todos = _buscar_clientes_por_telefono(numero)
+    personas = [c for c in todos if (c.document_type or '').upper() in ('DNI', 'CE') and (c.status or '').lower() == 'activo']
+    empresas = [c for c in todos if (c.document_type or '').upper() == 'RUC' and (c.status or '').lower() == 'activo']
 
-    if nombre_disp and tipo_nombre == 'persona':
-        saludo = f'¡Hola, {nombre_disp}! 👋 Bienvenido a Qoricash.'
-    elif nombre_disp and tipo_nombre == 'empresa':
-        saludo = f'¡Hola, equipo de {nombre_disp}! 👋 Bienvenidos a Qoricash.'
+    if len(personas) == 1 and not empresas:
+        # Único perfil: persona natural
+        p = personas[0]
+        primer = (p.nombres or '').strip().split()[0].title() if (p.nombres or '').strip() else ''
+        session.tipo      = 'persona'
+        session.cotiz_doc = p.dni
+        session.nombre    = primer or (p.full_name or '').strip() or session.nombre or ''
+        saludo = f'¡Hola, {primer}! 👋 Bienvenido a Qoricash.' if primer else '¡Hola! 👋 Bienvenido a Qoricash.'
+        send_buttons_image(numero, BANNER_URL,
+            f'{saludo}\n'
+            '📲 Cambia soles y dólares sin salir de tu WhatsApp.\n\n'
+            '¿Qué deseas cotizar?\n'
+            '> Elige una opción 👇',
+            [
+                {'id': 'btn_comprar',       'title': 'Soles a dólares'},
+                {'id': 'btn_vender',        'title': 'Dólares a soles'},
+                {'id': 'btn_cambiar_perfil','title': '🔄 Cambiar perfil'},
+            ]
+        )
+
+    elif len(empresas) == 1 and not personas:
+        # Único perfil: empresa
+        emp = empresas[0]
+        razon = (emp.razon_social or '').strip()
+        session.tipo      = 'empresa'
+        session.cotiz_doc = emp.dni
+        session.nombre    = razon or emp.dni or ''
+        saludo = f'¡Hola, equipo de {razon}! 👋 Bienvenidos a Qoricash.' if razon else '¡Hola! 👋 Bienvenidos a Qoricash.'
+        send_buttons_image(numero, BANNER_URL,
+            f'{saludo}\n'
+            '📲 Cambia soles y dólares sin salir de tu WhatsApp.\n\n'
+            '¿Qué desean cotizar?\n'
+            '> Elige una opción 👇',
+            [
+                {'id': 'btn_comprar',       'title': 'Soles a dólares'},
+                {'id': 'btn_vender',        'title': 'Dólares a soles'},
+                {'id': 'btn_cambiar_perfil','title': '🔄 Cambiar perfil'},
+            ]
+        )
+
+    elif personas or empresas:
+        # Múltiples perfiles: preguntar con cuál operar
+        opciones = []
+        for p in personas[:1]:
+            nombre_p = (p.full_name or ((p.nombres or '') + ' ' + (p.apellidos or '')).strip() or p.dni or 'Mi perfil')[:18]
+            opciones.append({'id': f'btn_operar_personal_{p.dni}', 'title': f'👤 {nombre_p}'[:20]})
+        for emp in empresas[:2]:
+            razon_e = (emp.razon_social or emp.dni or '')[:16]
+            opciones.append({'id': f'btn_operar_empresa_{emp.dni}', 'title': f'🏢 {razon_e}'[:20]})
+        opciones = opciones[:3]
+        send_buttons_image(numero, BANNER_URL,
+            '¡Bienvenido a Qoricash! 👋\n\n'
+            '¿Con qué perfil deseas operar hoy?',
+            opciones
+        )
+
     else:
-        saludo = '¡Hola! 👋 Bienvenido a Qoricash.'
-
-    # MANTENER COMPATIBILIDAD: si la sesión no tiene nombre aún, seméntalo desde DB
-    if nombre_disp and not session.nombre:
-        session.nombre = nombre_disp
-
-    msg = (
-        f'{saludo}\n'
-        '📲 Cambia soles y dólares sin salir de tu WhatsApp.\n\n'
-        '¿Qué operación deseas cotizar?\n'
-        '> Elige una opción 👇'
-    )
-    send_buttons_image(numero, BANNER_URL, msg, [
-        {'id': 'btn_comprar',    'title': 'Soles a dólares'},
-        {'id': 'btn_vender',     'title': 'Dólares a soles'},
-        {'id': 'btn_soy_empresa','title': '🏢 Soy empresa'},
-    ])
+        # Sin perfil registrado: nuevo usuario
+        send_buttons_image(numero, BANNER_URL,
+            '¡Bienvenido a Qoricash! 👋\n'
+            '📲 Cambia soles y dólares sin salir de tu WhatsApp.\n\n'
+            '¿Cómo deseas realizar tu cambio?',
+            [
+                {'id': 'btn_como_persona', 'title': '👤 Como persona'},
+                {'id': 'btn_como_empresa', 'title': '🏢 Como empresa'},
+            ]
+        )
 
 
 def _flujo_menu_operacion_empresa(numero, razon_social=None):
@@ -3774,6 +3849,106 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 )
                 session.estado = 'esperando_ruc_cotizar'
 
+            elif btn_id == 'btn_cambiar_perfil':
+                # Limpiar perfil comprometido y mostrar selector de bienvenida
+                session.cotiz_doc     = ''
+                session.tipo          = ''
+                session.nombre        = ''
+                session.cotiz_op      = ''
+                session.cotiz_importe = 0.0
+                session.cotiz_tc      = 0.0
+                session.cotiz_token   = None
+                session.cotiz_cuenta  = ''
+                _bienvenida(numero, session)
+                session.estado = 'eligiendo_operacion'
+
+            elif btn_id == 'btn_como_persona':
+                # Nuevo usuario eligió "Como persona" — sin doc hasta que acepte cotización
+                session.tipo      = 'persona'
+                session.cotiz_doc = ''
+                send_buttons(numero,
+                    '👤 Perfecto, operas como persona natural.\n\n¿Qué deseas cotizar?',
+                    [
+                        {'id': 'btn_comprar',       'title': 'Soles a dólares'},
+                        {'id': 'btn_vender',        'title': 'Dólares a soles'},
+                        {'id': 'btn_cambiar_perfil','title': '🔄 Cambiar perfil'},
+                    ]
+                )
+                session.estado = 'eligiendo_operacion'
+
+            elif btn_id == 'btn_como_empresa':
+                # Nuevo usuario eligió "Como empresa" — mismo flujo que btn_soy_empresa
+                session.tipo = 'empresa'
+                _empresas_ce = [c for c in _buscar_clientes_por_telefono(numero)
+                                if (c.document_type or '').upper() == 'RUC']
+                if len(_empresas_ce) == 1:
+                    _emp_ce = _empresas_ce[0]
+                    _razon_ce = (_emp_ce.razon_social or '').strip() or _emp_ce.dni
+                    send_buttons(numero,
+                        f'¿Confirmas que la operación es a nombre de:\n\n🏢 *{_razon_ce}*',
+                        [
+                            {'id': f'btn_confirmar_empresa_{_emp_ce.dni}', 'title': '✅ Sí, operar como empresa'},
+                            {'id': 'btn_otra_empresa',                     'title': '🔄 Usar otra empresa'},
+                        ]
+                    )
+                elif len(_empresas_ce) > 1:
+                    _botones_ce = []
+                    for _emp_ce in _empresas_ce[:2]:
+                        _razon_ce = (_emp_ce.razon_social or '').strip() or _emp_ce.dni
+                        _botones_ce.append({'id': f'btn_confirmar_empresa_{_emp_ce.dni}', 'title': _razon_ce[:20]})
+                    _botones_ce.append({'id': 'btn_otra_empresa', 'title': '🔄 Otra empresa'})
+                    send_buttons(numero,
+                        'Tenemos varias empresas vinculadas.\n¿A nombre de cuál deseas operar?',
+                        _botones_ce
+                    )
+                else:
+                    send_text(numero,
+                        '🏢 Para mostrarte la *tasa corporativa* necesito verificar tu empresa.\n\n'
+                        'Ingresa el *RUC* de tu empresa (11 dígitos):'
+                    )
+                    session.estado = 'esperando_ruc_cotizar'
+
+            elif btn_id.startswith('btn_operar_personal_'):
+                # Multi-perfil: cliente eligió su perfil de persona natural
+                _dni_op = btn_id[len('btn_operar_personal_'):]
+                _p_op = _buscar_cliente(_dni_op)
+                if _p_op and _p_op.status == 'Activo':
+                    session.tipo      = 'persona'
+                    session.cotiz_doc = _p_op.dni
+                    _primer_op = (_p_op.nombres or '').strip().split()[0].title() if (_p_op.nombres or '').strip() else ''
+                    session.nombre = _primer_op or (_p_op.full_name or '').strip()
+                    _msg_op = f'¡Hola, {_primer_op}! 👋\n\n¿Qué deseas cotizar?' if _primer_op else '¿Qué deseas cotizar?'
+                    send_buttons(numero, _msg_op, [
+                        {'id': 'btn_comprar',       'title': 'Soles a dólares'},
+                        {'id': 'btn_vender',        'title': 'Dólares a soles'},
+                        {'id': 'btn_cambiar_perfil','title': '🔄 Cambiar perfil'},
+                    ])
+                    session.estado = 'eligiendo_operacion'
+                else:
+                    send_buttons(numero,
+                        '⚠️ No encontramos ese perfil activo. Ingresa tu documento:',
+                        [{'id': 'btn_tengo_ce', 'title': '🌍 Tengo CE'}]
+                    )
+                    session.tipo      = 'persona'
+                    session.cotiz_doc = ''
+                    session.estado    = 'esperando_id_cotizar'
+
+            elif btn_id.startswith('btn_operar_empresa_'):
+                # Multi-perfil: cliente eligió su empresa
+                _ruc_op = btn_id[len('btn_operar_empresa_'):]
+                _emp_op = _buscar_cliente(_ruc_op)
+                if _emp_op and _emp_op.status == 'Activo':
+                    session.tipo      = 'empresa'
+                    session.cotiz_doc = _emp_op.dni
+                    session.nombre    = (_emp_op.razon_social or _ruc_op).strip()
+                    _flujo_menu_operacion_empresa(numero, session.nombre)
+                    session.estado = 'eligiendo_operacion'
+                else:
+                    send_text(numero, '⚠️ No encontramos esa empresa activa. Ingresa el RUC:')
+                    session.tipo      = 'empresa'
+                    session.cotiz_doc = ''
+                    session.estado    = 'esperando_ruc_cotizar'
+
             elif btn_id == 'btn_volver_de_asesor':
                 # Cliente cancela la solicitud de asesor — reactivar bot
                 try:
@@ -3791,15 +3966,19 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     _flujo_mostrar_cotizacion(numero, session)
                     session.estado = 'viendo_cotizacion'
                 else:
-                    send_buttons(numero,
-                        '¿Qué operación deseas cotizar?\n'
-                        '> Elige una opción 👇',
-                        [
-                            {'id': 'btn_comprar',     'title': 'Soles a dólares'},
-                            {'id': 'btn_vender',      'title': 'Dólares a soles'},
-                            {'id': 'btn_soy_empresa', 'title': '🏢 Soy empresa'},
-                        ]
-                    )
+                    _recomprometer_perfil(numero, session)
+                    if session.tipo == 'empresa' and session.cotiz_doc:
+                        _flujo_menu_operacion_empresa(numero, session.nombre)
+                    else:
+                        send_buttons(numero,
+                            '¿Qué operación deseas cotizar?\n'
+                            '> Elige una opción 👇',
+                            [
+                                {'id': 'btn_comprar',       'title': 'Soles a dólares'},
+                                {'id': 'btn_vender',        'title': 'Dólares a soles'},
+                                {'id': 'btn_cambiar_perfil','title': '🔄 Cambiar perfil'},
+                            ]
+                        )
                     session.estado = 'eligiendo_operacion'
 
             elif btn_id == 'btn_cerrar_sesion':
@@ -3820,20 +3999,19 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     session.cotiz_importe = 0.0
                     session.cotiz_tc      = 0.0
                     session.cotiz_token   = None
-                    if session.tipo != 'empresa':
-                        # Fijar tipo persona y buscar cliente por teléfono de inmediato
-                        session.tipo      = 'persona'
-                        session.cotiz_doc = ''
-                        _personas_tel = [c for c in _buscar_clientes_por_telefono(numero)
-                                         if (c.document_type or '').upper() in ('DNI', 'CE')
-                                         and c.status == 'Activo']
-                        if len(_personas_tel) == 1:
-                            _p = _personas_tel[0]
-                            session.cotiz_doc = _p.dni
-                            _primer = (_p.nombres or '').strip().split()[0].title() if (_p.nombres or '').strip() else ''
-                            _saludo = f'¡Hola, {_primer}! 👋\n\n' if _primer else ''
+                    # Re-comprometer perfil si se perdió (reset, volver_inicio, etc.)
+                    _recomprometer_perfil(numero, session)
+                    if session.tipo == 'empresa':
+                        # Empresa ya identificada: pedir importe con contexto corporativo
+                        _flujo_pedir_importe(numero, 'compra')
+                    elif session.cotiz_doc and session.tipo == 'persona':
+                        # Persona ya identificada: saludo breve + importe en un mensaje
+                        _p_bc = _buscar_cliente(session.cotiz_doc)
+                        if _p_bc and _p_bc.status == 'Activo':
+                            _primer_bc = (_p_bc.nombres or '').strip().split()[0].title() if (_p_bc.nombres or '').strip() else ''
+                            _saludo_bc = f'¡Hola, {_primer_bc}! 👋\n\n' if _primer_bc else ''
                             send_buttons(numero,
-                                f'{_saludo}¿Cuántos dólares quieres recibir?\n'
+                                f'{_saludo_bc}¿Cuántos dólares quieres recibir?\n'
                                 f'Mínimo: USD {MONTO_MINIMO_USD:,.0f}.\n\n'
                                 '> Mejor tasa para montos + $3,000\n'
                                 '> 👇 Escribe el importe',
@@ -3843,8 +4021,11 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                 ]
                             )
                         else:
+                            session.cotiz_doc = ''
+                            session.tipo      = ''
                             _flujo_pedir_importe(numero, 'compra')
                     else:
+                        # Perfil desconocido o multi-perfil: pedir importe; identificación al aceptar
                         _flujo_pedir_importe(numero, 'compra')
                     session.estado = 'esperando_importe'
 
@@ -3858,20 +4039,19 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     session.cotiz_importe = 0.0
                     session.cotiz_tc      = 0.0
                     session.cotiz_token   = None
-                    if session.tipo != 'empresa':
-                        # Fijar tipo persona y buscar cliente por teléfono de inmediato
-                        session.tipo      = 'persona'
-                        session.cotiz_doc = ''
-                        _personas_tel = [c for c in _buscar_clientes_por_telefono(numero)
-                                         if (c.document_type or '').upper() in ('DNI', 'CE')
-                                         and c.status == 'Activo']
-                        if len(_personas_tel) == 1:
-                            _p = _personas_tel[0]
-                            session.cotiz_doc = _p.dni
-                            _primer = (_p.nombres or '').strip().split()[0].title() if (_p.nombres or '').strip() else ''
-                            _saludo = f'¡Hola, {_primer}! 👋\n\n' if _primer else ''
+                    # Re-comprometer perfil si se perdió (reset, volver_inicio, etc.)
+                    _recomprometer_perfil(numero, session)
+                    if session.tipo == 'empresa':
+                        # Empresa ya identificada: pedir importe con contexto corporativo
+                        _flujo_pedir_importe(numero, 'venta')
+                    elif session.cotiz_doc and session.tipo == 'persona':
+                        # Persona ya identificada: saludo breve + importe en un mensaje
+                        _p_bv = _buscar_cliente(session.cotiz_doc)
+                        if _p_bv and _p_bv.status == 'Activo':
+                            _primer_bv = (_p_bv.nombres or '').strip().split()[0].title() if (_p_bv.nombres or '').strip() else ''
+                            _saludo_bv = f'¡Hola, {_primer_bv}! 👋\n\n' if _primer_bv else ''
                             send_buttons(numero,
-                                f'{_saludo}¿Cuántos dólares quieres cambiar a soles?\n'
+                                f'{_saludo_bv}¿Cuántos dólares quieres cambiar a soles?\n'
                                 f'Mínimo: USD {MONTO_MINIMO_USD:,.0f}.\n\n'
                                 '> Mejor tasa para montos + $3,000\n'
                                 '> 👇 Escribe el importe',
@@ -3881,8 +4061,11 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                 ]
                             )
                         else:
+                            session.cotiz_doc = ''
+                            session.tipo      = ''
                             _flujo_pedir_importe(numero, 'venta')
                     else:
+                        # Perfil desconocido o multi-perfil: pedir importe; identificación al aceptar
                         _flujo_pedir_importe(numero, 'venta')
                     session.estado = 'esperando_importe'
 
@@ -3954,6 +4137,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     if len(_clientes_tel) == 1 and _clientes_tel[0].status == 'Activo':
                         _c = _clientes_tel[0]
                         session.cotiz_doc = _c.dni
+                        # Comprometer también tipo para consistencia
+                        _dt_c = (_c.document_type or '').upper()
+                        session.tipo = 'empresa' if _dt_c == 'RUC' else 'persona'
                         moneda_recibe_ac = 'USD' if session.cotiz_op == 'compra' else 'PEN'
                         cuentas_ac = _cuentas_cliente_por_moneda(_c, moneda_recibe_ac)
                         if cuentas_ac:
@@ -4628,9 +4814,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 session.estado = 'esperando_id_cotizar'
 
             elif btn_id == 'btn_volver_inicio':
-                session.estado        = 'eligiendo_operacion'
-                session.tipo          = ''
                 session.cotiz_doc     = ''
+                session.tipo          = ''
                 session.cotiz_email   = ''
                 session.dni_front     = ''
                 session.dni_back      = ''
@@ -4639,7 +4824,23 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 session.cotiz_importe = 0.0
                 session.cotiz_tc      = 0.0
                 session.cotiz_token   = None
-                _flujo_cotizar_inicio(numero)
+                session.cotiz_cuenta  = ''
+                session.estado        = 'eligiendo_operacion'
+                # Re-comprometer perfil desde BD para no pedir identificación de nuevo
+                _recomprometer_perfil(numero, session)
+                if session.tipo == 'empresa' and session.cotiz_doc:
+                    _flujo_menu_operacion_empresa(numero, session.nombre)
+                elif session.tipo == 'persona' and session.cotiz_doc:
+                    send_buttons(numero,
+                        '¿Qué operación deseas cotizar?\n> Elige una opción 👇',
+                        [
+                            {'id': 'btn_comprar',       'title': 'Soles a dólares'},
+                            {'id': 'btn_vender',        'title': 'Dólares a soles'},
+                            {'id': 'btn_cambiar_perfil','title': '🔄 Cambiar perfil'},
+                        ]
+                    )
+                else:
+                    _flujo_cotizar_inicio(numero)
 
             elif btn_id == 'btn_natural':
                 session.tipo = 'natural'
