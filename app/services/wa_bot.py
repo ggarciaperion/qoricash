@@ -1603,7 +1603,35 @@ def _flujo_seleccionar_titular(numero, session):
       1 activo  → 2 botones: [Titular] [Usar otro documento].
       2 activos → 3 botones: [Titular 1] [Titular 2] [Usar otro documento].
       3+ activos → lista desplegable ('Elegir titular') + fila 'Usar otro documento'.
+
+    Caso especial empresa: si session.tipo == 'empresa' y cotiz_doc está fijado,
+    resuelve directamente sin buscar por teléfono (evita caer al genérico DNI/RUC).
     """
+    # Caso empresa: cotiz_doc contiene el RUC verificado — no buscar por teléfono
+    if session.tipo == 'empresa' and (session.cotiz_doc or '').strip():
+        client_emp = _buscar_cliente(session.cotiz_doc)
+        if client_emp and (client_emp.status or '').lower() == 'activo':
+            # Empresa ya registrada → selección de cuenta directa
+            moneda_emp = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+            cuentas_emp = _cuentas_cliente_por_moneda(client_emp, moneda_emp)
+            if cuentas_emp:
+                _seleccionar_cuenta_y_continuar(numero, session, client_emp, cuentas_emp, moneda_emp)
+            else:
+                _flujo_pedir_cuenta_destino(numero, moneda_emp)
+                session.estado = 'esperando_cuenta_destino'
+        else:
+            # Empresa nueva verificada en SUNAT pero aún no registrada → pedir email
+            send_buttons(numero,
+                f'📧 Para completar el registro de *{session.nombre or session.cotiz_doc}*, '
+                'ingresa el correo electrónico de tu empresa:',
+                [
+                    {'id': 'btn_asesor',     'title': '💬 Hablar con asesor'},
+                    {'id': 'btn_volver_ruc', 'title': '🔙 Cancelar'},
+                ]
+            )
+            session.estado = 'esperando_email_empresa_nueva'
+        return
+
     clientes = _buscar_clientes_por_telefono(numero)
     activos = [c for c in clientes if (c.status or '').lower() == 'activo']
 
@@ -3752,7 +3780,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     session.cotiz_importe = 0.0
                     session.cotiz_tc      = 0.0
                     session.cotiz_token   = None
-                    session.cotiz_doc     = ''
+                    # Preservar cotiz_doc en flujo empresa (contiene el RUC verificado)
+                    if session.tipo != 'empresa':
+                        session.cotiz_doc = ''
                     _flujo_pedir_importe(numero, 'compra')
                     session.estado = 'esperando_importe'
 
@@ -3766,7 +3796,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     session.cotiz_importe = 0.0
                     session.cotiz_tc      = 0.0
                     session.cotiz_token   = None
-                    session.cotiz_doc     = ''
+                    # Preservar cotiz_doc en flujo empresa (contiene el RUC verificado)
+                    if session.tipo != 'empresa':
+                        session.cotiz_doc = ''
                     _flujo_pedir_importe(numero, 'venta')
                     session.estado = 'esperando_importe'
 
@@ -3804,16 +3836,16 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             session.estado = 'esperando_cuenta_destino'
                     elif not client_ac and session.tipo == 'empresa' and session.nombre:
                         # Empresa nueva identificada vía SUNAT pero no registrada:
-                        # pedir datos del contacto después de aceptar la cotización.
+                        # pedir solo el email para completar el registro (sin pedir nombre de contacto).
                         send_buttons(numero,
                             f'✅ Cotización aceptada para *{session.nombre}*.\n\n'
-                            '¿Cuál es el *nombre completo* de la persona que va a operar?',
+                            '📧 Para completar el registro de tu empresa, ingresa el correo electrónico:',
                             [
-                                {'id': 'btn_asesor',    'title': '💬 Hablar con asesor'},
+                                {'id': 'btn_asesor',     'title': '💬 Hablar con asesor'},
                                 {'id': 'btn_volver_ruc', 'title': '🔙 Cancelar'},
                             ]
                         )
-                        session.estado = 'esperando_nombre_contacto_empresa'
+                        session.estado = 'esperando_email_empresa_nueva'
                     else:
                         send_buttons(numero,
                             '⚠️ No pudimos verificar tu cuenta. Por favor habla con un asesor.',
