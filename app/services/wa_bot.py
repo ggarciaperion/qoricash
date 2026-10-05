@@ -6057,32 +6057,10 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
             elif estado == 'inicio':
                 txt_lower = texto.lower()
                 if any(k in txt_lower for k in ('hola', 'buenas', 'buenos', 'hi ', 'hey', 'saludos', 'buen dia', 'buen día')):
-                    # Detectar si hay contenido adicional más allá del saludo.
-                    # "Hola" → bienvenida genérica. "Hola, quiero préstamo" → atender intención.
-                    _resto_sal = re.sub(
-                        r'\b(hola|buenas?\s*(?:tardes?|noches?|d[ií]as?)?|buenos?\s*d[ií]as?'
-                        r'|hi|hey|saludos?|buen\s+d[ií]a)\b',
-                        '', txt_lower
-                    )
-                    _resto_sal = re.sub(r'[!¡,\.\s]+', ' ', _resto_sal).strip()
-                    if len(_resto_sal) > 4:
-                        # Saludo + intención: procesar la intención sin mostrar bienvenida genérica
-                        try:
-                            _interp_sal = _interpretar_solicitud(texto, session)
-                        except Exception:
-                            _interp_sal = {'fuente': 'fallo'}
-                        _routed_sal = _aplicar_interpretacion_pre_op(numero, session, _interp_sal)
-                        if not _routed_sal:
-                            send_buttons(numero,
-                                '¡Hola! 👋 ¿Qué operación deseas hacer hoy?',
-                                [{'id': 'btn_cotizar', 'title': '💱 Cotizar'},
-                                 {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'}])
-                        if session.estado not in ('eligiendo_operacion', 'eligiendo_cliente_telefono',
-                                                   'viendo_cotizacion', 'esperando_importe'):
-                            session.estado = 'menu_mostrado'
-                    else:
-                        _bienvenida(numero, session)
-                        session.estado = 'menu_mostrado'
+                    # Toda conversación nueva comienza con la bienvenida oficial,
+                    # sin importar qué texto adicional traiga el mensaje (CTAs de Meta, etc.)
+                    _bienvenida(numero, session)
+                    session.estado = 'menu_mostrado'
                 elif any(k in txt_lower for k in ('como funciona', 'cómo funciona', 'como opera', 'es seguro', 'es confiable', 'información', 'informacion', 'info', 'cuéntame', 'cuentame')):
                     _flujo_como_funciona(numero)
                 elif any(k in txt_lower for k in ('horario', 'hora', 'atienden', 'trabajan', 'abren', 'cierran', 'disponible', 'disponibles')):
@@ -6255,29 +6233,18 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 _entendido = True  # flag para resetear contador si se entiende el mensaje
 
                 if any(k in txt_lower for k in ('hola', 'buenas', 'buenos', 'hi ', 'hey', 'saludos', 'buen dia', 'buen día')):
-                    _resto_sal_m = re.sub(
-                        r'\b(hola|buenas?\s*(?:tardes?|noches?|d[ií]as?)?|buenos?\s*d[ií]as?'
-                        r'|hi|hey|saludos?|buen\s+d[ií]a)\b',
-                        '', txt_lower
-                    )
-                    _resto_sal_m = re.sub(r'[!¡,\.\s]+', ' ', _resto_sal_m).strip()
-                    if len(_resto_sal_m) > 4:
-                        try:
-                            _interp_sal_m = _interpretar_solicitud(texto, session)
-                        except Exception:
-                            _interp_sal_m = {'fuente': 'fallo'}
-                        _routed_sal_m = _aplicar_interpretacion_pre_op(numero, session, _interp_sal_m)
-                        if not _routed_sal_m:
-                            send_buttons(numero, '¡Hola! 👋 ¿En qué te puedo ayudar hoy?',
-                                [{'id': 'btn_cotizar', 'title': '💱 Cotizar'},
-                                 {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'}])
+                    # Saludo repetido en sesión activa: mostrar menú según perfil conocido
+                    # (no re-enviar la bienvenida con banner para no duplicar mensajes)
+                    _recomprometer_perfil(numero, session)
+                    if session.tipo == 'empresa' and session.cotiz_doc:
+                        _flujo_menu_operacion_empresa(numero, session.nombre)
                     else:
                         send_buttons(numero,
                             '¡Hola! 👋 ¿En qué te puedo ayudar hoy?',
                             [
-                                {'id': 'btn_cotizar',       'title': '💱 Cotizar'},
-                                {'id': 'btn_como_funciona', 'title': 'ℹ️ ¿Cómo funciona?'},
-                                {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
+                                {'id': 'btn_comprar',       'title': 'Soles a dólares'},
+                                {'id': 'btn_vender',        'title': 'Dólares a soles'},
+                                {'id': 'btn_cambiar_perfil','title': '🔄 Cambiar perfil'},
                             ]
                         )
                 elif any(k in txt_lower for k in ('ok', 'okey', 'okay', 'entendido', 'gracias', 'listo', 'perfecto', 'bien', 'dale', 'claro', 'de acuerdo')):
