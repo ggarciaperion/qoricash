@@ -1970,6 +1970,48 @@ def _buscar_cliente_por_tel_cualquier_kyc(numero):
         return None
 
 
+def _telefono_autorizado(client, numero: str) -> bool:
+    """
+    Retorna True si el numero WA consultante está registrado en client.phone.
+    client.phone puede contener múltiples números separados por ';'.
+    Comparación por últimos 9 dígitos (número local peruano).
+    """
+    if not client or not (client.phone or '').strip():
+        return False
+    digits_q = re.sub(r'\D', '', numero)
+    local_q = digits_q[-9:] if len(digits_q) >= 9 else digits_q
+    if not local_q:
+        return False
+    for stored in client.phone.split(';'):
+        stored = stored.strip()
+        if not stored:
+            continue
+        digits_s = re.sub(r'\D', '', stored)
+        local_s = digits_s[-9:] if len(digits_s) >= 9 else digits_s
+        if local_s and local_s == local_q:
+            return True
+    return False
+
+
+def _flujo_telefono_no_autorizado(numero: str, nombre_cliente: str) -> None:
+    """
+    Informa que el documento ya tiene cuenta activa pero el número consultante
+    no está vinculado. Redirige al asesor para verificación de identidad.
+    """
+    send_buttons(numero,
+        f'⚠️ El documento ingresado corresponde a una cuenta activa en Qoricash '
+        f'(*{nombre_cliente}*), pero este número de WhatsApp no está vinculado a ella.
+
+'
+        'Por seguridad, comunícate desde el número registrado o habla con un asesor '
+        'para verificar tu identidad.',
+        [
+            {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
+            {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
+        ]
+    )
+
+
 def _flujo_elegir_cliente_telefono(numero, clientes):
     """
     Cuando un número de WA tiene múltiples cuentas aprobadas (ej: personal + empresa),
@@ -4674,11 +4716,15 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     _c_emp_db = _buscar_cliente(_ruc_raw)
                     if _c_emp_db:
                         if _c_emp_db.status == 'Activo':
-                            session.cotiz_doc = _ruc_raw
-                            session.nombre    = _c_emp_db.razon_social or _ruc_raw
-                            session.tipo      = 'empresa'
-                            _flujo_menu_operacion_empresa(numero, session.nombre)
-                            session.estado = 'eligiendo_operacion'
+                            if not _telefono_autorizado(_c_emp_db, numero):
+                                _flujo_telefono_no_autorizado(numero, _c_emp_db.razon_social or _ruc_raw)
+                                session.estado = 'inicio'
+                            else:
+                                session.cotiz_doc = _ruc_raw
+                                session.nombre    = _c_emp_db.razon_social or _ruc_raw
+                                session.tipo      = 'empresa'
+                                _flujo_menu_operacion_empresa(numero, session.nombre)
+                                session.estado = 'eligiendo_operacion'
                         else:
                             send_buttons(numero,
                                 '⏳ Tu empresa ya tiene una cuenta en proceso de activación.\n\n'
@@ -4813,15 +4859,19 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     client = _buscar_cliente(doc)
                     if client:
                         if client.status == 'Activo':
-                            primer_nombre = (client.nombres or client.razon_social or '').split()[0].title()
-                            send_text(numero, f'🎉 ¡Hola de nuevo, {primer_nombre}!')
-                            moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
-                            cuentas = _cuentas_cliente_por_moneda(client, moneda_recibe)
-                            if cuentas:
-                                _seleccionar_cuenta_y_continuar(numero, session, client, cuentas, moneda_recibe)
+                            if not _telefono_autorizado(client, numero):
+                                _flujo_telefono_no_autorizado(numero, client.full_name or client.razon_social or doc)
+                                session.estado = 'inicio'
                             else:
-                                _flujo_pedir_cuenta_destino(numero, moneda_recibe)
-                                session.estado = 'esperando_cuenta_destino'
+                                primer_nombre = (client.nombres or client.razon_social or '').split()[0].title()
+                                send_text(numero, f'🎉 ¡Hola de nuevo, {primer_nombre}!')
+                                moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                                cuentas = _cuentas_cliente_por_moneda(client, moneda_recibe)
+                                if cuentas:
+                                    _seleccionar_cuenta_y_continuar(numero, session, client, cuentas, moneda_recibe)
+                                else:
+                                    _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                                    session.estado = 'esperando_cuenta_destino'
                         else:
                             send_buttons(numero,
                                 '⏳ Encontramos tu cuenta pero aún no está activa.\n\n'
@@ -4979,15 +5029,19 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     client = _buscar_cliente(doc)
                     if client:
                         if client.status == 'Activo':
-                            primer_nombre = (client.nombres or client.razon_social or '').split()[0].title()
-                            send_text(numero, f'🎉 ¡Hola de nuevo, {primer_nombre}!')
-                            moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
-                            cuentas = _cuentas_cliente_por_moneda(client, moneda_recibe)
-                            if cuentas:
-                                _seleccionar_cuenta_y_continuar(numero, session, client, cuentas, moneda_recibe)
+                            if not _telefono_autorizado(client, numero):
+                                _flujo_telefono_no_autorizado(numero, client.full_name or client.razon_social or doc)
+                                session.estado = 'inicio'
                             else:
-                                _flujo_pedir_cuenta_destino(numero, moneda_recibe)
-                                session.estado = 'esperando_cuenta_destino'
+                                primer_nombre = (client.nombres or client.razon_social or '').split()[0].title()
+                                send_text(numero, f'🎉 ¡Hola de nuevo, {primer_nombre}!')
+                                moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                                cuentas = _cuentas_cliente_por_moneda(client, moneda_recibe)
+                                if cuentas:
+                                    _seleccionar_cuenta_y_continuar(numero, session, client, cuentas, moneda_recibe)
+                                else:
+                                    _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                                    session.estado = 'esperando_cuenta_destino'
                         else:
                             send_buttons(numero,
                                 '⏳ Encontramos tu cuenta pero aún no está activa.\n\n'
@@ -5306,14 +5360,18 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     client = _buscar_cliente(doc)
                     if client:
                         if client.status == 'Activo':
-                            moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
-                            cuentas = _cuentas_cliente_por_moneda(client, moneda_recibe)
-                            if cuentas:
-                                _seleccionar_cuenta_y_continuar(numero, session, client, cuentas, moneda_recibe)
+                            if not _telefono_autorizado(client, numero):
+                                _flujo_telefono_no_autorizado(numero, client.full_name or client.razon_social or doc)
+                                session.estado = 'inicio'
                             else:
-                                session.cotiz_cuenta = ''
-                                _flujo_pedir_cuenta_destino(numero, moneda_recibe)
-                                session.estado = 'esperando_cuenta_destino'
+                                moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                                cuentas = _cuentas_cliente_por_moneda(client, moneda_recibe)
+                                if cuentas:
+                                    _seleccionar_cuenta_y_continuar(numero, session, client, cuentas, moneda_recibe)
+                                else:
+                                    session.cotiz_cuenta = ''
+                                    _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                                    session.estado = 'esperando_cuenta_destino'
                         else:
                             _flujo_sin_kyc(numero, (client.kyc_status or '').lower())
                             session.estado = 'inicio'
