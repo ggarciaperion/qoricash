@@ -2050,7 +2050,7 @@ def _crear_operacion(session, client):
         client_id             = client.id,
         user_id               = uid,
         operation_type        = op_type,
-        origen                = 'bot',
+        origen                = 'plataforma',
         amount_usd            = amount_u,
         exchange_rate         = tc,
         amount_pen            = amount_p,
@@ -4905,7 +4905,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         _label_r   = 'dólares' if moneda_recibe == 'USD' else 'soles'
                         _ok_reg = send_list(numero,
                             f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
-                            f'Recibirás las confirmaciones en *{email_raw}*.\n\n'
+                            f'Recibirás las confirmaciones en {email_raw}.\n\n'
                             f'¿En qué banco quieres recibir tus *{_simbolo_r}*?\n\n> 👇 Selecciona tu banco',
                             [{'title': 'Selecciona tu banco', 'rows': [
                                 {'id': 'btn_banco_bcp',        'title': 'BCP'},
@@ -5178,7 +5178,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         _label_em   = 'dólares' if moneda_emp == 'USD' else 'soles'
                         _ok_em = send_list(numero,
                             f'🎉 ¡Listo! La empresa *{razon_social}* ya está registrada en Qoricash.\n\n'
-                            f'Recibirás las confirmaciones en *{email_raw}*.\n\n'
+                            f'Recibirás las confirmaciones en {email_raw}.\n\n'
                             f'¿En qué banco quieres recibir tus *{_simbolo_em}*?\n\n> 👇 Selecciona tu banco',
                             [{'title': 'Selecciona tu banco', 'rows': [
                                 {'id': 'btn_banco_bcp',        'title': 'BCP'},
@@ -5248,7 +5248,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         _label_ec   = 'dólares' if moneda_recibe_ec == 'USD' else 'soles'
                         _ok_ec = send_list(numero,
                             f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
-                            f'Recibirás las confirmaciones en *{email_raw}*.\n\n'
+                            f'Recibirás las confirmaciones en {email_raw}.\n\n'
                             f'¿En qué banco quieres recibir tus *{_simbolo_ec}*?\n\n> 👇 Selecciona tu banco',
                             [{'title': 'Selecciona tu banco', 'rows': [
                                 {'id': 'btn_banco_bcp',        'title': 'BCP'},
