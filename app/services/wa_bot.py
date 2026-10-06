@@ -1390,10 +1390,11 @@ def _bienvenida(numero, session):
         )
 
 
-def _flujo_menu_operacion_empresa(numero, razon_social=None):
+def _flujo_menu_operacion_empresa(numero, razon_social=None, tercera_opcion=None):
     """
     Menú de operaciones para empresa ya identificada.
     Muestra TC corporativo + botones sin repetir saludo de bienvenida.
+    tercera_opcion: dict {'id': ..., 'title': ...} — por defecto 'Hablar con asesor'.
     """
     _c, _v = _get_tc()
     _tc_comp = round(_c - SPREAD_EMPRESA, 4) if _c else None
@@ -1401,21 +1402,22 @@ def _flujo_menu_operacion_empresa(numero, razon_social=None):
     empresa_txt = f'*{razon_social}*' if razon_social else 'tu empresa'
     if _tc_comp and _tc_vent:
         cuerpo = (
-            f'✅ Empresa verificada: {empresa_txt}\n\n'
+            f'🏢 Operarás con {empresa_txt}.\n\n'
             f'💼 *Tipo de cambio corporativo:*\n\n'
             f'💵 Compramos tus dólares: *S/ {_tc_comp:.4f}*\n'
             f'💵 Te vendemos dólares:   *S/ {_tc_vent:.4f}*\n\n'
-            '¿Qué operación de cambio deseas hacer hoy?'
+            '¿Qué deseas cotizar?'
         )
     else:
         cuerpo = (
-            f'✅ Empresa verificada: {empresa_txt}\n\n'
-            '¿Qué operación de cambio deseas hacer hoy?'
+            f'🏢 Operarás con {empresa_txt}.\n\n'
+            '¿Qué deseas cotizar?'
         )
+    _btn3 = tercera_opcion or {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}
     send_buttons(numero, cuerpo, [
         {'id': 'btn_vender',  'title': 'Dólares a soles'},
         {'id': 'btn_comprar', 'title': 'Soles a dólares'},
-        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+        _btn3,
     ])
 
 
@@ -1483,6 +1485,7 @@ def _flujo_mostrar_cotizacion(numero, session):
     _es_empresa_cot = (session.tipo == 'empresa') or _es_ruc(session.cotiz_doc or '')
     _spread_cot     = SPREAD_EMPRESA if _es_empresa_cot else SPREAD_TC
     _label_cotiz    = '💼 *Cotización corporativa*' if _es_empresa_cot else '💱 *Tu cotización*'
+    _header_cotiz   = '*¡Súper Tasa para empresas! 🔥*' if _es_empresa_cot else '*¡Súper Tasa! 🔥*'
 
     # Hora de expiración de la cotización
     expira_hora = (now_peru() + timedelta(minutes=COTIZ_VALIDEZ_MIN)).strftime('%I:%M %p').lstrip('0')
@@ -1492,7 +1495,7 @@ def _flujo_mostrar_cotizacion(numero, session):
         tc_final = round(venta + _spread_cot, 4)
         soles    = round(importe * tc_final, 2)
         resumen  = (
-            f'*¡Súper Tasa! 🔥*\n\n'
+            f'{_header_cotiz}\n\n'
             f'Envias:  S/ {soles:,.2f} |\n'
             f'Recibes:  $ {importe:,.2f} |\n'
             f'Tipo de cambio: {tc_final:.4f}'
@@ -1502,7 +1505,7 @@ def _flujo_mostrar_cotizacion(numero, session):
         tc_final = round(compra - _spread_cot, 4)
         soles    = round(importe * tc_final, 2)
         resumen  = (
-            f'*¡Súper Tasa! 🔥*\n\n'
+            f'{_header_cotiz}\n\n'
             f'Envias:  $ {importe:,.2f} |\n'
             f'Recibes:  S/ {soles:,.2f} |\n'
             f'Tipo de cambio: {tc_final:.4f}'
@@ -3850,33 +3853,39 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
 
             elif btn_id == 'btn_soy_empresa':
                 session.tipo = 'empresa'
-                # Verificar si hay empresas (RUC) vinculadas al número
-                _empresas_tel = [c for c in _buscar_clientes_por_telefono(numero)
+                _empresas_tel = [c for c in _buscar_clientes_por_telefono_saludo(numero)
                                  if (c.document_type or '').upper() == 'RUC']
                 if len(_empresas_tel) == 1:
                     _emp = _empresas_tel[0]
                     _razon = (_emp.razon_social or '').strip() or _emp.dni
-                    send_buttons(numero,
-                        f'¿Confirmas que la operación es a nombre de:\n\n'
-                        f'🏢 *{_razon}*',
-                        [
-                            {'id': f'btn_confirmar_empresa_{_emp.dni}', 'title': '✅ Sí, operar como empresa'},
-                            {'id': 'btn_otra_empresa',                  'title': '🔄 Usar otra empresa'},
-                        ]
-                    )
-                elif len(_empresas_tel) > 1:
+                    session.cotiz_doc = _emp.dni
+                    session.nombre    = _razon
+                    _flujo_menu_operacion_empresa(numero, _razon,
+                        tercera_opcion={'id': 'btn_otra_empresa', 'title': '🏢 Nueva empresa'})
+                    session.estado = 'eligiendo_operacion'
+                elif len(_empresas_tel) == 2:
                     _botones_emp = []
-                    for _emp in _empresas_tel[:2]:
+                    for _emp in _empresas_tel:
                         _razon = (_emp.razon_social or '').strip() or _emp.dni
-                        _botones_emp.append({'id': f'btn_confirmar_empresa_{_emp.dni}', 'title': _razon[:20]})
-                    _botones_emp.append({'id': 'btn_otra_empresa', 'title': '🔄 Otra empresa'})
+                        _botones_emp.append({'id': f'btn_operar_empresa_{_emp.dni}', 'title': f'🏢 {_razon}'[:20]})
+                    _botones_emp.append({'id': 'btn_otra_empresa', 'title': '➕ Nueva empresa'})
                     send_buttons(numero,
-                        'Tenemos varias empresas vinculadas a tu número.\n'
-                        '¿A nombre de cuál deseas operar?',
+                        '¿A nombre de qué empresa deseas operar?',
                         _botones_emp
                     )
+                elif len(_empresas_tel) >= 3:
+                    _rows_emp = [
+                        {'id': f'btn_operar_empresa_{_e.dni}',
+                         'title': ((_e.razon_social or '').strip() or _e.dni)[:24]}
+                        for _e in _empresas_tel[:9]
+                    ]
+                    _rows_emp.append({'id': 'btn_otra_empresa', 'title': '➕ Nueva empresa'})
+                    send_list(numero,
+                        '¿A nombre de qué empresa deseas operar?',
+                        [{'title': 'Empresas vinculadas', 'rows': _rows_emp}],
+                        button='🏢 Elegir empresa'
+                    )
                 else:
-                    # Sin empresa registrada → pedir RUC directamente (flujo actual)
                     send_text(numero,
                         '🏢 Para mostrarte la *tasa corporativa* necesito verificar tu empresa.\n\n'
                         'Ingresa el *RUC* de tu empresa (11 dígitos):'
@@ -3887,12 +3896,13 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 # Cliente confirmó operar con una empresa vinculada al número
                 _ruc_conf = btn_id[len('btn_confirmar_empresa_'):]
                 _emp_conf = _buscar_cliente(_ruc_conf)
-                if _emp_conf and (_emp_conf.kyc_status or '').lower() in ('completo', 'aprobado'):
+                if _emp_conf and (_emp_conf.status or '').lower() == 'activo':
                     session.cotiz_doc = _emp_conf.dni
                     session.tipo      = 'empresa'
                     session.nombre    = (_emp_conf.razon_social or _ruc_conf).strip()
-                    _flujo_menu_operacion_empresa(numero, session.nombre)
-                    session.estado = 'menu_mostrado'
+                    _flujo_menu_operacion_empresa(numero, session.nombre,
+                        tercera_opcion={'id': 'btn_otra_empresa', 'title': '🏢 Nueva empresa'})
+                    session.estado = 'eligiendo_operacion'
                 else:
                     send_buttons(numero,
                         '⚠️ No encontramos esa empresa activa en nuestro sistema.\n\n'
@@ -3980,29 +3990,39 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 session.estado = 'eligiendo_operacion'
 
             elif btn_id == 'btn_como_empresa':
-                # Nuevo usuario eligió "Como empresa" — mismo flujo que btn_soy_empresa
+                # Usuario eligió "Como empresa" — consulta empresas vinculadas antes de pedir RUC
                 session.tipo = 'empresa'
-                _empresas_ce = [c for c in _buscar_clientes_por_telefono(numero)
+                _empresas_ce = [c for c in _buscar_clientes_por_telefono_saludo(numero)
                                 if (c.document_type or '').upper() == 'RUC']
                 if len(_empresas_ce) == 1:
                     _emp_ce = _empresas_ce[0]
                     _razon_ce = (_emp_ce.razon_social or '').strip() or _emp_ce.dni
-                    send_buttons(numero,
-                        f'¿Confirmas que la operación es a nombre de:\n\n🏢 *{_razon_ce}*',
-                        [
-                            {'id': f'btn_confirmar_empresa_{_emp_ce.dni}', 'title': '✅ Sí, operar como empresa'},
-                            {'id': 'btn_otra_empresa',                     'title': '🔄 Usar otra empresa'},
-                        ]
-                    )
-                elif len(_empresas_ce) > 1:
+                    session.cotiz_doc = _emp_ce.dni
+                    session.nombre    = _razon_ce
+                    _flujo_menu_operacion_empresa(numero, _razon_ce,
+                        tercera_opcion={'id': 'btn_otra_empresa', 'title': '🏢 Nueva empresa'})
+                    session.estado = 'eligiendo_operacion'
+                elif len(_empresas_ce) == 2:
                     _botones_ce = []
-                    for _emp_ce in _empresas_ce[:2]:
+                    for _emp_ce in _empresas_ce:
                         _razon_ce = (_emp_ce.razon_social or '').strip() or _emp_ce.dni
-                        _botones_ce.append({'id': f'btn_confirmar_empresa_{_emp_ce.dni}', 'title': _razon_ce[:20]})
-                    _botones_ce.append({'id': 'btn_otra_empresa', 'title': '🔄 Otra empresa'})
+                        _botones_ce.append({'id': f'btn_operar_empresa_{_emp_ce.dni}', 'title': f'🏢 {_razon_ce}'[:20]})
+                    _botones_ce.append({'id': 'btn_otra_empresa', 'title': '➕ Nueva empresa'})
                     send_buttons(numero,
-                        'Tenemos varias empresas vinculadas.\n¿A nombre de cuál deseas operar?',
+                        '¿A nombre de qué empresa deseas operar?',
                         _botones_ce
+                    )
+                elif len(_empresas_ce) >= 3:
+                    _rows_ce = [
+                        {'id': f'btn_operar_empresa_{_e.dni}',
+                         'title': ((_e.razon_social or '').strip() or _e.dni)[:24]}
+                        for _e in _empresas_ce[:9]
+                    ]
+                    _rows_ce.append({'id': 'btn_otra_empresa', 'title': '➕ Nueva empresa'})
+                    send_list(numero,
+                        '¿A nombre de qué empresa deseas operar?',
+                        [{'title': 'Empresas vinculadas', 'rows': _rows_ce}],
+                        button='🏢 Elegir empresa'
                     )
                 else:
                     send_text(numero,
