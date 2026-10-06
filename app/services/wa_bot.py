@@ -3792,9 +3792,6 @@ def _check_rate_limit(session, numero):
     from app.utils.formatters import now_peru
     from datetime import timedelta
 
-    if SystemConfig.get('wa_rate_activo', 'true').lower() != 'true':
-        return False
-
     now = now_peru()
 
     # ── 1. Pausa activa ──────────────────────────────────────────────────────

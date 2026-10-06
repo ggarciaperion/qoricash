@@ -1605,7 +1605,6 @@ def api_limpiar_wa_historial():
 
 # ── API — Rate limit config (GET / POST) ──────────────────────────────────────
 _WA_RATE_KEYS = {
-    'wa_rate_activo':          ('true',  'Activar control de límites (true/false)'),
     'wa_limite_sesion':        ('40',    'Respuestas por sesión sin operación creada'),
     'wa_limite_periodo_resp':  ('100',   'Respuestas máximas en la ventana de período'),
     'wa_limite_periodo_horas': ('24',    'Duración de la ventana de período (horas)'),
