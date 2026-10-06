@@ -1371,7 +1371,7 @@ def _bienvenida(numero, session):
         send_buttons_image(numero, BANNER_URL,
             '¡Bienvenido a Qoricash! 👋\n'
             '📲 Cambia soles y dólares sin salir de tu WhatsApp.\n\n'
-            '¿Cómo deseas realizar tu cambio?',
+            '¿Estás cotizando para ti o para tu empresa?',
             [
                 {'id': 'btn_como_persona', 'title': '👤 Como persona'},
                 {'id': 'btn_como_empresa', 'title': '🏢 Como empresa'},
