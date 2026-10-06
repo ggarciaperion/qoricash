@@ -1326,7 +1326,7 @@ def _bienvenida(numero, session):
             [
                 {'id': 'btn_comprar',       'title': 'Soles a dólares'},
                 {'id': 'btn_vender',        'title': 'Dólares a soles'},
-                {'id': 'btn_cambiar_perfil','title': '🔄 Cambiar perfil'},
+                {'id': 'btn_cambiar_perfil','title': '🏢 TC para empresa'},
             ]
         )
 
@@ -1346,7 +1346,7 @@ def _bienvenida(numero, session):
             [
                 {'id': 'btn_comprar',       'title': 'Soles a dólares'},
                 {'id': 'btn_vender',        'title': 'Dólares a soles'},
-                {'id': 'btn_cambiar_perfil','title': '🔄 Cambiar perfil'},
+                {'id': 'btn_cambiar_perfil','title': '🏢 TC para empresa'},
             ]
         )
 
@@ -3962,7 +3962,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         [
                             {'id': 'btn_comprar',        'title': 'Soles a dólares'},
                             {'id': 'btn_vender',         'title': 'Dólares a soles'},
-                            {'id': 'btn_cambiar_perfil', 'title': '🔄 Cambiar perfil'},
+                            {'id': 'btn_cambiar_perfil', 'title': '🏢 TC para empresa'},
                         ]
                     )
                 else:
@@ -3974,7 +3974,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         [
                             {'id': 'btn_comprar',        'title': 'Soles a dólares'},
                             {'id': 'btn_vender',         'title': 'Dólares a soles'},
-                            {'id': 'btn_cambiar_perfil', 'title': '🔄 Cambiar perfil'},
+                            {'id': 'btn_cambiar_perfil', 'title': '🏢 TC para empresa'},
                         ]
                     )
                 session.estado = 'eligiendo_operacion'
@@ -4024,7 +4024,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     send_buttons(numero, _msg_op, [
                         {'id': 'btn_comprar',       'title': 'Soles a dólares'},
                         {'id': 'btn_vender',        'title': 'Dólares a soles'},
-                        {'id': 'btn_cambiar_perfil','title': '🔄 Cambiar perfil'},
+                        {'id': 'btn_cambiar_perfil','title': '🏢 TC para empresa'},
                     ])
                     session.estado = 'eligiendo_operacion'
                 else:
@@ -4079,7 +4079,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             [
                                 {'id': 'btn_comprar',       'title': 'Soles a dólares'},
                                 {'id': 'btn_vender',        'title': 'Dólares a soles'},
-                                {'id': 'btn_cambiar_perfil','title': '🔄 Cambiar perfil'},
+                                {'id': 'btn_cambiar_perfil','title': '🏢 TC para empresa'},
                             ]
                         )
                     session.estado = 'eligiendo_operacion'
@@ -4973,7 +4973,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         [
                             {'id': 'btn_comprar',       'title': 'Soles a dólares'},
                             {'id': 'btn_vender',        'title': 'Dólares a soles'},
-                            {'id': 'btn_cambiar_perfil','title': '🔄 Cambiar perfil'},
+                            {'id': 'btn_cambiar_perfil','title': '🏢 TC para empresa'},
                         ]
                     )
                 else:
@@ -6447,7 +6447,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             [
                                 {'id': 'btn_comprar',       'title': 'Soles a dólares'},
                                 {'id': 'btn_vender',        'title': 'Dólares a soles'},
-                                {'id': 'btn_cambiar_perfil','title': '🔄 Cambiar perfil'},
+                                {'id': 'btn_cambiar_perfil','title': '🏢 TC para empresa'},
                             ]
                         )
                 elif any(k in txt_lower for k in ('ok', 'okey', 'okay', 'entendido', 'gracias', 'listo', 'perfecto', 'bien', 'dale', 'claro', 'de acuerdo')):
