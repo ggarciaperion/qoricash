@@ -1396,23 +1396,13 @@ def _flujo_menu_operacion_empresa(numero, razon_social=None, tercera_opcion=None
     Muestra TC corporativo + botones sin repetir saludo de bienvenida.
     tercera_opcion: dict {'id': ..., 'title': ...} — por defecto 'Hablar con asesor'.
     """
-    _c, _v = _get_tc()
-    _tc_comp = round(_c - SPREAD_EMPRESA, 4) if _c else None
-    _tc_vent = round(_v + SPREAD_EMPRESA, 4) if _v else None
-    empresa_txt = f'*{razon_social}*' if razon_social else 'tu empresa'
-    if _tc_comp and _tc_vent:
-        cuerpo = (
-            f'🏢 Operarás con {empresa_txt}.\n\n'
-            f'💼 *Tipo de cambio corporativo:*\n\n'
-            f'💵 Compramos tus dólares: *S/ {_tc_comp:.4f}*\n'
-            f'💵 Te vendemos dólares:   *S/ {_tc_vent:.4f}*\n\n'
-            '¿Qué deseas cotizar?'
-        )
-    else:
-        cuerpo = (
-            f'🏢 Operarás con {empresa_txt}.\n\n'
-            '¿Qué deseas cotizar?'
-        )
+    _razon_limpia = (razon_social or '').rstrip('.')
+    empresa_txt = f'*{_razon_limpia}*' if _razon_limpia else '*tu empresa*'
+    cuerpo = (
+        f'Operarás con {empresa_txt}.\n\n'
+        '🏢 *Tipo de cambio corporativo*\n\n'
+        '> ¿Qué operación deseas cotizar?'
+    )
     _btn3 = tercera_opcion or {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}
     send_buttons(numero, cuerpo, [
         {'id': 'btn_vender',  'title': 'Dólares a soles'},
@@ -2714,31 +2704,24 @@ def _crear_op_y_confirmar(numero, session, client, confirm_token=None):
             log.warning(f'[WaBot] KYC3 check error {numero}: {_kyc3_err}')
 
         # ── CV3 — Revalidar cuenta de destino antes de crear la operación ──
+        # Solo rechaza si la cuenta ESTABA en el perfil guardado y ya no está.
+        # Cuentas ingresadas en sesión (CCI o número nuevo) nunca están en bank_accounts
+        # hasta que _crear_operacion las guarda; no deben bloquearse aquí.
         _cuenta_val     = session.cotiz_cuenta or ''
         _num_cuenta_val = _cuenta_val.split('|', 1)[1] if '|' in _cuenta_val else _cuenta_val
         _accts_val      = getattr(client, 'bank_accounts', None) or []
         if _num_cuenta_val and _accts_val:
-            _cuenta_valida = any(
+            _cuenta_en_perfil = any(
                 a.get('account_number') == _num_cuenta_val
                 for a in _accts_val
             )
-            if not _cuenta_valida:
-                log.warning(
-                    f'[WaBot] CV3: cuenta {_num_cuenta_val} no en perfil '
-                    f'cliente {client.id} ({numero}) — rechazando operación'
+            if not _cuenta_en_perfil:
+                # Cuenta nueva de sesión (ej. CCI ingresado ahora): normal, continuar.
+                # _crear_operacion la guardará en bank_accounts al crear la operación.
+                log.info(
+                    f'[WaBot] CV3: cuenta {_num_cuenta_val} no en perfil guardado '
+                    f'cliente {client.id} ({numero}) — cuenta de sesión nueva, continúa.'
                 )
-                send_buttons(numero,
-                    '⚠️ La cuenta de destino ya no está disponible. '
-                    'Por favor elige de nuevo.',
-                    [
-                        {'id': 'btn_cotizar', 'title': '🔄 Cotizar de nuevo'},
-                        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
-                    ]
-                )
-                session.cotiz_cuenta = ''
-                session.estado = 'inicio'
-                db.session.commit()
-                return
 
         # ── Crear operación y actualizar sesión ──
         op = _crear_operacion(session, client)
@@ -3770,9 +3753,27 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     pass
                 _bot_pausado = False
             else:
-                log.info(f'[WaBot] {numero} — bot pausado (asesor activo), mensaje ignorado.')
-                db.session.commit()
-                return
+                # Auto-reanudar si el asesor no respondió en más de 30 minutos.
+                # Cubre sesiones congeladas por días/meses (bot_pausado=True, estado='inicio').
+                from datetime import timedelta as _td_pausa
+                from app.utils.formatters import now_peru as _now_pausa
+                _pausa_desde = session.updated_at
+                _pausa_min = ((_now_pausa() - _pausa_desde).total_seconds() / 60) if _pausa_desde else 9999
+                if _pausa_min > 30:
+                    log.info(
+                        f'[WaBot] {numero} — bot pausado hace {_pausa_min:.0f} min '
+                        f'sin respuesta de asesor; reanudando automáticamente.'
+                    )
+                    try:
+                        session.bot_pausado = False
+                    except Exception:
+                        pass
+                    _bot_pausado = False
+                    # Fall through: procesar el mensaje normalmente
+                else:
+                    log.info(f'[WaBot] {numero} — bot pausado (asesor activo, hace {_pausa_min:.0f} min), mensaje ignorado.')
+                    db.session.commit()
+                    return
 
         # ── Sesión expirada por inactividad (cliente escribe tras 15 min) ──
         # Excepción: si el cliente tiene una operación En proceso, no expirar —
