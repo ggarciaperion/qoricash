@@ -3744,6 +3744,7 @@ def _ensure_rate_cols():
     try:
         from sqlalchemy import text as _sqlt
         _defs = [
+            "session_started_at TIMESTAMP",
             "rate_resp_sesion INTEGER NOT NULL DEFAULT 0",
             "rate_resp_periodo INTEGER NOT NULL DEFAULT 0",
             "rate_periodo_inicio TIMESTAMP",
@@ -3872,6 +3873,10 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
     texto: cuerpo del mensaje o button_id si es interactive
     """
     try:
+        # Asegurar columnas de rate-limit y session_started_at ANTES de consultar la sesión.
+        # Si faltan en la DB de producción, el SELECT de get_or_create falla con ProgrammingError.
+        _ensure_rate_cols()
+
         # Descartar webhooks duplicados (Meta puede entregar el mismo evento 2x)
         if _wa_id_ya_procesado(wa_id):
             log.info(f'[WaBot] Duplicado wa_id={wa_id} para {numero}, ignorado.')
@@ -3930,7 +3935,6 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     return
 
         # ── Rate limiting ───────────────────────────────────────────────────
-        _ensure_rate_cols()
         if _check_rate_limit(session, numero):
             db.session.commit()
             return
