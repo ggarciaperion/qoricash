@@ -203,7 +203,21 @@ def api_bot_status(numero):
             db.session.rollback()
         bot_session = WaBotSession.query.filter_by(numero=numero).first()
         bot_pausado = bot_session.bot_pausado if bot_session else False
-        return jsonify({'ok': True, 'bot_pausado': bot_pausado})
+        rate_pausado_hasta = None
+        rate_motivo = None
+        if bot_session:
+            try:
+                rph = bot_session.rate_pausado_hasta
+                rate_pausado_hasta = rph.isoformat() if rph else None
+                rate_motivo = bot_session.rate_motivo
+            except Exception:
+                pass
+        return jsonify({
+            'ok': True,
+            'bot_pausado': bot_pausado,
+            'rate_pausado_hasta': rate_pausado_hasta,
+            'rate_motivo': rate_motivo,
+        })
     except Exception:
         return jsonify({'ok': True, 'bot_pausado': False})
 
@@ -1587,3 +1601,94 @@ def api_limpiar_wa_historial():
     db.session.commit()
     log.info(f'[CRM] Limpieza WA: {msgs_del} mensajes, {sesiones_del} sesiones eliminadas')
     return jsonify({'ok': True, 'mensajes_eliminados': msgs_del, 'sesiones_eliminadas': sesiones_del})
+
+
+# ── API — Rate limit config (GET / POST) ──────────────────────────────────────
+_WA_RATE_KEYS = {
+    'wa_rate_activo':          ('true',  'Activar control de límites (true/false)'),
+    'wa_limite_sesion':        ('40',    'Respuestas por sesión sin operación creada'),
+    'wa_limite_periodo_resp':  ('100',   'Respuestas máximas en la ventana de período'),
+    'wa_limite_periodo_horas': ('24',    'Duración de la ventana de período (horas)'),
+    'wa_pausa_minutos':        ('60',    'Minutos de pausa al alcanzar el límite'),
+    'wa_burst_max':            ('6',     'Mensajes en ráfaga antes de pausar'),
+    'wa_burst_segundos':       ('8',     'Ventana de ráfaga en segundos'),
+}
+
+@crm_bp.route('/api/bot-rate-config', methods=['GET'])
+@login_required
+@require_role('Master')
+def api_bot_rate_config_get():
+    from app.models.system_config import SystemConfig
+    config = {}
+    for key, (default, desc) in _WA_RATE_KEYS.items():
+        config[key] = {
+            'value':       SystemConfig.get(key, default),
+            'default':     default,
+            'description': desc,
+        }
+    return jsonify({'ok': True, 'config': config})
+
+
+@crm_bp.route('/api/bot-rate-config', methods=['POST'])
+@login_required
+@require_role('Master')
+def api_bot_rate_config_post():
+    from app.models.system_config import SystemConfig
+    data = request.get_json() or {}
+    updated = []
+    for key in _WA_RATE_KEYS:
+        if key in data:
+            SystemConfig.set(key, str(data[key]),
+                             description=_WA_RATE_KEYS[key][1],
+                             user_id=current_user.id)
+            updated.append(key)
+    db.session.commit()
+    log.info(f'[CRM] Rate config actualizada por {current_user.username}: {updated}')
+    return jsonify({'ok': True, 'updated': updated})
+
+
+# ── API — Números pausados por rate limit ────────────────────────────────────
+@crm_bp.route('/api/bot-rate-pausados', methods=['GET'])
+@login_required
+@require_role('Master')
+def api_bot_rate_pausados():
+    from app.models.wa_bot_session import WaBotSession
+    from app.utils.formatters import now_peru
+    now = now_peru()
+    try:
+        pausados = WaBotSession.query.filter(
+            WaBotSession.rate_pausado_hasta.isnot(None),
+            WaBotSession.rate_pausado_hasta > now,
+        ).all()
+        return jsonify({'ok': True, 'pausados': [
+            {
+                'numero':          s.numero,
+                'motivo':          s.rate_motivo,
+                'pausado_hasta':   s.rate_pausado_hasta.isoformat() if s.rate_pausado_hasta else None,
+                'resp_sesion':     s.rate_resp_sesion,
+                'resp_periodo':    s.rate_resp_periodo,
+                'aviso_enviado':   s.rate_aviso_enviado,
+            }
+            for s in pausados
+        ]})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ── API — Reactivar número pausado por rate limit ────────────────────────────
+@crm_bp.route('/api/bot-rate-reactivar/<path:numero>', methods=['POST'])
+@login_required
+@require_role('Master')
+def api_bot_rate_reactivar(numero):
+    from app.models.wa_bot_session import WaBotSession
+    s = WaBotSession.query.filter_by(numero=numero).first()
+    if not s:
+        return jsonify({'ok': False, 'error': 'Sesión no encontrada'}), 404
+    s.rate_pausado_hasta  = None
+    s.rate_motivo         = None
+    s.rate_aviso_enviado  = False
+    s.rate_resp_sesion    = 0
+    s.rate_resp_periodo   = 0
+    db.session.commit()
+    log.info(f'[CRM] Rate limit reactivado para {numero} por {current_user.username}')
+    return jsonify({'ok': True})

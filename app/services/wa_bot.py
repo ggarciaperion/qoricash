@@ -1650,6 +1650,12 @@ def _reset_sesion(session):
         session.cotiz_token = None   # invalidar token de cotización anterior
     except Exception:
         pass
+    # Resetear contador de sesión (nueva sesión = conteo desde cero).
+    # El contador de período persiste para que reiniciar no eluda el límite diario.
+    try:
+        session.rate_resp_sesion = 0
+    except Exception:
+        pass
 
 
 def _sesion_inactiva(session):
@@ -3711,6 +3717,157 @@ def _typing(numero, wa_id=''):
     time.sleep(1.2)  # pausa natural antes de responder
 
 
+# ── Rate limiting ──────────────────────────────────────────────────────────────
+# Protege contra uso abusivo sin bloquear conversaciones que avanzan hacia
+# una operación. Configurable desde SystemConfig sin necesidad de redeploy.
+#
+# Columnas en wa_bot_sessions (añadidas en el primer arrange de handle_message):
+#   rate_resp_sesion, rate_resp_periodo, rate_periodo_inicio,
+#   rate_pausado_hasta, rate_motivo, rate_aviso_enviado
+#
+# Keys en system_config:
+#   wa_rate_activo          'true'  — desactivar en emergencias
+#   wa_limite_sesion        '40'    — respuestas por sesión sin op creada
+#   wa_limite_periodo_resp  '100'   — respuestas en la ventana móvil
+#   wa_limite_periodo_horas '24'    — horas de la ventana móvil
+#   wa_pausa_minutos        '60'    — duración de la pausa en minutos
+#   wa_burst_max            '6'     — mensajes en ráfaga para pausar
+#   wa_burst_segundos       '8'     — ventana de ráfaga en segundos
+
+_RATE_COLS_ENSURED = False
+
+def _ensure_rate_cols():
+    """Añade columnas de rate-limit si no existen. Idempotente, corre 1 vez por proceso."""
+    global _RATE_COLS_ENSURED
+    if _RATE_COLS_ENSURED:
+        return
+    try:
+        from sqlalchemy import text as _sqlt
+        _defs = [
+            "rate_resp_sesion INTEGER NOT NULL DEFAULT 0",
+            "rate_resp_periodo INTEGER NOT NULL DEFAULT 0",
+            "rate_periodo_inicio TIMESTAMP",
+            "rate_pausado_hasta TIMESTAMP",
+            "rate_motivo VARCHAR(30)",
+            "rate_aviso_enviado BOOLEAN NOT NULL DEFAULT FALSE",
+        ]
+        for _col in _defs:
+            try:
+                db.session.execute(_sqlt(
+                    f"ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS {_col}"
+                ))
+            except Exception:
+                pass
+        db.session.commit()
+        _RATE_COLS_ENSURED = True
+    except Exception as _e:
+        log.debug(f'[WaBot] _ensure_rate_cols: {_e}')
+
+
+def _aplicar_pausa_rate(session, numero, now, motivo):
+    """Activa la pausa de rate limiting en la sesión."""
+    from app.models.system_config import SystemConfig
+    from datetime import timedelta
+    minutos = int(SystemConfig.get('wa_pausa_minutos', '60'))
+    session.rate_pausado_hasta = now + timedelta(minutes=minutos)
+    session.rate_motivo        = motivo
+    session.rate_aviso_enviado = False
+    log.warning(f'[WaBot][RateLimit] {numero} pausado ({motivo}) '
+                f'hasta {session.rate_pausado_hasta.strftime("%H:%M")}')
+
+
+def _check_rate_limit(session, numero):
+    """
+    Verifica límites de uso. Retorna True si el bot debe silenciarse.
+
+    Orden de evaluación:
+      1. ¿Ya está pausado? → silenciar (enviar aviso una sola vez)
+      2. ¿Operación activa En proceso? → solo burst protection
+      3. Ventana móvil vencida → resetear contador de período
+      4. ¿Sin operación creada? → verificar límite de sesión
+      5. Verificar límite de período
+      6. Verificar ráfaga (burst)
+    """
+    from app.models.system_config import SystemConfig
+    from app.utils.formatters import now_peru
+    from datetime import timedelta
+
+    if SystemConfig.get('wa_rate_activo', 'true').lower() != 'true':
+        return False
+
+    now = now_peru()
+
+    # ── 1. Pausa activa ──────────────────────────────────────────────────────
+    pausa_hasta = session.rate_pausado_hasta
+    if pausa_hasta and now < pausa_hasta:
+        if not session.rate_aviso_enviado:
+            hora_str = pausa_hasta.strftime('%H:%M')
+            send_text(numero,
+                f'⏸ El asistente automático ha alcanzado el límite de mensajes.\n\n'
+                f'Podrás continuar a las *{hora_str}*. '
+                f'Si necesitas ayuda urgente escribe *asesor* y un '
+                f'operador te contactará.'
+            )
+            session.rate_aviso_enviado = True
+        return True
+
+    # Pausa vencida → limpiar y continuar
+    if pausa_hasta and now >= pausa_hasta:
+        session.rate_pausado_hasta = None
+        session.rate_motivo        = None
+        session.rate_aviso_enviado = False
+        session.rate_resp_sesion   = 0
+
+    # ── 2. Operación activa → solo protección burst ──────────────────────────
+    _op = _operacion_activa_cliente(numero)
+    if _op and _op.status in ('En proceso', 'Pendiente', 'Completada'):
+        return _check_burst_rate(session, numero, now)
+
+    # ── 3. Reset ventana móvil si vencida ────────────────────────────────────
+    period_horas = int(SystemConfig.get('wa_limite_periodo_horas', '24'))
+    if session.rate_periodo_inicio:
+        elapsed_h = (now - session.rate_periodo_inicio).total_seconds() / 3600
+        if elapsed_h >= period_horas:
+            session.rate_resp_periodo   = 0
+            session.rate_periodo_inicio = now
+    else:
+        session.rate_periodo_inicio = now
+
+    # ── 4. Límite de sesión (sin operación creada) ───────────────────────────
+    tiene_op = bool(session.cotiz_op_id)
+    if not tiene_op:
+        session.rate_resp_sesion = (session.rate_resp_sesion or 0) + 1
+        limite_sesion = int(SystemConfig.get('wa_limite_sesion', '40'))
+        if session.rate_resp_sesion > limite_sesion:
+            _aplicar_pausa_rate(session, numero, now, 'limite_sesion')
+            return True
+
+    # ── 5. Límite de período ─────────────────────────────────────────────────
+    session.rate_resp_periodo = (session.rate_resp_periodo or 0) + 1
+    limite_periodo = int(SystemConfig.get('wa_limite_periodo_resp', '100'))
+    if session.rate_resp_periodo > limite_periodo:
+        _aplicar_pausa_rate(session, numero, now, 'limite_periodo')
+        return True
+
+    # ── 6. Burst ─────────────────────────────────────────────────────────────
+    return _check_burst_rate(session, numero, now)
+
+
+def _check_burst_rate(session, numero, now):
+    """Detecta ráfagas: N+ mensajes en menos de X segundos."""
+    from app.models.system_config import SystemConfig
+    burst_secs = int(SystemConfig.get('wa_burst_segundos', '8'))
+    burst_max  = int(SystemConfig.get('wa_burst_max', '6'))
+    if session.updated_at:
+        secs = (now - session.updated_at).total_seconds()
+        if secs < burst_secs:
+            session.rate_resp_sesion = (session.rate_resp_sesion or 0) + 1
+            if session.rate_resp_sesion > burst_max:
+                _aplicar_pausa_rate(session, numero, now, 'burst')
+                return True
+    return False
+
+
 def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
     """
     Punto de entrada desde webhook_receive().
@@ -3774,6 +3931,12 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     log.info(f'[WaBot] {numero} — bot pausado (asesor activo, hace {_pausa_min:.0f} min), mensaje ignorado.')
                     db.session.commit()
                     return
+
+        # ── Rate limiting ───────────────────────────────────────────────────
+        _ensure_rate_cols()
+        if _check_rate_limit(session, numero):
+            db.session.commit()
+            return
 
         # ── Sesión expirada por inactividad (cliente escribe tras 15 min) ──
         # Excepción: si el cliente tiene una operación En proceso, no expirar —
