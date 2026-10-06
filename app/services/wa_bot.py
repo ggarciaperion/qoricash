@@ -2517,25 +2517,31 @@ def _flujo_resumen_final(numero, session, client, regenerar_token=True):
         monto_envia  = importe
         monto_recibe = round(importe * tc, 2)
 
-    # Cuenta enmascarada: BCP USD ***1234
+    # Últimos 4 dígitos de la cuenta
     _ultimos = (num_d or '')[-4:]
-    _cuenta_mask = f'{banco_d} {sim_recibe} ***{_ultimos}' if banco_d else f'{sim_recibe} ***{_ultimos}'
+    _banco_label = banco_d if banco_d else ''
+    _cuenta_line = (
+        f'{_banco_label} · Cuenta terminada en {_ultimos}'
+        if _banco_label else f'Cuenta terminada en {_ultimos}'
+    )
+    _moneda_label = 'soles' if moneda_recibe == 'PEN' else 'dólares'
 
     # Hora de expiración (20 min desde ahora)
     try:
         from datetime import timedelta as _td_rs
         from app.utils.formatters import now_peru as _now_rs
-        _expira_rs = (_now_rs() + _td_rs(minutes=COTIZ_VALIDEZ_MIN)).strftime('%I:%M %p').lstrip('0')
+        _expira_rs = (_now_rs() + _td_rs(minutes=COTIZ_VALIDEZ_MIN)).strftime('%I:%M %p').lstrip('0').lower()
     except Exception:
         _expira_rs = '—'
 
     resumen = (
         f'📋 *Resumen de tu cotización*\n\n'
-        f'Envias:  {sim_envia} {monto_envia:,.2f} |\n'
-        f'Recibes:  {sim_recibe} {monto_recibe:,.2f} |\n'
+        f'Envías:  {sim_envia} {monto_envia:,.2f}\n'
+        f'Recibes:  {sim_recibe} {monto_recibe:,.2f}\n'
         f'Tipo de cambio: {tc:.4f}\n\n'
-        f'💳 Te abonamos en: *{_cuenta_mask}*\n\n'
-        f'> ⏱️ Válido hasta las {_expira_rs}'
+        f'💳 Recibirás tus {_moneda_label} en: *{_cuenta_line}*\n\n'
+        f'⏱️ Cotización válida hasta las {_expira_rs}\n\n'
+        f'¿Todo correcto? Pulsa *«Confirmar operación»* para continuar con las instrucciones de transferencia.'
     )
     # Generar (o reutilizar) token de resumen
     if regenerar_token:
@@ -2544,7 +2550,7 @@ def _flujo_resumen_final(numero, session, client, regenerar_token=True):
     else:
         _resumen_token = session.cotiz_token or str(uuid.uuid4())
     send_buttons(numero, resumen, [
-        {'id': f'btn_confirmar_operacion_{_resumen_token}', 'title': 'Crear Operacion'},
+        {'id': f'btn_confirmar_operacion_{_resumen_token}', 'title': 'Confirmar operación'},
         {'id': 'btn_modificar_importe_resumen',             'title': '✏️ Modificar importe'},
         {'id': 'btn_cambiar_cuenta_resumen',                'title': '🏦 Cambiar cuenta'},
     ])
