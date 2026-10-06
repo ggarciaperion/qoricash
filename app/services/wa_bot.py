@@ -1350,19 +1350,30 @@ def _bienvenida(numero, session):
             ]
         )
 
-    elif personas or empresas:
-        # Múltiples perfiles: preguntar con cuál operar
+    elif personas and empresas:
+        # Persona natural + empresa(s): saludar por nombre y preguntar perfil
+        p = personas[0]
+        primer = (p.nombres or '').strip().split()[0].title() if (p.nombres or '').strip() else ''
+        saludo = f'¡Hola, {primer}! 👋 Bienvenido a Qoricash.' if primer else '¡Hola! 👋 Bienvenido a Qoricash.'
+        send_buttons_image(numero, BANNER_URL,
+            f'{saludo}\n'
+            '📲 Cambia soles y dólares sin salir de tu WhatsApp.\n\n'
+            '¿Deseas operar como persona o como empresa?',
+            [
+                {'id': 'btn_como_persona', 'title': '👤 Como persona'},
+                {'id': 'btn_como_empresa', 'title': '🏢 Como empresa'},
+            ]
+        )
+
+    elif not personas and len(empresas) >= 2:
+        # Múltiples empresas sin persona: selector de empresa
         opciones = []
-        for p in personas[:1]:
-            nombre_p = (p.full_name or ((p.nombres or '') + ' ' + (p.apellidos or '')).strip() or p.dni or 'Mi perfil')[:18]
-            opciones.append({'id': f'btn_operar_personal_{p.dni}', 'title': f'👤 {nombre_p}'[:20]})
-        for emp in empresas[:2]:
+        for emp in empresas[:3]:
             razon_e = (emp.razon_social or emp.dni or '')[:16]
             opciones.append({'id': f'btn_operar_empresa_{emp.dni}', 'title': f'🏢 {razon_e}'[:20]})
-        opciones = opciones[:3]
         send_buttons_image(numero, BANNER_URL,
             '¡Bienvenido a Qoricash! 👋\n\n'
-            '¿Con qué perfil deseas operar hoy?',
+            '¿A nombre de qué empresa deseas operar?',
             opciones
         )
 
@@ -3900,7 +3911,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 session.estado = 'esperando_ruc_cotizar'
 
             elif btn_id == 'btn_cambiar_perfil':
-                # Limpiar perfil comprometido y mostrar selector de bienvenida
+                # Limpiar perfil comprometido
                 session.cotiz_doc     = ''
                 session.tipo          = ''
                 session.nombre        = ''
@@ -3909,21 +3920,63 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 session.cotiz_tc      = 0.0
                 session.cotiz_token   = None
                 session.cotiz_cuenta  = ''
-                _bienvenida(numero, session)
-                session.estado = 'eligiendo_operacion'
+                _todos_cp = _buscar_clientes_por_telefono_saludo(numero)
+                _personas_cp = [c for c in _todos_cp if (c.document_type or '').upper() in ('DNI', 'CE')]
+                _empresas_cp = [c for c in _todos_cp if (c.document_type or '').upper() == 'RUC']
+                if _personas_cp and not _empresas_cp:
+                    # Solo persona natural → ofrecer únicamente operar como empresa
+                    session.tipo = 'empresa'
+                    send_text(numero,
+                        '🏢 Para operar como empresa, ingresa el *RUC* de 11 dígitos de tu empresa:'
+                    )
+                    session.estado = 'esperando_ruc_cotizar'
+                elif _empresas_cp and not _personas_cp:
+                    # Solo empresas → ofrecer registrar persona natural + selector de empresa
+                    _opciones_cp = [{'id': 'btn_como_persona', 'title': '👤 Soy persona natural'}]
+                    for _emp_cp in _empresas_cp[:2]:
+                        _razon_cp = (_emp_cp.razon_social or _emp_cp.dni or '')[:16]
+                        _opciones_cp.append({'id': f'btn_operar_empresa_{_emp_cp.dni}', 'title': f'🏢 {_razon_cp}'[:20]})
+                    send_buttons(numero,
+                        '¿Cómo deseas continuar?',
+                        _opciones_cp[:3]
+                    )
+                    session.estado = 'eligiendo_operacion'
+                else:
+                    # Tiene ambos perfiles (o ninguno) → bienvenida normal
+                    _bienvenida(numero, session)
+                    session.estado = 'eligiendo_operacion'
 
             elif btn_id == 'btn_como_persona':
-                # Nuevo usuario eligió "Como persona" — sin doc hasta que acepte cotización
-                session.tipo      = 'persona'
-                session.cotiz_doc = ''
-                send_buttons(numero,
-                    '👤 Perfecto, operas como persona natural.\n\n¿Qué deseas cotizar?',
-                    [
-                        {'id': 'btn_comprar',       'title': 'Soles a dólares'},
-                        {'id': 'btn_vender',        'title': 'Dólares a soles'},
-                        {'id': 'btn_cambiar_perfil','title': '🔄 Cambiar perfil'},
-                    ]
+                # Si el teléfono ya tiene persona registrada → comprometer directamente
+                _todos_bp = _buscar_clientes_por_telefono_saludo(numero)
+                _persona_bp = next(
+                    (c for c in _todos_bp if (c.document_type or '').upper() in ('DNI', 'CE')), None
                 )
+                if _persona_bp:
+                    primer_bp = (_persona_bp.nombres or '').strip().split()[0].title() if (_persona_bp.nombres or '').strip() else ''
+                    session.tipo      = 'persona'
+                    session.cotiz_doc = _persona_bp.dni
+                    session.nombre    = primer_bp or (_persona_bp.full_name or '').strip()
+                    send_buttons(numero,
+                        f'¡Hola, {primer_bp}! 👋\n\n¿Qué deseas cotizar?' if primer_bp else '¿Qué deseas cotizar?',
+                        [
+                            {'id': 'btn_comprar',        'title': 'Soles a dólares'},
+                            {'id': 'btn_vender',         'title': 'Dólares a soles'},
+                            {'id': 'btn_cambiar_perfil', 'title': '🔄 Cambiar perfil'},
+                        ]
+                    )
+                else:
+                    # Sin persona registrada → nuevo usuario como persona natural
+                    session.tipo      = 'persona'
+                    session.cotiz_doc = ''
+                    send_buttons(numero,
+                        '👤 Perfecto, operas como persona natural.\n\n¿Qué deseas cotizar?',
+                        [
+                            {'id': 'btn_comprar',        'title': 'Soles a dólares'},
+                            {'id': 'btn_vender',         'title': 'Dólares a soles'},
+                            {'id': 'btn_cambiar_perfil', 'title': '🔄 Cambiar perfil'},
+                        ]
+                    )
                 session.estado = 'eligiendo_operacion'
 
             elif btn_id == 'btn_como_empresa':
@@ -5414,47 +5467,63 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                 )
                                 session.estado = 'inicio'
                         else:
-                            # No existe → consultar RENIEC/SUNAT
-                            session.cotiz_intentos = 0  # reset contador de intentos
-                            send_text(numero, '🔍 Verificando tu documento...')
-                            nombre_api = _lookup_ruc(doc) if es_empresa else _lookup_dni(doc)
-                            if nombre_api:
-                                session.nombre = nombre_api
-                                if not _tipo_idc:
-                                    session.tipo = 'empresa' if es_empresa else 'natural'
-                                elif _tipo_idc == 'persona':
-                                    session.tipo = 'natural'
-                                send_buttons(numero,
-                                    f'Documento verificado con éxito ✅\n\n'
-                                    f'Para finalizar, coloca tu *correo electrónico*:\n\n'
-                                    f'> Revísalo bien tu correo antes de enviarlo.',
-                                    [
-                                        {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'},
-                                    ]
+                            # Unicidad: un teléfono puede estar vinculado a una sola persona natural
+                            _persona_vin_unic = None
+                            if not es_empresa:
+                                _todos_unic = _buscar_clientes_por_telefono_saludo(numero)
+                                _persona_vin_unic = next(
+                                    (c for c in _todos_unic if (c.document_type or '').upper() in ('DNI', 'CE')), None
                                 )
-                                session.estado = 'esperando_email_cotizar'
+                            if not es_empresa and _persona_vin_unic and _persona_vin_unic.dni != doc:
+                                send_buttons(numero,
+                                    'Este número ya está vinculado a una persona natural. '
+                                    'Para operar con otro DNI o CE, comunícate con un asesor.',
+                                    [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                                )
+                                session.cotiz_doc = ''
+                                session.estado    = 'inicio'
                             else:
-                                _intentos = (session.cotiz_intentos or 0) + 1
-                                session.cotiz_intentos = _intentos
-                                if _intentos >= 3:
+                                # No existe → consultar RENIEC/SUNAT
+                                session.cotiz_intentos = 0  # reset contador de intentos
+                                send_text(numero, '🔍 Verificando tu documento...')
+                                nombre_api = _lookup_ruc(doc) if es_empresa else _lookup_dni(doc)
+                                if nombre_api:
+                                    session.nombre = nombre_api
+                                    if not _tipo_idc:
+                                        session.tipo = 'empresa' if es_empresa else 'natural'
+                                    elif _tipo_idc == 'persona':
+                                        session.tipo = 'natural'
                                     send_buttons(numero,
-                                        f'Hemos intentado verificar *{doc}* varias veces y no lo encontramos en '
-                                        f'{"SUNAT" if es_empresa else "RENIEC"}.\n\n'
-                                        'Puede que el número tenga un error o no esté registrado. '
-                                        'Un asesor puede ayudarte a continuar.',
+                                        f'Documento verificado con éxito ✅\n\n'
+                                        f'Para finalizar, coloca tu *correo electrónico*:\n\n'
+                                        f'> Revísalo bien tu correo antes de enviarlo.',
                                         [
-                                            {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
-                                            {'id': 'btn_no_ahora', 'title': '← Volver'},
+                                            {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'},
                                         ]
                                     )
+                                    session.estado = 'esperando_email_cotizar'
                                 else:
-                                    _restantes = 3 - _intentos
-                                    send_buttons(numero,
-                                        f'No encontramos el número *{doc}* 🤔\n\n'
-                                        f'Revisa que esté bien escrito e ingrésalo de nuevo '
-                                        f'({_restantes} intento{"s" if _restantes > 1 else ""} restante{"s" if _restantes > 1 else ""}).',
-                                        [{'id': 'btn_no_ahora', 'title': '← Volver'}]
-                                    )
+                                    _intentos = (session.cotiz_intentos or 0) + 1
+                                    session.cotiz_intentos = _intentos
+                                    if _intentos >= 3:
+                                        send_buttons(numero,
+                                            f'Hemos intentado verificar *{doc}* varias veces y no lo encontramos en '
+                                            f'{"SUNAT" if es_empresa else "RENIEC"}.\n\n'
+                                            'Puede que el número tenga un error o no esté registrado. '
+                                            'Un asesor puede ayudarte a continuar.',
+                                            [
+                                                {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
+                                                {'id': 'btn_no_ahora', 'title': '← Volver'},
+                                            ]
+                                        )
+                                    else:
+                                        _restantes = 3 - _intentos
+                                        send_buttons(numero,
+                                            f'No encontramos el número *{doc}* 🤔\n\n'
+                                            f'Revisa que esté bien escrito e ingrésalo de nuevo '
+                                            f'({_restantes} intento{"s" if _restantes > 1 else ""} restante{"s" if _restantes > 1 else ""}).',
+                                            [{'id': 'btn_no_ahora', 'title': '← Volver'}]
+                                        )
                 else:
                     _tipo_err = (session.tipo or '').strip()
                     if _tipo_err == 'persona':
@@ -5655,62 +5724,79 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     doc        = session.cotiz_doc or ''
                     nombre_reg = session.nombre    or ''
                     es_empresa = (session.tipo == 'empresa')
-                    try:
-                        client = _auto_crear_cliente(doc, nombre_reg, es_empresa, numero, email=email_raw)
-                        _nombres_reg = (client.nombres or '').strip()
-                        saludo = (_nombres_reg.split()[0].title() if _nombres_reg else
-                                  (client.razon_social or '').split()[0].title() or 'Cliente')
-                        _notificar_admins_wa(
-                            f'🆕 Cliente auto-registrado vía bot (cotizar):\n'
-                            f'Doc: {doc} | {nombre_reg}\n'
-                            f'Email: {email_raw} | Tel: {numero}'
+                    # Unicidad backend: si es persona, bloquear si el teléfono ya tiene otra persona natural
+                    _bloquear_d2 = False
+                    if not es_empresa:
+                        _todos_d2 = _buscar_clientes_por_telefono_saludo(numero)
+                        _pvin_d2  = next(
+                            (c for c in _todos_d2 if (c.document_type or '').upper() in ('DNI', 'CE')), None
                         )
-                        _enviar_bienvenida_wa(client.id)
-                        moneda_recibe_ec = 'USD' if session.cotiz_op == 'compra' else 'PEN'
-                        _simbolo_ec = 'dólares (USD)' if moneda_recibe_ec == 'USD' else 'soles (S/)'
-                        _label_ec   = 'dólares' if moneda_recibe_ec == 'USD' else 'soles'
-                        _ok_ec = send_list(numero,
-                            f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
-                            f'Recibirás las confirmaciones en {email_raw}.\n\n'
-                            f'¿En qué banco quieres recibir tus *{_simbolo_ec}*?\n\n> 👇 Selecciona tu banco',
-                            [{'title': 'Selecciona tu banco', 'rows': [
-                                {'id': 'btn_banco_bcp',        'title': 'BCP'},
-                                {'id': 'btn_banco_interbank',  'title': 'Interbank'},
-                                {'id': 'btn_banco_banbif',     'title': 'BanBif'},
-                                {'id': 'btn_banco_bbva',       'title': 'BBVA'},
-                                {'id': 'btn_banco_scotiabank', 'title': 'Scotiabank'},
-                                {'id': 'btn_banco_pichincha',  'title': 'Pichincha'},
-                                {'id': 'btn_banco_otras',      'title': 'Otras entidades'},
-                            ]}],
-                            button='🏦 Elegir banco'
-                        )
-                        if not _ok_ec:
-                            send_list(numero,
+                        if _pvin_d2 and _pvin_d2.dni != doc:
+                            send_buttons(numero,
+                                'Este número ya está vinculado a una persona natural. '
+                                'Para operar con otro DNI o CE, comunícate con un asesor.',
+                                [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                            )
+                            session.cotiz_doc = ''
+                            session.estado    = 'inicio'
+                            _bloquear_d2 = True
+                    if not _bloquear_d2:
+                        try:
+                            client = _auto_crear_cliente(doc, nombre_reg, es_empresa, numero, email=email_raw)
+                            _nombres_reg = (client.nombres or '').strip()
+                            saludo = (_nombres_reg.split()[0].title() if _nombres_reg else
+                                      (client.razon_social or '').split()[0].title() or 'Cliente')
+                            _notificar_admins_wa(
+                                f'🆕 Cliente auto-registrado vía bot (cotizar):\n'
+                                f'Doc: {doc} | {nombre_reg}\n'
+                                f'Email: {email_raw} | Tel: {numero}'
+                            )
+                            _enviar_bienvenida_wa(client.id)
+                            moneda_recibe_ec = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                            _simbolo_ec = 'dólares (USD)' if moneda_recibe_ec == 'USD' else 'soles (S/)'
+                            _label_ec   = 'dólares' if moneda_recibe_ec == 'USD' else 'soles'
+                            _ok_ec = send_list(numero,
                                 f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
+                                f'Recibirás las confirmaciones en {email_raw}.\n\n'
                                 f'¿En qué banco quieres recibir tus *{_simbolo_ec}*?\n\n> 👇 Selecciona tu banco',
                                 [{'title': 'Selecciona tu banco', 'rows': [
                                     {'id': 'btn_banco_bcp',        'title': 'BCP'},
-                                    {'id': 'btn_banco_interbank',  'title': 'INTERBANK'},
-                                    {'id': 'btn_banco_banbif',     'title': 'BANBIF'},
+                                    {'id': 'btn_banco_interbank',  'title': 'Interbank'},
+                                    {'id': 'btn_banco_banbif',     'title': 'BanBif'},
                                     {'id': 'btn_banco_bbva',       'title': 'BBVA'},
-                                    {'id': 'btn_banco_scotiabank', 'title': 'SCOTIABANK'},
-                                    {'id': 'btn_banco_pichincha',  'title': 'PICHINCHA'},
-                                    {'id': 'btn_banco_otras',      'title': 'OTROS BANCOS'},
+                                    {'id': 'btn_banco_scotiabank', 'title': 'Scotiabank'},
+                                    {'id': 'btn_banco_pichincha',  'title': 'Pichincha'},
+                                    {'id': 'btn_banco_otras',      'title': 'Otras entidades'},
                                 ]}],
-                                button='🏦 Ver bancos'
+                                button='🏦 Elegir banco'
                             )
-                        session.estado = 'esperando_cuenta_destino'
-                    except Exception as _e:
-                        db.session.rollback()
-                        log.error(f'[WaBot] Error auto-creando cliente {doc}: {_e}')
-                        send_buttons(numero,
-                            '⚠️ No pudimos completar tu registro. Un asesor te ayudará.',
-                            [
-                                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
-                                {'id': 'btn_no_ahora', 'title': '❌ Cancelar'},
-                            ]
-                        )
-                        session.estado = 'inicio'
+                            if not _ok_ec:
+                                send_list(numero,
+                                    f'🎉 ¡Listo, {saludo}! Tu perfil en Qoricash ha sido creado.\n\n'
+                                    f'¿En qué banco quieres recibir tus *{_simbolo_ec}*?\n\n> 👇 Selecciona tu banco',
+                                    [{'title': 'Selecciona tu banco', 'rows': [
+                                        {'id': 'btn_banco_bcp',        'title': 'BCP'},
+                                        {'id': 'btn_banco_interbank',  'title': 'INTERBANK'},
+                                        {'id': 'btn_banco_banbif',     'title': 'BANBIF'},
+                                        {'id': 'btn_banco_bbva',       'title': 'BBVA'},
+                                        {'id': 'btn_banco_scotiabank', 'title': 'SCOTIABANK'},
+                                        {'id': 'btn_banco_pichincha',  'title': 'PICHINCHA'},
+                                        {'id': 'btn_banco_otras',      'title': 'OTROS BANCOS'},
+                                    ]}],
+                                    button='🏦 Ver bancos'
+                                )
+                            session.estado = 'esperando_cuenta_destino'
+                        except Exception as _e:
+                            db.session.rollback()
+                            log.error(f'[WaBot] Error auto-creando cliente {doc}: {_e}')
+                            send_buttons(numero,
+                                '⚠️ No pudimos completar tu registro. Un asesor te ayudará.',
+                                [
+                                    {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                                    {'id': 'btn_no_ahora', 'title': '❌ Cancelar'},
+                                ]
+                            )
+                            session.estado = 'inicio'
                 else:
                     send_buttons(numero,
                         '⚠️ Correo no válido. Verifica que:\n'
