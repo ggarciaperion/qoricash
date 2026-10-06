@@ -1711,14 +1711,32 @@ def _flujo_seleccionar_titular(numero, session):
     activos = [c for c in clientes if (c.status or '').lower() == 'activo']
 
     if len(activos) == 0:
-        send_buttons(numero,
-            'Para continuar, ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).\n\n'
-            'Si tienes Carné de Extranjería, elige CE 👇',
-            [
-                {'id': 'btn_tengo_ce',       'title': '🌍 Tengo CE'},
-                {'id': 'btn_volver_cotizar',  'title': '🔙 Volver'},
-            ]
-        )
+        _tipo_sel = (session.tipo or '').strip()
+        if _tipo_sel == 'persona':
+            send_buttons(numero,
+                'Para continuar, ingresa tu *DNI* de 8 dígitos.\n\n'
+                'Si tienes Carné de Extranjería, selecciona CE 👇',
+                [
+                    {'id': 'btn_tengo_ce',       'title': '🌍 Tengo CE'},
+                    {'id': 'btn_volver_cotizar',  'title': '🔙 Volver'},
+                ]
+            )
+        elif _tipo_sel == 'empresa':
+            send_buttons(numero,
+                'Para continuar, ingresa el *RUC* de 11 dígitos de tu empresa.',
+                [
+                    {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
+                ]
+            )
+        else:
+            send_buttons(numero,
+                'Para continuar, ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).\n\n'
+                'Si tienes Carné de Extranjería, elige CE 👇',
+                [
+                    {'id': 'btn_tengo_ce',       'title': '🌍 Tengo CE'},
+                    {'id': 'btn_volver_cotizar',  'title': '🔙 Volver'},
+                ]
+            )
         session.estado = 'esperando_id_cotizar'
 
     elif len(activos) == 1:
@@ -4177,15 +4195,33 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         _flujo_elegir_cliente_telefono(numero, _clientes_tel)
                         session.estado = 'eligiendo_cliente_telefono'
                     else:
-                        # Cliente desconocido: solicitar documento directamente, sin pregunta intermedia.
-                        send_buttons(numero,
-                            'Para continuar, ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).\n\n'
-                            'Si tienes Carné de Extranjería, elige CE 👇',
-                            [
-                                {'id': 'btn_tengo_ce',      'title': '🌍 Tengo CE'},
-                                {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
-                            ]
-                        )
+                        # Cliente desconocido: solicitar documento según perfil seleccionado.
+                        _tipo_ac = (session.tipo or '').strip()
+                        if _tipo_ac == 'persona':
+                            send_buttons(numero,
+                                'Para continuar, ingresa tu *DNI* de 8 dígitos.\n\n'
+                                'Si tienes Carné de Extranjería, selecciona CE 👇',
+                                [
+                                    {'id': 'btn_tengo_ce',      'title': '🌍 Tengo CE'},
+                                    {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
+                                ]
+                            )
+                        elif _tipo_ac == 'empresa':
+                            send_buttons(numero,
+                                'Para continuar, ingresa el *RUC* de 11 dígitos de tu empresa.',
+                                [
+                                    {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
+                                ]
+                            )
+                        else:
+                            send_buttons(numero,
+                                'Para continuar, ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).\n\n'
+                                'Si tienes Carné de Extranjería, elige CE 👇',
+                                [
+                                    {'id': 'btn_tengo_ce',      'title': '🌍 Tengo CE'},
+                                    {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
+                                ]
+                            )
                         session.estado = 'esperando_id_cotizar'
 
             elif btn_id.startswith('btn_cliente_') and estado in ('eligiendo_cliente_telefono', 'eligiendo_titular'):
@@ -4238,14 +4274,30 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 session.cotiz_doc    = ''
                 session.cotiz_cuenta = ''
                 session.nombre       = ''
-                send_buttons(numero,
-                    'Ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).\n\n'
-                    'Si tienes Carné de Extranjería, elige CE 👇',
-                    [
-                        {'id': 'btn_tengo_ce',      'title': '🌍 Tengo CE'},
-                        {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
-                    ]
-                )
+                _tipo_uod = (session.tipo or '').strip()
+                if _tipo_uod == 'persona':
+                    send_buttons(numero,
+                        'Ingresa tu *DNI* de 8 dígitos.\n\n'
+                        'Si tienes Carné de Extranjería, selecciona CE 👇',
+                        [
+                            {'id': 'btn_tengo_ce',      'title': '🌍 Tengo CE'},
+                            {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
+                        ]
+                    )
+                elif _tipo_uod == 'empresa':
+                    send_buttons(numero,
+                        'Ingresa el *RUC* de 11 dígitos de tu empresa.',
+                        [{'id': 'btn_volver_cotizar', 'title': '🔙 Volver'}]
+                    )
+                else:
+                    send_buttons(numero,
+                        'Ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).\n\n'
+                        'Si tienes Carné de Extranjería, elige CE 👇',
+                        [
+                            {'id': 'btn_tengo_ce',      'title': '🌍 Tengo CE'},
+                            {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
+                        ]
+                    )
                 session.estado = 'esperando_id_cotizar'
 
             elif btn_id.startswith('btn_cuenta_') and estado == 'eligiendo_cuenta_destino':
@@ -5302,78 +5354,111 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     _reset_sesion(session)
                     _menu_rapido(numero)
                 elif _es_dni(doc) or _es_ruc(doc):
-                    session.cotiz_doc = doc
-                    es_empresa = _es_ruc(doc)
-                    client = _buscar_cliente(doc)
-                    if client:
-                        if client.status == 'Activo':
-                            if not _telefono_autorizado(client, numero):
-                                _flujo_telefono_no_autorizado(numero, client.full_name or client.razon_social or doc)
-                                session.estado = 'inicio'
-                            else:
-                                primer_nombre = (client.nombres or client.razon_social or '').split()[0].title()
-                                send_text(numero, f'🎉 ¡Hola de nuevo, {primer_nombre}!')
-                                moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
-                                cuentas = _cuentas_cliente_por_moneda(client, moneda_recibe)
-                                if cuentas:
-                                    _seleccionar_cuenta_y_continuar(numero, session, client, cuentas, moneda_recibe)
-                                else:
-                                    _flujo_pedir_cuenta_destino(numero, moneda_recibe)
-                                    session.estado = 'esperando_cuenta_destino'
-                        else:
-                            send_buttons(numero,
-                                '⏳ Encontramos tu cuenta pero aún no está activa.\n\n'
-                                'Nuestro equipo la activará pronto. ¿Deseas hablar con un asesor?',
-                                [
-                                    {'id': 'btn_asesor',       'title': '💬 Hablar con asesor'},
-                                    {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
-                                ]
-                            )
-                            session.estado = 'inicio'
+                    _tipo_idc = (session.tipo or '').strip()
+                    # Guardia de perfil: rechazar documento que no corresponde al tipo elegido
+                    if _tipo_idc == 'persona' and _es_ruc(doc):
+                        send_buttons(numero,
+                            '⚠️ Estás operando como *persona natural*.\n\n'
+                            'Ingresa tu *DNI* (8 dígitos) o *CE* (9 dígitos).\n'
+                            'Si deseas cambiar de perfil, vuelve al inicio.',
+                            [
+                                {'id': 'btn_tengo_ce',       'title': '🌍 Tengo CE'},
+                                {'id': 'btn_volver_cotizar',  'title': '🔙 Volver'},
+                            ]
+                        )
+                    elif _tipo_idc == 'empresa' and not _es_ruc(doc):
+                        send_buttons(numero,
+                            '⚠️ Estás operando como *empresa*.\n\n'
+                            'Ingresa el *RUC* de 11 dígitos de tu empresa.',
+                            [{'id': 'btn_volver_cotizar', 'title': '🔙 Volver'}]
+                        )
                     else:
-                        # No existe → consultar RENIEC/SUNAT
-                        session.cotiz_intentos = 0  # reset contador de intentos
-                        send_text(numero, '🔍 Verificando tu documento...')
-                        nombre_api = _lookup_ruc(doc) if es_empresa else _lookup_dni(doc)
-                        if nombre_api:
-                            session.nombre = nombre_api
-                            session.tipo   = 'empresa' if es_empresa else 'natural'
-                            send_buttons(numero,
-                                f'Documento verificado con éxito ✅\n\n'
-                                f'Para finalizar, coloca tu *correo electrónico*:\n\n'
-                                f'> Revísalo bien tu correo antes de enviarlo.',
-                                [
-                                    {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'},
-                                ]
-                            )
-                            session.estado = 'esperando_email_cotizar'
-                        else:
-                            _intentos = (session.cotiz_intentos or 0) + 1
-                            session.cotiz_intentos = _intentos
-                            if _intentos >= 3:
+                        session.cotiz_doc = doc
+                        es_empresa = _es_ruc(doc)
+                        # Solo actualizar tipo si no está ya comprometido
+                        if not _tipo_idc:
+                            session.tipo = 'empresa' if es_empresa else 'natural'
+                        elif _tipo_idc == 'persona':
+                            session.tipo = 'natural'
+                        # Si _tipo_idc == 'empresa', mantener sin cambios
+                        client = _buscar_cliente(doc)
+                        if client:
+                            if client.status == 'Activo':
+                                if not _telefono_autorizado(client, numero):
+                                    _flujo_telefono_no_autorizado(numero, client.full_name or client.razon_social or doc)
+                                    session.estado = 'inicio'
+                                else:
+                                    primer_nombre = (client.nombres or client.razon_social or '').split()[0].title()
+                                    send_text(numero, f'🎉 ¡Hola de nuevo, {primer_nombre}!')
+                                    moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                                    cuentas = _cuentas_cliente_por_moneda(client, moneda_recibe)
+                                    if cuentas:
+                                        _seleccionar_cuenta_y_continuar(numero, session, client, cuentas, moneda_recibe)
+                                    else:
+                                        _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                                        session.estado = 'esperando_cuenta_destino'
+                            else:
                                 send_buttons(numero,
-                                    f'Hemos intentado verificar *{doc}* varias veces y no lo encontramos en '
-                                    f'{"SUNAT" if es_empresa else "RENIEC"}.\n\n'
-                                    'Puede que el número tenga un error o no esté registrado. '
-                                    'Un asesor puede ayudarte a continuar.',
+                                    '⏳ Encontramos tu cuenta pero aún no está activa.\n\n'
+                                    'Nuestro equipo la activará pronto. ¿Deseas hablar con un asesor?',
                                     [
-                                        {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
-                                        {'id': 'btn_no_ahora', 'title': '← Volver'},
+                                        {'id': 'btn_asesor',       'title': '💬 Hablar con asesor'},
+                                        {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
                                     ]
                                 )
-                            else:
-                                _restantes = 3 - _intentos
+                                session.estado = 'inicio'
+                        else:
+                            # No existe → consultar RENIEC/SUNAT
+                            session.cotiz_intentos = 0  # reset contador de intentos
+                            send_text(numero, '🔍 Verificando tu documento...')
+                            nombre_api = _lookup_ruc(doc) if es_empresa else _lookup_dni(doc)
+                            if nombre_api:
+                                session.nombre = nombre_api
+                                if not _tipo_idc:
+                                    session.tipo = 'empresa' if es_empresa else 'natural'
+                                elif _tipo_idc == 'persona':
+                                    session.tipo = 'natural'
                                 send_buttons(numero,
-                                    f'No encontramos el número *{doc}* 🤔\n\n'
-                                    f'Revisa que esté bien escrito e ingrésalo de nuevo '
-                                    f'({_restantes} intento{"s" if _restantes > 1 else ""} restante{"s" if _restantes > 1 else ""}).',
-                                    [{'id': 'btn_no_ahora', 'title': '← Volver'}]
+                                    f'Documento verificado con éxito ✅\n\n'
+                                    f'Para finalizar, coloca tu *correo electrónico*:\n\n'
+                                    f'> Revísalo bien tu correo antes de enviarlo.',
+                                    [
+                                        {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'},
+                                    ]
                                 )
+                                session.estado = 'esperando_email_cotizar'
+                            else:
+                                _intentos = (session.cotiz_intentos or 0) + 1
+                                session.cotiz_intentos = _intentos
+                                if _intentos >= 3:
+                                    send_buttons(numero,
+                                        f'Hemos intentado verificar *{doc}* varias veces y no lo encontramos en '
+                                        f'{"SUNAT" if es_empresa else "RENIEC"}.\n\n'
+                                        'Puede que el número tenga un error o no esté registrado. '
+                                        'Un asesor puede ayudarte a continuar.',
+                                        [
+                                            {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
+                                            {'id': 'btn_no_ahora', 'title': '← Volver'},
+                                        ]
+                                    )
+                                else:
+                                    _restantes = 3 - _intentos
+                                    send_buttons(numero,
+                                        f'No encontramos el número *{doc}* 🤔\n\n'
+                                        f'Revisa que esté bien escrito e ingrésalo de nuevo '
+                                        f'({_restantes} intento{"s" if _restantes > 1 else ""} restante{"s" if _restantes > 1 else ""}).',
+                                        [{'id': 'btn_no_ahora', 'title': '← Volver'}]
+                                    )
                 else:
+                    _tipo_err = (session.tipo or '').strip()
+                    if _tipo_err == 'persona':
+                        _doc_hint = '*DNI* (8 dígitos) o *CE* (9 dígitos)\nEjemplo: *12345678*'
+                    elif _tipo_err == 'empresa':
+                        _doc_hint = '*RUC* de 11 dígitos\nEjemplo: *20123456789*'
+                    else:
+                        _doc_hint = '*DNI* (8 dígitos), *CE* (9 dígitos) o *RUC* (11 dígitos)\nEjemplo: *12345678* · *20123456789*'
                     send_buttons(numero,
-                        '⚠️ Documento no válido.\n\n'
-                        'Ingresa tu *DNI* (8 dígitos), *CE* (9 dígitos) o *RUC* (11 dígitos).\n'
-                        'Ejemplo: *12345678* · *123456789* · *20123456789*',
+                        f'⚠️ Documento no válido.\n\nIngresa tu {_doc_hint}.',
                         [{'id': 'btn_no_ahora', 'title': '❌ Cancelar'}]
                     )
 
