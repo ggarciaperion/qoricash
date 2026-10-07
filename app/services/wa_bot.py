@@ -1358,7 +1358,7 @@ def _bienvenida(numero, session):
         send_buttons_image(numero, BANNER_URL,
             f'{saludo}\n'
             '📲 Cambia soles y dólares sin salir de tu WhatsApp.\n\n'
-            '¿Deseas operar como persona o como empresa?',
+            '¿Deseas cotizar como persona o como empresa?',
             [
                 {'id': 'btn_como_persona', 'title': '👤 Como persona'},
                 {'id': 'btn_como_empresa', 'title': '🏢 Como empresa'},
