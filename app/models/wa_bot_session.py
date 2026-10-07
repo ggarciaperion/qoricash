@@ -37,19 +37,6 @@ class WaBotSession(db.Model):
     bot_pausado    = db.Column(db.Boolean, default=False, nullable=False)
     # Intentos fallidos consecutivos en el estado actual (para ofrecer salida tras N errores)
     cotiz_intentos = db.Column(db.Integer, default=0, nullable=False)
-    # ── Rate limiting ──────────────────────────────────────────────────────────
-    # rate_resp_sesion   : respuestas del bot en la sesión actual (sin operación creada)
-    # rate_resp_periodo  : respuestas del bot en la ventana móvil (ej. 24 h)
-    # rate_periodo_inicio: inicio de la ventana móvil actual
-    # rate_pausado_hasta : datetime hasta el que el bot está silenciado (NULL = activo)
-    # rate_motivo        : 'limite_sesion' | 'limite_periodo' | 'burst' | 'manual'
-    # rate_aviso_enviado : True si ya se envió el mensaje de pausa (para no repetirlo)
-    rate_resp_sesion    = db.Column(db.Integer,    default=0,     nullable=False)
-    rate_resp_periodo   = db.Column(db.Integer,    default=0,     nullable=False)
-    rate_periodo_inicio = db.Column(db.DateTime,   nullable=True)
-    rate_pausado_hasta  = db.Column(db.DateTime,   nullable=True)
-    rate_motivo         = db.Column(db.String(30), nullable=True)
-    rate_aviso_enviado  = db.Column(db.Boolean,    default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=now_peru, nullable=False)
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru, nullable=False)
 
