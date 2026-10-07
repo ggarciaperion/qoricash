@@ -1321,7 +1321,7 @@ def _bienvenida(numero, session):
         send_buttons_image(numero, BANNER_URL,
             f'{saludo}\n'
             '📲 Cambia soles y dólares sin salir de tu WhatsApp.\n\n'
-            '¿Qué deseas cotizar?\n'
+            '¿Qué operación cotizamos hoy?\n'
             '> Elige una opción 👇',
             [
                 {'id': 'btn_comprar',       'title': 'Soles a dólares'},
@@ -3975,7 +3975,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     session.cotiz_doc = _persona_bp.dni
                     session.nombre    = primer_bp or (_persona_bp.full_name or '').strip()
                     send_buttons(numero,
-                        f'¡Hola, {primer_bp}! 👋\n\n¿Qué deseas cotizar?' if primer_bp else '¿Qué deseas cotizar?',
+                        f'¡Hola, {primer_bp}! 👋\n\n¿Qué operación cotizamos hoy?' if primer_bp else '¿Qué operación cotizamos hoy?',
                         [
                             {'id': 'btn_comprar',        'title': 'Soles a dólares'},
                             {'id': 'btn_vender',         'title': 'Dólares a soles'},
@@ -3987,7 +3987,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     session.tipo      = 'persona'
                     session.cotiz_doc = ''
                     send_buttons(numero,
-                        '👤 Perfecto, operas como persona natural.\n\n¿Qué deseas cotizar?',
+                        '👤 Perfecto, operas como persona natural.\n\n¿Qué operación cotizamos hoy?',
                         [
                             {'id': 'btn_comprar',        'title': 'Soles a dólares'},
                             {'id': 'btn_vender',         'title': 'Dólares a soles'},
@@ -4047,7 +4047,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     session.cotiz_doc = _p_op.dni
                     _primer_op = (_p_op.nombres or '').strip().split()[0].title() if (_p_op.nombres or '').strip() else ''
                     session.nombre = _primer_op or (_p_op.full_name or '').strip()
-                    _msg_op = f'¡Hola, {_primer_op}! 👋\n\n¿Qué deseas cotizar?' if _primer_op else '¿Qué deseas cotizar?'
+                    _msg_op = f'¡Hola, {_primer_op}! 👋\n\n¿Qué operación cotizamos hoy?' if _primer_op else '¿Qué operación cotizamos hoy?'
                     send_buttons(numero, _msg_op, [
                         {'id': 'btn_comprar',       'title': 'Soles a dólares'},
                         {'id': 'btn_vender',        'title': 'Dólares a soles'},
