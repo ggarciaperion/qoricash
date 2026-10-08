@@ -138,6 +138,23 @@ def api_conversaciones():
             .all()
         }
 
+        # Cargar estados de atención por número
+        from app.models.wa_bot_session import WaBotSession
+        from app.models.user import User
+        sesiones = WaBotSession.query.with_entities(
+            WaBotSession.numero,
+            WaBotSession.estado_atencion,
+            WaBotSession.assigned_to,
+            WaBotSession.bot_pausado,
+        ).all()
+        sesion_map = {s.numero: s for s in sesiones}
+
+        # Cargar nombres de asesores asignados
+        assigned_ids = {s.assigned_to for s in sesiones if s.assigned_to}
+        users_map = {}
+        if assigned_ids:
+            users_map = {u.id: u.username for u in User.query.filter(User.id.in_(assigned_ids)).all()}
+
         result = []
         for m in rows:
             num = m.numero
@@ -147,15 +164,22 @@ def api_conversaciones():
                 estado = 'contactado'
             else:
                 estado = 'nuevo'
+            ses = sesion_map.get(num)
+            estado_atencion = getattr(ses, 'estado_atencion', 'bot') if ses else 'bot'
+            assigned_to     = getattr(ses, 'assigned_to', None) if ses else None
+            assigned_name   = users_map.get(assigned_to, '') if assigned_to else ''
             result.append({
-                'numero':    num,
-                'nombre':    m.nombre or num,
-                'empresa':   m.empresa,
-                'ultimo':    m.mensaje[:60] + ('...' if len(m.mensaje) > 60 else ''),
-                'hora':      _fmt_hora_conv(m.created_at),
-                'direccion': m.direccion,
-                'no_leidos': no_leidos_map.get(num, 0),
-                'estado':    estado,
+                'numero':          num,
+                'nombre':          m.nombre or num,
+                'empresa':         m.empresa,
+                'ultimo':          m.mensaje[:60] + ('...' if len(m.mensaje) > 60 else ''),
+                'hora':            _fmt_hora_conv(m.created_at),
+                'direccion':       m.direccion,
+                'no_leidos':       no_leidos_map.get(num, 0),
+                'estado':          estado,
+                'estado_atencion': estado_atencion,
+                'assigned_to':     assigned_to,
+                'assigned_name':   assigned_name,
             })
 
         # Ordenar: no leídos primero, luego por fecha más reciente (estable — el query ya viene desc)
@@ -182,33 +206,85 @@ def api_mensajes(numero):
     WaMessage.query.filter_by(numero=numero, leido=False, direccion='entrante').update({'leido': True})
     db.session.commit()
 
-    return jsonify([m.to_dict() for m in mensajes])
+    # Buscar info del cliente/prospecto por teléfono
+    cliente_info = None
+    try:
+        import re as _re
+        from app.models.client import Client
+        from app.models.prospecto import Prospecto
+        from sqlalchemy import or_ as _or
+        digits = _re.sub(r'\D', '', numero)
+        if digits.startswith('51') and len(digits) == 11:
+            digits = digits[2:]
+        # Buscar en clientes registrados
+        client = Client.query.filter(
+            _or(Client.dni == digits, Client.dni == numero)
+        ).first()
+        if client:
+            cliente_info = {
+                'tipo':    'cliente',
+                'nombre':  f"{client.nombres or ''} {client.apellido_paterno or ''}".strip(),
+                'razon_social': client.razon_social or '',
+                'doc':     client.dni,
+                'doc_tipo': client.document_type,
+                'email':   client.email or '',
+                'canal':   client.registration_canal or '',
+                'kyc':     client.kyc_status or '',
+            }
+        if not cliente_info and digits:
+            prospecto = Prospecto.query.filter(
+                _or(
+                    Prospecto.telefono     == digits,
+                    Prospecto.telefono_alt == digits,
+                    Prospecto.telefono_3   == digits,
+                    Prospecto.telefono_4   == digits,
+                    Prospecto.contacto_wa  == digits,
+                )
+            ).first()
+            if prospecto:
+                cliente_info = {
+                    'tipo':         'prospecto',
+                    'nombre':       prospecto.nombre_contacto or '',
+                    'razon_social': prospecto.razon_social or '',
+                    'ruc':          prospecto.ruc or '',
+                    'email':        prospecto.email or '',
+                    'estado':       prospecto.estado_comercial or '',
+                    'rubro':        prospecto.rubro or '',
+                }
+    except Exception as _e:
+        log.warning(f'[CRM] Error buscando cliente_info para {numero}: {_e}')
+
+    return jsonify({
+        'mensajes':     [m.to_dict() for m in mensajes],
+        'cliente_info': cliente_info,
+    })
 
 
 # ── API — Estado del bot para un número ──────────────────────────
 @crm_bp.route('/api/bot-status/<path:numero>')
 @login_required
 def api_bot_status(numero):
-    """Devuelve si el bot está pausado para un número."""
+    """Devuelve si el bot está pausado y el estado de atención para un número."""
     try:
         from app.models.wa_bot_session import WaBotSession
-        from sqlalchemy import text
-        # Garantizar columna existe
-        try:
-            db.session.execute(text(
-                "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS bot_pausado BOOLEAN NOT NULL DEFAULT FALSE"
-            ))
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
+        from app.models.user import User
         bot_session = WaBotSession.query.filter_by(numero=numero).first()
-        bot_pausado = bot_session.bot_pausado if bot_session else False
+        bot_pausado     = bot_session.bot_pausado     if bot_session else False
+        estado_atencion = getattr(bot_session, 'estado_atencion', 'bot') if bot_session else 'bot'
+        assigned_to     = getattr(bot_session, 'assigned_to', None)     if bot_session else None
+        assigned_name   = ''
+        if assigned_to:
+            u = User.query.get(assigned_to)
+            assigned_name = u.username if u else ''
         return jsonify({
-            'ok': True,
-            'bot_pausado': bot_pausado,
+            'ok':             True,
+            'bot_pausado':    bot_pausado,
+            'estado_atencion': estado_atencion,
+            'assigned_to':    assigned_to,
+            'assigned_name':  assigned_name,
         })
     except Exception:
-        return jsonify({'ok': True, 'bot_pausado': False})
+        return jsonify({'ok': True, 'bot_pausado': False, 'estado_atencion': 'bot'})
 
 
 # ── API — enviar mensaje de texto libre ──────────────────────────
@@ -244,8 +320,19 @@ def api_enviar():
             mensaje   = texto,
             direccion = 'saliente',
             leido     = True,
+            tipo      = 'mensaje',
+            origen    = 'asesor',
         )
         db.session.add(msg)
+        # Marcar que un asesor está atendiendo
+        try:
+            from app.models.wa_bot_session import WaBotSession
+            ses = WaBotSession.query.filter_by(numero=destino).first()
+            if ses:
+                ses.estado_atencion = 'en_atencion'
+                ses.assigned_to     = current_user.id
+        except Exception:
+            pass
         db.session.commit()
         return jsonify({'ok': True})
     else:
@@ -308,8 +395,17 @@ def api_enviar_imagen():
         msg = WaMessage(
             numero=destino, mensaje=caption or '[Imagen]',
             direccion='saliente', leido=True, media_tipo='image',
+            tipo='mensaje', origen='asesor',
         )
         db.session.add(msg)
+        try:
+            from app.models.wa_bot_session import WaBotSession
+            ses = WaBotSession.query.filter_by(numero=destino).first()
+            if ses:
+                ses.estado_atencion = 'en_atencion'
+                ses.assigned_to     = current_user.id
+        except Exception:
+            pass
         db.session.commit()
         return jsonify({'ok': True})
     else:
@@ -348,6 +444,8 @@ def api_registro_campana():
         mensaje   = mensaje,
         direccion = 'saliente',
         leido     = True,
+        tipo      = 'mensaje',
+        origen    = 'campaña',
     ))
 
     # Vincular al prospecto si hay coincidencia por teléfono
@@ -1534,25 +1632,26 @@ def api_expirar_sesiones():
 def api_bot_toggle(numero):
     """Pausa o reactiva el bot para un número de WhatsApp."""
     from app.models.wa_bot_session import WaBotSession
-    from sqlalchemy import text
     try:
-        # Garantizar que la columna existe (idempotente)
-        try:
-            db.session.execute(text(
-                "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS bot_pausado BOOLEAN NOT NULL DEFAULT FALSE"
-            ))
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
-
         bot_session = WaBotSession.query.filter_by(numero=numero).first()
         if not bot_session:
-            return jsonify({'ok': False, 'error': 'Sesión no encontrada'}), 404
+            # Crear sesión vacía si no existe para poder controlar el bot
+            bot_session = WaBotSession(numero=numero, estado='inicio')
+            db.session.add(bot_session)
+
         bot_session.bot_pausado = not bot_session.bot_pausado
+        # Sincronizar estado_atencion con el toggle manual
+        try:
+            if bot_session.bot_pausado:
+                bot_session.estado_atencion = 'esperando'
+            else:
+                bot_session.estado_atencion = 'bot'
+        except Exception:
+            pass
         db.session.commit()
         estado = 'pausado' if bot_session.bot_pausado else 'activo'
         log.info(f'[CRM] Bot {estado} para {numero} por {current_user.username}')
-        return jsonify({'ok': True, 'bot_pausado': bot_session.bot_pausado})
+        return jsonify({'ok': True, 'bot_pausado': bot_session.bot_pausado, 'estado_atencion': bot_session.estado_atencion})
     except Exception as e:
         log.error(f'[CRM] Error toggling bot para {numero}: {e}')
         return jsonify({'ok': False, 'error': str(e)}), 500
@@ -1571,6 +1670,87 @@ def api_reset_sesion(numero):
         db.session.commit()
         log.info(f'[CRM] Sesión bot reseteada para {numero} por {current_user.username}')
     return jsonify({'ok': True})
+
+
+# ── API — Marcar conversación como resuelta ──────────────────────
+@crm_bp.route('/api/resolver/<path:numero>', methods=['POST'])
+@login_required
+@require_role('Master')
+def api_resolver(numero):
+    """Marca la conversación como resuelta y reactiva el bot."""
+    from app.models.wa_bot_session import WaBotSession
+    try:
+        ses = WaBotSession.query.filter_by(numero=numero).first()
+        if ses:
+            ses.estado_atencion = 'resuelto'
+            ses.bot_pausado     = False
+            ses.assigned_to     = None
+        db.session.commit()
+        log.info(f'[CRM] Conversación {numero} marcada como resuelta por {current_user.username}')
+        return jsonify({'ok': True, 'estado_atencion': 'resuelto'})
+    except Exception as e:
+        log.error(f'[CRM] Error resolviendo {numero}: {e}')
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ── API — Guardar nota interna ───────────────────────────────────
+@crm_bp.route('/api/nota', methods=['POST'])
+@login_required
+@require_role('Master')
+def api_nota():
+    """Guarda una nota interna sobre la conversación (no se envía al cliente)."""
+    data   = request.get_json() or {}
+    numero = data.get('numero', '').strip()
+    texto  = data.get('texto', '').strip()
+    if not numero or not texto:
+        return jsonify({'ok': False, 'error': 'Faltan datos'}), 400
+
+    # Guardar como mensaje interno
+    nota = WaMessage(
+        numero    = numero,
+        nombre    = current_user.username,
+        mensaje   = texto,
+        direccion = 'interna',
+        leido     = True,
+        tipo      = 'nota_interna',
+        origen    = 'asesor',
+    )
+    db.session.add(nota)
+
+    # Registrar en timeline de prospecto si existe
+    try:
+        import re as _re
+        from app.models.prospecto import Prospecto, ActividadProspecto
+        from sqlalchemy import or_ as _or
+        digits = _re.sub(r'\D', '', numero)
+        if digits.startswith('51') and len(digits) == 11:
+            digits = digits[2:]
+        if digits:
+            p = Prospecto.query.filter(
+                _or(
+                    Prospecto.telefono     == digits,
+                    Prospecto.telefono_alt == digits,
+                    Prospecto.telefono_3   == digits,
+                    Prospecto.telefono_4   == digits,
+                    Prospecto.contacto_wa  == digits,
+                )
+            ).first()
+            if p:
+                act = ActividadProspecto(
+                    prospecto_id=p.id,
+                    user_id=current_user.id,
+                    tipo='nota',
+                    canal='whatsapp',
+                    descripcion=f'Nota interna CRM: {texto[:200]}',
+                    resultado='Nota guardada',
+                )
+                db.session.add(act)
+    except Exception as _e:
+        log.warning(f'[CRM] No se pudo vincular nota a prospecto: {_e}')
+
+    db.session.commit()
+    log.info(f'[CRM] Nota interna guardada en {numero} por {current_user.username}')
+    return jsonify({'ok': True, 'nota': nota.to_dict()})
 
 
 # ── Limpieza historial WA anterior a julio 2026 ───────────────────

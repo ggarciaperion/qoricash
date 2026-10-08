@@ -35,6 +35,12 @@ class WaBotSession(db.Model):
     session_started_at = db.Column(db.DateTime, nullable=True)
     # Control de atención humana
     bot_pausado    = db.Column(db.Boolean, default=False, nullable=False)
+    # Estado de atención: 'bot' | 'esperando' | 'en_atencion' | 'resuelto'
+    estado_atencion = db.Column(db.String(20), default='bot', nullable=False)
+    # Asesor asignado (FK → users.id)
+    assigned_to    = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    # Notas internas del asesor
+    notas          = db.Column(db.Text, nullable=True)
     # Intentos fallidos consecutivos en el estado actual (para ofrecer salida tras N errores)
     cotiz_intentos = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=now_peru, nullable=False)

@@ -702,6 +702,130 @@ body.has-pb-bar.has-sidebar .main-wrapper {
   .crm-filter-tabs { gap: 4px; padding: 6px 8px; }
   .crm-ftab { padding: 4px 10px; font-size: .72rem; }
 }
+
+/* ══ ESTADO ATENCIÓN BADGES ══════════════════════════════ */
+.crm-atbadge {
+  font-size: .63rem; font-weight: 700; padding: 2px 6px;
+  border-radius: 8px; white-space: nowrap; flex-shrink: 0;
+}
+.crm-atbadge.esperando   { background: rgba(251,191,36,.2);  color: #fbbf24; }
+.crm-atbadge.en_atencion { background: rgba(96,165,250,.2);  color: #60a5fa; }
+.crm-atbadge.resuelto    { background: rgba(134,150,160,.12); color: #8696a0; }
+
+/* Avatares con borde de color según estado */
+.crm-conv-item[data-estado-atencion="esperando"]   .crm-conv-avatar { border: 2px solid #fbbf24; }
+.crm-conv-item[data-estado-atencion="en_atencion"] .crm-conv-avatar { border: 2px solid #60a5fa; }
+
+/* Tab "Esperando" con punto rojo cuando hay items */
+.crm-ftab-dot {
+  display: inline-block; width: 7px; height: 7px;
+  background: #f43f5e; border-radius: 50%; margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* ══ PANEL CLIENTE INFO ══════════════════════════════════ */
+.crm-client-panel {
+  background: #1a2632;
+  border-bottom: 1px solid #222e35;
+  padding: 10px 16px;
+  font-size: .8rem;
+  flex-shrink: 0;
+  display: none;
+}
+.crm-client-panel.visible { display: block; }
+.crm-client-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+}
+.crm-client-tag {
+  font-size: .65rem; font-weight: 700; padding: 2px 7px; border-radius: 8px;
+  text-transform: uppercase;
+}
+.crm-client-tag.cliente   { background: rgba(0,222,168,.15); color: #00DEA8; }
+.crm-client-tag.prospecto { background: rgba(251,191,36,.15); color: #fbbf24; }
+.crm-client-details { color: #aebac1; line-height: 1.7; }
+.crm-client-details strong { color: #e9edef; }
+
+/* ══ BURBUJA NOTA INTERNA ════════════════════════════════ */
+.crm-bubble.nota {
+  background: #fff9c4;
+  color: #5a4a00;
+  border-left: 3px solid #fbbf24;
+  max-width: 80%;
+  font-style: italic;
+  font-size: .82rem;
+  border-radius: 4px;
+  border-top-left-radius: 0;
+}
+.crm-bubble.nota::before { display: none; }
+.crm-bubble.nota .crm-bubble-time { color: rgba(90,74,0,.5); }
+.crm-nota-label {
+  font-size: .63rem; font-weight: 700; color: #b45309; margin-bottom: 3px;
+  text-transform: uppercase; letter-spacing: .4px;
+}
+
+/* ══ BOTONES HEADER MEJORADOS ════════════════════════════ */
+#btnResolver {
+  width: auto !important; height: 30px !important; border-radius: 15px !important;
+  padding: 0 12px !important; gap: 6px; font-size: 11.5px; font-weight: 600;
+  white-space: nowrap; border: none !important; cursor: pointer;
+  background: rgba(34,197,94,.15); color: #4ade80;
+  box-shadow: 0 0 0 1px rgba(34,197,94,.3);
+  transition: background .2s;
+}
+#btnResolver:hover { background: rgba(34,197,94,.3); }
+#btnNota {
+  width: auto !important; height: 30px !important; border-radius: 15px !important;
+  padding: 0 12px !important; font-size: 11.5px; font-weight: 600;
+  white-space: nowrap; border: none !important; cursor: pointer;
+  background: rgba(251,191,36,.15); color: #fbbf24;
+  box-shadow: 0 0 0 1px rgba(251,191,36,.3);
+  transition: background .2s;
+}
+#btnNota:hover { background: rgba(251,191,36,.3); }
+/* Reset sesión — menos prominente */
+#btnResetSesion {
+  background: none !important; border: none !important;
+  color: #8696a0 !important; font-size: .75rem !important;
+  padding: 2px 6px !important; border-radius: 4px !important;
+  cursor: pointer !important;
+}
+#btnResetSesion:hover { color: #e9edef !important; background: rgba(255,255,255,.06) !important; }
+
+/* ══ MODAL NOTA ══════════════════════════════════════════ */
+.crm-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.7); z-index: 9990;
+  align-items: center; justify-content: center;
+  backdrop-filter: blur(3px);
+}
+.crm-modal-overlay.open { display: flex; }
+.crm-modal {
+  background: #202c33; border-radius: 12px; width: 420px; max-width: 95vw;
+  padding: 24px; box-shadow: 0 12px 40px rgba(0,0,0,.6);
+}
+.crm-modal h6 { color: #e9edef; font-size: .95rem; margin-bottom: 14px; }
+.crm-modal textarea {
+  width: 100%; background: #1a2632; border: 1px solid #2a3942;
+  border-radius: 8px; color: #e9edef; font-size: .875rem;
+  padding: 10px 12px; resize: vertical; min-height: 80px;
+  font-family: inherit;
+}
+.crm-modal textarea:focus { outline: none; border-color: #00DEA8; }
+.crm-modal-actions { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; }
+.crm-modal-actions button {
+  padding: 8px 18px; border-radius: 8px; border: none;
+  font-size: .85rem; font-weight: 600; cursor: pointer;
+}
+.crm-modal-cancel { background: #2a3942; color: #aebac1; }
+.crm-modal-save   { background: #00DEA8; color: #111b21; }
+
+/* Notificación urgente */
+.crm-notif-urgente {
+  background: rgba(251,191,36,.15) !important;
+  border: 1px solid rgba(251,191,36,.4) !important;
+  color: #fbbf24 !important;
+}
 </style>
 {% endblock %}
 
@@ -728,6 +852,7 @@ body.has-pb-bar.has-sidebar .main-wrapper {
       <button class="crm-ftab active" onclick="setFilter('todos',this)">Todos</button>
       <button class="crm-ftab" onclick="setFilter('no_leidos',this)">No leídos</button>
       <button class="crm-ftab" onclick="setFilter('respondio',this)">Respondieron</button>
+      <button class="crm-ftab" id="tabEsperando" onclick="setFilter('esperando',this)">⚡ Esperando<span class="crm-ftab-dot" id="esperandoDot" style="display:none"></span></button>
     </div>
 
     <div class="crm-search">
@@ -775,14 +900,32 @@ body.has-pb-bar.has-sidebar .main-wrapper {
             <span class="bot-dot"></span>
             <span id="botToggleLabel">Bot activo</span>
           </button>
-          <button id="btnResetSesion" onclick="resetSesion()" title="Resetear sesión del bot (próximo mensaje mostrará bienvenida)" style="background:#e65c00;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;">
-            <i class="bi bi-arrow-counterclockwise"></i> Reset sesión
+          <!-- Marcar como resuelto -->
+          <button id="btnResolver" onclick="marcarResuelto()" title="Marcar conversación como resuelta">
+            ✓ Resuelto
+          </button>
+          <!-- Nota interna -->
+          <button id="btnNota" onclick="abrirModalNota()" title="Agregar nota interna (no se envía al cliente)">
+            📝 Nota
+          </button>
+          <!-- Reset sesión — menos prominente -->
+          <button id="btnResetSesion" onclick="resetSesion()" title="Resetear sesión del bot">
+            <i class="bi bi-arrow-counterclockwise"></i>
           </button>
           <button class="crm-back-btn" onclick="goBack()" title="Volver">
             <i class="bi bi-arrow-left"></i>
           </button>
           <button title="Refrescar" onclick="reloadChat()"><i class="bi bi-arrow-clockwise"></i></button>
         </div>
+      </div>
+
+      <!-- Info cliente (se muestra si hay match) -->
+      <div class="crm-client-panel" id="clientPanel">
+        <div class="crm-client-panel-header">
+          <span id="clientTag" class="crm-client-tag">—</span>
+          <span id="clientName" style="color:#e9edef;font-weight:600;font-size:.85rem;flex:1;margin-left:8px;"></span>
+        </div>
+        <div class="crm-client-details" id="clientDetails"></div>
       </div>
 
       <!-- Messages -->
@@ -840,6 +983,18 @@ body.has-pb-bar.has-sidebar .main-wrapper {
   </main>
 
 </div><!-- /crm-page -->
+
+<!-- Modal Nota Interna -->
+<div class="crm-modal-overlay" id="notaModal">
+  <div class="crm-modal">
+    <h6>📝 Nota interna</h6>
+    <textarea id="notaTexto" placeholder="Escribe una nota privada sobre esta conversación..."></textarea>
+    <div class="crm-modal-actions">
+      <button class="crm-modal-cancel" onclick="cerrarModalNota()">Cancelar</button>
+      <button class="crm-modal-save" onclick="guardarNota()">Guardar nota</button>
+    </div>
+  </div>
+</div>
 
 <!-- Lightbox -->
 <div class="crm-lightbox" id="lightbox" onclick="closeLightbox()">
@@ -919,8 +1074,14 @@ function renderConvs() {
     c.numero.includes(q) ||
     (c.empresa || '').toLowerCase().includes(q)
   );
-  if (activeFilter === 'no_leidos') list = list.filter(c => c.no_leidos > 0);
-  if (activeFilter === 'respondio') list = list.filter(c => c.estado === 'respondio');
+  if (activeFilter === 'no_leidos')  list = list.filter(c => c.no_leidos > 0);
+  if (activeFilter === 'respondio')  list = list.filter(c => c.estado === 'respondio');
+  if (activeFilter === 'esperando')  list = list.filter(c => c.estado_atencion === 'esperando');
+
+  // Actualizar punto en tab Esperando
+  const esperandoCount = allConvs.filter(c => c.estado_atencion === 'esperando').length;
+  const dot = document.getElementById('esperandoDot');
+  if (dot) dot.style.display = esperandoCount > 0 ? 'inline-block' : 'none';
 
   const el = document.getElementById('convList');
   if (!list.length) {
@@ -930,14 +1091,16 @@ function renderConvs() {
   }
 
   el.innerHTML = list.map(c => {
-    const init   = (c.nombre || c.numero).charAt(0).toUpperCase();
-    const isAct  = c.numero === activeNum;
-    const arrow  = c.direccion === 'saliente'
+    const init    = (c.nombre || c.numero).charAt(0).toUpperCase();
+    const isAct   = c.numero === activeNum;
+    const arrow   = c.direccion === 'saliente'
       ? `<i class="bi bi-check2" style="color:#8696a0;font-size:.75rem;"></i> ` : '';
-    const badge  = c.no_leidos > 0
+    const atBadge = atencionBadge(c.estado_atencion);
+    const badge   = c.no_leidos > 0
       ? `<span class="crm-conv-badge">${c.no_leidos}</span>`
-      : `<span class="crm-estado ${c.estado}">${estadoLabel(c.estado)}</span>`;
+      : (atBadge || `<span class="crm-estado ${c.estado}">${estadoLabel(c.estado)}</span>`);
     return `<div class="crm-conv-item${isAct ? ' active' : ''}"
+        data-estado-atencion="${c.estado_atencion || 'bot'}"
         onclick="selectConv('${c.numero}','${esc(c.nombre)}','${esc(c.empresa)}')">
       <div class="crm-conv-avatar">${init}</div>
       <div class="crm-conv-body">
@@ -981,15 +1144,17 @@ async function selectConv(numero, nombre, empresa) {
   showSkeleton();
   document.getElementById('replyInput').focus();
 
-  // Paralelo: mensajes + badges
-  const [msgs, botStatus] = await Promise.all([
+  // Paralelo: mensajes + bot status + reload sidebar
+  const [msgsResp, botStatus] = await Promise.all([
     fetch(`/crm/api/mensajes/${encodeURIComponent(numero)}`).then(r => r.json()),
     fetch(`/crm/api/bot-status/${encodeURIComponent(numero)}`).then(r => r.json()),
     loadConversaciones(),
   ]);
   if (activeNum === numero) {
+    const msgs = Array.isArray(msgsResp) ? msgsResp : (msgsResp.mensajes || []);
     renderMensajes(msgs, true);
-    renderBotToggle(botStatus.bot_pausado || false);
+    renderBotToggle(botStatus.bot_pausado || false, botStatus.estado_atencion);
+    renderClientPanel(msgsResp.cliente_info || null);
   }
   // Actualizar badge del sidebar tras marcar como leídos
   if (typeof updateWaBadge === 'function') updateWaBadge();
@@ -1001,24 +1166,105 @@ function reloadChat() {
   Promise.all([
     fetch(`/crm/api/mensajes/${encodeURIComponent(activeNum)}`).then(r => r.json()),
     fetch(`/crm/api/bot-status/${encodeURIComponent(activeNum)}`).then(r => r.json()),
-  ]).then(([msgs, botStatus]) => {
+  ]).then(([msgsResp, botStatus]) => {
     if (activeNum) {
+      const msgs = Array.isArray(msgsResp) ? msgsResp : (msgsResp.mensajes || []);
       renderMensajes(msgs);
-      renderBotToggle(botStatus.bot_pausado || false);
+      renderBotToggle(botStatus.bot_pausado || false, botStatus.estado_atencion);
+      if (msgsResp.cliente_info) renderClientPanel(msgsResp.cliente_info);
     }
   });
 }
 
 // ── Bot toggle ────────────────────────────────────────────────────
-function renderBotToggle(pausado) {
+function renderBotToggle(pausado, estadoAtencion) {
   const btn   = document.getElementById('btnBotToggle');
   const label = document.getElementById('botToggleLabel');
   if (!btn) return;
   btn.classList.toggle('bot-on',  !pausado);
   btn.classList.toggle('bot-off',  pausado);
-  label.textContent = pausado ? 'Asesor activo' : 'Bot activo';
+  const labels = { bot: 'Bot activo', esperando: 'Esperando asesor', en_atencion: 'Asesor activo', resuelto: 'Resuelto' };
+  label.textContent = labels[estadoAtencion] || (pausado ? 'Asesor activo' : 'Bot activo');
   btn.title = pausado ? 'Clic para reactivar el bot' : 'Clic para pausar el bot';
   btn.dataset.pausado = pausado ? '1' : '0';
+}
+
+// ── Panel cliente info ────────────────────────────────────────────
+function renderClientPanel(info) {
+  const panel = document.getElementById('clientPanel');
+  if (!info) { panel.classList.remove('visible'); return; }
+  panel.classList.add('visible');
+  const tag  = document.getElementById('clientTag');
+  const name = document.getElementById('clientName');
+  const det  = document.getElementById('clientDetails');
+  tag.className = `crm-client-tag ${info.tipo}`;
+  tag.textContent = info.tipo === 'cliente' ? 'Cliente' : 'Prospecto';
+  name.textContent = info.razon_social || info.nombre || '—';
+  if (info.tipo === 'cliente') {
+    det.innerHTML = [
+      info.nombre   ? `<strong>Contacto:</strong> ${esc(info.nombre)}` : '',
+      info.doc      ? `<strong>${info.doc_tipo}:</strong> ${esc(info.doc)}` : '',
+      info.email    ? `<strong>Email:</strong> ${esc(info.email)}` : '',
+      info.kyc      ? `<strong>KYC:</strong> ${esc(info.kyc)}` : '',
+    ].filter(Boolean).join(' &nbsp;·&nbsp; ');
+  } else {
+    det.innerHTML = [
+      info.nombre  ? `<strong>Contacto:</strong> ${esc(info.nombre)}` : '',
+      info.ruc     ? `<strong>RUC:</strong> ${esc(info.ruc)}` : '',
+      info.email   ? `<strong>Email:</strong> ${esc(info.email)}` : '',
+      info.rubro   ? `<strong>Rubro:</strong> ${esc(info.rubro)}` : '',
+      info.estado  ? `<strong>Estado:</strong> ${esc(info.estado)}` : '',
+    ].filter(Boolean).join(' &nbsp;·&nbsp; ');
+  }
+}
+
+async function marcarResuelto() {
+  if (!activeNum) return;
+  try {
+    const r = await fetch(`/crm/api/resolver/${encodeURIComponent(activeNum)}`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCsrf() },
+    });
+    const j = await r.json();
+    if (j.ok) {
+      showToast('✅ Conversación marcada como resuelta', 'ok');
+      renderBotToggle(false, 'resuelto');
+      loadConversaciones();
+    } else {
+      showToast('Error al resolver', 'error');
+    }
+  } catch(e) { showToast('Error de conexión', 'error'); }
+}
+
+function abrirModalNota() {
+  if (!activeNum) return;
+  document.getElementById('notaTexto').value = '';
+  document.getElementById('notaModal').classList.add('open');
+  setTimeout(() => document.getElementById('notaTexto').focus(), 50);
+}
+
+function cerrarModalNota() {
+  document.getElementById('notaModal').classList.remove('open');
+}
+
+async function guardarNota() {
+  const texto = document.getElementById('notaTexto').value.trim();
+  if (!texto) return;
+  try {
+    const r = await fetch('/crm/api/nota', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+      body: JSON.stringify({ numero: activeNum, texto }),
+    });
+    const j = await r.json();
+    if (j.ok) {
+      cerrarModalNota();
+      showToast('Nota guardada', 'ok');
+      reloadChat();
+    } else {
+      showToast('Error: ' + (j.error || 'Intenta de nuevo'), 'error');
+    }
+  } catch(e) { showToast('Error de conexión', 'error'); }
 }
 
 async function resetSesion() {
@@ -1096,15 +1342,30 @@ function renderMensajes(msgs, forceScroll = false) {
       html += `<div class="crm-date-sep"><span>${fmtDate(dateStr)}</span></div>`;
       lastDate = dateStr;
     }
-    const dir  = m.direccion === 'saliente' ? 'out' : 'in';
     const time = (m.created_at || '').split(' ')[1] || '';
+    // Nota interna — fila centrada con burbuja amarilla
+    if (m.tipo === 'nota_interna' || m.direccion === 'interna') {
+      html += `<div class="crm-bubble-row in" style="justify-content:center;">
+        <div class="crm-bubble nota">
+          <div class="crm-nota-label">📝 Nota de ${esc(m.nombre || 'asesor')}</div>
+          ${esc(m.mensaje)}
+          <div class="crm-bubble-meta">
+            <span class="crm-bubble-time">${time}</span>
+          </div>
+        </div>
+      </div>`;
+      return;
+    }
+    const dir  = m.direccion === 'saliente' ? 'out' : 'in';
     const tick = dir === 'out'
       ? `<i class="bi bi-check2-all crm-tick" title="Enviado"></i>` : '';
+    const origenMark = m.origen === 'campaña'
+      ? `<span style="font-size:.6rem;color:#8696a0;margin-right:4px;">📢</span>` : '';
     html += `<div class="crm-bubble-row ${dir}">
       <div class="crm-bubble ${dir}">
         ${renderContent(m)}
         <div class="crm-bubble-meta">
-          <span class="crm-bubble-time">${time}</span>
+          ${origenMark}<span class="crm-bubble-time">${time}</span>
           ${tick}
         </div>
       </div>
@@ -1360,7 +1621,7 @@ function openLightbox(url) {
 function closeLightbox() {
   document.getElementById('lightbox').classList.remove('open');
 }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+// Escape handled globally below
 
 // ══════════════════════════════════════════════════════
 //  Toast
@@ -1411,22 +1672,39 @@ function mostrarNotifWA(data) {
 //  Socket.IO — mensajes en tiempo real
 //  Usa el socket global de common.js si ya está conectado
 // ══════════════════════════════════════════════════════
+let _socketConnected = false;
+
 (function() {
   function bindWaSocket(sock) {
+    _socketConnected = true;
+    // Detener polling si SocketIO está activo
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+
     sock.on('wa_message', data => {
       loadConversaciones();
       if (activeNum && activeNum === data.numero) {
         fetch(`/crm/api/mensajes/${encodeURIComponent(activeNum)}`)
-          .then(r => r.json()).then(msgs => { if (activeNum) renderMensajes(msgs, true); });
+          .then(r => r.json()).then(resp => {
+            if (activeNum) {
+              const msgs = Array.isArray(resp) ? resp : (resp.mensajes || []);
+              renderMensajes(msgs, true);
+            }
+          });
       }
       mostrarNotifWA(data);
     });
+
+    sock.on('wa_needs_human', data => {
+      loadConversaciones();
+      mostrarNotifUrgente(data);
+    });
+
+    sock.on('disconnect', () => { _socketConnected = false; startPolling(); });
   }
 
   if (window._qoriSocket) {
     bindWaSocket(window._qoriSocket);
   } else if (typeof io !== 'undefined') {
-    // Fallback: esperar a que common.js inicialice el socket
     document.addEventListener('socketConnected', function() {
       if (window._qoriSocket) bindWaSocket(window._qoriSocket);
     }, { once: true });
@@ -1434,16 +1712,23 @@ function mostrarNotifWA(data) {
 })();
 
 // ══════════════════════════════════════════════════════
-//  Polling fallback cada 6s
+//  Polling fallback — solo cuando SocketIO no está activo
 // ══════════════════════════════════════════════════════
 function startPolling() {
+  if (_socketConnected) return;  // SocketIO activo: no hacer polling
+  if (pollTimer) return;
   pollTimer = setInterval(() => {
     const tasks = [loadConversaciones()];
     if (activeNum) {
       tasks.push(
         fetch(`/crm/api/mensajes/${encodeURIComponent(activeNum)}`)
           .then(r => r.json())
-          .then(msgs => { if (activeNum) renderMensajes(msgs); })
+          .then(resp => {
+            if (activeNum) {
+              const msgs = Array.isArray(resp) ? resp : (resp.mensajes || []);
+              renderMensajes(msgs);
+            }
+          })
       );
     }
     Promise.all(tasks);
@@ -1464,6 +1749,38 @@ document.getElementById('searchInput').addEventListener('input', function () {
 function estadoLabel(e) {
   return e === 'respondio' ? 'Respondió' : e === 'contactado' ? 'Contactado' : 'Nuevo';
 }
+
+function atencionBadge(est) {
+  if (!est || est === 'bot' || est === 'resuelto') return '';
+  const map = { esperando: ['esperando', '⚡ Esperando'], en_atencion: ['en_atencion', '👤 En atención'] };
+  const [cls, label] = map[est] || [];
+  if (!cls) return '';
+  return `<span class="crm-atbadge ${cls}">${label}</span>`;
+}
+
+function mostrarNotifUrgente(data) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const display = data.nombre || data.numero || 'Cliente';
+  const n = new Notification(`⚡ ${display} necesita asesor`, {
+    body:     data.preview || 'Solicita hablar con un asesor',
+    tag:      `wa-human-${data.numero}`,
+    renotify: true,
+    silent:   false,
+  });
+  n.onclick = () => {
+    window.focus();
+    selectConv(data.numero, data.nombre || data.numero, data.empresa || '');
+    n.close();
+  };
+  setTimeout(() => n.close(), 12000);
+  // Toast urgente visible en pantalla
+  const t = document.createElement('div');
+  t.className = 'crm-toast crm-notif-urgente';
+  t.textContent = `⚡ ${display} solicita asesor`;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 5000);
+}
+
 function esc(str) {
   return String(str || '')
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
@@ -1472,6 +1789,13 @@ function esc(str) {
 function getCsrf() {
   return document.querySelector('meta[name="csrf-token"]')?.content || '';
 }
+// Cerrar modal nota con Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    cerrarModalNota();
+    closeLightbox();
+  }
+});
 
 // ══════════════════════════════════════════════════════
 //  Init

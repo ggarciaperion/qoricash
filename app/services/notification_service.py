@@ -685,6 +685,44 @@ class NotificationService:
             logger.error(f'[NOTIF] notify_new_wa_message error: {e}')
 
     @staticmethod
+    def notify_wa_needs_human(numero, nombre, preview, unread):
+        """Cliente solicitó asesor → solo Master, urgente."""
+        try:
+            roles = ['Master']
+            display = nombre or numero or 'WhatsApp'
+            preview_short = (preview or 'Solicita asesor')[:80]
+            data = {
+                'numero':  numero,
+                'nombre':  nombre,
+                'preview': preview_short,
+                'unread':  unread,
+                'title':   '⚡ Cliente necesita asesor',
+                'message': f'{display}: {preview_short}',
+                'type':    'warning',
+                'sound':   True,
+                'urgente': True,
+            }
+            _emit_to_roles('wa_needs_human', data, roles)
+            _save_to_db(
+                roles,
+                '⚡ Cliente necesita asesor',
+                f'{display}: {preview_short}',
+                notif_type='warning',
+                category='whatsapp',
+                link='/crm/whatsapp'
+            )
+            _push_unread_counts_for_roles(roles)
+            _web_push_to_roles(roles, {
+                'title': '⚡ Cliente necesita asesor',
+                'body':  f'{display}: {preview_short}',
+                'type':  'warning',
+                'url':   '/crm/whatsapp',
+                'tag':   f'wa-human-{numero}',
+            })
+        except Exception as e:
+            logger.error(f'[NOTIF] notify_wa_needs_human error: {e}')
+
+    @staticmethod
     def notify_operation_expired(operation):
         try:
             if not operation.client:

@@ -194,6 +194,43 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Migration] wa_bot_sessions.cotiz_timestamp: {e}")
 
+    # Migración: columnas CRM en wa_bot_sessions (estado_atencion, assigned_to, notas)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text(
+                "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS "
+                "estado_atencion VARCHAR(20) NOT NULL DEFAULT 'bot'"
+            ))
+            db.session.execute(text(
+                "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS "
+                "assigned_to INTEGER REFERENCES users(id)"
+            ))
+            db.session.execute(text(
+                "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS notas TEXT"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] wa_bot_sessions crm columns: {e}")
+
+    # Migración: columnas tipo y origen en wa_messages
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text(
+                "ALTER TABLE wa_messages ADD COLUMN IF NOT EXISTS "
+                "tipo VARCHAR(20) NOT NULL DEFAULT 'mensaje'"
+            ))
+            db.session.execute(text(
+                "ALTER TABLE wa_messages ADD COLUMN IF NOT EXISTS "
+                "origen VARCHAR(20) NOT NULL DEFAULT 'bot'"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] wa_messages tipo/origen columns: {e}")
+
     # Migración: tabla economic_events — calendario económico (idempotente)
     try:
         with app.app_context():
