@@ -1381,11 +1381,12 @@ def _bienvenida(numero, session):
         # Sin perfil registrado: nuevo usuario
         send_buttons_image(numero, BANNER_URL,
             '¡Bienvenido a Qoricash! 👋\n'
-            '📲 Cambia soles y dólares sin salir de tu WhatsApp.\n\n'
-            '¿Estás cotizando para ti o para tu empresa?',
+            'Cambia dólares al mejor tipo de cambio, sin salir de tu WhatsApp.\n\n'
+            '¿Qué operación te interesa?',
             [
-                {'id': 'btn_como_persona', 'title': '👤 Como persona'},
-                {'id': 'btn_como_empresa', 'title': '🏢 Como empresa'},
+                {'id': 'btn_comprar', 'title': 'Soles a dólares'},
+                {'id': 'btn_vender',  'title': 'Dólares a soles'},
+                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
             ]
         )
 
@@ -1641,6 +1642,10 @@ def _reset_sesion(session):
     session.cotiz_cuenta   = ''
     session.tipo           = ''
     session.bot_pausado    = False   # siempre reactivar el bot al resetear sesión
+    try:
+        session.estado_atencion = 'bot'
+    except Exception:
+        pass
     session.updated_at     = _now_reset()  # forzar UPDATE aunque no haya otros cambios
     try:
         session.cotiz_intentos = 0
@@ -3755,6 +3760,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 log.info(f'[WaBot] {numero} — bot pausado pero cliente presionó botón, reactivando.')
                 try:
                     session.bot_pausado = False
+                    session.estado_atencion = 'bot'
                 except Exception:
                     pass
                 _bot_pausado = False
@@ -3772,6 +3778,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     )
                     try:
                         session.bot_pausado = False
+                        session.estado_atencion = 'bot'
                     except Exception:
                         pass
                     _bot_pausado = False
@@ -4083,6 +4090,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 # Cliente cancela la solicitud de asesor — reactivar bot
                 try:
                     session.bot_pausado = False
+                    session.estado_atencion = 'bot'
                 except Exception:
                     pass
                 # Si hay cotización vigente, reenviarla; si no, menú genérico
@@ -4868,6 +4876,16 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 _flujo_asesor(numero, estado_anterior=estado)
                 try:
                     session.bot_pausado = True
+                    session.estado_atencion = 'esperando'
+                except Exception:
+                    pass
+                try:
+                    from app.services.notification_service import NotificationService as _NS
+                    _NS.notify_wa_needs_human(
+                        numero, nombre,
+                        'Solicitó hablar con un asesor',
+                        1
+                    )
                 except Exception:
                     pass
                 session.estado = 'inicio'
@@ -6355,6 +6373,16 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     _flujo_asesor(numero, estado_anterior=estado)
                     try:
                         session.bot_pausado = True
+                        session.estado_atencion = 'esperando'
+                    except Exception:
+                        pass
+                    try:
+                        from app.services.notification_service import NotificationService as _NS
+                        _NS.notify_wa_needs_human(
+                            numero, nombre,
+                            texto[:80] if texto else 'Solicita asesor',
+                            1
+                        )
                     except Exception:
                         pass
                     session.estado = 'inicio'
