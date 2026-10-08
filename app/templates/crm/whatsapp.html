@@ -900,8 +900,8 @@ body.has-pb-bar.has-sidebar .main-wrapper {
             <span class="bot-dot"></span>
             <span id="botToggleLabel">Bot activo</span>
           </button>
-          <!-- Marcar como resuelto -->
-          <button id="btnResolver" onclick="marcarResuelto()" title="Marcar conversación como resuelta">
+          <!-- Marcar como resuelto (solo visible cuando hay atención humana activa) -->
+          <button id="btnResolver" onclick="marcarResuelto()" title="Marcar conversación como resuelta" style="display:none">
             ✓ Resuelto
           </button>
           <!-- Nota interna -->
@@ -1154,7 +1154,7 @@ async function selectConv(numero, nombre, empresa) {
     const msgs = Array.isArray(msgsResp) ? msgsResp : (msgsResp.mensajes || []);
     renderMensajes(msgs, true);
     renderBotToggle(botStatus.bot_pausado || false, botStatus.estado_atencion);
-    renderClientPanel(msgsResp.cliente_info || null);
+    renderClientPanel(msgsResp.cliente_info || null, msgsResp.sesion_info || null);
   }
   // Actualizar badge del sidebar tras marcar como leídos
   if (typeof updateWaBadge === 'function') updateWaBadge();
@@ -1171,7 +1171,7 @@ function reloadChat() {
       const msgs = Array.isArray(msgsResp) ? msgsResp : (msgsResp.mensajes || []);
       renderMensajes(msgs);
       renderBotToggle(botStatus.bot_pausado || false, botStatus.estado_atencion);
-      if (msgsResp.cliente_info) renderClientPanel(msgsResp.cliente_info);
+      renderClientPanel(msgsResp.cliente_info || null, msgsResp.sesion_info || null);
     }
   });
 }
@@ -1183,39 +1183,71 @@ function renderBotToggle(pausado, estadoAtencion) {
   if (!btn) return;
   btn.classList.toggle('bot-on',  !pausado);
   btn.classList.toggle('bot-off',  pausado);
-  const labels = { bot: 'Bot activo', esperando: 'Esperando asesor', en_atencion: 'Asesor activo', resuelto: 'Resuelto' };
-  label.textContent = labels[estadoAtencion] || (pausado ? 'Asesor activo' : 'Bot activo');
+  const labels = { bot: 'Bot activo', esperando: '⚡ Esperando', en_atencion: '👤 En atención', resuelto: '✓ Resuelto' };
+  label.textContent = labels[estadoAtencion] || (pausado ? 'En atención' : 'Bot activo');
   btn.title = pausado ? 'Clic para reactivar el bot' : 'Clic para pausar el bot';
   btn.dataset.pausado = pausado ? '1' : '0';
+  // Mostrar "Resuelto" solo cuando hay atención humana activa o esperando
+  const btnRes = document.getElementById('btnResolver');
+  if (btnRes) {
+    btnRes.style.display = (estadoAtencion === 'esperando' || estadoAtencion === 'en_atencion') ? '' : 'none';
+  }
 }
 
 // ── Panel cliente info ────────────────────────────────────────────
-function renderClientPanel(info) {
+// sesionInfo se pasa como segundo argumento desde selectConv/reloadChat
+function renderClientPanel(info, sesInfo) {
   const panel = document.getElementById('clientPanel');
-  if (!info) { panel.classList.remove('visible'); return; }
+  if (!info && !sesInfo) { panel.classList.remove('visible'); return; }
   panel.classList.add('visible');
   const tag  = document.getElementById('clientTag');
   const name = document.getElementById('clientName');
   const det  = document.getElementById('clientDetails');
+
+  // Construir extra de sesión (cotización + tiempo esperando)
+  let sesExtra = [];
+  if (sesInfo) {
+    if (sesInfo.cotiz_importe > 0 && sesInfo.cotiz_tc > 0) {
+      const op = sesInfo.cotiz_op === 'compra' ? 'Compra' : sesInfo.cotiz_op === 'venta' ? 'Venta' : '';
+      sesExtra.push(`<strong>Cotización:</strong> ${op ? op + ' ' : ''}$${sesInfo.cotiz_importe.toLocaleString('es-PE')} · TC ${sesInfo.cotiz_tc.toFixed(3)}`);
+    }
+    if (sesInfo.estado_atencion === 'esperando' && sesInfo.updated_at) {
+      const diffMin = Math.round((Date.now() - new Date(sesInfo.updated_at).getTime()) / 60000);
+      if (diffMin > 0) sesExtra.push(`<strong style="color:#fbbf24;">⚡ Esperando:</strong> hace ${diffMin} min`);
+    }
+    if (sesInfo.estado && !['inicio', 'bot'].includes(sesInfo.estado)) {
+      sesExtra.push(`<strong>Estado bot:</strong> ${esc(sesInfo.estado)}`);
+    }
+  }
+
+  if (!info) {
+    // Solo hay info de sesión, sin cliente/prospecto
+    tag.className = 'crm-client-tag';
+    tag.style.display = 'none';
+    name.textContent = '';
+    det.innerHTML = sesExtra.join(' &nbsp;·&nbsp; ');
+    return;
+  }
+
+  tag.style.display = '';
   tag.className = `crm-client-tag ${info.tipo}`;
   tag.textContent = info.tipo === 'cliente' ? 'Cliente' : 'Prospecto';
   name.textContent = info.razon_social || info.nombre || '—';
+
+  let detalles = [];
   if (info.tipo === 'cliente') {
-    det.innerHTML = [
-      info.nombre   ? `<strong>Contacto:</strong> ${esc(info.nombre)}` : '',
-      info.doc      ? `<strong>${info.doc_tipo}:</strong> ${esc(info.doc)}` : '',
-      info.email    ? `<strong>Email:</strong> ${esc(info.email)}` : '',
-      info.kyc      ? `<strong>KYC:</strong> ${esc(info.kyc)}` : '',
-    ].filter(Boolean).join(' &nbsp;·&nbsp; ');
+    if (info.nombre)  detalles.push(`<strong>Contacto:</strong> ${esc(info.nombre)}`);
+    if (info.doc)     detalles.push(`<strong>${info.doc_tipo}:</strong> ${esc(info.doc)}`);
+    if (info.email)   detalles.push(`<strong>Email:</strong> ${esc(info.email)}`);
+    if (info.kyc)     detalles.push(`<strong>KYC:</strong> ${esc(info.kyc)}`);
   } else {
-    det.innerHTML = [
-      info.nombre  ? `<strong>Contacto:</strong> ${esc(info.nombre)}` : '',
-      info.ruc     ? `<strong>RUC:</strong> ${esc(info.ruc)}` : '',
-      info.email   ? `<strong>Email:</strong> ${esc(info.email)}` : '',
-      info.rubro   ? `<strong>Rubro:</strong> ${esc(info.rubro)}` : '',
-      info.estado  ? `<strong>Estado:</strong> ${esc(info.estado)}` : '',
-    ].filter(Boolean).join(' &nbsp;·&nbsp; ');
+    if (info.nombre)  detalles.push(`<strong>Contacto:</strong> ${esc(info.nombre)}`);
+    if (info.ruc)     detalles.push(`<strong>RUC:</strong> ${esc(info.ruc)}`);
+    if (info.email)   detalles.push(`<strong>Email:</strong> ${esc(info.email)}`);
+    if (info.rubro)   detalles.push(`<strong>Rubro:</strong> ${esc(info.rubro)}`);
+    if (info.estado)  detalles.push(`<strong>Estado:</strong> ${esc(info.estado)}`);
   }
+  det.innerHTML = [...detalles, ...sesExtra].filter(Boolean).join(' &nbsp;·&nbsp; ');
 }
 
 async function marcarResuelto() {
@@ -1227,7 +1259,7 @@ async function marcarResuelto() {
     });
     const j = await r.json();
     if (j.ok) {
-      showToast('✅ Conversación marcada como resuelta', 'ok');
+      showToast('Conversación resuelta — bot reactivado', 'success');
       renderBotToggle(false, 'resuelto');
       loadConversaciones();
     } else {
@@ -1279,7 +1311,7 @@ async function resetSesion() {
     });
     const j = await r.json();
     if (j.ok) {
-      showToast('✅ Sesión reseteada — próximo mensaje mostrará bienvenida', 'success');
+      showToast('Sesión reseteada — próximo mensaje mostrará bienvenida', 'ok');
     } else {
       showToast('Error al resetear sesión', 'error');
     }
@@ -1301,8 +1333,8 @@ async function toggleBot() {
     });
     const j = await r.json();
     if (j.ok) {
-      renderBotToggle(j.bot_pausado);
-      showToast(j.bot_pausado ? '👤 Bot pausado — asesor en control' : '🤖 Bot reactivado', j.bot_pausado ? 'warning' : 'success');
+      renderBotToggle(j.bot_pausado, j.estado_atencion);
+      showToast(j.bot_pausado ? 'Bot pausado — asesor en control' : 'Bot reactivado', j.bot_pausado ? 'warning' : 'success');
     } else {
       showToast('Error al cambiar estado del bot', 'error');
     }
@@ -1378,10 +1410,38 @@ function renderMensajes(msgs, forceScroll = false) {
   }
 }
 
+// Mapa de IDs de botones del bot → etiquetas legibles
+const BTN_LABELS = {
+  btn_cotizar:             '📊 Cotizar cambio',
+  btn_asesor:              '👤 Hablar con asesor',
+  btn_registro:            '📝 Registrarme',
+  btn_registrarme:         '📝 Registrarme',
+  btn_volver_de_asesor:    '↩ Volver al bot',
+  btn_compra:              '💵 Comprar dólares',
+  btn_venta:               '💵 Vender dólares',
+  btn_confirmar_operacion: '✅ Confirmar operación',
+  btn_cancelar_operacion:  '❌ Cancelar operación',
+  btn_nueva_cotizacion:    '🔄 Nueva cotización',
+  btn_empresa:             '🏢 Soy empresa',
+  btn_natural:             '👤 Soy persona natural',
+  btn_no_ahora:            'Ahora no',
+  btn_recotizar:           '🔄 Recotizar',
+};
+
 function renderContent(m) {
   const mid  = m.media_id;
   const tipo = m.media_tipo;
   const url  = mid ? `/crm/api/media/${mid}` : '';
+
+  // Botón interactivo del bot — mostrar label legible
+  const msg = m.mensaje || '';
+  if (!mid && msg.startsWith('btn_') && BTN_LABELS[msg]) {
+    return `<span style="font-size:.78rem;color:#8696a0;font-style:italic;">${BTN_LABELS[msg]}</span>`;
+  }
+  // IDs de lista interactiva (list_reply) también suelen ser técnicos
+  if (!mid && /^(list_|opt_|item_)/.test(msg)) {
+    return `<span style="font-size:.78rem;color:#8696a0;font-style:italic;">[${esc(msg)}]</span>`;
+  }
 
   if (tipo === 'image') {
     const cap = m.mensaje && !['[Imagen]', '[image]'].includes(m.mensaje)
@@ -1627,8 +1687,8 @@ function closeLightbox() {
 //  Toast
 // ══════════════════════════════════════════════════════
 function showToast(msg, type = 'info') {
-  const colors = { ok: '#00DEA8', error: '#f31260', info: '#2a3942' };
-  const textC  = type === 'ok' ? '#111b21' : '#e9edef';
+  const colors = { ok: '#00DEA8', success: '#00DEA8', error: '#f31260', warning: '#d97706', info: '#2a3942' };
+  const textC  = (type === 'ok' || type === 'success') ? '#111b21' : '#e9edef';
   const t = document.createElement('div');
   t.className  = 'crm-toast';
   t.style.cssText = `background:${colors[type]||colors.info};color:${textC};`;

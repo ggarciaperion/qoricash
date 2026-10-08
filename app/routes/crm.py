@@ -99,11 +99,13 @@ def api_conversaciones():
     """Devuelve la última conversación por número, ordenada por reciente."""
     from sqlalchemy import func
     try:
+        # Excluir notas internas del "último mensaje" del sidebar
         sub = (
             db.session.query(
                 WaMessage.numero,
                 func.max(WaMessage.id).label('last_id')
             )
+            .filter(WaMessage.direccion != 'interna')
             .group_by(WaMessage.numero)
             .subquery()
         )
@@ -182,8 +184,14 @@ def api_conversaciones():
                 'assigned_name':   assigned_name,
             })
 
-        # Ordenar: no leídos primero, luego por fecha más reciente (estable — el query ya viene desc)
-        result.sort(key=lambda x: 0 if x['no_leidos'] > 0 else 1)
+        # Ordenar: esperando > no leídos > resto (fecha más reciente dentro de cada grupo)
+        def _sort_key(x):
+            if x['estado_atencion'] == 'esperando':
+                return 0
+            if x['no_leidos'] > 0:
+                return 1
+            return 2
+        result.sort(key=_sort_key)
         return jsonify(result)
     except Exception as e:
         log.error(f'[CRM] api_conversaciones error: {e}')
@@ -254,9 +262,28 @@ def api_mensajes(numero):
     except Exception as _e:
         log.warning(f'[CRM] Error buscando cliente_info para {numero}: {_e}')
 
+    # Datos de sesión del bot (cotización activa, estado, tiempo esperando)
+    sesion_info = None
+    try:
+        from app.models.wa_bot_session import WaBotSession
+        ses = WaBotSession.query.filter_by(numero=numero).first()
+        if ses:
+            sesion_info = {
+                'estado':          ses.estado or '',
+                'estado_atencion': getattr(ses, 'estado_atencion', 'bot') or 'bot',
+                'bot_pausado':     ses.bot_pausado,
+                'cotiz_op':        ses.cotiz_op or '',
+                'cotiz_importe':   ses.cotiz_importe or 0,
+                'cotiz_tc':        ses.cotiz_tc or 0,
+                'updated_at':      ses.updated_at.isoformat() if ses.updated_at else None,
+            }
+    except Exception:
+        pass
+
     return jsonify({
         'mensajes':     [m.to_dict() for m in mensajes],
         'cliente_info': cliente_info,
+        'sesion_info':  sesion_info,
     })
 
 
@@ -315,8 +342,19 @@ def api_enviar():
     resp = http_req.post(WA_API_URL, headers=headers, json=payload, timeout=10)
 
     if resp.status_code == 200:
+        # Recuperar nombre/empresa del historial para que el sidebar no pierda el nombre
+        prev = WaMessage.query.filter(
+            WaMessage.numero == destino,
+            WaMessage.nombre != '',
+            WaMessage.nombre != None,
+            WaMessage.direccion != 'interna',
+        ).order_by(WaMessage.id.desc()).first()
+        nombre_contacto  = prev.nombre  if prev else ''
+        empresa_contacto = prev.empresa if prev else ''
         msg = WaMessage(
             numero    = destino,
+            nombre    = nombre_contacto,
+            empresa   = empresa_contacto,
             mensaje   = texto,
             direccion = 'saliente',
             leido     = True,
@@ -392,8 +430,17 @@ def api_enviar_imagen():
         json=payload, timeout=15,
     )
     if resp.status_code == 200:
+        prev2 = WaMessage.query.filter(
+            WaMessage.numero == destino,
+            WaMessage.nombre != '',
+            WaMessage.nombre != None,
+            WaMessage.direccion != 'interna',
+        ).order_by(WaMessage.id.desc()).first()
         msg = WaMessage(
-            numero=destino, mensaje=caption or '[Imagen]',
+            numero=destino,
+            nombre=prev2.nombre if prev2 else '',
+            empresa=prev2.empresa if prev2 else '',
+            mensaje=caption or '[Imagen]',
             direccion='saliente', leido=True, media_tipo='image',
             tipo='mensaje', origen='asesor',
         )
@@ -659,6 +706,18 @@ def webhook_receive():
 
         db.session.commit()
         log.info(f'[CRM Webhook] {len(messages)} mensaje(s) recibido(s)')
+
+        # Si una conversación marcada como "resuelta" recibe nuevo mensaje, resetear estado
+        try:
+            from app.models.wa_bot_session import WaBotSession
+            for msg in messages:
+                _num = f"+{msg.get('from', '')}"
+                _ses = WaBotSession.query.filter_by(numero=_num).first()
+                if _ses and getattr(_ses, 'estado_atencion', '') == 'resuelto':
+                    _ses.estado_atencion = 'bot'
+            db.session.commit()
+        except Exception as _er:
+            log.warning(f'[CRM Webhook] Error reseteando estado resuelto: {_er}')
 
         # ── Bot automático ────────────────────────────────────────
         try:
