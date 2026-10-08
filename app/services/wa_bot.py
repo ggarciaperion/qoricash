@@ -260,7 +260,7 @@ SPREAD_TC      = 0.0020   # 20 pips: spread estándar (personas naturales)
 SPREAD_EMPRESA = 0.0010   # 10 pips: spread preferencial para empresas (RUC verificado)
 
 COTIZ_VALIDEZ_MIN      = 20   # minutos de validez de la cotización
-SESSION_INACTIVIDAD_MIN = 15  # minutos de inactividad para expirar sesión
+SESSION_INACTIVIDAD_MIN = 20  # minutos de inactividad para expirar sesión
 MONTO_MINIMO_USD       = 50   # mínimo de operación en USD
 
 def _lookup_dni(dni):
@@ -1523,6 +1523,11 @@ def _flujo_mostrar_cotizacion(numero, session):
 
     resumen += f'\n\n> ⏱ Válido hasta las {expira_hora}'
 
+    # Aviso si estamos fuera del horario de atención
+    if not _is_horario_atencion():
+        _proximo_h = _next_business_day()
+        resumen += f'\n\n⏰ _Fuera de horario. Las ops confirmadas ahora se procesan el {_proximo_h}._'
+
     session.cotiz_tc = tc_final
     try:
         session.cotiz_timestamp = now_peru()
@@ -1574,7 +1579,8 @@ def _flujo_como_funciona(numero):
     BANNER_URL = 'https://qoricash.pe/334.jpg'
     msg = (
         '1️⃣ *Cotiza* — Dinos cuánto quieres cambiar y te damos el precio al instante. Sin compromisos.\n\n'
-        '2️⃣ *Transfiere* — Envías el dinero a la cuenta bancaria de Qoricash de tu elección y nos mandas el código de operación.\n\n'
+        '2️⃣ *Transfiere* — Envías el dinero a la cuenta bancaria de Qoricash y nos mandas el *código de operación* '
+        'de tu constancia bancaria (N° op, referencia o código de transacción).\n\n'
         '3️⃣ *¡Listo!* — En minutos transferimos a tu cuenta y te avisamos aquí por WhatsApp.\n\n'
         '🔒 Inscritos en SBS\n'
         '🕐 Lun–Vie 9am–6pm · Sáb 9am–2pm'
@@ -1625,8 +1631,37 @@ def _flujo_sesion_expirada(numero):
     """Avisa al cliente que la sesión expiró por inactividad."""
     send_text(numero,
         '⏰ Tu sesión ha expirado por inactividad.\n\n'
-        'Cuando desees volver a operar, escríbenos y comenzamos de nuevo.'
+        'Escríbenos cuando quieras y retomamos 😊'
     )
+
+
+def _aviso_sesion_expirada_con_contexto(numero, session):
+    """
+    Avisa que la sesión expiró y recupera el contexto de lo que hacía el cliente
+    (dirección de la operación e importe) para que pueda retomar rápido.
+    """
+    _op  = session.cotiz_op or ''
+    _imp = float(session.cotiz_importe or 0)
+    if _op and _imp >= 1:
+        _verbo = 'recibir' if _op == 'compra' else 'cambiar'
+        _ctx   = f' Querías {_verbo} *USD {_imp:,.0f}*.'
+        send_buttons(numero,
+            f'⏰ Tu sesión expiró por inactividad.{_ctx}\n\n'
+            '¿Deseas retomar?',
+            [
+                {'id': 'btn_cotizar', 'title': '💱 Cotizar de nuevo'},
+                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+            ]
+        )
+    else:
+        send_buttons(numero,
+            '⏰ Tu sesión ha expirado por inactividad.\n\n'
+            '¿En qué te podemos ayudar? 😊',
+            [
+                {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+            ]
+        )
 
 
 def _reset_sesion(session):
@@ -2023,13 +2058,36 @@ def _operacion_activa_cliente(numero):
 
 def _flujo_op_ya_activa(numero, op):
     """Informa al cliente que ya tiene una operación activa y no puede cotizar."""
-    estado_texto = 'pendiente de pago' if op.status == 'Pendiente' else 'siendo procesada'
+    from app.utils.formatters import now_peru as _now_op_act
+    if op.status == 'Pendiente':
+        estado_texto = 'pendiente de pago'
+        _eta_txt = ''
+    else:
+        estado_texto = 'siendo procesada por nuestro equipo'
+        _eta_txt = ''
+        try:
+            _since = getattr(op, 'in_process_since', None)
+            if _since:
+                _mins = int((_now_op_act() - _since).total_seconds() / 60)
+                if _mins < 60:
+                    _eta_txt = (
+                        f'\n\n⏱ En proceso desde hace *{_mins} min*. '
+                        'Normalmente se completa en menos de 30 min durante horario hábil.'
+                    )
+                else:
+                    _eta_txt = (
+                        '\n\n⏱ La operación lleva más de una hora en proceso. '
+                        'Habla con un asesor si necesitas una actualización.'
+                    )
+        except Exception:
+            pass
+
     botones = [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
     if op.status == 'Pendiente':
-        botones.append({'id': f'btn_modificar_importe_{op.operation_id}',   'title': '✏️ Modificar importe'})
+        botones.append({'id': f'btn_modificar_importe_{op.operation_id}', 'title': '✏️ Modificar importe'})
         botones.append({'id': f'btn_cancelar_operacion_{op.operation_id}', 'title': '❌ Cancelar operación'})
     send_buttons(numero,
-        f'⏳ Tu operación *{op.operation_id}* está {estado_texto}.\n\n'
+        f'⏳ Tu operación *{op.operation_id}* está {estado_texto}.{_eta_txt}\n\n'
         f'Solo puedes tener una operación activa a la vez. '
         f'En cuanto se complete podrás iniciar una nueva.\n\n'
         f'¿Tienes alguna consulta?',
@@ -2556,7 +2614,7 @@ def _flujo_resumen_final(numero, session, client, regenerar_token=True):
         f'Tipo de cambio: {tc:.4f}\n\n'
         f'💳 Recibirás tus {_moneda_label} en: *{_cuenta_line}*\n\n'
         f'⏱️ Cotización válida hasta las {_expira_rs}\n\n'
-        f'¿Todo correcto? Pulsa *«Confirmar operación»* para continuar con las instrucciones de transferencia.'
+        f'¿Todo correcto? Pulsa *"Confirmar operación"* para continuar con las instrucciones de transferencia.'
     )
     # Generar (o reutilizar) token de resumen
     if regenerar_token:
@@ -3788,15 +3846,16 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     db.session.commit()
                     return
 
-        # ── Sesión expirada por inactividad (cliente escribe tras 15 min) ──
+        # ── Sesión expirada por inactividad (cliente escribe tras 20 min) ──
         # Excepción: si el cliente tiene una operación En proceso, no expirar —
-        # el operador puede tardar más de 15 min en depositar los fondos.
+        # el operador puede tardar más de 20 min en depositar los fondos.
         if estado != 'inicio' and _sesion_inactiva(session):
             _op_ep = _operacion_activa_cliente(numero)
             if _op_ep and _op_ep.status == 'En proceso':
                 log.info(f'[WaBot] {numero} — sesión inactiva pero op {_op_ep.operation_id} En proceso, no expirar.')
             else:
                 log.info(f'[WaBot] {numero} — sesión inactiva ({estado}), reiniciando.')
+                _aviso_sesion_expirada_con_contexto(numero, session)
                 _reset_sesion(session)
                 # Marcar inicio del nuevo ciclo: igual que el scheduler
                 try:
@@ -4534,9 +4593,12 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     send_buttons(numero,
                         f'🔢 *¿Cuál es el código de tu transferencia?*\n\n'
                         f'{_detalle_yt}'
-                        'Encuéntralo en tu constancia bancaria como '
-                        '"N° de operación", "referencia" o "código de transacción".\n\n'
-                        'Ejemplo: 12345678',
+                        '📱 *¿Dónde encontrarlo?*\n'
+                        '› *BCP app* → Constancias → "N° operación"\n'
+                        '› *Interbank* → Comprobante → "Código de operación"\n'
+                        '› *Yape / Plin* → Detalle del movimiento → "N° de referencia"\n'
+                        '› Otros bancos: busca "referencia", "N° op" o "código de transacción"\n\n'
+                        'Escribe solo los números. Ejemplo: *12345678*',
                         [{'id': f'btn_modificar_importe_{_op_yt.operation_id}', 'title': '🔙 Volver atrás'}]
                     )
                     session.estado = 'esperando_codigo_op'
@@ -4848,7 +4910,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 _banco_sel = _banco_map[btn_id]
                 session.cotiz_cuenta = f'{_banco_sel}|'
                 send_buttons(numero,
-                    f'Escribe tu número de cuenta *{_banco_sel}*:',
+                    f'Escribe el número de tu cuenta *{_banco_sel}*:\n\n'
+                    '> Solo los dígitos, sin espacios ni guiones.',
                     [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                 )
                 session.estado = 'esperando_num_cuenta'
@@ -4860,7 +4923,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 session.cotiz_cuenta = f'{_banco_sel}|CCI'
                 send_buttons(numero,
                     f'Para *{_banco_sel}*, ingresa tu *CCI* (20 dígitos):\n\n'
-                    f'Lo encuentras en tu app del banco → Mis cuentas → Datos de cuenta.',
+                    '> Lo encuentras en tu app: Mis cuentas → Datos de cuenta.\n'
+                    '> Solo los dígitos, sin espacios ni guiones.',
                     [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                 )
                 session.estado = 'esperando_num_cuenta'
@@ -5099,13 +5163,18 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
             elif (estado != 'inicio'
                     and not (estado == 'viendo_cotizacion' and (session.cotiz_intentos or 0) >= 2)
                     and any(k in txt_lower for k in ('cancelar', 'salir', 'no gracias', 'stop', 'quiero salir'))):
+                _msg_cancel = (
+                    'Cotización cancelada. 😊\n\n'
+                    'Si cambias de opinión, aquí estaremos.'
+                    if estado in ('viendo_cotizacion', 'esperando_importe', 'confirmando_operacion')
+                    else 'Entendido, no hay problema. 😊\n\nEscríbenos cuando necesites cambiar.'
+                )
                 _reset_sesion(session)
                 send_buttons(numero,
-                    'Cotizacion cancelada\n\n'
-                    'Si deseas volver a cotizar solo presiona el botón de abajo 👇',
+                    _msg_cancel,
                     [
-                        {'id': 'btn_elegir_operacion', 'title': 'Volver a cotizar'},
-                        {'id': 'btn_asesor',           'title': '💬 Hablar con asesor'},
+                        {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
                     ]
                 )
 
@@ -5759,8 +5828,11 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     send_buttons(numero,
                         '⚠️ Correo no válido. Verifica que tenga el formato correcto\n'
                         '(ej: *tucorreo@empresa.com*) e ingrésalo de nuevo.',
-                        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                        [
+                            {'id': 'btn_asesor',    'title': '💬 Hablar con asesor'},
+                        ]
                     )
+                    # Mantener estado para que el próximo mensaje sea el correo reintentado
 
             elif estado == 'esperando_email_cotizar':
                 # Recibe email para nuevo cliente que quiere cotizar
@@ -5906,16 +5978,24 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     )
 
             elif estado == 'esperando_num_cuenta':
-                # Cliente ingresa número de cuenta/CCI tras seleccionar banco en la lista
+                # Cliente ingresa número de cuenta/CCI tras seleccionar banco en la lista.
+                # Solo se extraen los dígitos; espacios, guiones y letras se ignoran.
                 _num_raw = re.sub(r'\D', '', texto.strip())
                 _stored  = session.cotiz_cuenta or '|'
                 _banco_n, _flag = _stored.split('|', 1)
                 _necesita_cci   = _flag == 'CCI'
-                if _necesita_cci:
+                if not _num_raw:
+                    send_buttons(numero,
+                        '⚠️ No detectamos ningún número. Escribe solo los dígitos de tu cuenta.',
+                        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                    )
+                elif _necesita_cci:
                     if len(_num_raw) != 20:
-                        send_text(numero,
-                            f'⚠️ El CCI debe tener exactamente 20 dígitos.\n'
-                            f'Recibimos {len(_num_raw)} dígito{"s" if len(_num_raw) != 1 else ""}. Intenta de nuevo:'
+                        send_buttons(numero,
+                            f'⚠️ El CCI debe tener exactamente 20 dígitos '
+                            f'(recibimos {len(_num_raw)}). Ingrésalo de nuevo:\n\n'
+                            '> Lo encuentras en tu app del banco: Mis cuentas → Datos de cuenta.',
+                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                         )
                     else:
                         session.cotiz_cuenta = f'{_banco_n}|{_num_raw}'
@@ -5924,8 +6004,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         session.estado = 'confirmando_operacion'
                 else:
                     if len(_num_raw) < 6:
-                        send_text(numero,
-                            f'⚠️ El número de cuenta debe tener al menos 6 dígitos. Intenta de nuevo:'
+                        send_buttons(numero,
+                            '⚠️ El número parece muy corto. Escribe todos los dígitos de tu cuenta.',
+                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                         )
                     else:
                         session.cotiz_cuenta = f'{_banco_n}|{_num_raw}'
@@ -5934,7 +6015,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         session.estado = 'confirmando_operacion'
 
             elif estado == 'esperando_cuenta_destino':
-                # Cliente ingresa "BANCO NUMERO" para cuenta sin registrar
+                # Cliente ingresa "BANCO NUMERO" para cuenta sin registrar.
+                # Los dígitos del número se extraen automáticamente (sin espacios ni guiones).
                 _raw_cd = texto.strip()
                 _raw_cd_u = _raw_cd.upper()
                 if _raw_cd_u.startswith('BANCO ') or _raw_cd_u.startswith('BANK '):
@@ -5949,19 +6031,24 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         _flujo_resumen_final(numero, session, _client_cd)
                         session.estado = 'confirmando_operacion'
                     else:
-                        send_text(numero,
-                            '⚠️ El número de cuenta debe tener al menos 6 dígitos.\n\n'
-                            'Ejemplo: *BCP 1234567890*'
+                        send_buttons(numero,
+                            '⚠️ El número de cuenta parece muy corto.\n\n'
+                            'Escribe: *banco* + *número completo*\n'
+                            'Ejemplo: *BCP 1234567890*',
+                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                         )
                 else:
-                    send_text(numero,
-                        'Escribe el *banco* seguido del *número de cuenta*.\n\n'
+                    send_buttons(numero,
+                        'Escribe el *banco* seguido del *número de cuenta*:\n\n'
                         'Ejemplo: *BCP 1234567890*\n'
-                        'También: *Interbank 123456789* | *Scotiabank 0123456789*'
+                        'También: *Interbank 123456789*  |  *BBVA 12345678901234567890* (CCI)\n\n'
+                        '> Solo los dígitos, sin espacios ni guiones.',
+                        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                     )
 
             elif estado == 'esperando_cuenta_nueva':
-                # Cliente ingresa "BANCO NUMERO" para una nueva cuenta
+                # Cliente ingresa "BANCO NUMERO" para una nueva cuenta.
+                # Los dígitos del número se extraen automáticamente (sin espacios ni guiones).
                 raw_cuenta = texto.strip()
                 raw_upper = raw_cuenta.upper()
                 if raw_upper.startswith('BANCO ') or raw_upper.startswith('BANK '):
@@ -5976,15 +6063,19 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         _flujo_resumen_final(numero, session, _client_cn)
                         session.estado = 'confirmando_operacion'
                     else:
-                        send_text(numero,
-                            'El número de cuenta debe tener al menos 6 dígitos.\n\n'
-                            'Ejemplo: *BCP 1234567890*'
+                        send_buttons(numero,
+                            '⚠️ El número de cuenta parece muy corto.\n\n'
+                            'Escribe: *banco* + *número completo*\n'
+                            'Ejemplo: *BCP 1234567890*',
+                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                         )
                 else:
-                    send_text(numero,
-                        'Escribe el banco seguido del número de cuenta.\n\n'
+                    send_buttons(numero,
+                        'Escribe el *banco* seguido del *número de cuenta*:\n\n'
                         'Ejemplo: *BCP 1234567890*\n'
-                        'También puedes escribir: *Interbank 123456789*'
+                        'También: *Interbank 123456789*  |  *BBVA 12345678901234567890* (CCI)\n\n'
+                        '> Solo los dígitos, sin espacios ni guiones.',
+                        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                     )
 
             elif estado == 'esperando_numero_doc':
@@ -6026,14 +6117,25 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     send_text(numero, '🔍 Verificando tu código...')
                     _flujo_registrar_codigo_op(numero, codigo, session)
                 elif codigo:
-                    send_text(numero,
-                        '⚠️ El código parece incorrecto. Debe contener al menos 4 dígitos.\n\n'
-                        'Encuéntralo en tu constancia bancaria como "N° de operación", '
-                        '"referencia" o "código de transacción".\n\n'
-                        'Ejemplo: *12345678*'
+                    send_buttons(numero,
+                        '⚠️ El código parece incorrecto (necesita al menos 4 dígitos).\n\n'
+                        '📱 *¿Dónde encontrarlo?*\n'
+                        '› *BCP app* → Constancias → "N° operación"\n'
+                        '› *Interbank* → Comprobante → "Código de operación"\n'
+                        '› *Yape / Plin* → Detalle del movimiento → "N° de referencia"\n'
+                        '› Otros bancos: "referencia", "N° op" o "código de transacción"\n\n'
+                        'Escribe solo los números. Ejemplo: *12345678*',
+                        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                     )
                 else:
-                    send_text(numero, '🔢 Ingresa el código de operación de tu voucher bancario.')
+                    send_buttons(numero,
+                        '🔢 Ingresa el código de operación de tu voucher bancario.\n\n'
+                        '📱 *¿Dónde encontrarlo?*\n'
+                        '› *BCP app* → Constancias → "N° operación"\n'
+                        '› *Interbank* → Comprobante → "Código de operación"\n'
+                        '› *Yape / Plin* → Detalle del movimiento → "N° de referencia"',
+                        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                    )
 
             elif estado == 'esperando_referencia_yt':
                 # Cliente debe escribir el número de operación para el caso de múltiples ops.
@@ -6099,9 +6201,12 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                 send_buttons(numero,
                                     f'🔢 *¿Cuál es el código de tu transferencia?*\n\n'
                                     f'📋 *{_op_ref.operation_id}* · {_sim_r} {_amt_r:,.2f}\n\n'
-                                    'Encuéntralo en tu constancia bancaria como '
-                                    '"N° de operación", "referencia" o "código de transacción".\n\n'
-                                    'Ejemplo: 12345678',
+                                    '📱 *¿Dónde encontrarlo?*\n'
+                                    '› *BCP app* → Constancias → "N° operación"\n'
+                                    '› *Interbank* → Comprobante → "Código de operación"\n'
+                                    '› *Yape / Plin* → Detalle → "N° de referencia"\n'
+                                    '› Otros: busca "referencia" o "código de transacción"\n\n'
+                                    'Escribe solo los números. Ejemplo: *12345678*',
                                     [{'id': f'btn_modificar_importe_{_op_ref.operation_id}', 'title': '🔙 Volver atrás'}]
                                 )
                                 session.estado = 'esperando_codigo_op'
@@ -6320,14 +6425,15 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     if session.tipo == 'empresa' and session.cotiz_doc:
                         _flujo_menu_operacion_empresa(numero, session.nombre)
                     else:
-                        send_buttons(numero,
-                            '¡Hola! 👋 ¿En qué te puedo ayudar hoy?',
-                            [
-                                {'id': 'btn_comprar',       'title': 'Soles a dólares'},
-                                {'id': 'btn_vender',        'title': 'Dólares a soles'},
-                                {'id': 'btn_cambiar_perfil','title': '🏢 TC para empresa'},
-                            ]
-                        )
+                        # Solo mostrar "TC para empresa" si el perfil no es persona natural
+                        _tipo_sal = (session.tipo or '').strip()
+                        _botones_sal = [
+                            {'id': 'btn_comprar', 'title': 'Soles a dólares'},
+                            {'id': 'btn_vender',  'title': 'Dólares a soles'},
+                        ]
+                        if _tipo_sal not in ('natural', 'persona'):
+                            _botones_sal.append({'id': 'btn_cambiar_perfil', 'title': '🏢 TC para empresa'})
+                        send_buttons(numero, '¡Hola! 👋 ¿En qué te puedo ayudar hoy?', _botones_sal)
                 elif any(k in txt_lower for k in ('ok', 'okey', 'okay', 'entendido', 'gracias', 'listo', 'perfecto', 'bien', 'dale', 'claro', 'de acuerdo')):
                     send_text(numero, '😊 ¡Con gusto! Estamos aquí cuando lo necesites.')
                 elif any(k in txt_lower for k in ('como funciona', 'cómo funciona', 'como opera', 'es seguro', 'es confiable', 'información', 'informacion', 'info', 'cuéntame', 'cuentame')):
@@ -6529,18 +6635,19 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     _seguridad_kw = ('es seguro', 'seguro', 'confiable', 'confianza',
                                      'riesgo', 'estafa', 'fraude')
                     _cancelar_kw = ('cancelar', 'salir', 'no gracias', 'volver', 'inicio', 'menu', 'no quiero')
-                    # Tercer intento: bloquear cualquier texto antes de keyword checks
+                    # Tercer intento: ofrecer asesor antes de cancelar del todo
                     if (session.cotiz_intentos or 0) >= 2:
-                        _reset_sesion(session)
+                        _imp_cot = float(session.cotiz_importe or 0)
+                        _imp_txt = f' de *USD {_imp_cot:,.0f}*' if _imp_cot >= 1 else ''
                         send_buttons(numero,
-                            'No hemos podido continuar con tu cotización. '
-                            'Por favor vuelve a cotizar cuando quieras 😊',
+                            f'¿Necesitas ayuda para completar tu cotización{_imp_txt}? 😊\n\n'
+                            'Un asesor puede guiarte en segundos.',
                             [
-                                {'id': 'btn_elegir_operacion', 'title': 'Volver a cotizar'},
                                 {'id': 'btn_asesor',           'title': '💬 Hablar con asesor'},
-                                {'id': 'btn_cerrar_sesion',    'title': 'Cerrar sesión'},
+                                {'id': 'btn_elegir_operacion', 'title': '🔄 Cotizar de nuevo'},
                             ]
                         )
+                        _reset_sesion(session)
                     elif any(k in txt_lower for k in _despedida_kw):
                         primer_nombre = (session.nombre or '').split()[0].title() if session.nombre else ''
                         _reset_sesion(session)
@@ -6737,7 +6844,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                 f'📋 Tu operación *{op_act.operation_id}* sigue pendiente de pago.\n\n'
                                 f'Transfiere *{simbolo_e} {monto_e:,.2f}* a:\n\n'
                                 f'{_cuentas_q}\n\n'
-                                f'Cuando hayas transferido, escríbenos el código de tu voucher o pulsa el botón.',
+                                'Cuando hayas transferido, pulsa el botón e ingresa el *código de operación* '
+                                'de tu constancia bancaria (N° operación, referencia o código de transacción).',
                                 [{'id': 'btn_ya_transferi', 'title': '✅ Ya transferí'}]
                             )
                         else:
