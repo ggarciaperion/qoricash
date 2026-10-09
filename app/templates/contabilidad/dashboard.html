@@ -155,9 +155,10 @@
           </div>
           {% if ir_pago_estimado is not none %}
           <div class="fs-3 fw-bold text-danger mb-1">S/ {{ "%.2f"|format(ir_pago_estimado) }}</div>
-          <div class="text-muted small mb-3">Estimado según último reporte de auditoría · D.Leg. 1269</div>
+          <div class="text-muted small mb-1">Estimado provisional · D.Leg. 1269 Art. 6°</div>
+          <div class="text-warning small mb-3"><i class="bi bi-exclamation-triangle me-1"></i>Confirmar base imponible con contador antes de presentar PDT.</div>
           {% else %}
-          <div class="text-muted small mb-3">Ejecuta la auditoría para calcular el pago a cuenta del mes.</div>
+          <div class="text-muted small mb-3">Ejecuta la auditoría para obtener el estimado del mes. Confirmar monto con contador antes de presentar PDT.</div>
           {% endif %}
           <button class="btn btn-sm btn-outline-danger" onclick="modalPagoIR()">
             <i class="bi bi-plus-circle me-1"></i>Registrar pago
@@ -176,7 +177,7 @@
           </div>
           <div>
             <div class="fw-semibold">PLE Registro de Ventas</div>
-            <div class="text-muted small">LE140100 · comprobantes emitidos · exonerada IGV</div>
+            <div class="text-muted small">LE140100 · comprobantes emitidos · inafecta IGV</div>
           </div>
           <i class="bi bi-download ms-auto text-muted opacity-50"></i>
         </div>
@@ -209,8 +210,8 @@
             <div class="mb-3">
               <label class="form-label">Monto a pagar (S/) <span class="text-danger">*</span></label>
               <input type="number" name="monto" class="form-control" step="0.01" min="0.01"
-                     value="{{ "%.2f"|format(ir_pago_estimado) if ir_pago_estimado else '' }}"
-                     placeholder="Ingresa el monto según PDT presentado">
+                     value=""
+                     placeholder="Ingresa el monto confirmado con tu contador">
             </div>
             <div class="mb-3">
               <label class="form-label">Fecha de pago <span class="text-danger">*</span></label>

@@ -160,9 +160,13 @@ def export_registro_ventas(year: int, month: int) -> bytes:
     """
     Genera el Registro de Ventas e Ingresos (LE140100) para QoriCash.
 
-    Actividad exonerada de IGV (Art. 2 Apéndice I TUO Ley IGV):
-    - BaseImponible = 0, IGV = 0, Exonerado = monto total
-    - Fuente: tabla invoices (facturas y boletas emitidas por NubeFact)
+    Actividad inafecta al IGV (Art. 1° y Art. 3° TUO Ley IGV + Num. 8 Art. 2° Reglamento
+    — las operaciones de casa de cambio SBS no constituyen "venta de bienes" ni
+    "prestación de servicios" según esas definiciones):
+    - BaseImponible = 0, IGV = 0, Exonerado = 0, Inafecto = monto total
+    - Fuente: tabla invoices (facturas y boletas emitidas por NubeFact, status='Aceptado')
+    AVISO: verificar con contador si corresponde PLE o SIRE para el período a presentar,
+    y validar el formato completo contra la versión vigente del LE140100.
 
     Campos SUNAT LE140100:
     Periodo|CUO|CorrelativoAsiento|FechaEmision|FechaVencimiento|
@@ -204,7 +208,10 @@ def export_registro_ventas(year: int, month: int) -> bytes:
             f'{periodo}|{cuo}|1|{fecha}|-|'
             f'{tipo_cp}|{serie}|{numero}|'
             f'{doc_tipo}|{doc_num}|{cliente}|'
-            f'0.00|0.00|0.00|0.00|{total}|0.00|0.00|0.00|'
+            # col12=ExportFOB col13=BaseImponible col14=DescBI col15=IGV
+            # col16=Exonerado col17=Inafecto col18=ISC col19=IVAP
+            # Operación inafecta → monto en col17 (Inafecto), col16 en 0
+            f'0.00|0.00|0.00|0.00|0.00|{total}|0.00|0.00|'
             f'0.00|0.00|{total}|PEN|1\r\n'
         )
         buf.write(row)

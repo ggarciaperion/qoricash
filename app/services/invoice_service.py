@@ -251,7 +251,7 @@ class InvoiceService:
             "valor_unitario": total_amount,
             "precio_unitario": total_amount,
             "subtotal": total_amount,
-            "tipo_de_igv": 8,  # 8 = exonerada (Art. 2 Apéndice I TUO Ley IGV) — casas de cambio
+            "tipo_de_igv": 9,  # 9 = inafecta (Art. 2 TUO Ley IGV) — operaciones de casa de cambio SBS
             "igv": 0,
             "total": total_amount,
             "anticipo_regularizacion": False
@@ -422,7 +422,7 @@ class InvoiceService:
             descripcion=InvoiceService._generate_service_description(operation),
             monto_total=operation.amount_pen,
             moneda='PEN',
-            exonerada=operation.amount_pen,  # En BD guardamos como exonerada (inafecta para NubeFact)
+            exonerada=operation.amount_pen,  # Campo BD reutilizado para inafecta (operación de casa de cambio)
             gravada=0,
             igv=0,
             # 'Aceptado' solo si SUNAT lo confirmó; 'Demo' si es entorno de pruebas
