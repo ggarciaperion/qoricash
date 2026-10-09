@@ -248,6 +248,25 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Migration] wa_messages tipo/origen columns: {e}")
 
+    # Migración: normalizar numero sin '+' en wa_messages y wa_bot_sessions a E.164
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            # wa_messages: numeros que empiezan con 51 pero no con +
+            db.session.execute(text(
+                "UPDATE wa_messages SET numero = '+' || numero "
+                "WHERE numero NOT LIKE '+%' AND numero LIKE '51%'"
+            ))
+            # wa_bot_sessions: mismo fix
+            db.session.execute(text(
+                "UPDATE wa_bot_sessions SET numero = '+' || numero "
+                "WHERE numero NOT LIKE '+%' AND numero LIKE '51%'"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] normalizar numero E.164: {e}")
+
     # Migración: tabla economic_events — calendario económico (idempotente)
     try:
         with app.app_context():

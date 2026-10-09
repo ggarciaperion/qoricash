@@ -492,6 +492,12 @@ def api_registro_campana():
     if not numero or not mensaje:
         return jsonify({'ok': False, 'error': 'Faltan datos'}), 400
 
+    # Normalizar a formato E.164 (+51XXXXXXXXX) para unificar con webhook/bot
+    _digits = ''.join(c for c in numero if c.isdigit())
+    if not _digits.startswith('51'):
+        _digits = f'51{_digits}'
+    numero = f'+{_digits}'
+
     # Actualizar nombre/empresa en mensajes previos si estaban vacíos
     if nombre or empresa:
         WaMessage.query.filter_by(numero=numero, nombre='').update({'nombre': nombre})
@@ -1838,6 +1844,10 @@ def api_guardar_contacto():
     empresa = data.get('empresa', '').strip()
     if not numero:
         return jsonify({'ok': False, 'error': 'numero requerido'}), 400
+    # Normalizar a E.164
+    _dig = ''.join(c for c in numero if c.isdigit())
+    if not _dig.startswith('51'): _dig = f'51{_dig}'
+    numero = f'+{_dig}'
     try:
         ses = WaBotSession.query.filter_by(numero=numero).first()
         if not ses:
