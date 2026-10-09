@@ -74,6 +74,11 @@ class Invoice(db.Model):
     # Errores
     error_message = db.Column(db.Text)  # Mensaje de error si falla
 
+    # Trazabilidad contable: asiento del Libro Diario generado por la operación asociada
+    # Permite cruzar comprobante ↔ asiento sin join adicional
+    journal_entry_id = db.Column(db.Integer, db.ForeignKey('journal_entries.id'),
+                                  nullable=True, index=True)
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=now_peru, nullable=False, index=True)
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
@@ -83,6 +88,7 @@ class Invoice(db.Model):
     # Relaciones
     operation = db.relationship('Operation', backref='invoices', lazy=True)
     client = db.relationship('Client', backref='invoices', lazy=True)
+    journal_entry = db.relationship('JournalEntry', backref='invoices', lazy=True)
 
     def __repr__(self):
         return f'<Invoice {self.invoice_number} - Operation {self.operation_id}>'

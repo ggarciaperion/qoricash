@@ -436,8 +436,22 @@ class InvoiceService:
             nubefact_sunat_note=response_data.get('sunat_note', ''),
             nubefact_codigo_hash=response_data.get('codigo_hash', ''),
             sent_at=now_peru(),
+            # accepted_at solo cuando SUNAT confirmó; None en modo Demo
             accepted_at=now_peru() if response_data.get('aceptada_por_sunat') else None
         )
+
+        # Vincular al asiento contable de la operación (F-4 trazabilidad)
+        try:
+            from app.models.journal_entry import JournalEntry as _JE
+            _entry = _JE.query.filter_by(
+                source_type='operation',
+                source_id=operation.id,
+                status='activo',
+            ).order_by(_JE.id.desc()).first()
+            if _entry:
+                invoice.journal_entry_id = _entry.id
+        except Exception:
+            pass  # FK es nullable — no bloquear si falla
 
         db.session.add(invoice)
         db.session.commit()

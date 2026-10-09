@@ -124,15 +124,39 @@ def dashboard():
     except Exception:
         unmatched_count = 0
 
-    # IR pago a cuenta del mes (del último AuditReport del período)
+    # IR pago a cuenta del mes — primero desde AuditReport, si no: calcula al vuelo
     ir_pago_estimado = None
     try:
         from app.models.audit_report import AuditReport
+        from app.models.journal_entry_line import JournalEntryLine as _JEL2
+        from app.models.journal_entry import JournalEntry as _JE2
+        from sqlalchemy import extract as _ex2, func as _fn2
+        from decimal import Decimal as _D2
+
         _ar = AuditReport.query.filter_by(
             report_year=year, report_month=month
         ).order_by(AuditReport.id.desc()).first()
+
         if _ar and _ar.ir_pago_cuenta_pen:
             ir_pago_estimado = float(_ar.ir_pago_cuenta_pen)
+        else:
+            # Calcular al vuelo: 1% de ingresos netos del Libro Diario (cuentas 7xxx)
+            _ing = db.session.query(
+                _fn2.coalesce(_fn2.sum(_JEL2.haber), _D2('0'))
+            ).join(_JE2, _JEL2.journal_entry_id == _JE2.id
+            ).filter(
+                _ex2('year',  _JE2.entry_date) == year,
+                _ex2('month', _JE2.entry_date) == month,
+                _JE2.status == 'activo',
+                _JEL2.account_code.like('7%'),
+                _JEL2.haber > 0,
+            ).scalar() or _D2('0')
+
+            _ing_neto = _D2(str(_ing))
+            if _ing_neto > 0:
+                ir_pago_estimado = float(
+                    (_ing_neto * _D2('0.01')).quantize(_D2('0.01'))
+                )
     except Exception:
         pass
 
@@ -1501,6 +1525,97 @@ def cerrar_periodo():
                 except Exception:
                     pass
 
+            # ── Reconciliar cuenta puente 1699 (diferencial FX) al cierre ────
+            # 1699 acumula el margen FX reconocido como DEBE (ganancias) o HABER (pérdidas).
+            # Al cierre del período se ceroiza contra la posición bancaria real,
+            # usando el saldo neto que ya está embebido en los saldos bancarios.
+            try:
+                from app.models.journal_entry_line import JournalEntryLine
+                from app.models.journal_entry import JournalEntry
+                from sqlalchemy import extract as _ext, func as _func
+                from decimal import Decimal as _D
+
+                saldo = db.session.query(
+                    _func.coalesce(_func.sum(JournalEntryLine.debe),  _D('0')).label('d'),
+                    _func.coalesce(_func.sum(JournalEntryLine.haber), _D('0')).label('h'),
+                ).join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+                ).filter(
+                    _ext('year',  JournalEntry.entry_date) == year,
+                    _ext('month', JournalEntry.entry_date) == month,
+                    JournalEntry.status == 'activo',
+                    JournalEntryLine.account_code == '1699',
+                ).first()
+
+                neto_1699 = _D(str(saldo.d or 0)) - _D(str(saldo.h or 0))
+
+                if abs(neto_1699) >= _D('0.01'):
+                    # Ceroizar 1699 contra 7999 (Ajuste de cierre — cuenta transitoria)
+                    # 7999 se cancelará en el asiento de resultados del período.
+                    if neto_1699 > 0:
+                        # 1699 tiene saldo deudor (ganancias acumuladas): cerrar con HABER
+                        rec_lines = [
+                            {'account_code': '7999',
+                             'description': f'Ajuste cierre período {year}/{month:02d} — cancelación puente FX',
+                             'debe': neto_1699, 'haber': _D('0'), 'currency': 'PEN'},
+                            {'account_code': '1699',
+                             'description': f'Cierre cuenta puente FX — período {year}/{month:02d}',
+                             'debe': _D('0'), 'haber': neto_1699, 'currency': 'PEN'},
+                        ]
+                    else:
+                        # 1699 tiene saldo acreedor (pérdidas acumuladas): cerrar con DEBE
+                        loss = abs(neto_1699)
+                        rec_lines = [
+                            {'account_code': '1699',
+                             'description': f'Cierre cuenta puente FX — período {year}/{month:02d}',
+                             'debe': loss, 'haber': _D('0'), 'currency': 'PEN'},
+                            {'account_code': '6999',
+                             'description': f'Ajuste cierre período {year}/{month:02d} — cancelación puente FX',
+                             'debe': _D('0'), 'haber': loss, 'currency': 'PEN'},
+                        ]
+
+                    # Temporalmente re-abrimos el período para crear el asiento de cierre,
+                    # luego JournalService.close_period ya lo cerró — creamos directamente
+                    from app.models.journal_entry import JournalEntry as _JE
+                    from app.models.journal_entry_line import JournalEntryLine as _JEL
+                    from app.models.journal_sequence import JournalSequence
+
+                    last_day = date(year, month, __import__('calendar').monthrange(year, month)[1])
+                    entry_num = JournalService._next_entry_number(year)
+                    total_d = sum(l['debe']  for l in rec_lines)
+                    total_h = sum(l['haber'] for l in rec_lines)
+
+                    rec_entry = _JE(
+                        entry_number=entry_num,
+                        period_id=period.id,
+                        entry_date=last_day,
+                        description=f'Cierre cuenta puente 1699 — diferencial FX {year}/{month:02d}',
+                        entry_type='cierre_fx',
+                        source_type='period_close',
+                        source_id=period.id,
+                        total_debe=total_d,
+                        total_haber=total_h,
+                        status='activo',
+                        created_by=current_user.id,
+                    )
+                    db.session.add(rec_entry)
+                    db.session.flush()
+
+                    for i, ln in enumerate(rec_lines, 1):
+                        db.session.add(_JEL(
+                            journal_entry_id=rec_entry.id,
+                            account_code=ln['account_code'],
+                            description=ln['description'],
+                            debe=ln['debe'],
+                            haber=ln['haber'],
+                            currency='PEN',
+                        ))
+
+            except Exception as _fx_err:
+                import logging as _lg
+                _lg.getLogger(__name__).warning(
+                    f'[CierrePeriodo] No se pudo reconciliar 1699: {_fx_err}'
+                )
+
             AuditLog.log_action(
                 user_id    = current_user.id,
                 action     = 'CLOSE_PERIOD',
@@ -2499,15 +2614,18 @@ def export_lig_ple():
     """
     Exporta el Libro de Ingresos y Gastos en formato PLE SUNAT (M-03).
     Genera dos archivos .txt pipe-delimited en un zip:
-      - LE{RUC}AAAAMM00080100001.txt  (Ingresos)
-      - LE{RUC}AAAAMM00080200001.txt  (Gastos)
+      - LE{RUC}AAAAMM00080100001.txt  (Ingresos — fuente: facturas NubeFact aceptadas)
+      - LE{RUC}AAAAMM00080200001.txt  (Gastos   — fuente: Libro Diario 6xxx)
 
     Estructura basada en el Formato 8.1 / 8.2 del PLE SUNAT para
     Libro de Ingresos y Gastos (Régimen MYPE Tributario).
+
+    L-2 FIX: la sección Ingresos usa los comprobantes emitidos via NubeFact (status=Aceptado),
+    no las líneas del Libro Diario. SUNAT exige que el LIG refleje los comprobantes reales.
+    Casa de cambio exonerada → BaseImponible=0, IGV=0, Exonerado=monto_total.
     """
     import zipfile
-    from app.models.journal_entry import JournalEntry
-    from app.models.journal_entry_line import JournalEntryLine
+    from app.models.invoice import Invoice
     from app.models.expense_record import ExpenseRecord
     from app.models.system_config import SystemConfig
     from sqlalchemy import extract
@@ -2519,51 +2637,60 @@ def export_lig_ple():
     periodo      = f'{year}{month:02d}00'
     ruc_clean    = ruc.replace('-', '').replace(' ', '')
 
-    # ── Ingresos: líneas JournalEntryLine con cuentas 7xxx (haber neto > 0) ────
-    from app.models.journal_entry_line import JournalEntryLine as JEL
-    lines_7 = db.session.query(
-        JournalEntry, JEL
-    ).join(JEL, JEL.journal_entry_id == JournalEntry.id
-    ).filter(
-        extract('year',  JournalEntry.entry_date) == year,
-        extract('month', JournalEntry.entry_date) == month,
-        JournalEntry.status == 'activo',
-        JEL.account_code.like('7%'),
-        JEL.haber > 0,                        # solo líneas con ingreso real
-    ).order_by(JournalEntry.entry_date.asc(), JournalEntry.id.asc()).all()
+    # ── Ingresos: facturas aceptadas por SUNAT vía NubeFact ───────────────────
+    invoices = Invoice.query.filter(
+        extract('year',  Invoice.created_at) == year,
+        extract('month', Invoice.created_at) == month,
+        Invoice.status == 'Aceptado',
+    ).order_by(Invoice.created_at.asc(), Invoice.id.asc()).all()
 
     ing_lines = []
-    for corr, (entry, line) in enumerate(lines_7, 1):
-        # Formato 8.1 simplificado: Período|Correlativo|Fecha|TipoComp|Serie|Num|
-        #   TipoDoc|NumDoc|RazonSocial|ValExport|BaseImpon|Descuento|IGV|
-        #   Inafecto|Exonerado|Total|Moneda|TC|FechaRef|TipoRef|SerieRef|
-        #   NumRef|MedPago|Estado
-        haber = float(line.haber or 0)
+    for corr, inv in enumerate(invoices, 1):
+        tipo_cp  = '01' if (inv.invoice_number or '').startswith('F') else '03'
+        doc_num  = inv.cliente_numero_documento or ''
+        doc_tipo = '1' if len(doc_num) == 8 else ('4' if len(doc_num) == 9 else
+                   ('6' if len(doc_num) == 11 else '0'))
+        cliente  = (inv.cliente_denominacion or '')[:100].replace('|', ' ')
+        fecha    = inv.created_at.strftime('%d/%m/%Y')
+        total    = float(inv.monto_total or 0)
+        serie    = (inv.serie or '').replace('|', '')
+        numero   = (inv.numero or '').replace('|', '')
+
+        # Formato 8.1: Período|CUO|CorrelativoAsiento|Fecha|FechaVencimiento|
+        #   TipoCP|SerieCP|NumCP|TipoDocCliente|NumDocCliente|NombreCliente|
+        #   ValExportacion|BaseImponible|Descuento|IGV|Exonerado|Inafecto|ISC|
+        #   OtrosTributos|OtrosCargos|Total|Moneda|TC|FechaRef|TipoRef|SerieRef|NumRef|
+        #   MedioPago|Estado
         fields = [
-            periodo,                               # 1 Período
-            f'{corr:05d}',                        # 2 Correlativo
-            entry.entry_date.strftime('%d/%m/%Y'), # 3 Fecha
-            '00',                                  # 4 Tipo comprobante (00=sin comprobante)
-            '',                                    # 5 Serie
-            entry.entry_number,                    # 6 Número correlativo comprobante
-            '',                                    # 7 Tipo doc identidad
-            '',                                    # 8 Número documento
-            '',                                    # 9 Razón social
-            '0.00',                                # 10 Valor exportación
-            f'{haber:.2f}',                        # 11 Base imponible
-            '0.00',                                # 12 Descuento
-            '0.00',                                # 13 IGV
-            '0.00',                                # 14 Inafecto
-            '0.00',                                # 15 Exonerado
-            f'{haber:.2f}',                        # 16 Total
-            'PEN',                                 # 17 Moneda
-            '1.000',                               # 18 Tipo de cambio
-            '',                                    # 19 Fecha comprobante referenciado
-            '',                                    # 20 Tipo comprobante ref
-            '',                                    # 21 Serie ref
-            '',                                    # 22 Num ref
-            '',                                    # 23 Indicador medio pago
-            '1',                                   # 24 Estado (1=activo)
+            periodo,                    # 1  Período
+            f'I{corr:05d}',            # 2  CUO (correlativo único)
+            '1',                        # 3  Correlativo asiento
+            fecha,                      # 4  Fecha emisión
+            fecha,                      # 5  Fecha vencimiento (= emisión para servicios)
+            tipo_cp,                    # 6  Tipo comprobante
+            serie,                      # 7  Serie
+            numero,                     # 8  Número
+            doc_tipo,                   # 9  Tipo doc cliente
+            doc_num,                    # 10 Número doc cliente
+            cliente,                    # 11 Razón social cliente
+            '0.00',                     # 12 Val. exportación
+            '0.00',                     # 13 Base imponible (exonerada → 0)
+            '0.00',                     # 14 Descuento
+            '0.00',                     # 15 IGV
+            f'{total:.2f}',             # 16 Exonerado (monto total)
+            '0.00',                     # 17 Inafecto
+            '0.00',                     # 18 ISC
+            '0.00',                     # 19 Otros tributos
+            '0.00',                     # 20 Otros cargos
+            f'{total:.2f}',             # 21 Total
+            'PEN',                      # 22 Moneda
+            '1.000',                    # 23 Tipo de cambio
+            '',                         # 24 Fecha comprobante ref
+            '',                         # 25 Tipo CP ref
+            '',                         # 26 Serie ref
+            '',                         # 27 Número ref
+            '',                         # 28 Medio de pago
+            '1',                        # 29 Estado (1=activo)
         ]
         ing_lines.append('|'.join(fields) + '|\n')
 

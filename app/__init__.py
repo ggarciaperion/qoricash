@@ -1158,6 +1158,23 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Migration] expense_records retencion_4ta: {e}")
 
+    # Migración: FK journal_entry_id en invoices (trazabilidad comprobante ↔ asiento)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text(
+                "ALTER TABLE invoices ADD COLUMN IF NOT EXISTS "
+                "journal_entry_id INTEGER REFERENCES journal_entries(id)"
+            ))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_invoices_journal_entry "
+                "ON invoices(journal_entry_id)"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] invoices journal_entry_id: {e}")
+
     return app
 
 
@@ -2059,6 +2076,7 @@ def register_cli_commands(app):
             ('592',  'Pérdidas acumuladas',               'patrimonio','deudora',   'PEN'),
             # ── INGRESOS ────────────────────────────────────────────────────
             ('7711', 'Ganancia diferencial cambiario',    'ingreso',   'acreedora', 'PEN'),
+            ('7999', 'Ajuste de cierre — resultado positivo período', 'ingreso', 'acreedora', 'PEN'),
             ('7712', 'Otros ingresos financieros',        'ingreso',   'acreedora', 'PEN'),
             ('7761', 'Ganancia por diferencia de cambio – ajuste monetario', 'ingreso', 'acreedora', 'PEN'),
             # ── GASTOS ──────────────────────────────────────────────────────
@@ -2072,6 +2090,7 @@ def register_cli_commands(app):
             ('6411', 'IR – Pago a cuenta (gasto)',        'gasto',     'deudora',   'PEN'),
             ('6511', 'Otros gastos de gestión',           'gasto',     'deudora',   'PEN'),
             ('6762', 'Pérdida por diferencia de cambio',  'gasto',     'deudora',   'PEN'),
+            ('6999', 'Ajuste de cierre — resultado negativo período', 'gasto', 'deudora', 'PEN'),
             ('6814', 'Depreciación – Inmuebles, maq. y equipo', 'gasto','deudora',  'PEN'),
         ]
 
