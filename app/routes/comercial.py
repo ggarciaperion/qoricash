@@ -211,8 +211,8 @@ def _get_cartera(trader_id=None, tipo_filtro=None, tc_subiendo=False, tc_bajando
         func.sum(Operation.amount_usd).label('total_usd'),
         func.max(Operation.created_at).label('ultima_op'),
         func.avg(pips_expr).label('avg_spread'),
-        func.bool_or(Operation.operation_type == 'Compra').label('has_compra'),
-        func.bool_or(Operation.operation_type == 'Venta').label('has_venta'),
+        func.max(sa_case((Operation.operation_type == 'Compra', 1), else_=0)).label('has_compra'),
+        func.max(sa_case((Operation.operation_type == 'Venta',  1), else_=0)).label('has_venta'),
     ).filter(*op_filters).group_by(Operation.client_id).all()
 
     if not agg:

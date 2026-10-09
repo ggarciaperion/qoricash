@@ -315,85 +315,90 @@
 
 <!-- Modal Crear/Editar Cliente -->
 <div class="modal fade" id="createClientModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content border-0 shadow">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius:12px;overflow:hidden;">
 
             <!-- Header -->
-            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
+            <div class="modal-header px-4 py-3" style="background:var(--black);border-bottom:2px solid var(--q);flex-shrink:0;">
                 <div class="d-flex align-items-center gap-2">
-                    <i class="bi bi-person-plus-fill fs-5"></i>
-                    <h5 class="modal-title fw-semibold mb-0" id="modalTitle">Nuevo Cliente</h5>
+                    <div class="d-flex align-items-center justify-content-center rounded-circle"
+                         style="width:30px;height:30px;background:rgba(25,107,254,.2);">
+                        <i class="bi bi-person-plus-fill" style="color:var(--q);font-size:.8rem;"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold text-white" id="modalTitle" style="font-size:.88rem;line-height:1.2;">Nuevo Cliente</div>
+                        <div class="text-white-50" style="font-size:.68rem;letter-spacing:.02em;">Registro en QoriCash</div>
+                    </div>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
 
-            <div class="modal-body px-4 py-3">
+            <div class="modal-body px-4 py-3" style="overflow-y:auto;">
                 <form id="clientForm" enctype="multipart/form-data">
                     <input type="hidden" id="clientId" name="client_id">
 
                     <!-- Tipo de Documento -->
-                    <div class="row g-3 mb-2">
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Tipo de Documento <span class="text-danger">*</span></label>
-                            <select class="form-select" id="documentType" name="document_type" required onchange="changeDocumentType()">
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold mb-1">Tipo de Documento <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm" id="documentType" name="document_type" required onchange="changeDocumentType()">
                                 <option value="">Seleccionar...</option>
                                 <option value="DNI">DNI — Persona Natural</option>
                                 <option value="CE">CE — Carnet de Extranjería</option>
                                 <option value="RUC">RUC — Persona Jurídica</option>
                             </select>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Número de Documento <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="dni" name="dni" required>
-                            <small class="form-text text-muted" id="dniHelp">Ingrese el número de documento</small>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold mb-1">N° de Documento <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="dni" name="dni" required placeholder="Ej: 12345678">
+                            <div class="form-text" id="dniHelp" style="font-size:.68rem;">Ingrese el número</div>
                         </div>
                     </div>
 
                     <!-- ── PERSONA NATURAL (DNI / CE) ─────────────────────── -->
                     <div id="dniCeFields" style="display: none;">
 
-                        <div id="dniLookupFeedback" class="mb-3" style="display:none"></div>
+                        <div id="dniLookupFeedback" class="mb-2" style="display:none"></div>
                         <div id="dniReniecLookupRow" class="mb-2" style="display:none">
-                            <button type="button" class="btn btn-outline-primary btn-sm" id="btnDniLookup">
+                            <button type="button" class="btn btn-outline-primary btn-sm py-1" id="btnDniLookup" style="font-size:.75rem;">
                                 <i class="bi bi-search" id="dniLookupIcon"></i> Autocompletar desde RENIEC
                             </button>
-                            <small class="text-muted ms-2">Ingresa el DNI arriba y haz clic para autocompletar</small>
                         </div>
 
                         <div class="form-section-title">
-                            <span class="sec-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-person"></i></span>
+                            <span class="sec-icon"><i class="bi bi-person"></i></span>
                             Información Personal
                         </div>
-                        <div class="row g-3 mb-2">
-                            <div class="col-md-4">
-                                <label class="form-label">Apellido Paterno <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control text-uppercase-input" id="apellidoPaterno" name="apellido_paterno">
+                        <div class="row g-2 mb-2">
+                            <div class="col-4">
+                                <label class="form-label small mb-1">Ap. Paterno <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control form-control-sm text-uppercase-input" id="apellidoPaterno" name="apellido_paterno">
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Apellido Materno <span class="text-danger" id="apellidoMaternoRequired">*</span></label>
-                                <input type="text" class="form-control text-uppercase-input" id="apellidoMaterno" name="apellido_materno">
+                            <div class="col-4">
+                                <label class="form-label small mb-1">Ap. Materno <span class="text-danger" id="apellidoMaternoRequired">*</span></label>
+                                <input type="text" class="form-control form-control-sm text-uppercase-input" id="apellidoMaterno" name="apellido_materno">
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Nombres <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control text-uppercase-input" id="nombres" name="nombres">
+                            <div class="col-4">
+                                <label class="form-label small mb-1">Nombres <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control form-control-sm text-uppercase-input" id="nombres" name="nombres">
                             </div>
                         </div>
 
                         <div class="form-section-title">
-                            <span class="sec-icon bg-indigo bg-opacity-10 text-primary"><i class="bi bi-file-earmark-person"></i></span>
+                            <span class="sec-icon"><i class="bi bi-file-earmark-person"></i></span>
                             Documentos de Identidad
                         </div>
                         <div class="document-section">
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label small fw-semibold">Anverso — Parte frontal</label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Anverso (frontal)</label>
                                     <input type="file" class="form-control form-control-sm" id="dniFront" name="dni_front" accept="image/*,.pdf">
-                                    <div id="dniFrontPreview" class="mt-2"></div>
+                                    <div id="dniFrontPreview" class="mt-1"></div>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label small fw-semibold">Reverso — Parte posterior</label>
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Reverso (posterior)</label>
                                     <input type="file" class="form-control form-control-sm" id="dniBack" name="dni_back" accept="image/*,.pdf">
-                                    <div id="dniBackPreview" class="mt-2"></div>
+                                    <div id="dniBackPreview" class="mt-1"></div>
                                 </div>
                             </div>
                         </div>
@@ -403,65 +408,62 @@
                     <div id="rucFields" style="display: none;">
 
                         <div class="form-section-title">
-                            <span class="sec-icon bg-success bg-opacity-10 text-success"><i class="bi bi-building"></i></span>
+                            <span class="sec-icon"><i class="bi bi-building"></i></span>
                             Información de la Empresa
                         </div>
 
-                        <div id="rucLookupFeedback" class="mb-3" style="display:none"></div>
+                        <div id="rucLookupFeedback" class="mb-2" style="display:none"></div>
 
-                        <div class="row g-3 mb-2">
-                            <div class="col-md-12">
-                                <label class="form-label fw-semibold">Razón Social <span class="text-danger">*</span></label>
-                                <div class="input-group">
-                                    <input type="text" class="form-control text-uppercase-input" id="razonSocial" name="razon_social" placeholder="Se autocompleta al buscar el RUC →">
-                                    <button class="btn btn-outline-primary" type="button" id="btnRucLookup" title="Autocompletar desde SUNAT">
-                                        <i class="bi bi-search" id="rucLookupIcon"></i> Buscar SUNAT
+                        <div class="row g-2 mb-2">
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold mb-1">Razón Social <span class="text-danger">*</span></label>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control form-control-sm text-uppercase-input" id="razonSocial" name="razon_social" placeholder="Se autocompleta con SUNAT →">
+                                    <button class="btn btn-outline-primary btn-sm" type="button" id="btnRucLookup" title="Autocompletar desde SUNAT">
+                                        <i class="bi bi-search" id="rucLookupIcon"></i> SUNAT
                                     </button>
                                 </div>
-                                <small class="form-text text-muted">Ingresa el RUC arriba y haz clic en Buscar SUNAT para autocompletar</small>
                             </div>
                         </div>
 
-                        <div id="rucSunatInfo" style="display:none" class="mb-3">
-                            <div class="d-flex gap-3 align-items-center p-2 rounded-3 small"
-                                 style="background:#f0fdf4;border:1px solid #bbf7d0;">
-                                <i class="bi bi-building-check text-success fs-5"></i>
-                                <div>
-                                    <span class="text-muted">Estado: </span><strong id="rucEstado">—</strong>
-                                    <span class="text-muted ms-3">Condición: </span><strong id="rucCondicion">—</strong>
-                                </div>
+                        <div id="rucSunatInfo" style="display:none" class="mb-2">
+                            <div class="d-flex gap-2 align-items-center px-2 py-1 rounded-2 small"
+                                 style="background:var(--q-06);border:1px solid var(--q-25);font-size:.75rem;">
+                                <i class="bi bi-building-check" style="color:var(--q);"></i>
+                                <span class="text-muted">Estado:</span> <strong id="rucEstado">—</strong>
+                                <span class="text-muted ms-2">Condición:</span> <strong id="rucCondicion">—</strong>
                             </div>
                         </div>
 
-                        <div class="row g-3 mb-2">
-                            <div class="col-md-12">
-                                <label class="form-label">Persona de Contacto</label>
-                                <input type="text" class="form-control text-uppercase-input" id="personaContacto" name="persona_contacto">
+                        <div class="row g-2 mb-2">
+                            <div class="col-12">
+                                <label class="form-label small mb-1">Persona de Contacto</label>
+                                <input type="text" class="form-control form-control-sm text-uppercase-input" id="personaContacto" name="persona_contacto">
                             </div>
                         </div>
 
                         <div class="form-section-title">
-                            <span class="sec-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-file-earmark-person"></i></span>
+                            <span class="sec-icon"><i class="bi bi-file-earmark-person"></i></span>
                             Documentos del Representante Legal
                         </div>
                         <div class="document-section">
-                            <div class="row g-3 mb-2">
-                                <div class="col-md-6">
-                                    <label class="form-label small fw-semibold">DNI/CE Representante — Anverso</label>
+                            <div class="row g-2 mb-1">
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">DNI/CE Rep. — Anverso</label>
                                     <input type="file" class="form-control form-control-sm" id="dniRepFront" name="dni_representante_front" accept="image/*,.pdf">
-                                    <div id="dniRepFrontPreview" class="mt-2"></div>
+                                    <div id="dniRepFrontPreview" class="mt-1"></div>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label small fw-semibold">DNI/CE Representante — Reverso</label>
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">DNI/CE Rep. — Reverso</label>
                                     <input type="file" class="form-control form-control-sm" id="dniRepBack" name="dni_representante_back" accept="image/*,.pdf">
-                                    <div id="dniRepBackPreview" class="mt-2"></div>
+                                    <div id="dniRepBackPreview" class="mt-1"></div>
                                 </div>
                             </div>
-                            <div class="row g-3">
-                                <div class="col-md-12">
-                                    <label class="form-label small fw-semibold">Ficha RUC</label>
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <label class="form-label small mb-1">Ficha RUC</label>
                                     <input type="file" class="form-control form-control-sm" id="fichaRuc" name="ficha_ruc" accept="image/*,.pdf">
-                                    <div id="fichaRucPreview" class="mt-2"></div>
+                                    <div id="fichaRucPreview" class="mt-1"></div>
                                 </div>
                             </div>
                         </div>
@@ -470,121 +472,119 @@
                     <!-- ── Validación OC ───────────────────────────────────── -->
                     <div id="validationOcSection" style="display: none;">
                         <div class="form-section-title">
-                            <span class="sec-icon bg-success bg-opacity-10 text-success"><i class="bi bi-shield-check"></i></span>
+                            <span class="sec-icon"><i class="bi bi-shield-check"></i></span>
                             Validación Oficial de Cumplimiento (OC)
                         </div>
-                        <div class="alert alert-info small">
-                            <i class="bi bi-info-circle me-1"></i>
-                            <strong>Documento de análisis:</strong> Adjunta el informe del Oficial de Cumplimiento sobre lavado de activos, PEP y procesos abiertos.
+                        <div class="d-flex gap-2 align-items-start px-2 py-2 rounded-2 mb-2 small"
+                             style="background:rgba(25,107,254,.06);border:1px solid rgba(25,107,254,.2);font-size:.75rem;">
+                            <i class="bi bi-info-circle mt-1" style="color:var(--q);flex-shrink:0;"></i>
+                            <span>Adjunta el informe del Oficial de Cumplimiento sobre lavado de activos, PEP y procesos abiertos.</span>
                         </div>
-                        <div id="validationOcStatus" class="mb-3"></div>
-                        <div class="row g-3 mb-2">
-                            <div class="col-md-12">
-                                <label class="form-label">Documento de Validación OC</label>
-                                <input type="file" class="form-control" id="validationOcFile" name="validation_oc_file" accept=".pdf,.doc,.docx,image/*">
-                                <small class="form-text text-muted">Formatos: PDF, Word, Imágenes</small>
-                                <div id="validationOcPreview" class="mt-2"></div>
+                        <div id="validationOcStatus" class="mb-2"></div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-12">
+                                <label class="form-label small mb-1">Documento de Validación OC</label>
+                                <input type="file" class="form-control form-control-sm" id="validationOcFile" name="validation_oc_file" accept=".pdf,.doc,.docx,image/*">
+                                <div class="form-text" style="font-size:.68rem;">PDF, Word o Imagen</div>
+                                <div id="validationOcPreview" class="mt-1"></div>
                             </div>
                         </div>
-                        <div class="text-center mb-3">
-                            <button type="button" class="btn btn-success btn-sm" id="uploadValidationOcBtn" onclick="uploadValidationOc()" style="display: none;">
-                                <i class="bi bi-upload me-1"></i>Subir Documento de Validación
+                        <div class="mb-2">
+                            <button type="button" class="btn btn-success btn-sm py-1" id="uploadValidationOcBtn" onclick="uploadValidationOc()" style="display:none;font-size:.75rem;">
+                                <i class="bi bi-upload me-1"></i>Subir Documento
                             </button>
                         </div>
                     </div>
 
                     <!-- ── Contacto ────────────────────────────────────────── -->
                     <div class="form-section-title">
-                        <span class="sec-icon bg-info bg-opacity-10 text-info"><i class="bi bi-envelope"></i></span>
-                        Información de Contacto
+                        <span class="sec-icon"><i class="bi bi-envelope"></i></span>
+                        Contacto
                     </div>
-                    <div class="row g-3 mb-2">
-                        <div class="col-md-6">
-                            <label class="form-label">Email(s) <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="email" name="email" required placeholder="email@ejemplo.com">
-                            <small class="form-text text-muted">Varios emails: separar con punto y coma (;)</small>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label small mb-1">Email(s) <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="email" name="email" required placeholder="email@ejemplo.com">
+                            <div class="form-text" style="font-size:.68rem;">Separar varios con punto y coma (;)</div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Teléfono(s)</label>
-                            <input type="text" class="form-control" id="phone" name="phone" placeholder="987654321">
-                            <small class="form-text text-muted">Varios teléfonos: separar con punto y coma (;)</small>
+                        <div class="col-6">
+                            <label class="form-label small mb-1">Teléfono(s)</label>
+                            <input type="text" class="form-control form-control-sm" id="phone" name="phone" placeholder="987654321">
+                            <div class="form-text" style="font-size:.68rem;">Separar varios con punto y coma (;)</div>
                         </div>
                     </div>
 
                     <!-- ── Dirección ───────────────────────────────────────── -->
                     <div class="form-section-title">
-                        <span class="sec-icon bg-secondary bg-opacity-10 text-secondary"><i class="bi bi-geo-alt"></i></span>
+                        <span class="sec-icon"><i class="bi bi-geo-alt"></i></span>
                         Dirección
                     </div>
-                    <div class="row g-3 mb-2">
-                        <div class="col-md-12">
-                            <label class="form-label">Dirección</label>
-                            <input type="text" class="form-control text-uppercase-input" id="direccion" name="direccion" placeholder="Calle, Av., Jr., etc.">
+                    <div class="row g-2 mb-2">
+                        <div class="col-12">
+                            <label class="form-label small mb-1">Dirección</label>
+                            <input type="text" class="form-control form-control-sm text-uppercase-input" id="direccion" name="direccion" placeholder="Calle, Av., Jr., etc.">
                         </div>
                     </div>
-                    <div class="row g-3 mb-2">
-                        <div class="col-md-4">
-                            <label class="form-label">Departamento</label>
-                            <select class="form-select" id="departamento" name="departamento" onchange="loadProvincias()">
-                                <option value="">Seleccionar...</option>
+                    <div class="row g-2 mb-2">
+                        <div class="col-4">
+                            <label class="form-label small mb-1">Departamento</label>
+                            <select class="form-select form-select-sm" id="departamento" name="departamento" onchange="loadProvincias()">
+                                <option value="">—</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Provincia</label>
-                            <select class="form-select" id="provincia" name="provincia" onchange="loadDistritos()" disabled>
-                                <option value="">Seleccionar...</option>
+                        <div class="col-4">
+                            <label class="form-label small mb-1">Provincia</label>
+                            <select class="form-select form-select-sm" id="provincia" name="provincia" onchange="loadDistritos()" disabled>
+                                <option value="">—</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Distrito</label>
-                            <select class="form-select" id="distrito" name="distrito" disabled>
-                                <option value="">Seleccionar...</option>
+                        <div class="col-4">
+                            <label class="form-label small mb-1">Distrito</label>
+                            <select class="form-select form-select-sm" id="distrito" name="distrito" disabled>
+                                <option value="">—</option>
                             </select>
                         </div>
                     </div>
 
                     <!-- ── Información Bancaria ────────────────────────────── -->
                     <div class="form-section-title">
-                        <span class="sec-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-bank"></i></span>
-                        Información Bancaria
+                        <span class="sec-icon"><i class="bi bi-bank"></i></span>
+                        Cuentas Bancarias
                     </div>
-                    <div class="alert alert-info small mb-3" id="bankAccountsInfoMsg">
-                        <i class="bi bi-info-circle me-1"></i>
-                        <strong>Importante:</strong> Registra al menos una cuenta en Soles (S/) y una en Dólares ($). Máximo 6 cuentas.
-                        El cliente puede registrar cuentas en cualquier banco (BCP, BBVA, Scotiabank, Interbank, etc.).
+                    <div class="d-flex gap-2 align-items-start px-2 py-2 rounded-2 mb-2 small" id="bankAccountsInfoMsg"
+                         style="background:rgba(25,107,254,.06);border:1px solid rgba(25,107,254,.2);font-size:.72rem;">
+                        <i class="bi bi-info-circle mt-1" style="color:var(--q);flex-shrink:0;"></i>
+                        <span>Registra al menos una cuenta en Soles (S/) y una en Dólares ($). Máximo 6 cuentas.</span>
                     </div>
-                    <div class="alert alert-warning small mb-3" id="bankAccountsBotMsg" style="display:none;">
-                        <i class="bi bi-whatsapp me-1"></i>
-                        <strong>Registro vía WhatsApp Bot:</strong> Las cuentas bancarias son <strong>opcionales</strong> en este paso.
-                        Se solicitarán al cliente directamente durante su primera operación por el bot.
+                    <div class="d-flex gap-2 align-items-start px-2 py-2 rounded-2 mb-2 small" id="bankAccountsBotMsg" style="display:none!important;font-size:.72rem;background:#fffbeb;border:1px solid #fcd34d;">
+                        <i class="bi bi-whatsapp mt-1" style="color:#16a34a;flex-shrink:0;"></i>
+                        <span><strong>Registro vía WhatsApp Bot:</strong> Las cuentas bancarias son opcionales aquí — se solicitarán en la primera operación.</span>
                     </div>
 
                     <div id="bankAccountsContainer"></div>
 
-                    <div class="text-center mb-3">
-                        <button type="button" class="btn btn-outline-primary btn-sm" id="addBankAccountBtn" onclick="addBankAccount()">
-                            <i class="bi bi-plus-circle me-1"></i>Agregar Cuenta Bancaria
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <button type="button" class="btn btn-outline-primary btn-sm py-1" id="addBankAccountBtn" onclick="addBankAccount()" style="font-size:.75rem;">
+                            <i class="bi bi-plus-circle me-1"></i>Agregar Cuenta
                         </button>
-                        <small class="d-block text-muted mt-1">
-                            <span id="accountCount">0</span> de 6 cuentas registradas
-                        </small>
+                        <span class="text-muted" style="font-size:.72rem;"><span id="accountCount">0</span>/6 cuentas</span>
                     </div>
 
-                    <div id="accountsValidationMessage" class="alert alert-warning small" style="display: none;">
-                        <i class="bi bi-exclamation-triangle me-1"></i>Debes registrar al menos una cuenta en Soles (S/) y una en Dólares ($).
+                    <div id="accountsValidationMessage" class="alert alert-warning py-2 small" style="display:none;font-size:.75rem;">
+                        <i class="bi bi-exclamation-triangle me-1"></i>Debes registrar al menos una cuenta en S/ y una en $.
                     </div>
-                    <div id="duplicateAccountsMessage" class="alert alert-danger small" style="display: none;">
-                        <i class="bi bi-exclamation-triangle me-1"></i>Tienes una cuenta duplicada exacta (mismo banco, tipo, número y moneda). Por favor, verifica los datos.
+                    <div id="duplicateAccountsMessage" class="alert alert-danger py-2 small" style="display:none;font-size:.75rem;">
+                        <i class="bi bi-exclamation-triangle me-1"></i>Tienes una cuenta duplicada. Verifica los datos.
                     </div>
 
                 </form>
             </div>
 
-            <div class="modal-footer bg-light border-top">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+            <div class="modal-footer px-4 py-2" style="background:var(--g50);border-top:1px solid var(--g100);flex-shrink:0;">
+                <button type="button" class="btn btn-sm btn-outline-secondary py-1" data-bs-dismiss="modal" style="font-size:.78rem;">
                     <i class="bi bi-x-lg me-1"></i>Cancelar
                 </button>
-                <button type="button" class="btn btn-primary px-4" onclick="saveClient()" id="btnSaveClient">
+                <button type="button" class="btn btn-sm btn-primary px-4 fw-semibold py-1" onclick="saveClient()" id="btnSaveClient" style="font-size:.78rem;">
                     <i class="bi bi-check2-circle me-1"></i>Guardar Cliente
                 </button>
             </div>
@@ -597,20 +597,24 @@
 <div class="modal fade" id="viewClientModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
-            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
-                <div class="d-flex align-items-center gap-2">
-                    <span class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10" style="width:36px;height:36px;">
-                        <i class="bi bi-person text-primary"></i>
-                    </span>
-                    <h5 class="modal-title fw-semibold mb-0" style="font-size:15px;">Detalles del Cliente</h5>
+            <div class="modal-header px-4 py-3" style="background:var(--black);border-bottom:2px solid var(--q);">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center justify-content-center rounded-circle"
+                         style="width:34px;height:34px;background:rgba(25,107,254,.2);">
+                        <i class="bi bi-person" style="color:var(--q);font-size:.9rem;"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold text-white" style="font-size:.95rem;line-height:1.2;">Detalles del Cliente</div>
+                        <div class="text-white-50" style="font-size:.72rem;">Resumen de la cuenta</div>
+                    </div>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body px-4" id="viewClientBody">
                 <!-- Se llenará dinámicamente -->
             </div>
-            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
-                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cerrar</button>
+            <div class="modal-footer px-4 py-3" style="background:var(--g50);border-top:1px solid var(--g100);">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -618,38 +622,47 @@
 
 <!-- Modal Reasignar Cliente Individual -->
 <div class="modal fade" id="reassignClientModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
-            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
-                <div class="d-flex align-items-center gap-2">
-                    <span class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10" style="width:36px;height:36px;">
-                        <i class="bi bi-arrow-left-right text-primary"></i>
-                    </span>
-                    <h5 class="modal-title fw-semibold mb-0" style="font-size:15px;">Reasignar Cliente</h5>
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius:14px;overflow:hidden;">
+            <!-- Header -->
+            <div class="modal-header px-4 py-3" style="background:var(--black);border-bottom:2px solid var(--q);">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center justify-content-center rounded-circle"
+                         style="width:34px;height:34px;background:rgba(25,107,254,.2);">
+                        <i class="bi bi-arrow-left-right" style="color:var(--q);font-size:.85rem;"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold text-white" style="font-size:.95rem;line-height:1.2;">Reasignar Cliente</div>
+                        <div class="text-white-50" style="font-size:.72rem;">Cambio de trader asignado</div>
+                    </div>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body px-4">
+            <div class="modal-body px-4 pt-4 pb-3">
                 <input type="hidden" id="reassignClientId">
-                <div class="mb-3">
-                    <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Cliente</label>
-                    <p id="reassignClientName" class="fw-semibold mb-0"></p>
+                <!-- Client info card -->
+                <div class="rounded-2 p-3 mb-3" style="background:var(--g50);border:1px solid var(--g100);">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <i class="bi bi-person-circle" style="color:var(--q);font-size:1.1rem;"></i>
+                        <span id="reassignClientName" class="fw-semibold" style="font-size:.88rem;color:var(--g800);"></span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="text-muted" style="font-size:.75rem;">Trader actual:</span>
+                        <span id="reassignCurrentTrader" class="fw-medium" style="font-size:.78rem;color:var(--g600);"></span>
+                    </div>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Trader Actual</label>
-                    <p id="reassignCurrentTrader" class="text-muted mb-0"></p>
-                </div>
-                <div class="mb-1">
-                    <label for="reassignNewTrader" class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Nuevo Trader</label>
+                <!-- New trader select -->
+                <div>
+                    <label for="reassignNewTrader" class="cd-label mb-1">Nuevo Trader</label>
                     <select class="form-select form-select-sm" id="reassignNewTrader" required>
-                        <option value="">Seleccione un trader...</option>
+                        <option value="">— Seleccionar trader —</option>
                     </select>
                 </div>
             </div>
-            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
-                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-sm btn-primary px-3" onclick="confirmReassignClient()">
-                    <i class="bi bi-check me-1"></i>Reasignar
+            <div class="modal-footer px-4 py-3" style="background:var(--g50);border-top:1px solid var(--g100);">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-primary px-4 fw-semibold" onclick="confirmReassignClient()">
+                    <i class="bi bi-check-circle me-1"></i>Reasignar
                 </button>
             </div>
         </div>
@@ -660,26 +673,30 @@
 <div class="modal fade" id="bulkReassignModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
-            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
-                <div class="d-flex align-items-center gap-2">
-                    <span class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10" style="width:36px;height:36px;">
-                        <i class="bi bi-arrow-left-right text-primary"></i>
-                    </span>
-                    <h5 class="modal-title fw-semibold mb-0" style="font-size:15px;">Reasignación Masiva de Clientes</h5>
+            <div class="modal-header px-4 py-3" style="background:var(--black);border-bottom:2px solid var(--q);">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center justify-content-center rounded-circle"
+                         style="width:34px;height:34px;background:rgba(25,107,254,.2);">
+                        <i class="bi bi-arrow-left-right" style="color:var(--q);font-size:.85rem;"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold text-white" style="font-size:.95rem;line-height:1.2;">Reasignación Masiva</div>
+                        <div class="text-white-50" style="font-size:.72rem;">Cambio de trader para múltiples clientes</div>
+                    </div>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body px-4">
-                <div class="rounded p-3 mb-4" style="background:#eff6ff;border:1px solid #bfdbfe;">
+                <div class="rounded-2 p-3 mb-4" style="background:var(--q-06);border:1px solid var(--q-25);">
                     <div class="d-flex align-items-start gap-2">
-                        <i class="bi bi-info-circle-fill text-primary mt-1 flex-shrink-0"></i>
-                        <div class="small text-primary">Seleccione clientes con los checkboxes o reasigne todos los clientes de un trader específico.</div>
+                        <i class="bi bi-info-circle-fill mt-1 flex-shrink-0" style="color:var(--q);"></i>
+                        <div class="small" style="color:var(--q);">Seleccione clientes con los checkboxes o reasigne todos los clientes de un trader específico.</div>
                     </div>
                 </div>
 
                 <!-- Opción 1: Reasignar seleccionados -->
                 <div class="mb-4 pb-4 border-bottom">
-                    <div class="fw-semibold small text-uppercase mb-3" style="letter-spacing:.6px;color:#374151;">Opción 1 — Clientes Seleccionados</div>
+                    <div class="fw-semibold small text-uppercase mb-3" style="letter-spacing:.6px;color:var(--g600);">Opción 1 — Clientes Seleccionados</div>
                     <p id="bulkSelectedCount" class="text-muted small mb-3">No hay clientes seleccionados</p>
                     <div class="mb-3">
                         <label for="bulkNewTrader" class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Nuevo Trader</label>
@@ -694,7 +711,7 @@
 
                 <!-- Opción 2: Reasignar todos de un trader -->
                 <div class="mb-2">
-                    <div class="fw-semibold small text-uppercase mb-3" style="letter-spacing:.6px;color:#374151;">Opción 2 — Todos los de un Trader</div>
+                    <div class="fw-semibold small text-uppercase mb-3" style="letter-spacing:.6px;color:var(--g600);">Opción 2 — Todos los de un Trader</div>
                     <div class="row g-3 mb-3">
                         <div class="col-6">
                             <label for="bulkSourceTrader" class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Trader Origen</label>
@@ -715,8 +732,8 @@
                     </button>
                 </div>
             </div>
-            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
-                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cerrar</button>
+            <div class="modal-footer px-4 py-3" style="background:var(--g50);border-top:1px solid var(--g100);">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>

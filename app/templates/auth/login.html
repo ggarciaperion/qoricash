@@ -1,814 +1,471 @@
 {% extends "base.html" %}
 
-{% block title %}Iniciar Sesión - QoriCash Trading{% endblock %}
+{% block title %}Iniciar Sesión — QoriCash{% endblock %}
 
 {% block head %}
 <style>
-/* ── BASE LAYOUT OVERRIDES ─────────────────────────────────────────────── */
-body {
-    background: #060d15;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px 10px 48px;
-    position: relative;
-    overflow: hidden;
+/* ── LAYOUT RESET ─────────────────────────────────────────────────────── */
+body { background:#0D1117; overflow:hidden; padding:0; margin:0; }
+body::before { display:none; }
+.footer,.flash-container,.navbar,.desk-pb-bar { display:none !important; }
+.main-wrapper { margin-left:0!important; min-height:0!important; display:contents!important; }
+.main-content  { padding:0!important; display:contents!important; }
+
+/* ── CANVAS ───────────────────────────────────────────────────────────── */
+#lnCanvas { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:0; }
+
+/* ── CENTERED WRAPPER ─────────────────────────────────────────────────── */
+.ln {
+  position:fixed; inset:0; z-index:10;
+  display:flex; align-items:center; justify-content:center;
+  padding:1rem 1rem 3rem;
+  font-family:'Inter','SF Pro Display','Segoe UI',system-ui,sans-serif;
+  overflow-y:auto;
 }
 
-body::before { display: none; }
-.footer, .flash-container { display: none !important; }
-
-.main-wrapper {
-    margin-left: 0 !important;
-    min-height: 0 !important;
-    display: contents !important;
-}
-.main-content {
-    padding: 0 !important;
-    display: contents !important;
+/* ── CARD ─────────────────────────────────────────────────────────────── */
+.ln-card {
+  width:100%; max-width:400px;
+  background:#fff; border-radius:16px;
+  box-shadow:0 32px 80px rgba(0,0,0,.45), 0 8px 24px rgba(0,0,0,.25);
+  overflow:hidden;
+  animation:lnUp .65s cubic-bezier(.22,.68,0,1.2) both;
 }
 
-/* ── TICKER INFERIOR ───────────────────────────────────────────────────── */
+/* ── CARD HEADER ──────────────────────────────────────────────────────── */
+.ln-card-top {
+  background:#fff;
+  padding:2rem 2rem 1.75rem;
+  text-align:center;
+  border-bottom:1px solid #e4e4e7;
+}
+.ln-wordmark {
+  font-size:1.75rem; font-weight:900; color:#0D1117;
+  letter-spacing:-.045em; line-height:1;
+}
+.ln-wordmark span { color:#196BFE; }
+.ln-sub {
+  font-size:.72rem; color:#a1a1aa;
+  margin-top:.4rem; font-weight:400; letter-spacing:.02em;
+}
+
+/* ── CARD BODY ────────────────────────────────────────────────────────── */
+.ln-body { padding:1.75rem 2rem 1.5rem; }
+
+.ln-lbl {
+  display:block; font-size:.67rem; font-weight:700;
+  color:#3f3f46; letter-spacing:.06em; text-transform:uppercase; margin-bottom:.4rem;
+}
+
+.ln-input {
+  width:100%; padding:.72rem .95rem;
+  font-size:.875rem; color:#0D1117;
+  background:#fff; border:1.5px solid #e4e4e7; border-radius:9px;
+  outline:none; transition:border-color .14s, box-shadow .14s;
+  font-family:inherit; -webkit-appearance:none; box-sizing:border-box;
+}
+.ln-input:focus { border-color:#196BFE; box-shadow:0 0 0 3px rgba(25,107,254,.1); }
+.ln-input::placeholder { color:#c4c4c7; font-size:.82rem; }
+.ln-input:-webkit-autofill,
+.ln-input:-webkit-autofill:focus {
+  -webkit-box-shadow:0 0 0 1000px #fff inset!important;
+  -webkit-text-fill-color:#0D1117!important;
+  border-color:#196BFE!important;
+}
+
+.ln-pw  { position:relative; }
+.ln-eye {
+  position:absolute; right:0; top:0; bottom:0; width:2.6rem;
+  background:none; border:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  color:#c4c4c7; font-size:1rem; transition:color .14s; padding:0;
+}
+.ln-eye:hover { color:#196BFE; }
+
+.ln-check {
+  display:flex; align-items:center; gap:.5rem;
+  font-size:.78rem; color:#71717a; cursor:pointer; user-select:none;
+}
+.ln-check input[type=checkbox] {
+  width:15px; height:15px; border-radius:4px;
+  border:1.5px solid #d4d4d8; cursor:pointer;
+  accent-color:#196BFE; flex-shrink:0; margin:0;
+}
+
+.ln-btn {
+  width:100%; padding:.82rem 1.25rem;
+  background:#196BFE; color:#fff; border:none; border-radius:9px;
+  font-size:.9rem; font-weight:700; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:.5rem;
+  letter-spacing:-.01em; font-family:inherit;
+  transition:opacity .14s, transform .1s;
+  box-shadow:0 4px 18px rgba(25,107,254,.3);
+}
+.ln-btn:hover  { opacity:.9; }
+.ln-btn:active { transform:scale(.99); }
+.ln-btn.loading { pointer-events:none; opacity:.7; }
+@keyframes lnSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+.ln-btn.loading .ln-btn-icon { animation:lnSpin 1s linear infinite; }
+
+.ln-ssl {
+  display:flex; align-items:center; justify-content:center; gap:.4rem;
+  font-size:.67rem; color:#c4c4c7; font-weight:500; margin-top:.85rem;
+}
+.ln-ssl i { color:#196BFE; }
+
+.ln-foot {
+  text-align:center; font-size:.63rem; color:#d4d4d8;
+  border-top:1px solid #f4f4f5; padding:.9rem 0 0; margin-top:1.4rem;
+  line-height:1.7;
+}
+.ln-foot b { color:#a1a1aa; font-weight:600; }
+
+/* ── FLASH ────────────────────────────────────────────────────────────── */
+.ln-flash { margin-bottom:1.1rem; }
+.ln-flash .alert {
+  font-size:.78rem; padding:.6rem .85rem; border-radius:8px; margin-bottom:.4rem;
+  animation:lnUp .3s ease both;
+}
+.ln-flash .alert-success { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+.ln-flash .alert-danger  { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; }
+.ln-flash .alert-warning { background:#fffbeb; color:#d97706; border:1px solid #fde68a; }
+.ln-flash .alert-info    { background:#eff6ff; color:#196BFE; border:1px solid #bfdbfe; }
+.ln-flash .btn-close     { font-size:.7rem; }
+
+/* ── TICKER ───────────────────────────────────────────────────────────── */
 #forexTicker {
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    height: 38px;
-    background: rgba(4, 9, 16, 0.96);
-    border-top: 1px solid rgba(0, 222, 168, 0.3);
-    z-index: 20;
-    display: flex;
-    align-items: center;
-    overflow: hidden;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 -6px 24px rgba(0,0,0,.5);
+  position:fixed; bottom:0; left:0; right:0; height:36px;
+  background:#0D1117; border-top:1px solid rgba(25,107,254,.18);
+  z-index:100; display:flex; align-items:center; overflow:hidden;
 }
-
 .ticker-label {
-    background: linear-gradient(135deg, #00DEA8, #00b88d);
-    color: #060d15;
-    font-size: 0.5625rem;
-    font-weight: 900;
-    letter-spacing: .12em;
-    padding: 0 14px;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    white-space: nowrap;
-    flex-shrink: 0;
-    text-transform: uppercase;
-    gap: 5px;
+  background:#196BFE; color:#fff;
+  font-size:.52rem; font-weight:900; letter-spacing:.12em;
+  padding:0 14px; height:100%;
+  display:flex; align-items:center; gap:5px;
+  white-space:nowrap; flex-shrink:0; text-transform:uppercase;
 }
+.ticker-pulse { width:6px; height:6px; background:rgba(255,255,255,.6); border-radius:50%; animation:lnPulse 1.2s ease-in-out infinite; }
+@keyframes lnPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.3;transform:scale(.65)} }
+.ticker-scroll { flex:1; overflow:hidden; }
+#tickerTrack { display:inline-flex; align-items:center; animation:tickMove 50s linear infinite; white-space:nowrap; }
+@keyframes tickMove { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+.t-item { display:inline-flex; align-items:center; gap:7px; padding:0 18px; border-right:1px solid rgba(255,255,255,.05); }
+.t-pair { font-size:.65rem; font-weight:700; color:rgba(255,255,255,.45); font-family:'Courier New',monospace; letter-spacing:.04em; }
+.t-price{ font-size:.7rem;  font-weight:700; color:rgba(255,255,255,.65); font-family:'Courier New',monospace; }
+.t-chg  { font-size:.58rem; font-weight:600; font-family:'Courier New',monospace; }
+.t-chg.up   { color:#196BFE; }
+.t-chg.dn   { color:rgba(255,255,255,.3); }
+.t-chg.flat { color:rgba(255,255,255,.2); }
 
-.ticker-pulse {
-    width: 6px; height: 6px;
-    background: #060d15;
-    border-radius: 50%;
-    animation: tickPulse 1s ease-in-out infinite;
+/* ── ANIMATIONS ───────────────────────────────────────────────────────── */
+@keyframes lnUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:none} }
+
+/* ── RESPONSIVE ───────────────────────────────────────────────────────── */
+@media (max-width:480px) {
+  .ln { padding:.75rem .75rem 3rem; align-items:flex-start; padding-top:1.5rem; }
+  .ln-card { border-radius:14px; }
+  .ln-card-top { padding:1.5rem 1.5rem 1.25rem; }
+  .ln-wordmark { font-size:1.5rem; }
+  .ln-body { padding:1.5rem 1.5rem 1.25rem; }
 }
-
-@keyframes tickPulse {
-    0%,100% { opacity: 1; transform: scale(1); }
-    50%      { opacity: .4; transform: scale(.7); }
+@media (max-height:600px) and (orientation:landscape) {
+  .ln-card-top { padding:1.25rem 2rem 1rem; }
+  .ln-wordmark { font-size:1.4rem; }
+  .ln-sub { display:none; }
+  .ln-body { padding:1.25rem 2rem; }
 }
-
-.ticker-scroll { flex: 1; overflow: hidden; position: relative; }
-
-#tickerTrack {
-    display: inline-flex;
-    align-items: center;
-    animation: tickerMove 45s linear infinite;
-    white-space: nowrap;
-}
-
-@keyframes tickerMove {
-    from { transform: translateX(0); }
-    to   { transform: translateX(-50%); }
-}
-
-.t-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0 24px;
-    border-right: 1px solid rgba(255,255,255,.07);
-}
-
-.t-pair {
-    font-size: 0.6875rem;
-    font-weight: 700;
-    color: rgba(255,255,255,.72);
-    font-family: 'Courier New', monospace;
-    letter-spacing: .04em;
-}
-
-.t-price {
-    font-size: 0.75rem;
-    font-weight: 700;
-    font-family: 'Courier New', monospace;
-}
-
-.t-chg {
-    font-size: 0.625rem;
-    font-weight: 600;
-    font-family: 'Courier New', monospace;
-}
-
-.t-price.up,  .t-chg.up   { color: #10b981; }
-.t-price.dn,  .t-chg.dn   { color: #ef4444; }
-.t-price.flat,.t-chg.flat  { color: rgba(255,255,255,.35); }
-
-/* ── LOGIN CONTAINER ───────────────────────────────────────────────────── */
-.login-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: calc(100vh - 48px);
-    width: 100%;
-    position: relative;
-    z-index: 10;
-}
-
-/* ── LOGIN CARD ─────────────────────────────────────────── glassmorphism ── */
-.login-card {
-    background: rgba(6, 14, 24, 0.78);
-    backdrop-filter: blur(28px);
-    -webkit-backdrop-filter: blur(28px);
-    border-radius: 20px;
-    border: 1px solid rgba(0, 222, 168, 0.18);
-    box-shadow:
-        0 30px 80px rgba(0,0,0,.55),
-        inset 0 -1px 0 rgba(255,255,255,0.03),
-        0 0 50px rgba(0,222,168,0.04);
-    overflow: hidden;
-    width: 100%;
-    max-width: 420px;
-    animation: cardIn .75s cubic-bezier(.22,.68,0,1.2) both;
-}
-
-@keyframes cardIn {
-    from { opacity:0; transform:translateY(32px) scale(.95); }
-    to   { opacity:1; transform:translateY(0)    scale(1); }
-}
-
-.login-header {
-    background: linear-gradient(160deg, rgba(0,222,168,0.09) 0%, rgba(6,14,24,0) 100%);
-    border-bottom: 1px solid rgba(0, 222, 168, 0.12);
-    color: white;
-    padding: 1.5rem 1.75rem 1.375rem;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-}
-
-.login-header::after {
-    content: '';
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(0,222,168,0.35) 50%, transparent);
-}
-
-.login-header::before {
-    content: '';
-    position: absolute;
-    top: -40%; left: 50%;
-    transform: translateX(-50%);
-    width: 260px; height: 200px;
-    background: radial-gradient(circle, rgba(0,222,168,.07) 0%, transparent 70%);
-    pointer-events: none;
-}
-
-.brand-icon {
-    display: inline-block;
-    animation: brandFloat 4.5s ease-in-out infinite;
-    position: relative;
-    z-index: 1;
-}
-
-@keyframes brandFloat {
-    0%,100% { transform: translateY(0); }
-    50%      { transform: translateY(-6px); }
-}
-
-.login-header h3 {
-    font-size: 1.375rem;
-    font-weight: 700;
-    margin: .375rem 0 .25rem;
-    position: relative;
-    z-index: 1;
-    letter-spacing: -.02em;
-    color: white;
-}
-
-.login-header p {
-    font-size: .8125rem;
-    color: rgba(255,255,255,0.50);
-    margin: 0;
-    position: relative;
-    z-index: 1;
-}
-
-/* ── LOGIN BODY ────────────────────────────────────────────────────────── */
-.login-body { padding: 1.5rem 1.75rem; }
-
-.login-body .form-label {
-    font-weight: 600;
-    color: rgba(255,255,255,0.78);
-    margin-bottom: .375rem;
-    font-size: .8125rem;
-    display: flex;
-    align-items: center;
-    gap: .375rem;
-}
-
-.login-body .form-label i { color: #00DEA8; font-size: .9375rem; }
-
-.login-body .form-control {
-    border: 1px solid rgba(0, 222, 168, 0.20);
-    border-radius: 9px;
-    padding: .625rem .875rem;
-    font-size: .875rem;
-    transition: all .2s;
-    background: rgba(255,255,255,0.05);
-    color: rgba(255,255,255,0.90);
-}
-
-.login-body .form-control:focus {
-    border-color: rgba(0, 222, 168, 0.55);
-    box-shadow: 0 0 0 3px rgba(0,222,168,.09);
-    background: rgba(255,255,255,0.08);
-    outline: none;
-}
-
-.login-body .form-control::placeholder { color: rgba(255,255,255,0.25); font-size: .8125rem; }
-
-.login-body .form-control:-webkit-autofill,
-.login-body .form-control:-webkit-autofill:hover,
-.login-body .form-control:-webkit-autofill:focus {
-    -webkit-box-shadow: 0 0 0 1000px rgba(6, 14, 24, 0.95) inset !important;
-    -webkit-text-fill-color: rgba(255,255,255,0.9) !important;
-    border-color: rgba(0, 222, 168, 0.40) !important;
-    transition: background-color 9999s ease-in-out 0s;
-}
-
-.mb-3 { margin-bottom: .875rem !important; }
-.mb-4 { margin-bottom: 1rem !important; }
-
-.form-check { padding-left: 1.5rem; }
-.form-check-input {
-    width: 1.125rem; height: 1.125rem;
-    border: 1px solid rgba(255,255,255,0.22); border-radius: 5px;
-    background-color: rgba(255,255,255,0.05);
-    margin-top: .125rem; cursor: pointer;
-    transition: all .15s;
-}
-.form-check-input:checked { background-color: #00DEA8; border-color: #00DEA8; }
-.form-check-label { font-size: .8125rem; color: rgba(255,255,255,0.52); cursor: pointer; user-select: none; }
-
-.btn-login {
-    width: 100%;
-    background: linear-gradient(135deg, #00FFB3, #00DEA8);
-    border: none;
-    color: #0D1B2A;
-    padding: .75rem 1.25rem;
-    font-size: .9375rem;
-    font-weight: 700;
-    border-radius: 9px;
-    transition: all .22s;
-    box-shadow: 0 4px 18px rgba(0,222,168,.32);
-    cursor: pointer;
-    letter-spacing: .01em;
-    display: block;
-    text-align: center;
-}
-
-.btn-login:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 28px rgba(0,222,168,.48);
-    background: linear-gradient(135deg, #00FFB3, #00c997);
-}
-
-.btn-login:active { transform: translateY(0); }
-
-.btn-login.loading { pointer-events:none; opacity:.8; }
-@keyframes spin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
-.btn-login.loading i { animation: spin 1s linear infinite; }
-
-.security-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: .375rem;
-    padding: .375rem .875rem;
-    background: rgba(0,222,168,0.09);
-    border: 1px solid rgba(0,222,168,0.18);
-    border-radius: 50px;
-    font-size: .6875rem;
-    color: rgba(0,222,168,0.82);
-    margin-top: .75rem;
-    font-weight: 600;
-}
-
-.security-badge i { font-size: .875rem; }
-
-.login-divider { border: none; border-top: 1px solid rgba(255,255,255,0.07); margin: 1.25rem 0; }
-
-.login-footer { text-align: center; font-size: .6875rem; }
-.login-footer p { margin-bottom: .125rem; color: rgba(255,255,255,0.28); }
-.login-footer .brand-name { font-weight: 600; color: rgba(255,255,255,0.50); font-size: .75rem; }
-
-/* ── FLASH MESSAGES ─────────────────────────────────────────────────────── */
-.login-flash-messages {
-    margin-top: 1rem; width: 100%; max-width: 420px;
-}
-
-.login-flash-messages .alert {
-    font-size: .8125rem; padding: .75rem 1rem; margin-bottom: .5rem;
-    border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.2);
-    border: none !important; backdrop-filter: blur(20px);
-    animation: slideInUp .4s ease-out; background-color: transparent !important;
-}
-
-@keyframes slideInUp {
-    from { opacity:0; transform:translateY(16px); }
-    to   { opacity:1; transform:translateY(0); }
-}
-
-.login-flash-messages .alert i { font-size: 1.1rem; margin-right: .5rem; }
-.login-flash-messages .alert-success { background: linear-gradient(135deg,rgba(16,185,129,.95),rgba(5,150,105,.95)) !important; color:white!important; border-left:4px solid #059669!important; }
-.login-flash-messages .alert-danger  { background: linear-gradient(135deg,rgba(239,68,68,.95),rgba(220,38,38,.95)) !important; color:white!important; border-left:4px solid #dc2626!important; }
-.login-flash-messages .alert-warning { background: linear-gradient(135deg,rgba(245,158,11,.95),rgba(217,119,6,.95)) !important; color:white!important; border-left:4px solid #d97706!important; }
-.login-flash-messages .alert-info    { background: linear-gradient(135deg,rgba(0,222,168,.95),rgba(0,201,151,.95)) !important; color:#0D1B2A!important; border-left:4px solid #00c997!important; }
-.login-flash-messages .btn-close { filter:brightness(0) invert(1); opacity:.85; }
-.login-flash-messages .btn-close:hover { opacity:1; }
-.login-flash-messages .alert-info .btn-close { filter:none; opacity:.6; }
-
-/* ── RESPONSIVE ─────────────────────────────────────────────────────────── */
-@media (max-width: 576px) {
-    .login-card { max-width:100%; border-radius:14px; }
-    .login-header { padding:1.25rem; }
-    .login-body { padding:1.25rem; }
-    #lrwValue { font-size:1.875rem; }
-}
-
-@media (max-height: 680px) {
-    .login-header { padding:1rem 1.5rem; }
-    .brand-icon img { height:80px !important; }
-    .login-body { padding:1rem 1.5rem; }
-    .login-divider { margin:.875rem 0; }
-}
-
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- ── CANVAS FOREX BACKGROUND ─────────────────────────────────────────────── -->
-<canvas id="fxCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;display:block;"></canvas>
+<canvas id="lnCanvas"></canvas>
 
-<!-- ── TICKER LIVE ─────────────────────────────────────────────────────────── -->
+<!-- ── TICKER ── -->
 <div id="forexTicker">
-    <div class="ticker-label">
-        <span class="ticker-pulse"></span>
-        LIVE FX
-    </div>
-    <div class="ticker-scroll">
-        <div id="tickerTrack"></div>
-    </div>
+  <div class="ticker-label"><span class="ticker-pulse"></span>LIVE FX</div>
+  <div class="ticker-scroll"><div id="tickerTrack"></div></div>
 </div>
 
-<!-- ── LOGIN CARD ──────────────────────────────────────────────────────────── -->
-<div class="login-container">
+<!-- ── CENTERED CARD ── -->
+<div class="ln">
+  <div class="ln-card">
 
-    <div class="login-card">
-        <div class="login-header">
-            <div class="brand-icon">
-                <img src="{{ url_for('static', filename='images/finalfinal.png') }}" alt="QoriCash" style="height:110px;width:auto;">
-            </div>
-            <h3>QoriCash</h3>
-            <p>Sistema integral de cambio de divisas</p>
-        </div>
-
-        <div class="login-body">
-            <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-                <div class="mb-3">
-                    <label for="username" class="form-label">
-                        <i class="bi bi-card-text"></i><span>DNI</span>
-                    </label>
-                    <input type="text" class="form-control" id="username" name="username"
-                        placeholder="Ingresa tu DNI" required autofocus
-                        autocomplete="username" maxlength="8" pattern="[0-9]{8}">
-                </div>
-
-                <div class="mb-3">
-                    <label for="password" class="form-label">
-                        <i class="bi bi-shield-lock"></i><span>Contraseña</span>
-                    </label>
-                    <div style="position:relative;">
-                        <input type="password" class="form-control" id="password" name="password"
-                            placeholder="Ingresa tu contraseña" required autocomplete="current-password"
-                            style="padding-right:2.5rem;">
-                        <button type="button" id="togglePassword"
-                            style="position:absolute;right:0;top:0;bottom:0;width:2.5rem;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;"
-                            tabindex="-1">
-                            <i class="bi bi-eye" id="togglePasswordIcon" style="font-size:1rem;color:rgba(255,255,255,0.75);transition:color .2s;"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="mb-4 form-check">
-                    <input type="checkbox" class="form-check-input" id="remember" name="remember">
-                    <label class="form-check-label" for="remember">Mantener sesión iniciada</label>
-                </div>
-
-                <div class="d-grid">
-                    <button type="submit" class="btn-login" id="btnLogin">
-                        <i class="bi bi-box-arrow-in-right"></i> Iniciar Sesión
-                    </button>
-                </div>
-
-                <div class="text-center">
-                    <div class="security-badge">
-                        <i class="bi bi-shield-check"></i><span>Conexión segura SSL</span>
-                    </div>
-                </div>
-            </form>
-
-            <hr class="login-divider">
-
-            <div class="login-footer">
-                <p class="brand-name">QoriCash Trading</p>
-                <p>© 2025 — Sistema Profesional de Cambio de Divisas</p>
-            </div>
-        </div>
+    <!-- Header -->
+    <div class="ln-card-top">
+      <div class="ln-wordmark">Qori<span>cash</span></div>
+      <div class="ln-sub">Sistema Integral de Cambio de Divisas</div>
     </div>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
+    <!-- Body -->
+    <div class="ln-body">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-        <div class="login-flash-messages">
-            {% for category, message in messages %}
-            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                <div class="d-flex align-items-center">
-                    {% if category == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>
-                    {% elif category == 'danger'  %}<i class="bi bi-exclamation-circle-fill me-2"></i>
-                    {% elif category == 'warning' %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
-                    {% else %}<i class="bi bi-info-circle-fill me-2"></i>{% endif %}
-                    <span>{{ message }}</span>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <div class="ln-flash">
+          {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            <div class="d-flex align-items-center gap-2">
+              {% if category == 'success' %}<i class="bi bi-check-circle-fill"></i>
+              {% elif category == 'danger' %}<i class="bi bi-exclamation-circle-fill"></i>
+              {% elif category == 'warning'%}<i class="bi bi-exclamation-triangle-fill"></i>
+              {% else %}<i class="bi bi-info-circle-fill"></i>{% endif %}
+              <span>{{ message }}</span>
             </div>
-            {% endfor %}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+          {% endfor %}
         </div>
         {% endif %}
-    {% endwith %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div style="margin-bottom:.9rem">
+          <label class="ln-lbl" for="username">DNI</label>
+          <input class="ln-input" type="text" id="username" name="username"
+            placeholder="8 dígitos" required autofocus
+            autocomplete="username" maxlength="8" pattern="[0-9]{8}">
+        </div>
+
+        <div style="margin-bottom:.9rem">
+          <label class="ln-lbl" for="password">Contraseña</label>
+          <div class="ln-pw">
+            <input class="ln-input" type="password" id="password" name="password"
+              placeholder="Contraseña" required autocomplete="current-password"
+              style="padding-right:2.8rem">
+            <button type="button" class="ln-eye" id="togglePassword" tabindex="-1">
+              <i class="bi bi-eye" id="togglePasswordIcon"></i>
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-bottom:1.4rem">
+          <label class="ln-check">
+            <input type="checkbox" id="remember" name="remember">
+            Mantener sesión iniciada
+          </label>
+        </div>
+
+        <button type="submit" class="ln-btn" id="btnLogin">
+          <i class="bi bi-box-arrow-in-right ln-btn-icon"></i>
+          Iniciar Sesión
+        </button>
+
+        <div class="ln-ssl">
+          <i class="bi bi-shield-check"></i> Conexión segura SSL
+        </div>
+      </form>
+
+      <div class="ln-foot">
+        <b>QoriCash Trading</b> · © 2025
+      </div>
+
+    </div>
+  </div>
 </div>
 
 {% endblock %}
 
 {% block scripts %}
 <script>
-/* ══════════════════════════════════════════════════════════════════════════
-   LOGIN FORM VALIDATION
-══════════════════════════════════════════════════════════════════════════ */
+/* ── FORM ─────────────────────────────────────────────────────────────── */
 $(document).ready(function () {
-    $('#username').focus();
+  $('#username').focus();
 
-    $('#togglePassword').on('click', function () {
-        const input = document.getElementById('password');
-        const icon  = document.getElementById('togglePasswordIcon');
-        if (input.type === 'password') {
-            input.type = 'text';
-            icon.classList.replace('bi-eye', 'bi-eye-slash');
-        } else {
-            input.type = 'password';
-            icon.classList.replace('bi-eye-slash', 'bi-eye');
-        }
-    }).on('mouseenter', function () {
-        document.getElementById('togglePasswordIcon').style.color = '#00DEA8';
-    }).on('mouseleave', function () {
-        document.getElementById('togglePasswordIcon').style.color = 'rgba(255,255,255,0.75)';
-    });
+  $('#togglePassword').on('click', function () {
+    const inp  = document.getElementById('password');
+    const icon = document.getElementById('togglePasswordIcon');
+    if (inp.type === 'password') {
+      inp.type = 'text';
+      icon.classList.replace('bi-eye', 'bi-eye-slash');
+    } else {
+      inp.type = 'password';
+      icon.classList.replace('bi-eye-slash', 'bi-eye');
+    }
+  });
 
-    setTimeout(function () {
-        $('.login-flash-messages .alert').fadeOut('slow', function () { $(this).remove(); });
-    }, 5000);
+  setTimeout(function () {
+    $('.ln-flash .alert').fadeOut('slow', function () { $(this).remove(); });
+  }, 5000);
 
-    $('#loginForm').on('submit', function (e) {
-        const username = $('#username').val().trim();
-        const password = $('#password').val();
+  $('#loginForm').on('submit', function (e) {
+    const u = $('#username').val().trim();
+    const p = $('#password').val();
+    if (!u || !p) {
+      e.preventDefault();
+      Swal.fire({ icon:'warning', title:'Campos incompletos', text:'Por favor completa todos los campos', confirmButtonColor:'#196BFE', timer:3000 });
+      return false;
+    }
+    if (!/^[0-9]{8}$/.test(u)) {
+      e.preventDefault();
+      Swal.fire({ icon:'warning', title:'DNI inválido', text:'El DNI debe contener exactamente 8 dígitos numéricos', confirmButtonColor:'#196BFE', timer:3000 });
+      return false;
+    }
+    if (p.length < 4) {
+      e.preventDefault();
+      Swal.fire({ icon:'warning', title:'Contraseña inválida', text:'La contraseña debe tener al menos 4 caracteres', confirmButtonColor:'#196BFE', timer:3000 });
+      return false;
+    }
+    $('#btnLogin').addClass('loading').prop('disabled', true)
+      .html('<i class="bi bi-hourglass-split ln-btn-icon"></i> Verificando...');
+  });
 
-        if (!username || !password) {
-            e.preventDefault();
-            Swal.fire({ icon:'warning', title:'Campos incompletos', text:'Por favor completa todos los campos', confirmButtonColor:'#00DEA8', timer:3000 });
-            return false;
-        }
-        if (!/^[0-9]{8}$/.test(username)) {
-            e.preventDefault();
-            Swal.fire({ icon:'warning', title:'DNI inválido', text:'El DNI debe contener exactamente 8 dígitos numéricos', confirmButtonColor:'#00DEA8', timer:3000 });
-            return false;
-        }
-        if (password.length < 4) {
-            e.preventDefault();
-            Swal.fire({ icon:'warning', title:'Contraseña inválida', text:'La contraseña debe tener al menos 4 caracteres', confirmButtonColor:'#00DEA8', timer:3000 });
-            return false;
-        }
-
-        $('#btnLogin').addClass('loading').prop('disabled', true)
-            .html('<i class="bi bi-hourglass-split"></i> Verificando...');
-    });
-
-    $('.form-control').on('keypress', function (e) {
-        if (e.which === 13) $('#loginForm').submit();
-    });
+  $('.ln-input').on('keypress', function (e) {
+    if (e.which === 13) $('#loginForm').submit();
+  });
 });
 
-/* ══════════════════════════════════════════════════════════════════════════
-   FOREX BACKGROUND ANIMATION
-══════════════════════════════════════════════════════════════════════════ */
+/* ── CANVAS ANIMATION — blue only ──────────────────────────────────────── */
 (function () {
-    'use strict';
+  const canvas = document.getElementById('lnCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let W, H;
 
-    const canvas = document.getElementById('fxCanvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
 
-    let W, H;
+  /* stars */
+  const STARS = Array.from({ length:55 }, () => ({
+    x: Math.random(), y: Math.random(),
+    r: Math.random() * 1.0 + 0.15,
+    a: Math.random() * 0.18 + 0.03,
+    spd: Math.random() * 0.016 + 0.004,
+    ph: Math.random() * Math.PI * 2,
+  }));
 
-    /* ─ Pares de divisas ─────────────────────────────────────────────────── */
-    const PAIRS = [
-        { n:'USD/PEN', p:3.7234, d:4 }, { n:'EUR/USD', p:1.0856, d:4 },
-        { n:'GBP/USD', p:1.2743, d:4 }, { n:'USD/JPY', p:149.32,  d:2 },
-        { n:'EUR/PEN', p:4.0421, d:4 }, { n:'USD/BRL', p:4.9812,  d:4 },
-        { n:'AUD/USD', p:0.6521, d:4 }, { n:'CHF/USD', p:1.1234,  d:4 },
-        { n:'USD/MXN', p:17.234, d:3 }, { n:'EUR/GBP', p:0.8521,  d:4 },
-        { n:'GBP/PEN', p:4.7891, d:4 }, { n:'EUR/JPY', p:162.15,  d:2 },
-    ];
+  /* blue price lines */
+  const LINES = [
+    { a:0.20, yF:0.35, amp:65, fr:0.18, ph:0    },
+    { a:0.09, yF:0.52, amp:42, fr:0.12, ph:1.9  },
+    { a:0.05, yF:0.67, amp:26, fr:0.23, ph:3.3  },
+  ];
+  const HIST = 190;
+  const lhist = LINES.map(() => []);
+  let T = 0;
 
-    const liveData = PAIRS.map(p => ({ ...p, cur: p.p, dir: 0 }));
-
-    /* ─ Resize ───────────────────────────────────────────────────────────── */
-    function resize() {
-        W = canvas.width  = window.innerWidth;
-        H = canvas.height = window.innerHeight;
-        initMatrix();
+  function drawGrid() {
+    ctx.lineWidth = 0.4;
+    ctx.strokeStyle = 'rgba(25,107,254,0.055)';
+    for (let y = 0; y < H; y += 62) {
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
     }
-    window.addEventListener('resize', resize);
-
-    /* ─ ESTRELLAS / PARTÍCULAS ──────────────────────────────────────────── */
-    const STARS = Array.from({ length: 110 }, () => ({
-        x:   Math.random(),
-        y:   Math.random(),
-        r:   Math.random() * 1.2 + 0.2,
-        a:   Math.random() * 0.28 + 0.04,
-        spd: Math.random() * 0.022 + 0.005,
-        ph:  Math.random() * Math.PI * 2,
-    }));
-
-    function drawStars(t) {
-        STARS.forEach(s => {
-            const alpha = s.a * (0.35 + 0.65 * Math.sin(t * s.spd + s.ph));
-            ctx.beginPath();
-            ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(150, 210, 255, ${alpha})`;
-            ctx.fill();
-        });
+    ctx.strokeStyle = 'rgba(25,107,254,0.035)';
+    for (let x = 0; x < W; x += 80) {
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
     }
+  }
 
-    /* ─ GRILLA DE TRADING ───────────────────────────────────────────────── */
-    function drawGrid() {
-        ctx.lineWidth = 0.5;
-        ctx.strokeStyle = 'rgba(0,222,168,0.025)';
-        for (let y = 0; y < H; y += 55) {
-            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-        }
-        ctx.strokeStyle = 'rgba(0,222,168,0.016)';
-        for (let x = 0; x < W; x += 88) {
-            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-        }
-    }
+  function drawStars(t) {
+    STARS.forEach(s => {
+      const a = s.a * (0.4 + 0.6 * Math.sin(t * s.spd + s.ph));
+      ctx.beginPath();
+      ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${a})`;
+      ctx.fill();
+    });
+  }
 
-    /* ─ GRÁFICAS DE PRECIOS (líneas) — intensidad reducida ──────────────── */
-    const HIST = 200;
-    const LINES = [
-        { c:'#00DEA8', rgb:'0,222,168',   a:0.13, yF:0.27, amp:75, fr:0.21, ph:0    },
-        { c:'#3b82f6', rgb:'59,130,246',  a:0.06, yF:0.45, amp:50, fr:0.16, ph:2.1  },
-        { c:'#f59e0b', rgb:'245,158,11',  a:0.045,yF:0.59, amp:33, fr:0.12, ph:1.0  },
-        { c:'#8b5cf6', rgb:'139,92,246',  a:0.04, yF:0.37, amp:22, fr:0.27, ph:3.5  },
-    ];
-    const lhist = LINES.map(() => []);
-    let T = 0;
+  function drawLines() {
+    LINES.forEach((ln, i) => {
+      const noise = (Math.random() - 0.5) * 15;
+      const v = Math.sin(T * ln.fr + ln.ph) * ln.amp
+              + Math.sin(T * ln.fr * 2.6 + ln.ph) * (ln.amp * 0.26)
+              + noise;
+      lhist[i].push(v);
+      if (lhist[i].length > HIST) lhist[i].shift();
+      const h = lhist[i];
+      if (h.length < 2) return;
+      const yB = H * ln.yF, dx = W / (HIST - 1);
 
-    function updateLines() {
-        LINES.forEach((ln, i) => {
-            const noise = (Math.random() - 0.5) * 20;
-            const v = Math.sin(T * ln.fr + ln.ph) * ln.amp
-                    + Math.sin(T * ln.fr * 2.8 + ln.ph) * (ln.amp * 0.28)
-                    + noise;
-            lhist[i].push(v);
-            if (lhist[i].length > HIST) lhist[i].shift();
-        });
-    }
+      /* line */
+      ctx.strokeStyle = '#196BFE';
+      ctx.lineWidth = 1.4;
+      ctx.globalAlpha = ln.a;
+      ctx.beginPath();
+      h.forEach((v, j) => j === 0 ? ctx.moveTo(0, yB + v) : ctx.lineTo(j * dx, yB + v));
+      ctx.stroke();
 
-    function drawLines() {
-        LINES.forEach((ln, i) => {
-            const h = lhist[i];
-            if (h.length < 2) return;
-            const yB = H * ln.yF;
-            const dx = W / (HIST - 1);
+      /* gradient fill */
+      const gr = ctx.createLinearGradient(0, yB - ln.amp, 0, yB + ln.amp + 60);
+      gr.addColorStop(0, 'rgba(25,107,254,0.07)');
+      gr.addColorStop(1, 'rgba(25,107,254,0)');
+      ctx.beginPath();
+      h.forEach((v, j) => j === 0 ? ctx.moveTo(0, yB + v) : ctx.lineTo(j * dx, yB + v));
+      ctx.lineTo(W, yB + 90); ctx.lineTo(0, yB + 90); ctx.closePath();
+      ctx.fillStyle = gr; ctx.fill();
 
-            /* línea con glow reducido */
-            ctx.shadowBlur = 5;
-            ctx.shadowColor = ln.c;
-            ctx.strokeStyle = ln.c;
-            ctx.lineWidth = 1.3;
-            ctx.globalAlpha = ln.a;
-            ctx.beginPath();
-            h.forEach((v, j) => (j === 0 ? ctx.moveTo(0, yB + v) : ctx.lineTo(j * dx, yB + v)));
-            ctx.stroke();
-            ctx.shadowBlur = 0;
+      /* live dot */
+      const lv = h[h.length - 1];
+      ctx.globalAlpha = Math.min(ln.a * 3, 0.5);
+      ctx.beginPath();
+      ctx.arc(W - dx * 2, yB + lv, 2.8, 0, Math.PI * 2);
+      ctx.fillStyle = '#196BFE'; ctx.fill();
+      ctx.globalAlpha = 1;
+    });
+  }
 
-            /* área bajo la curva — muy sutil */
-            const gr = ctx.createLinearGradient(0, yB - ln.amp, 0, yB + ln.amp + 70);
-            gr.addColorStop(0, `rgba(${ln.rgb},0.035)`);
-            gr.addColorStop(1, `rgba(${ln.rgb},0)`);
-            ctx.beginPath();
-            h.forEach((v, j) => (j === 0 ? ctx.moveTo(0, yB + v) : ctx.lineTo(j * dx, yB + v)));
-            ctx.lineTo(W, yB + 80); ctx.lineTo(0, yB + 80); ctx.closePath();
-            ctx.fillStyle = gr; ctx.fill();
+  /* initial fill */
+  ctx.fillStyle = '#0D1117';
+  ctx.fillRect(0, 0, W, H);
 
-            /* punto vivo al final */
-            const lv = h[h.length - 1];
-            ctx.globalAlpha = Math.min(ln.a * 3.2, 0.48);
-            ctx.shadowBlur = 8; ctx.shadowColor = ln.c;
-            ctx.beginPath();
-            ctx.arc(W - dx * 2, yB + lv, 2.5, 0, Math.PI * 2);
-            ctx.fillStyle = ln.c; ctx.fill();
-            ctx.shadowBlur = 0;
-            ctx.globalAlpha = 1;
-        });
-    }
-
-    /* ─ VELAS JAPONESAS (candlesticks) ─────────────────────────────────── */
-    const NC = 62;
-    let candles = [];
-
-    function initCandles() {
-        candles = [];
-        let p = 3.71 + Math.random() * 0.05;
-        for (let i = 0; i < NC; i++) {
-            const o = p, d = (Math.random() - 0.5) * 0.058, c = o + d;
-            candles.push({ o, c, h: Math.max(o,c)+Math.random()*.024, l: Math.min(o,c)-Math.random()*.024 });
-            p = c;
-        }
-    }
-
-    function drawCandles() {
-        const aTop = H * 0.70, aH = H * 0.27;
-        const prices = candles.flatMap(c => [c.h, c.l]);
-        const minP = Math.min(...prices), maxP = Math.max(...prices);
-        const rng  = maxP - minP || 0.01;
-        const slW  = W / NC, bdW = Math.max(slW * 0.55, 2);
-
-        ctx.globalAlpha = 0.42;
-        candles.forEach((c, i) => {
-            const cx = i * slW + slW / 2;
-            const bull = c.c >= c.o;
-            const toY = v => aTop + ((maxP - v) / rng) * aH;
-            const col = bull ? '#10b981' : '#ef4444';
-            ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1;
-            ctx.beginPath(); ctx.moveTo(cx, toY(c.h)); ctx.lineTo(cx, toY(c.l)); ctx.stroke();
-            const bT = Math.min(toY(c.o), toY(c.c)), bH = Math.abs(toY(c.c) - toY(c.o)) || 1;
-            ctx.fillRect(cx - bdW/2, bT, bdW, bH);
-        });
-        ctx.globalAlpha = 1;
-
-        ctx.strokeStyle = 'rgba(0,222,168,0.07)';
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(0, aTop); ctx.lineTo(W, aTop); ctx.stroke();
-
-        const lastC  = candles[candles.length - 1];
-        const lastY  = aTop + ((maxP - lastC.c) / rng) * aH;
-        ctx.globalAlpha = 0.38;
-        ctx.fillStyle   = '#00DEA8';
-        ctx.font        = 'bold 10px Courier New, monospace';
-        ctx.fillText(`USD/PEN  ${lastC.c.toFixed(4)}`, 12, aTop - 6);
-
-        ctx.strokeStyle = 'rgba(0,222,168,0.20)';
-        ctx.setLineDash([4, 5]);
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(0, lastY); ctx.lineTo(W, lastY); ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.globalAlpha = 1;
-    }
-
-    function pushCandle() {
-        candles.shift();
-        const last = candles[candles.length - 1].c;
-        const d = (Math.random() - 0.5) * 0.052, c = last + d;
-        candles.push({ o:last, c, h:Math.max(last,c)+Math.random()*.02, l:Math.min(last,c)-Math.random()*.02 });
-    }
-
-    /* ─ LLUVIA MATRIX (solo bordes, muy sutil) ──────────────────────────── */
-    const M_CHARS = '0123456789ABCDEFXabcdef$€£¥/↑↓▲▼+-×≈'.split('');
-    let mDrops = [];
-    const COL_W = 16;
-
-    function initMatrix() {
-        const cols = Math.ceil(W / COL_W);
-        mDrops = Array.from({ length: cols }, () => ({
-            y:   Math.random() * H,
-            spd: 8 + Math.random() * 11,
-        }));
-    }
-
-    function drawMatrix() {
-        ctx.font = '11px Courier New, monospace';
-        mDrops.forEach((drop, i) => {
-            const x = i * COL_W;
-            const inEdge = x < W * 0.13 || x > W * 0.87;
-            const maxA   = inEdge ? 0.13 : 0.025;
-            const ch = M_CHARS[Math.floor(Math.random() * M_CHARS.length)];
-            ctx.fillStyle = `rgba(0,222,168,${Math.random() * maxA})`;
-            ctx.fillText(ch, x, drop.y);
-            drop.y += drop.spd;
-            if (drop.y > H) { drop.y = -18; drop.spd = 8 + Math.random() * 11; }
-        });
-    }
-
-    /* ─ LÍNEA DE ESCANEO — muy sutil ───────────────────────────────────── */
-    let scanY = 0;
-    function drawScan() {
-        scanY = (scanY + 0.5) % H;
-        const g = ctx.createLinearGradient(0, scanY - 70, 0, scanY + 30);
-        g.addColorStop(0, 'rgba(0,222,168,0)');
-        g.addColorStop(0.7, 'rgba(0,222,168,0.012)');
-        g.addColorStop(1, 'rgba(0,222,168,0.035)');
-        ctx.fillStyle = g;
-        ctx.fillRect(0, scanY - 70, W, 100);
-    }
-
-    /* ─ TICKER INFERIOR ─────────────────────────────────────────────────── */
-    function buildTicker() {
-        const items = liveData.map(p => {
-            const diff = p.cur - p.p;
-            const pct  = ((diff / p.p) * 100).toFixed(2);
-            const cls  = Math.abs(diff) < 0.00005 ? 'flat' : (diff > 0 ? 'up' : 'dn');
-            const arr  = cls === 'flat' ? '●' : (cls === 'up' ? '▲' : '▼');
-            return `<span class="t-item">
-                <span class="t-pair">${p.n}</span>
-                <span class="t-price ${cls}">${p.cur.toFixed(p.d)}</span>
-                <span class="t-chg  ${cls}">${arr} ${Math.abs(parseFloat(pct))}%</span>
-            </span>`;
-        }).join('');
-        const track = document.getElementById('tickerTrack');
-        if (track) track.innerHTML = items + items;
-    }
-
-    function updatePrices() {
-        liveData.forEach(p => {
-            const d = (Math.random() - 0.499) * 0.003;
-            p.cur = parseFloat((p.cur + d).toFixed(p.d));
-            p.dir = d > 0 ? 1 : -1;
-        });
-        buildTicker();
-    }
-
-    /* ─ BUCLE PRINCIPAL ─────────────────────────────────────────────────── */
-    resize();
-    initCandles();
-    buildTicker();
-
-    ctx.fillStyle = '#060d15';
+  function animate() {
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(13,17,23,0.14)';
     ctx.fillRect(0, 0, W, H);
+    drawGrid();
+    drawStars(T);
+    drawLines();
+    T += 0.016;
+    requestAnimationFrame(animate);
+  }
+  animate();
+})();
 
-    let frame = 0;
+/* ── TICKER ────────────────────────────────────────────────────────────── */
+(function () {
+  const PAIRS = [
+    { n:'USD/PEN', p:3.7234, d:4 }, { n:'EUR/USD', p:1.0856, d:4 },
+    { n:'GBP/USD', p:1.2743, d:4 }, { n:'USD/JPY', p:149.32,  d:2 },
+    { n:'EUR/PEN', p:4.0421, d:4 }, { n:'USD/BRL', p:4.9812,  d:4 },
+    { n:'AUD/USD', p:0.6521, d:4 }, { n:'CHF/USD', p:1.1234,  d:4 },
+    { n:'USD/MXN', p:17.234, d:3 }, { n:'EUR/GBP', p:0.8521,  d:4 },
+    { n:'GBP/PEN', p:4.7891, d:4 }, { n:'EUR/JPY', p:162.15,  d:2 },
+  ];
+  const live = PAIRS.map(p => ({ ...p, cur: p.p }));
 
-    function animate() {
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = 'rgba(6, 13, 21, 0.13)';
-        ctx.fillRect(0, 0, W, H);
+  function build() {
+    const html = live.map(p => {
+      const diff = p.cur - p.p;
+      const pct  = ((diff / p.p) * 100).toFixed(2);
+      const cls  = Math.abs(diff) < 0.00005 ? 'flat' : (diff > 0 ? 'up' : 'dn');
+      const arr  = cls === 'flat' ? '●' : (cls === 'up' ? '▲' : '▼');
+      return `<span class="t-item">
+        <span class="t-pair">${p.n}</span>
+        <span class="t-price">${p.cur.toFixed(p.d)}</span>
+        <span class="t-chg ${cls}">${arr} ${Math.abs(parseFloat(pct))}%</span>
+      </span>`;
+    }).join('');
+    const track = document.getElementById('tickerTrack');
+    if (track) track.innerHTML = html + html;
+  }
 
-        drawGrid();
-        drawStars(T);
-        drawScan();
-        updateLines();
-        drawLines();
-        drawCandles();
-        drawMatrix();
+  function tick() {
+    live.forEach(p => {
+      p.cur = parseFloat((p.cur + (Math.random() - 0.499) * 0.003).toFixed(p.d));
+    });
+    build();
+  }
 
-        T += 0.016;
-        frame++;
-        if (frame % 48 === 0) pushCandle();
-
-        requestAnimationFrame(animate);
-    }
-
-    animate();
-    setInterval(updatePrices, 2200);
-
+  build();
+  setInterval(tick, 2400);
 })();
 </script>
 {% endblock %}

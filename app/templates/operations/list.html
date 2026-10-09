@@ -554,166 +554,194 @@
 
 <!-- Modal: Nueva Operación -->
 <div class="modal fade" id="createOperationModal" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius:14px;overflow:hidden;">
 
             <!-- Header -->
-            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
-                <div class="w-100">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10" style="width:36px;height:36px;">
-                                <i class="bi bi-plus-lg text-primary"></i>
-                            </span>
-                            <div class="fw-semibold" style="font-size:15px;">Nueva Operación</div>
-                        </div>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="resetCreateForm()"></button>
+            <div class="modal-header px-4 py-3" style="background:var(--black);border-bottom:2px solid var(--q);">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center justify-content-center rounded-circle"
+                         style="width:34px;height:34px;background:rgba(25,107,254,.2);">
+                        <i class="bi bi-plus-lg" style="color:var(--q);font-size:.9rem;"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold text-white" style="font-size:.95rem;line-height:1.2;">Nueva Operación</div>
+                        <div class="text-white-50" style="font-size:.72rem;">Registro de cambio de divisas</div>
                     </div>
                 </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" onclick="resetCreateForm()"></button>
             </div>
 
-            <div class="modal-body px-4 py-0" style="max-height:72vh;overflow-y:auto;background:#f8fafc;">
+            <div class="modal-body px-4 pt-3 pb-2" style="background:#fff;overflow-y:auto;max-height:70vh;">
                 <form id="createOperationFormModal">
 
-                    <!-- CLIENTE -->
-                    <div class="py-3 border-bottom">
-                        <div class="fw-semibold small text-uppercase mb-3" style="letter-spacing:.6px;color:#0891b2;">
-                            <i class="bi bi-person me-1"></i>Cliente
+                    <!-- PASO 1: CLIENTE -->
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="modal-step-num">1</span>
+                            <span class="modal-step-label">Cliente</span>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label small text-muted">Buscar por DNI/RUC, Nombre o Email</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
-                                <input type="text" class="form-control" id="searchClientInputModal"
-                                       placeholder="Escribe al menos 3 caracteres para buscar...">
-                                <button class="btn btn-outline-secondary" type="button" id="clearSearchBtnModal" style="display:none;">
-                                    <i class="bi bi-x-lg"></i>
-                                </button>
-                            </div>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text" style="background:var(--g50);border-color:var(--g200);">
+                                <i class="bi bi-search text-muted" style="font-size:.75rem;"></i>
+                            </span>
+                            <input type="text" class="form-control" id="searchClientInputModal"
+                                   placeholder="DNI, RUC, nombre o email...">
+                            <button class="btn btn-outline-secondary btn-sm" type="button" id="clearSearchBtnModal" style="display:none;">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
                         </div>
-                        <div id="searchResultsModal" class="mb-2" style="display:none;">
-                            <div class="list-group" id="searchResultsListModal" style="max-height:220px;overflow-y:auto;"></div>
+                        <div id="searchResultsModal" class="mt-1" style="display:none;">
+                            <div class="list-group list-group-flush border rounded" id="searchResultsListModal"
+                                 style="max-height:200px;overflow-y:auto;font-size:.82rem;"></div>
                         </div>
                         <input type="hidden" id="client_id_modal" name="client_id" required>
-                        <div id="clientInfoModal" style="display:none;">
-                            <div class="rounded p-3 d-flex justify-content-between align-items-start" style="background:#f0fdf4;border:1px solid #bbf7d0;">
-                                <div class="small">
-                                    <div class="fw-semibold text-success mb-1"><i class="bi bi-person-check me-1"></i>Cliente seleccionado</div>
-                                    <div class="fw-bold" id="clientNameModal"></div>
-                                    <div class="text-muted"><i class="bi bi-card-text me-1"></i><span id="clientDNIModal"></span></div>
-                                    <div class="text-muted"><i class="bi bi-envelope me-1"></i><span id="clientEmailModal"></span></div>
+                        <div id="clientInfoModal" class="mt-2" style="display:none;">
+                            <div class="d-flex align-items-center justify-content-between rounded-2 px-3 py-2"
+                                 style="background:var(--q-06);border:1px solid var(--q-25);">
+                                <div>
+                                    <div class="fw-semibold" style="font-size:.82rem;color:var(--q);">
+                                        <i class="bi bi-person-check me-1"></i><span id="clientNameModal"></span>
+                                    </div>
+                                    <div class="text-muted" style="font-size:.73rem;">
+                                        <span id="clientDNIModal"></span>&nbsp;·&nbsp;<span id="clientEmailModal"></span>
+                                    </div>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSelectedClientModal()">
-                                    <i class="bi bi-x"></i> Cambiar
+                                <button type="button" class="btn btn-sm btn-link p-0 text-danger" onclick="clearSelectedClientModal()"
+                                        style="font-size:.75rem;text-decoration:none;">
+                                    <i class="bi bi-x-circle me-1"></i>Cambiar
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- TIPO DE OPERACIÓN -->
-                    <div class="py-3 border-bottom">
-                        <div class="fw-semibold small text-uppercase mb-3" style="letter-spacing:.6px;color:#16a34a;">
-                            <i class="bi bi-arrow-left-right me-1"></i>Tipo de Operación
+                    <hr style="border-color:var(--g100);margin:.5rem 0;">
+
+                    <!-- PASO 2: TIPO DE OPERACIÓN -->
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="modal-step-num">2</span>
+                            <span class="modal-step-label">Tipo de operación</span>
                         </div>
-                        <div class="d-flex gap-3 flex-wrap">
-                            <label class="d-flex align-items-center gap-2 rounded px-3 py-2 cursor-pointer" style="border:1px solid #e5e7eb;background:#fff;cursor:pointer;">
-                                <input class="form-check-input m-0" type="radio" name="operation_type_modal" id="typeCompraModal" value="Compra" checked onchange="calcularPipsModal(); _autoFillBase();">
-                                <span><span class="badge bg-success me-1">Compra USD</span><span class="small text-muted">Cliente vende dólares</span></span>
+                        <div class="d-flex gap-2">
+                            <label class="op-type-card flex-fill" id="lblCompraModal" for="typeCompraModal">
+                                <input class="form-check-input m-0" type="radio" name="operation_type_modal"
+                                       id="typeCompraModal" value="Compra" checked
+                                       onchange="calcularPipsModal(); _autoFillBase(); _highlightTypeModal();">
+                                <div class="ms-2">
+                                    <div style="font-size:.82rem;font-weight:600;">Compra USD</div>
+                                    <div class="text-muted" style="font-size:.7rem;">Cliente vende dólares</div>
+                                </div>
                             </label>
-                            <label class="d-flex align-items-center gap-2 rounded px-3 py-2 cursor-pointer" style="border:1px solid #e5e7eb;background:#fff;cursor:pointer;">
-                                <input class="form-check-input m-0" type="radio" name="operation_type_modal" id="typeVentaModal" value="Venta" onchange="calcularPipsModal(); _autoFillBase();">
-                                <span><span class="badge bg-primary me-1">Venta USD</span><span class="small text-muted">Cliente compra dólares</span></span>
+                            <label class="op-type-card flex-fill" id="lblVentaModal" for="typeVentaModal">
+                                <input class="form-check-input m-0" type="radio" name="operation_type_modal"
+                                       id="typeVentaModal" value="Venta"
+                                       onchange="calcularPipsModal(); _autoFillBase(); _highlightTypeModal();">
+                                <div class="ms-2">
+                                    <div style="font-size:.82rem;font-weight:600;">Venta USD</div>
+                                    <div class="text-muted" style="font-size:.7rem;">Cliente compra dólares</div>
+                                </div>
                             </label>
-                        </div>
-                        <div class="small text-muted mt-2">
-                            <i class="bi bi-info-circle me-1"></i>
-                            <strong>Compra:</strong> Origen (USD) → Destino (PEN) &nbsp;|&nbsp;
-                            <strong>Venta:</strong> Origen (PEN) → Destino (USD)
                         </div>
                     </div>
 
-                    <!-- CÁLCULO -->
-                    <div class="py-3 border-bottom">
-                        <div class="fw-semibold small text-uppercase mb-3" style="letter-spacing:.6px;color:#b45309;">
-                            <i class="bi bi-calculator me-1"></i>Cálculo
+                    <hr style="border-color:var(--g100);margin:.5rem 0;">
+
+                    <!-- PASO 3: CÁLCULO -->
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="modal-step-num">3</span>
+                            <span class="modal-step-label">Cálculo</span>
                         </div>
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <label class="form-label small text-muted">Monto USD <span class="text-danger">*</span></label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-white">$</span>
+                        <div class="row g-2">
+                            <div class="col-4">
+                                <label class="form-label small text-muted mb-1">Monto USD <span class="text-danger">*</span></label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text" style="background:var(--g50);">$</span>
                                     <input type="number" class="form-control" name="amount_usd" id="amount_usd_modal"
-                                           step="0.01" min="0" required onchange="calculatePENModal()" oninput="calculatePENModal()">
+                                           step="0.01" min="0" required
+                                           onchange="calculatePENModal()" oninput="calculatePENModal()">
                                 </div>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label small text-muted">Tipo de Cambio <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="exchange_rate" id="exchange_rate_modal"
-                                       step="0.0001" min="0" required onchange="calculatePENModal()" oninput="limitDecimalsModal(this, 4); calculatePENModal(); calcularPipsModal()">
-                                <div class="form-text">Ej: 3.7500 (máx. 4 decimales)</div>
+                            <div class="col-4">
+                                <label class="form-label small text-muted mb-1">Tipo de Cambio <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control form-control-sm" name="exchange_rate"
+                                       id="exchange_rate_modal" step="0.0001" min="0" required
+                                       placeholder="3.7500"
+                                       onchange="calculatePENModal()"
+                                       oninput="limitDecimalsModal(this,4); calculatePENModal(); calcularPipsModal()">
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label small text-muted">Monto PEN</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-white">S/</span>
-                                    <input type="text" class="form-control" id="amount_pen_display_modal" readonly style="background:#f9fafb;">
+                            <div class="col-4">
+                                <label class="form-label small text-muted mb-1">Total PEN</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text" style="background:var(--g50);">S/</span>
+                                    <input type="text" class="form-control" id="amount_pen_display_modal"
+                                           readonly style="background:var(--g50);font-weight:700;color:var(--q);">
                                 </div>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label small text-muted">Base <small class="text-muted">(opcional)</small></label>
-                                <input type="number" class="form-control" name="base_rate" id="base_rate_modal"
-                                       step="0.0001" min="0" placeholder="0.0000"
+                            <div class="col-4">
+                                <label class="form-label small text-muted mb-1">TC Base <span class="text-muted fw-normal" style="font-size:.7rem;">(opcional)</span></label>
+                                <input type="number" class="form-control form-control-sm" name="base_rate"
+                                       id="base_rate_modal" step="0.0001" min="0" placeholder="0.0000"
                                        oninput="calcularPipsModal()">
-                                <div class="form-text" id="pips_preview_modal"></div>
+                                <div id="pips_preview_modal" style="font-size:.72rem;min-height:1rem;"></div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- CUENTAS -->
-                    <div class="py-3 border-bottom">
-                        <div class="fw-semibold small text-uppercase mb-3" style="letter-spacing:.6px;color:#7c3aed;">
-                            <i class="bi bi-bank me-1"></i>Cuentas Bancarias
+                    <hr style="border-color:var(--g100);margin:.5rem 0;">
+
+                    <!-- PASO 4: CUENTAS BANCARIAS -->
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="modal-step-num">4</span>
+                            <span class="modal-step-label">Cuentas bancarias</span>
                         </div>
-                        <div class="row g-3">
+                        <div class="row g-2">
                             <div class="col-md-6">
-                                <label class="form-label small text-muted">Cuenta de Origen <span class="text-danger">*</span></label>
-                                <select class="form-select" name="source_account" id="source_account_modal" required>
-                                    <option value="">Primero selecciona un cliente</option>
+                                <label class="form-label small text-muted mb-1">Cuenta Origen <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-sm" name="source_account" id="source_account_modal" required>
+                                    <option value="">— Selecciona un cliente primero —</option>
                                 </select>
-                                <div class="form-text" id="source_help_modal">Cuenta desde donde se envía</div>
+                                <div class="form-text" id="source_help_modal" style="font-size:.7rem;">Desde donde se envía</div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label small text-muted">Cuenta de Destino <span class="text-danger">*</span></label>
-                                <select class="form-select" name="destination_account" id="destination_account_modal" required>
-                                    <option value="">Primero selecciona un cliente</option>
+                                <label class="form-label small text-muted mb-1">Cuenta Destino <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-sm" name="destination_account" id="destination_account_modal" required>
+                                    <option value="">— Selecciona un cliente primero —</option>
                                 </select>
-                                <div class="form-text" id="dest_help_modal">Cuenta donde se recibe</div>
+                                <div class="form-text" id="dest_help_modal" style="font-size:.7rem;">Donde se recibe</div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- NOTAS -->
-                    <div class="py-3">
-                        <div class="fw-semibold small text-uppercase mb-3" style="letter-spacing:.6px;color:#6b7280;">
-                            <i class="bi bi-sticky me-1"></i>Notas
+                    <hr style="border-color:var(--g100);margin:.5rem 0;">
+
+                    <!-- PASO 5: NOTAS -->
+                    <div class="mb-2">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="modal-step-num">5</span>
+                            <span class="modal-step-label">Notas <span class="text-muted fw-normal" style="font-size:.75rem;">(opcional)</span></span>
                         </div>
-                        <textarea class="form-control" name="notes" id="notes_modal" rows="2" placeholder="Información adicional o notas sobre la operación (opcional)"></textarea>
+                        <textarea class="form-control form-control-sm" name="notes" id="notes_modal"
+                                  rows="2" placeholder="Información adicional..."></textarea>
                     </div>
 
                 </form>
             </div>
 
-            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
-                <button type="button" class="btn btn-sm btn-light border" onclick="resetCreateForm()">
+            <div class="modal-footer px-4 py-3" style="background:var(--g50);border-top:1px solid var(--g100);">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetCreateForm()">
                     <i class="bi bi-arrow-counterclockwise me-1"></i>Limpiar
                 </button>
-                <button type="button" class="btn btn-sm btn-primary px-4" onclick="submitCreateOperation()">
+                <button type="button" class="btn btn-sm btn-primary px-4 fw-semibold" onclick="submitCreateOperation()">
                     <i class="bi bi-check-circle me-1"></i>Crear Operación
                 </button>
             </div>
         </div>
     </div>
 </div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -2452,6 +2480,25 @@ function calcularPipsModal() {
     const sign = pips >= 0 ? '+' : '';
     const color = pips >= 0 ? '#198754' : '#dc3545';
     preview.html(`<span style="color:${color};font-weight:600;">${sign}${pips.toFixed(1)} pips</span>`);
+}
+
+// ── Highlight selected op-type card ──────────────────────────────────────
+function _highlightTypeModal() {
+    var compra = document.getElementById('typeCompraModal');
+    var lbl1 = document.getElementById('lblCompraModal');
+    var lbl2 = document.getElementById('lblVentaModal');
+    if (!lbl1 || !lbl2) return;
+    if (compra && compra.checked) {
+        lbl1.style.borderColor = 'var(--q)';
+        lbl1.style.background  = 'var(--q-06)';
+        lbl2.style.borderColor = 'var(--g200)';
+        lbl2.style.background  = 'var(--g50)';
+    } else {
+        lbl2.style.borderColor = 'var(--q)';
+        lbl2.style.background  = 'var(--q-06)';
+        lbl1.style.borderColor = 'var(--g200)';
+        lbl1.style.background  = 'var(--g50)';
+    }
 }
 
 // ── Auto-llenado de Base desde el widget Precio Base ──────────────────────

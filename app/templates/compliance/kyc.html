@@ -1,120 +1,351 @@
 {% extends "base.html" %}
 
-{% block title %}Revisión KYC - QoriCash Trading{% endblock %}
+{% block title %}Revisión KYC - QoriCash{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <!-- Header -->
-    <div class="page-header">
-        <div class="page-header-info">
-            <h2><i class="bi bi-person-check"></i> Revisión KYC</h2>
-            <p>Verificación y aprobación de documentación de clientes</p>
-        </div>
-        <div class="page-header-actions">
-            <button class="btn btn-outline-secondary" onclick="recargarLista()">
-                <i class="bi bi-arrow-clockwise"></i> Recargar
-            </button>
-        </div>
-    </div>
+<style>
+/* ─── Tokens ─────────────────────────────────────── */
+.kyc-wrap {
+  --blue:#196BFE; --black:#0D1117; --white:#fff;
+  --g1:#f7f7f8; --g2:#ebebed; --g3:#d4d4d8; --g4:#a1a1aa;
+  --g5:#71717a; --g6:#3f3f46; --g7:#18181b;
+  font-family:'Inter','SF Pro Display','Segoe UI',system-ui,sans-serif;
+}
 
-    <!-- Lista de Clientes -->
-    <div class="card">
-        <div class="card-header">
-            <i class="bi bi-people"></i> Clientes para Revisión KYC
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle" id="clientesTable">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Nombre / Razón Social</th>
-                            <th>DNI/RUC</th>
-                            <th>Email</th>
-                            <th>Estado Cliente</th>
-                            <th>Validación Docs</th>
-                            <th>Fecha Registro</th>
-                            <th style="min-width: 200px;">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="clientesBody">
-                        <tr>
-                            <td colspan="8" class="text-center">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Cargando...</span>
-                                </div>
-                                <p class="mt-2">Cargando clientes...</p>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+/* ─── Page ───────────────────────────────────────── */
+.kyc-wrap { padding:2.5rem 2rem; background:var(--white); min-height:calc(100vh - 60px); }
+
+/* ─── Header ─────────────────────────────────────── */
+.kyc-hdr {
+  display:flex; align-items:center; justify-content:space-between;
+  padding-bottom:1.75rem; border-bottom:1px solid var(--g2); margin-bottom:2rem;
+}
+.kyc-hdr-title { font-size:1.35rem; font-weight:800; color:var(--black); letter-spacing:-.03em; line-height:1; }
+.kyc-hdr-sub   { font-size:.78rem; color:var(--g4); margin-top:5px; font-weight:400; }
+.kyc-reload {
+  display:inline-flex; align-items:center; gap:.35rem;
+  font-size:.78rem; font-weight:500; color:var(--g5);
+  background:none; border:1px solid var(--g2); border-radius:7px;
+  padding:6px 12px; cursor:pointer; transition:all .14s;
+}
+.kyc-reload:hover { border-color:var(--g3); color:var(--black); }
+
+/* ─── Stats strip ────────────────────────────────── */
+.kyc-stats-strip {
+  display:flex; gap:0; margin-bottom:2rem;
+  border:1px solid var(--g2); border-radius:12px; overflow:hidden;
+  background:var(--white);
+}
+.kyc-stat {
+  flex:1; padding:1.1rem 1.5rem; border-right:1px solid var(--g2);
+  animation:kFade .4s ease both;
+}
+.kyc-stat:last-child { border-right:none; }
+.kyc-stat-num { font-size:1.6rem; font-weight:800; color:var(--black); letter-spacing:-.04em; line-height:1; }
+.kyc-stat-num.blue { color:var(--blue); }
+.kyc-stat-lbl { font-size:.72rem; color:var(--g4); font-weight:500; margin-top:4px; }
+
+/* ─── Card ───────────────────────────────────────── */
+.kyc-card {
+  background:var(--white); border:1px solid var(--g2); border-radius:14px;
+  overflow:hidden; box-shadow:0 2px 16px rgba(0,0,0,.05);
+}
+.kyc-card-head {
+  padding:.9rem 1.5rem; border-bottom:1px solid var(--g2);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.kyc-card-head-title {
+  font-size:.82rem; font-weight:700; color:var(--black); letter-spacing:-.01em;
+}
+.kyc-head-count {
+  font-size:.72rem; font-weight:600; color:var(--blue);
+  background:rgba(25,107,254,.06); border:1px solid rgba(25,107,254,.15);
+  border-radius:20px; padding:2px 9px;
+}
+
+/* ─── Table ──────────────────────────────────────── */
+.kyc-table { width:100%; border-collapse:collapse; }
+.kyc-table thead th {
+  padding:.65rem 1.5rem; font-size:.67rem; font-weight:700; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--g4); background:var(--g1);
+  border-bottom:1px solid var(--g2); white-space:nowrap;
+}
+.kyc-table tbody tr { border-bottom:1px solid var(--g1); transition:background .1s; }
+.kyc-table tbody tr:last-child { border-bottom:none; }
+.kyc-table tbody tr:hover { background:rgba(25,107,254,.025); }
+.kyc-table td { padding:.95rem 1.5rem; vertical-align:middle; }
+
+/* ─── Client cell ────────────────────────────────── */
+.kyc-client { display:flex; align-items:center; gap:.85rem; }
+.kyc-avatar {
+  width:36px; height:36px; flex-shrink:0; border-radius:9px;
+  background:var(--black); color:var(--white);
+  display:grid; place-items:center;
+  font-size:.75rem; font-weight:700; letter-spacing:.02em;
+}
+.kyc-name  { font-size:.84rem; font-weight:650; color:var(--black); line-height:1.25; }
+.kyc-email { font-size:.72rem; color:var(--g4); margin-top:2px; }
+.kyc-cid   { font-size:.67rem; color:var(--g3); margin-top:1px; font-variant-numeric:tabular-nums; }
+
+/* ─── Doc cell ───────────────────────────────────── */
+.kyc-dtype { font-size:.67rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--g4); }
+.kyc-dnum  { font-size:.82rem; font-weight:600; color:var(--black); font-variant-numeric:tabular-nums; margin-top:2px; }
+
+/* ─── Status indicators — NO background fills ────── */
+.kyc-status { display:flex; flex-direction:column; gap:5px; }
+.kyc-ind {
+  display:inline-flex; align-items:center; gap:.4rem;
+  font-size:.75rem; font-weight:500; color:var(--g6); white-space:nowrap;
+}
+.kyc-ind-dot {
+  width:7px; height:7px; border-radius:50%; flex-shrink:0;
+  background:var(--g3);
+}
+.kyc-ind-dot.on  { background:var(--blue); }
+.kyc-ind-dot.off { background:var(--g3); }
+.kyc-ind-dot.blk { background:var(--black); }
+
+/* ─── Docs indicator ─────────────────────────────── */
+.kyc-docs { font-size:.78rem; font-weight:500; display:flex; flex-direction:column; gap:4px; }
+.kyc-docs-badge { display:inline-flex; align-items:center; gap:.35rem; color:var(--g4); }
+.kyc-docs-badge.ok  { color:var(--blue); }
+.kyc-docs-badge.bad { color:var(--black); }
+
+/* ─── Date ───────────────────────────────────────── */
+.kyc-date { font-size:.75rem; color:var(--g4); font-variant-numeric:tabular-nums; white-space:nowrap; }
+
+/* ─── Actions — text links with dividers ─────────── */
+.kyc-actions {
+  display:flex; align-items:center; gap:0; white-space:nowrap;
+}
+.kyc-lnk {
+  font-size:.75rem; font-weight:500; color:var(--g5);
+  background:none; border:none; padding:0 10px; cursor:pointer;
+  text-decoration:none; transition:color .13s; border-right:1px solid var(--g2);
+  display:inline-flex; align-items:center; gap:.25rem; line-height:1;
+}
+.kyc-lnk:last-child { border-right:none; }
+.kyc-lnk:hover      { color:var(--blue); }
+.kyc-lnk.lnk-approve:hover { color:var(--blue); }
+.kyc-lnk.lnk-reject:hover  { color:var(--black); }
+
+/* ─── Empty / loading ────────────────────────────── */
+.kyc-empty { text-align:center; padding:5rem 1rem; }
+.kyc-empty-ico {
+  width:48px; height:48px; border-radius:12px; background:var(--g1);
+  display:grid; place-items:center; font-size:1.2rem; color:var(--g3);
+  margin:0 auto 1rem;
+}
+.kyc-empty p { font-size:.82rem; color:var(--g4); margin:0; }
+
+/* ─── Modal ──────────────────────────────────────── */
+.kyc-modal .modal-content {
+  border:1px solid var(--g2); border-radius:16px;
+  box-shadow:0 30px 90px rgba(0,0,0,.14), 0 6px 20px rgba(0,0,0,.06);
+  overflow:hidden;
+}
+.kyc-modal .modal-header {
+  background:var(--white); border-bottom:1px solid var(--g2);
+  padding:1.25rem 1.5rem;
+}
+.kyc-modal .modal-title {
+  font-size:1rem; font-weight:800; color:var(--black); letter-spacing:-.02em;
+}
+.kyc-modal .modal-body  { padding:1.5rem; }
+.kyc-modal .modal-footer {
+  border-top:1px solid var(--g1); padding:1rem 1.5rem; gap:.5rem;
+}
+
+/* Modal — client row */
+.kyc-modal-client {
+  display:flex; align-items:center; gap:.85rem;
+  border-bottom:1px solid var(--g1); padding-bottom:1.1rem; margin-bottom:1.1rem;
+}
+.kyc-modal-client .kyc-avatar { width:40px; height:40px; border-radius:10px; font-size:.8rem; }
+.kyc-modal-cname { font-size:.88rem; font-weight:700; color:var(--black); }
+.kyc-modal-cdni  { font-size:.75rem; color:var(--g4); margin-top:2px; }
+
+/* Modal — notice */
+.kyc-modal-notice {
+  font-size:.78rem; color:var(--g5); line-height:1.55;
+  border-left:2px solid var(--blue); padding-left:.85rem;
+  margin-bottom:1.1rem;
+}
+.kyc-modal-notice strong { color:var(--black); font-weight:600; }
+.kyc-modal-notice.warn { border-left-color:var(--black); }
+
+/* Modal — label + textarea */
+.kyc-modal-lbl {
+  display:block; font-size:.7rem; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--g4); margin-bottom:.45rem;
+}
+.kyc-modal textarea {
+  font-size:.82rem; color:var(--black);
+  border:1px solid var(--g2); border-radius:9px;
+  padding:.7rem .9rem; width:100%; resize:vertical; outline:none;
+  transition:border-color .13s, box-shadow .13s; background:var(--white);
+}
+.kyc-modal textarea:focus {
+  border-color:var(--blue); box-shadow:0 0 0 3px rgba(25,107,254,.1);
+}
+
+/* Modal — buttons */
+.kyc-mb-cancel {
+  background:var(--white); border:1px solid var(--g2); color:var(--g5);
+  border-radius:8px; padding:7px 18px; font-size:.8rem; font-weight:500;
+  cursor:pointer; transition:all .13s;
+}
+.kyc-mb-cancel:hover { background:var(--g1); border-color:var(--g3); color:var(--black); }
+.kyc-mb-confirm {
+  background:#196BFE !important; border:none !important; color:#fff !important;
+  border-radius:8px; padding:7px 18px; font-size:.8rem; font-weight:700;
+  cursor:pointer; display:inline-flex; align-items:center; gap:.4rem;
+  transition:opacity .13s;
+}
+.kyc-mb-confirm:hover { opacity:.88; }
+.kyc-mb-black {
+  background:var(--black); border:none; color:var(--white);
+  border-radius:8px; padding:7px 18px; font-size:.8rem; font-weight:700;
+  cursor:pointer; display:inline-flex; align-items:center; gap:.4rem;
+  transition:opacity .13s;
+}
+.kyc-mb-black:hover { opacity:.8; }
+
+/* ─── Animations ─────────────────────────────────── */
+@keyframes kFade { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+.kyc-stat:nth-child(1){animation-delay:.05s}
+.kyc-stat:nth-child(2){animation-delay:.10s}
+.kyc-stat:nth-child(3){animation-delay:.15s}
+.kyc-stat:nth-child(4){animation-delay:.20s}
+</style>
+
+<div class="kyc-wrap">
+
+  <!-- Header -->
+  <div class="kyc-hdr">
+    <div>
+      <div class="kyc-hdr-title">Revisión KYC</div>
+      <div class="kyc-hdr-sub">Verificación y aprobación de documentación de clientes</div>
     </div>
+    <button class="kyc-reload" onclick="recargarLista()">
+      <i class="bi bi-arrow-clockwise"></i> Recargar
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="kyc-stats-strip">
+    <div class="kyc-stat">
+      <div class="kyc-stat-num blue" id="stat-pendientes">—</div>
+      <div class="kyc-stat-lbl">Pendientes de revisión</div>
+    </div>
+    <div class="kyc-stat">
+      <div class="kyc-stat-num" id="stat-incompletos">—</div>
+      <div class="kyc-stat-lbl">Docs incompletos</div>
+    </div>
+    <div class="kyc-stat">
+      <div class="kyc-stat-num" id="stat-completos">—</div>
+      <div class="kyc-stat-lbl">Docs completos</div>
+    </div>
+    <div class="kyc-stat">
+      <div class="kyc-stat-num" id="stat-bloqueados">—</div>
+      <div class="kyc-stat-lbl">Bloqueados KYC</div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="kyc-card">
+    <div class="kyc-card-head">
+      <span class="kyc-card-head-title">Clientes para revisión</span>
+      <span class="kyc-head-count" id="count-pill">0 clientes</span>
+    </div>
+    <div class="table-responsive">
+      <table class="kyc-table" id="clientesTable">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Documento</th>
+            <th>Estado</th>
+            <th>Docs</th>
+            <th>Registro</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="clientesBody">
+          <tr>
+            <td colspan="6" class="kyc-empty">
+              <div class="kyc-empty-ico"><i class="bi bi-hourglass-split"></i></div>
+              <p>Cargando clientes...</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 
 <!-- Modal: Aprobar KYC -->
-<div class="modal fade" id="aprobarModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
-                <h5 class="modal-title fw-semibold">✅ Aprobar KYC y Activar Cliente</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="aprobarClientId">
-                <div class="alert alert-info">
-                    <strong>Cliente:</strong> <span id="aprobarClientNombre"></span><br>
-                    <strong>DNI/RUC:</strong> <span id="aprobarClientDni"></span>
-                </div>
-                <div class="alert alert-warning">
-                    <i class="bi bi-exclamation-triangle"></i> Al aprobar el KYC, el cliente será <strong>ACTIVADO automáticamente</strong> para operar.
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Notas (opcional)</label>
-                    <textarea id="aprobarNotas" class="form-control" rows="3"></textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="confirmarAprobar()">
-                    <i class="bi bi-check-circle"></i> Aprobar y Activar
-                </button>
-            </div>
+<div class="modal fade kyc-modal" id="aprobarModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Aprobar KYC</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="aprobarClientId">
+        <div class="kyc-modal-client">
+          <div>
+            <div class="kyc-modal-cname" id="aprobarClientNombre"></div>
+            <div class="kyc-modal-cdni" id="aprobarClientDni"></div>
+          </div>
         </div>
+        <div class="kyc-modal-notice">
+          El cliente será <strong>activado automáticamente</strong> para operar tras la aprobación.
+        </div>
+        <label class="kyc-modal-lbl" for="aprobarNotas">Notas (opcional)</label>
+        <textarea id="aprobarNotas" rows="3" placeholder="Observaciones adicionales..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="kyc-mb-cancel" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="kyc-mb-confirm" onclick="confirmarAprobar()">
+          <i class="bi bi-check2"></i> Aprobar y Activar
+        </button>
+      </div>
     </div>
+  </div>
 </div>
 
 <!-- Modal: Rechazar KYC -->
-<div class="modal fade" id="rechazarModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
-                <h5 class="modal-title fw-semibold">❌ Rechazar KYC</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="rechazarClientId">
-                <div class="alert alert-info">
-                    <strong>Cliente:</strong> <span id="rechazarClientNombre"></span><br>
-                    <strong>DNI/RUC:</strong> <span id="rechazarClientDni"></span>
-                </div>
-                <div class="alert alert-warning">
-                    <i class="bi bi-exclamation-triangle"></i> Al rechazar el KYC, el cliente permanecerá <strong>INACTIVO</strong>.
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Motivo del Rechazo <span class="text-danger">*</span></label>
-                    <textarea id="rechazarMotivo" class="form-control" rows="3" required></textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" onclick="confirmarRechazar()">
-                    <i class="bi bi-x-circle"></i> Rechazar KYC
-                </button>
-            </div>
+<div class="modal fade kyc-modal" id="rechazarModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Rechazar KYC</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="rechazarClientId">
+        <div class="kyc-modal-client">
+          <div>
+            <div class="kyc-modal-cname" id="rechazarClientNombre"></div>
+            <div class="kyc-modal-cdni" id="rechazarClientDni"></div>
+          </div>
         </div>
+        <div class="kyc-modal-notice warn">
+          El cliente permanecerá <strong>inactivo</strong> tras el rechazo.
+        </div>
+        <label class="kyc-modal-lbl" for="rechazarMotivo">Motivo del rechazo <span style="color:var(--black)">*</span></label>
+        <textarea id="rechazarMotivo" rows="3" placeholder="Describe el motivo del rechazo..." required></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="kyc-mb-cancel" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="kyc-mb-black" onclick="confirmarRechazar()">
+          <i class="bi bi-x-lg"></i> Rechazar KYC
+        </button>
+      </div>
     </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -157,59 +388,73 @@ function mostrarClientes(clientes) {
     const tbody = $('#clientesBody');
     tbody.empty();
 
+    // update stats
+    $('#stat-pendientes').text(clientes.length);
+    $('#count-pill').text(clientes.length + ' cliente' + (clientes.length !== 1 ? 's' : ''));
+
     if (!clientes || clientes.length === 0) {
         tbody.html(`
             <tr>
-                <td colspan="8" class="text-center">
-                    <div class="alert alert-success">
-                        <i class="bi bi-check-circle"></i> No hay clientes pendientes de revisión KYC
-                    </div>
+                <td colspan="6" class="kyc-empty">
+                    <div class="kyc-empty-ico"><i class="bi bi-check2-circle"></i></div>
+                    <p>No hay clientes pendientes de revisión KYC</p>
                 </td>
             </tr>
         `);
         return;
     }
 
+    let bloqueados = 0;
+
     clientes.forEach(function(cliente) {
-        const estadoBadge = cliente.client_status === 'Activo'
-            ? '<span class="badge bg-success">Activo</span>'
-            : '<span class="badge bg-secondary">Inactivo</span>';
+        // Estado cliente
+        const isActivo = cliente.client_status === 'Activo';
+        const estadoHtml = `
+            <div class="kyc-ind">
+                <span class="kyc-ind-dot ${isActivo ? 'on' : 'off'}"></span>
+                <span>${isActivo ? 'Activo' : 'Inactivo'}</span>
+            </div>`;
 
-        // Badge KYC operativo (nuevo sistema Progressive KYC)
+        // KYC operativo
         const kycOpStatus = cliente.kyc_op_status || 'pendiente';
-        const kycOpBadgeMap = {
-            'completo':  '<span class="badge bg-success ms-1" style="font-size:.65rem"><i class="bi bi-shield-check"></i> Sin límite</span>',
-            'pendiente': `<span class="badge bg-warning text-dark ms-1" style="font-size:.65rem"><i class="bi bi-clock"></i> ${cliente.ops_without_docs || 0}/2 ops</span>`,
-            'bloqueado': '<span class="badge bg-danger ms-1" style="font-size:.65rem"><i class="bi bi-shield-x"></i> BLOQUEADO</span>'
+        if (kycOpStatus === 'bloqueado') bloqueados++;
+        const kycOpMap = {
+            'completo':  `<div class="kyc-ind"><i class="bi bi-shield-check" style="color:var(--blue);font-size:.75rem"></i><span style="color:var(--blue)">Sin límite</span></div>`,
+            'pendiente': `<div class="kyc-ind"><i class="bi bi-clock" style="font-size:.75rem"></i><span>${cliente.ops_without_docs || 0}/2 ops</span></div>`,
+            'bloqueado': `<div class="kyc-ind"><span class="kyc-ind-dot blk"></span><span style="font-weight:600">Bloqueado</span></div>`
         };
-        const kycOpBadge = kycOpBadgeMap[kycOpStatus] || kycOpBadgeMap['pendiente'];
+        const kycOpHtml = kycOpMap[kycOpStatus] || kycOpMap['pendiente'];
 
-        // Indicador de validación de documentos (se validará con AJAX)
-        const validacionBadge = `<span class="badge bg-warning text-dark" id="validation-${cliente.client_id}">
-            <i class="bi bi-hourglass-split"></i> Verificando...
-        </span>${kycOpBadge}`;
+        // Docs badge (se actualizará vía AJAX)
+        const docsHtml = `<div class="kyc-docs-badge" id="validation-${cliente.client_id}"><i class="bi bi-hourglass-split" style="font-size:.75rem"></i> Verificando…</div>`;
+
+        // Activar btn
+        const activarBtn = cliente.status !== 'Activo'
+            ? `<button class="kyc-lnk" onclick="activarCliente(${cliente.client_id}, '${escaparTexto(cliente.client_name)}', '${cliente.client_dni}')">Activar</button>`
+            : '';
 
         const row = `
             <tr id="row-${cliente.client_id}">
-                <td>${cliente.client_id}</td>
-                <td><strong>${cliente.client_name || '-'}</strong></td>
-                <td><small class="text-muted">${cliente.document_type}</small><br>${cliente.client_dni}</td>
-                <td><small>${cliente.client_email}</small></td>
-                <td>${estadoBadge}</td>
-                <td>${validacionBadge}</td>
-                <td><small>${cliente.created_at}</small></td>
                 <td>
-                    <div class="btn-group btn-group-sm" role="group">
-                        <a href="/clients/detail/${cliente.client_id}?from=kyc" class="btn btn-info" title="Ver Cliente Completo">
-                            <i class="bi bi-eye"></i> Ver
-                        </a>
-                        ${cliente.status !== 'Activo' ? `<button class="btn btn-warning" onclick="activarCliente(${cliente.client_id}, '${escaparTexto(cliente.client_name)}', '${cliente.client_dni}')" title="Activar cliente"><i class="bi bi-person-check"></i> Activar</button>` : ''}
-                        <button class="btn btn-success" onclick="abrirModalAprobar(${cliente.client_id}, '${escaparTexto(cliente.client_name)}', '${cliente.client_dni}')" title="Aprobar KYC">
-                            <i class="bi bi-check-circle"></i> Aprobar
-                        </button>
-                        <button class="btn btn-danger" onclick="abrirModalRechazar(${cliente.client_id}, '${escaparTexto(cliente.client_name)}', '${cliente.client_dni}')" title="Rechazar KYC">
-                            <i class="bi bi-x-circle"></i> Rechazar
-                        </button>
+                  <div class="kyc-name">${cliente.client_name || '-'}</div>
+                  <div class="kyc-email">${cliente.client_email}</div>
+                  <div class="kyc-cid">#${cliente.client_id}</div>
+                </td>
+                <td>
+                  <div class="kyc-dtype">${cliente.document_type}</div>
+                  <div class="kyc-dnum">${cliente.client_dni}</div>
+                </td>
+                <td>
+                  <div class="kyc-status">${estadoHtml}${kycOpHtml}</div>
+                </td>
+                <td>${docsHtml}</td>
+                <td class="kyc-date">${cliente.created_at}</td>
+                <td>
+                    <div class="kyc-actions">
+                        <a href="/clients/detail/${cliente.client_id}?from=kyc" class="kyc-lnk">Ver</a>
+                        ${activarBtn}
+                        <button class="kyc-lnk lnk-approve" onclick="abrirModalAprobar(${cliente.client_id}, '${escaparTexto(cliente.client_name)}', '${cliente.client_dni}')">Aprobar</button>
+                        <button class="kyc-lnk lnk-reject" onclick="abrirModalRechazar(${cliente.client_id}, '${escaparTexto(cliente.client_name)}', '${cliente.client_dni}')">Rechazar</button>
                     </div>
                 </td>
             </tr>
@@ -226,11 +471,10 @@ function mostrarError(mensaje) {
 
     $('#clientesBody').html(`
         <tr>
-            <td colspan="8" class="text-center">
-                <div class="alert alert-danger">
-                    <i class="bi bi-exclamation-triangle"></i> ${mensaje}
-                </div>
-                <button class="btn btn-primary" onclick="cargarClientes()">
+            <td colspan="8" class="kyc-empty">
+                <i class="bi bi-exclamation-triangle" style="color:#dc2626;"></i>
+                <span style="color:#dc2626;">${mensaje}</span><br>
+                <button class="kyc-btn-ghost mt-2" onclick="cargarClientes()">
                     <i class="bi bi-arrow-clockwise"></i> Reintentar
                 </button>
             </td>
@@ -272,28 +516,34 @@ function validarDocumentosCliente(clientId) {
                     console.log(`Cliente ${clientId} (${client.document_type}) - DNI Front: ${hasDniFront}, DNI Back: ${hasDniBack}`);
                 }
 
-                // Actualizar el badge existente cambiando sus clases y contenido
                 const badge = $(`#validation-${clientId}`);
                 if (isValid) {
-                    badge.removeClass('bg-warning text-dark').addClass('bg-success');
-                    badge.html('<i class="bi bi-check-circle"></i> Completo');
+                    badge.removeClass('bad').addClass('ok')
+                         .html('<i class="bi bi-check2" style="color:var(--blue);font-size:.75rem"></i> <span style="color:var(--blue)">Completo</span>');
+                    $('#stat-completos').text((parseInt($('#stat-completos').text())||0)+1);
                 } else {
-                    badge.removeClass('bg-warning text-dark').addClass('bg-danger');
-                    badge.html('<i class="bi bi-x-circle"></i> Incompleto');
+                    badge.addClass('bad')
+                         .html('<i class="bi bi-x" style="font-size:.75rem"></i> <span>Incompleto</span>');
+                    $('#stat-incompletos').text((parseInt($('#stat-incompletos').text())||0)+1);
                 }
             }
         },
         error: function(xhr, status, error) {
             console.error(`Error validando cliente ${clientId}:`, error);
-            $(`#validation-${clientId}`).html('<span class="badge bg-secondary">N/A</span>');
+            $(`#validation-${clientId}`).html('N/A');
         }
     });
+}
+
+function initials(nombre) {
+    return (nombre || '?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
 }
 
 function abrirModalAprobar(clientId, nombre, dni) {
     $('#aprobarClientId').val(clientId);
     $('#aprobarClientNombre').text(nombre);
     $('#aprobarClientDni').text(dni);
+    $('#aprobarAvatar').text(initials(nombre));
     $('#aprobarNotas').val('');
     $('#aprobarModal').modal('show');
 }
@@ -302,6 +552,7 @@ function abrirModalRechazar(clientId, nombre, dni) {
     $('#rechazarClientId').val(clientId);
     $('#rechazarClientNombre').text(nombre);
     $('#rechazarClientDni').text(dni);
+    $('#rechazarAvatar').text(initials(nombre));
     $('#rechazarMotivo').val('');
     $('#rechazarModal').modal('show');
 }
@@ -399,13 +650,13 @@ function confirmarRechazar() {
 
 function recargarLista() {
     console.log('KYC: Recargando lista manualmente...');
+    ['stat-pendientes','stat-completos','stat-incompletos','stat-bloqueados'].forEach(id => $('#'+id).text('—'));
+    $('#count-pill').text('0 clientes');
     $('#clientesBody').html(`
         <tr>
-            <td colspan="7" class="text-center">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Cargando...</span>
-                </div>
-                <p class="mt-2">Recargando...</p>
+            <td colspan="6" class="kyc-empty">
+                <div class="kyc-empty-ico"><i class="bi bi-hourglass-split"></i></div>
+                <p>Recargando...</p>
             </td>
         </tr>
     `);

@@ -4,72 +4,78 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="page-header mb-4">
-        <div class="page-header-info">
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-1">
-                    {% if from_page == 'kyc' %}
-                    <li class="breadcrumb-item"><a href="/compliance/kyc">KYC</a></li>
-                    {% else %}
-                    <li class="breadcrumb-item"><a href="/clients/list">Clientes</a></li>
-                    {% endif %}
-                    <li class="breadcrumb-item active">{{ client.full_name or client.dni }}</li>
-                </ol>
-            </nav>
-            <h2><i class="bi bi-person-badge"></i> {{ client.full_name or client.dni }}</h2>
-            <p>
-                {{ client.document_type }} · {{ client.dni }} &nbsp;
-                {% if client.status == 'Activo' %}
-                    <span class="badge bg-success">Activo</span>
-                {% else %}
-                    <span class="badge bg-secondary">Inactivo</span>
-                {% endif %}
-                &nbsp;
-                {% set kyc = client.kyc_status or 'pendiente' %}
-                {% if kyc == 'bloqueado' %}
-                    <span class="badge bg-danger"><i class="bi bi-shield-x"></i> KYC Bloqueado</span>
-                {% elif kyc == 'completo' %}
-                    <span class="badge bg-success"><i class="bi bi-shield-check"></i> KYC Completo</span>
-                {% else %}
-                    <span class="badge bg-warning text-dark"><i class="bi bi-clock"></i> KYC Pendiente</span>
-                {% endif %}
-            </p>
-
-            {# Banner KYC Bloqueado #}
-            {% if (client.kyc_status or 'pendiente') == 'bloqueado' %}
-            <div class="alert alert-danger d-flex align-items-start gap-2 mt-2 mb-0 py-2 px-3" style="font-size:.85rem;">
-                <i class="bi bi-shield-exclamation fs-5 flex-shrink-0 mt-1"></i>
+    <!-- ── Client Profile Hero ─────────────────────────────── -->
+    <div class="client-hero mb-4">
+        <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+            <!-- Identity -->
+            <div class="d-flex align-items-center gap-3">
+                <div class="client-hero-avatar">
+                    <i class="bi bi-person-badge"></i>
+                </div>
                 <div>
-                    <strong>Cuenta con restricción KYC.</strong>
-                    Este cliente alcanzó el límite operativo sin documentación completa
-                    ({% if client.document_type == 'RUC' %}$30,000 USD{% else %}$10,000 USD{% endif %} o 2 operaciones).
-                    {% if client.inactive_reason %}
-                    <br><span class="text-muted">{{ client.inactive_reason }}</span>
-                    {% endif %}
-                    <br>
-                    {% if current_user.role in ['Master', 'Middle Office'] %}
-                    <a href="#documentosKyc" class="alert-link">Revisar documentos subidos →</a>
-                    {% else %}
-                    Para continuar operando, debe completar la verificación de identidad.
+                    <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                        <h4 class="mb-0 fw-bold" style="font-size:1.15rem;color:var(--g800);">{{ client.full_name or client.dni }}</h4>
+                        {% if client.status == 'Activo' %}
+                            <span class="badge" style="background:rgba(26,127,55,.25);color:#4ade80;border:1px solid rgba(74,222,128,.3);font-size:.68rem;">● Activo</span>
+                        {% else %}
+                            <span class="badge" style="background:rgba(140,149,159,.2);color:#8C959F;border:1px solid rgba(140,149,159,.3);font-size:.68rem;">● Inactivo</span>
+                        {% endif %}
+                        {% set kyc = client.kyc_status or 'pendiente' %}
+                        {% if kyc == 'bloqueado' %}
+                            <span class="badge" style="background:rgba(207,34,46,.2);color:#ff7b7b;border:1px solid rgba(207,34,46,.3);font-size:.68rem;"><i class="bi bi-shield-x me-1"></i>KYC Bloqueado</span>
+                        {% elif kyc == 'completo' %}
+                            <span class="badge" style="background:rgba(25,107,254,.2);color:#93c5fd;border:1px solid rgba(25,107,254,.3);font-size:.68rem;"><i class="bi bi-shield-check me-1"></i>KYC Completo</span>
+                        {% else %}
+                            <span class="badge" style="background:rgba(154,103,0,.2);color:#fbbf24;border:1px solid rgba(251,191,36,.3);font-size:.68rem;"><i class="bi bi-clock me-1"></i>KYC Pendiente</span>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex align-items-center gap-3 flex-wrap" style="font-size:.78rem;color:var(--g400);">
+                        <span><i class="bi bi-card-text me-1"></i>{{ client.document_type }} {{ client.dni }}</span>
+                        {% if client.email %}<span><i class="bi bi-envelope me-1"></i>{{ client.email }}</span>{% endif %}
+                        {% if client.phone %}<span><i class="bi bi-telephone me-1"></i>{{ client.phone }}</span>{% endif %}
+                        {% if client.created_at %}<span><i class="bi bi-calendar me-1"></i>Desde {{ client.created_at.strftime('%d/%m/%Y') }}</span>{% endif %}
+                    </div>
+                    {# KYC alert banners #}
+                    {% set kyc = client.kyc_status or 'pendiente' %}
+                    {% if kyc == 'bloqueado' %}
+                    <div class="d-flex align-items-start gap-2 mt-2 rounded-2 px-3 py-2" style="background:rgba(207,34,46,.15);border:1px solid rgba(207,34,46,.3);font-size:.78rem;max-width:520px;">
+                        <i class="bi bi-shield-exclamation mt-1 flex-shrink-0" style="color:#ff7b7b;"></i>
+                        <div style="color:var(--g800);">
+                            <strong style="color:#ff7b7b;">Cuenta con restricción KYC.</strong>
+                            Límite operativo alcanzado ({% if client.document_type == 'RUC' %}$30,000 USD{% else %}$10,000 USD{% endif %}).
+                            {% if current_user.role in ['Master', 'Middle Office'] %}
+                            <a href="#documentosKyc" class="ms-1" style="color:#93c5fd;">Revisar documentos →</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% elif kyc == 'pendiente' and not client.has_complete_documents %}
+                    <div class="d-flex align-items-start gap-2 mt-2 rounded-2 px-3 py-2" style="background:rgba(154,103,0,.15);border:1px solid rgba(251,191,36,.3);font-size:.78rem;max-width:520px;">
+                        <i class="bi bi-clock-history mt-1 flex-shrink-0" style="color:#fbbf24;"></i>
+                        <div style="color:var(--g800);">
+                            <strong style="color:#fbbf24;">KYC en progreso.</strong>
+                            Operaciones sin docs: <strong>{{ client.operations_without_docs_count or 0 }}/2</strong> ·
+                            Límite: <strong>{% if client.document_type == 'RUC' %}$30,000{% else %}$10,000{% endif %} USD</strong>
+                        </div>
+                    </div>
                     {% endif %}
                 </div>
             </div>
-            {% elif (client.kyc_status or 'pendiente') == 'pendiente' and not client.has_complete_documents %}
-            <div class="alert alert-warning d-flex align-items-start gap-2 mt-2 mb-0 py-2 px-3" style="font-size:.85rem;">
-                <i class="bi bi-clock-history fs-5 flex-shrink-0 mt-1"></i>
-                <div>
-                    <strong>KYC en progreso.</strong>
-                    Operaciones realizadas sin docs: <strong>{{ client.operations_without_docs_count or 0 }}/2</strong>.
-                    Límite: <strong>{% if client.document_type == 'RUC' %}$30,000 USD{% else %}$10,000 USD{% endif %}</strong>.
-                    Los documentos de identidad son requeridos para operar sin restricciones.
-                </div>
+            <!-- Breadcrumb + Actions -->
+            <div class="d-flex flex-column align-items-end gap-2">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0" style="font-size:.72rem;">
+                        {% if from_page == 'kyc' %}
+                        <li class="breadcrumb-item"><a href="/compliance/kyc" style="color:var(--g400);">KYC</a></li>
+                        {% else %}
+                        <li class="breadcrumb-item"><a href="/clients/list" style="color:var(--g400);">Clientes</a></li>
+                        {% endif %}
+                        <li class="breadcrumb-item active" style="color:var(--g600);">{{ (client.full_name or client.dni)[:30] }}</li>
+                    </ol>
+                </nav>
+                <a href="{{ back_url }}" class="btn btn-sm" style="background:transparent;border:1px solid var(--g200);color:var(--g600);">
+                    <i class="bi bi-arrow-left me-1"></i>Volver
+                </a>
             </div>
-            {% endif %}
-        </div>
-        <div class="page-header-actions">
-            <a href="{{ back_url }}" class="btn btn-secondary btn-sm">
-                <i class="bi bi-arrow-left"></i> Volver
-            </a>
         </div>
     </div>
 
@@ -78,7 +84,7 @@
         <div class="col-lg-8">
             <!-- Datos Personales / Empresa -->
             <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
+                <div class="card-header cd-header">
                     <i class="bi bi-person-lines-fill"></i>
                     {% if client.document_type == 'RUC' %}Datos de la Empresa{% else %}Datos Personales{% endif %}
                 </div>
@@ -87,57 +93,57 @@
                         {% if client.document_type == 'RUC' %}
                             <!-- Datos RUC -->
                             <div class="col-md-6 mb-3">
-                                <label class="text-muted small">Razón Social</label>
+                                <label class="cd-label">Razón Social</label>
                                 <p class="mb-0"><strong>{{ client.razon_social or '-' }}</strong></p>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="text-muted small">Persona de Contacto</label>
+                                <label class="cd-label">Persona de Contacto</label>
                                 <p class="mb-0">{{ client.persona_contacto or '-' }}</p>
                             </div>
 
                         {% else %}
                             <!-- Datos DNI/CE -->
                             <div class="col-md-4 mb-3">
-                                <label class="text-muted small">Apellido Paterno</label>
+                                <label class="cd-label">Apellido Paterno</label>
                                 <p class="mb-0"><strong>{{ client.apellido_paterno or '-' }}</strong></p>
                             </div>
                             <div class="col-md-4 mb-3">
-                                <label class="text-muted small">Apellido Materno</label>
+                                <label class="cd-label">Apellido Materno</label>
                                 <p class="mb-0"><strong>{{ client.apellido_materno or '-' }}</strong></p>
                             </div>
                             <div class="col-md-4 mb-3">
-                                <label class="text-muted small">Nombres</label>
+                                <label class="cd-label">Nombres</label>
                                 <p class="mb-0"><strong>{{ client.nombres or '-' }}</strong></p>
                             </div>
                         {% endif %}
 
                         <div class="col-md-6 mb-3">
-                            <label class="text-muted small">Email</label>
+                            <label class="cd-label">Email</label>
                             <p class="mb-0">
                                 <i class="bi bi-envelope"></i> {{ client.email }}
                             </p>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="text-muted small">Teléfono</label>
+                            <label class="cd-label">Teléfono</label>
                             <p class="mb-0">
                                 <i class="bi bi-telephone"></i> {{ client.phone or '-' }}
                             </p>
                         </div>
 
                         <div class="col-12 mb-3">
-                            <label class="text-muted small">Dirección Completa</label>
+                            <label class="cd-label">Dirección Completa</label>
                             <p class="mb-0">{{ client.direccion or '-' }}</p>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label class="text-muted small">Distrito</label>
+                            <label class="cd-label">Distrito</label>
                             <p class="mb-0">{{ client.distrito or '-' }}</p>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label class="text-muted small">Provincia</label>
+                            <label class="cd-label">Provincia</label>
                             <p class="mb-0">{{ client.provincia or '-' }}</p>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label class="text-muted small">Departamento</label>
+                            <label class="cd-label">Departamento</label>
                             <p class="mb-0">{{ client.departamento or '-' }}</p>
                         </div>
                     </div>
@@ -146,7 +152,7 @@
 
             <!-- Documentos Adjuntos -->
             <div class="card mb-4">
-                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                <div class="card-header cd-header d-flex justify-content-between align-items-center">
                     <div>
                         <i class="bi bi-file-earmark-text"></i> Documentos Adjuntos
                     </div>
@@ -265,7 +271,7 @@
 
             <!-- Cuentas Bancarias -->
             <div class="card mb-4">
-                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <div class="card-header cd-header d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-bank"></i> Cuentas Bancarias</span>
                     {% if current_user.role in ['Master', 'Presidente de Negocios', 'Trader'] %}
                     <button class="btn btn-sm btn-light" onclick="abrirModalCuentas()" title="Gestionar cuentas bancarias">
@@ -309,7 +315,7 @@
 
             <!-- Últimas Operaciones -->
             <div class="card mb-4">
-                <div class="card-header bg-warning text-dark">
+                <div class="card-header cd-header">
                     <i class="bi bi-arrow-left-right"></i> Últimas Operaciones
                 </div>
                 <div class="card-body">
@@ -333,7 +339,7 @@
                                             {% if op.operation_type == 'Compra' %}
                                                 <span class="badge bg-success">Compra</span>
                                             {% else %}
-                                                <span class="badge bg-danger">Venta</span>
+                                                <span class="badge bg-primary">Venta</span>
                                             {% endif %}
                                         </td>
                                         <td>
@@ -369,12 +375,12 @@
         <div class="col-lg-4">
             <!-- Estado del Cliente -->
             <div class="card mb-4">
-                <div class="card-header bg-dark text-white">
+                <div class="card-header cd-header">
                     <i class="bi bi-info-circle"></i> Estado del Cliente
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <label class="text-muted small">Estado Actual</label>
+                        <label class="cd-label">Estado Actual</label>
                         <h4>
                             {% if client.status == 'Activo' %}
                                 <span class="badge bg-success">Activo</span>
@@ -384,13 +390,13 @@
                         </h4>
                     </div>
                     <div class="mb-3">
-                        <label class="text-muted small">Creado por</label>
+                        <label class="cd-label">Creado por</label>
                         <p class="mb-0">
                             <i class="bi bi-person"></i> {{ client.creator.username if client.creator else 'N/A' }}
                         </p>
                     </div>
                     <div class="mb-3">
-                        <label class="text-muted small">Fecha de Registro</label>
+                        <label class="cd-label">Fecha de Registro</label>
                         <p class="mb-0">
                             <i class="bi bi-calendar"></i> {{ client.created_at.strftime('%d/%m/%Y %H:%M') if client.created_at else '-' }}
                         </p>
@@ -401,7 +407,7 @@
             {% if reassignment_history %}
             <!-- Historial de Reasignaciones -->
             <div class="card mb-4">
-                <div class="card-header bg-primary text-white d-flex align-items-center gap-2">
+                <div class="card-header cd-header d-flex align-items-center gap-2">
                     <i class="bi bi-arrow-left-right"></i> Historial de Reasignaciones
                     <span class="badge bg-light text-dark ms-auto">{{ reassignment_history|length }}</span>
                 </div>
@@ -427,7 +433,7 @@
             <!-- Historial de Modificaciones -->
             {% if modification_history %}
             <div class="card mb-4">
-                <div class="card-header d-flex align-items-center gap-2" style="background:#0D1B2A;color:white;">
+                <div class="card-header cd-header d-flex align-items-center gap-2">
                     <i class="bi bi-clock-history"></i> Historial de Modificaciones
                     <span class="badge bg-light text-dark ms-auto">{{ modification_history|length }}</span>
                 </div>
@@ -470,7 +476,7 @@
             </div>
             {% else %}
             <div class="card mb-4">
-                <div class="card-header d-flex align-items-center gap-2" style="background:#0D1B2A;color:white;">
+                <div class="card-header cd-header d-flex align-items-center gap-2">
                     <i class="bi bi-clock-history"></i> Historial de Modificaciones
                 </div>
                 <div class="card-body text-center py-4">
@@ -482,13 +488,13 @@
 
             <!-- Perfil KYC y Compliance -->
             <div class="card mb-4">
-                <div class="card-header bg-danger text-white">
+                <div class="card-header cd-header">
                     <i class="bi bi-shield-check"></i> KYC & Compliance
                 </div>
                 <div class="card-body">
                     {% if risk_profile %}
                         <div class="mb-3">
-                            <label class="text-muted small">Estado KYC</label>
+                            <label class="cd-label">Estado KYC</label>
                             <h5>
                                 {% if risk_profile.kyc_status == 'Aprobado' %}
                                     <span class="badge bg-success">Aprobado</span>
@@ -503,7 +509,7 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="text-muted small">Nivel de Riesgo</label>
+                            <label class="cd-label">Nivel de Riesgo</label>
                             <h5>
                                 {% set risk_score = risk_profile.risk_score %}
                                 {% if risk_score >= 76 %}
@@ -511,7 +517,7 @@
                                 {% elif risk_score >= 51 %}
                                     <span class="badge bg-warning text-dark">Alto ({{ risk_score }})</span>
                                 {% elif risk_score >= 26 %}
-                                    <span class="badge bg-info">Medio ({{ risk_score }})</span>
+                                    <span class="badge bg-primary">Medio ({{ risk_score }})</span>
                                 {% else %}
                                     <span class="badge bg-success">Bajo ({{ risk_score }})</span>
                                 {% endif %}
@@ -519,7 +525,7 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="text-muted small">PEP (Persona Expuesta Políticamente)</label>
+                            <label class="cd-label">PEP (Persona Expuesta Políticamente)</label>
                             <p class="mb-0">
                                 {% if risk_profile and risk_profile.is_pep %}
                                     <span class="badge bg-warning text-dark">SÍ</span>
@@ -548,7 +554,7 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="text-muted small">Listas Restrictivas</label>
+                            <label class="cd-label">Listas Restrictivas</label>
                             <p class="mb-1">
                                 {% if risk_profile.in_restrictive_lists %}
                                     <span class="badge bg-danger">Sí encontrado</span>
@@ -574,14 +580,14 @@
 
                         {% if risk_profile.kyc_notes %}
                             <div class="mb-3">
-                                <label class="text-muted small">Notas KYC</label>
+                                <label class="cd-label">Notas KYC</label>
                                 <p class="mb-0"><small>{{ risk_profile.kyc_notes }}</small></p>
                             </div>
                         {% endif %}
 
                         {% if risk_profile.kyc_verified_at %}
                             <div class="mb-3">
-                                <label class="text-muted small">Verificado</label>
+                                <label class="cd-label">Verificado</label>
                                 <p class="mb-0">
                                     <small>{{ risk_profile.kyc_verified_at.strftime('%d/%m/%Y %H:%M') }}</small>
                                 </p>
@@ -615,7 +621,7 @@
 
             <!-- Checklist de Validaciones -->
             <div class="card">
-                <div class="card-header bg-secondary text-white">
+                <div class="card-header cd-header">
                     <i class="bi bi-check2-square"></i> Checklist de Validación
                 </div>
                 <div class="card-body">

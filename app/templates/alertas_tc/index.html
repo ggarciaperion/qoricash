@@ -2,289 +2,453 @@
 {% block title %}Alertas TC — QoriCash{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-3">
+<style>
+/* ── Alertas TC — Premium Minimal ─────────────────────────────── */
+.atc-page { max-width: 1400px; }
 
-  <!-- Header -->
-  <div class="page-header">
-    <div class="page-header-info">
-      <h2><i class="bi bi-bell-fill text-success me-2"></i>Motor de Alertas TC</h2>
-      <p>Alertas de tipo de cambio · automático cada 5 min · qoricash.pe</p>
+/* Header */
+.atc-header {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px; margin-bottom: 20px;
+}
+.atc-header-left { display: flex; align-items: center; gap: 12px; }
+.atc-header-icon {
+  width: 40px; height: 40px; flex-shrink: 0;
+  background: #eff6ff; border: 1px solid #bfdbfe;
+  border-radius: 11px; display: flex; align-items: center;
+  justify-content: center; font-size: 17px; color: #196BFE;
+}
+.atc-title { font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0 0 1px; letter-spacing: -.3px; }
+.atc-subtitle { font-size: 11px; color: #94a3b8; margin: 0; font-weight: 500; }
+.atc-header-actions { display: flex; gap: 6px; }
+
+/* Buttons */
+.atc-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 13px; border-radius: 8px; font-size: 11.5px;
+  font-weight: 600; cursor: pointer; border: 1px solid transparent;
+  transition: all .18s cubic-bezier(0.4,0,0.2,1); white-space: nowrap;
+}
+.atc-btn-ghost {
+  background: #fff; color: #475569; border-color: #e2e8f0;
+}
+.atc-btn-ghost:hover { border-color: #196BFE; color: #196BFE; background: #eff6ff; }
+.atc-btn-primary {
+  background: #196BFE; color: #fff; border-color: #196BFE;
+  box-shadow: 0 2px 8px rgba(25,107,254,.25);
+}
+.atc-btn-primary:hover { background: #1558d6; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(25,107,254,.35); }
+.atc-btn-primary:disabled, .atc-btn-ghost:disabled { opacity: .6; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* System health bar */
+.atc-health {
+  background: #fff; border: 1px solid #e2e8f0;
+  border-radius: 12px; padding: 12px 16px; margin-bottom: 18px;
+  display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+}
+.atc-health-item { display: flex; align-items: center; gap: 7px; }
+.atc-health-label { font-size: 10.5px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+.atc-health-val { font-size: 12px; font-weight: 700; color: #0f172a; }
+.atc-health-sep { width: 1px; height: 20px; background: #e2e8f0; flex-shrink: 0; }
+.atc-health-badges { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+
+.atc-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10.5px; font-weight: 600; padding: 3px 9px;
+  border-radius: 99px; border: 1px solid transparent;
+}
+.atc-badge-ok    { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+.atc-badge-warn  { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+.atc-badge-error { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+.atc-badge-blue  { background: #eff6ff; color: #196BFE; border-color: #bfdbfe; }
+.atc-badge-pulse::before {
+  content: ''; display: inline-block;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #16a34a; animation: pulse-dot 2s ease infinite;
+}
+@keyframes pulse-dot {
+  0%,100% { opacity: 1; } 50% { opacity: .35; }
+}
+
+/* KPI strip */
+.atc-kpis {
+  display: grid; grid-template-columns: repeat(4,1fr);
+  gap: 10px; margin-bottom: 18px;
+}
+@media(max-width:768px){ .atc-kpis { grid-template-columns: repeat(2,1fr); } }
+
+.atc-kpi {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+  padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  animation: atcFadeUp .38s cubic-bezier(0.4,0,0.2,1) both;
+  transition: transform .2s, box-shadow .2s, border-color .2s;
+  position: relative; overflow: hidden;
+}
+.atc-kpi::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  opacity: 0; transition: opacity .2s;
+}
+.atc-kpi:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.08); border-color: #bfdbfe; }
+.atc-kpi:hover::after { opacity: 1; }
+.atc-kpi:nth-child(1)::after { background: #196BFE; }
+.atc-kpi:nth-child(2)::after { background: #16a34a; }
+.atc-kpi:nth-child(3)::after { background: #d97706; }
+.atc-kpi:nth-child(4)::after { background: #7c3aed; }
+.atc-kpi:nth-child(1){ animation-delay:.00s }
+.atc-kpi:nth-child(2){ animation-delay:.06s }
+.atc-kpi:nth-child(3){ animation-delay:.12s }
+.atc-kpi:nth-child(4){ animation-delay:.18s }
+@keyframes atcFadeUp {
+  from { opacity:0; transform:translateY(10px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.atc-kpi-icon {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: 10px; display: flex; align-items: center;
+  justify-content: center; font-size: 15px;
+}
+.atc-kpi-icon-blue   { background: #eff6ff; color: #196BFE; }
+.atc-kpi-icon-green  { background: #f0fdf4; color: #16a34a; }
+.atc-kpi-icon-amber  { background: #fffbeb; color: #d97706; }
+.atc-kpi-icon-violet { background: #faf5ff; color: #7c3aed; }
+
+.atc-kpi-label { font-size: 10px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin: 0 0 3px; }
+.atc-kpi-value { font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1; letter-spacing: -.5px; margin: 0; }
+
+/* Controls */
+.atc-controls {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.atc-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 12px; border-radius: 99px;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  border: 1px solid #e2e8f0; background: #fff; color: #64748b;
+  transition: all .16s cubic-bezier(0.4,0,0.2,1);
+}
+.atc-pill:hover { border-color: #196BFE; color: #196BFE; background: #eff6ff; transform: translateY(-1px); }
+.atc-pill.active { background: #196BFE; color: #fff; border-color: #196BFE; box-shadow: 0 2px 8px rgba(25,107,254,.25); }
+.atc-pill-cnt {
+  font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 99px;
+  background: rgba(255,255,255,.25); line-height: 1.6;
+}
+.atc-pill:not(.active) .atc-pill-cnt { background: #f1f5f9; color: #94a3b8; }
+
+.atc-search { position: relative; margin-left: auto; }
+.atc-search input {
+  padding: 6px 11px 6px 30px; font-size: 11.5px; font-weight: 500;
+  border-radius: 99px; height: 32px; border: 1px solid #e2e8f0;
+  background: #fff; min-width: 200px; color: #1e293b;
+  transition: border-color .16s, box-shadow .16s;
+}
+.atc-search input:focus { border-color: #196BFE; box-shadow: 0 0 0 3px rgba(25,107,254,.1); outline: none; }
+.atc-search-icon {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  color: #94a3b8; font-size: 11px; pointer-events: none;
+}
+
+/* Table card */
+.atc-card {
+  background: #fff; border: 1px solid #e2e8f0;
+  border-radius: 14px; overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+}
+.atc-table { width: 100%; border-collapse: collapse; }
+.atc-table thead th {
+  background: #f8fafc; border-bottom: 2px solid #e2e8f0;
+  padding: 9px 13px; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .6px; color: #94a3b8;
+  white-space: nowrap;
+}
+.atc-table thead th:first-child { padding-left: 18px; }
+.atc-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background .12s;
+  animation: atcRowSlide .28s cubic-bezier(0.4,0,0.2,1) both;
+}
+.atc-table tbody tr:last-child { border-bottom: none; }
+.atc-table tbody tr:hover { background: #eff6ff; }
+@keyframes atcRowSlide {
+  from { opacity:0; transform:translateX(-4px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+.atc-table td {
+  padding: 10px 13px; vertical-align: middle;
+  font-size: 12px; color: #475569;
+}
+.atc-table td:first-child { padding-left: 18px; }
+
+/* Avatar chip */
+.atc-avatar {
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; text-transform: uppercase;
+  transition: all .15s;
+}
+.atc-avatar-client   { background: #eff6ff; color: #196BFE; border: 1px solid #bfdbfe; }
+.atc-avatar-prospect { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+
+/* Inline badges */
+.atc-tag {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; font-weight: 700; padding: 2px 8px;
+  border-radius: 99px; border: 1px solid transparent;
+  text-transform: uppercase; letter-spacing: .2px;
+}
+.atc-tag-up    { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+.atc-tag-down  { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+.atc-tag-ok    { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+.atc-tag-pend  { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+.atc-tag-sent  { background: #eff6ff; color: #196BFE; border-color: #bfdbfe; }
+.atc-tag-off   { background: #f8fafc; color: #94a3b8; border-color: #e2e8f0; }
+.atc-tag-met   { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+
+.atc-name { font-weight: 700; font-size: 12.5px; color: #0f172a; }
+.atc-mono { font-family: 'SF Mono', 'Fira Code', monospace; font-weight: 700; font-size: 12px; color: #0f172a; }
+
+/* Trigger result */
+.atc-result {
+  border-radius: 10px; padding: 10px 14px; margin-bottom: 14px;
+  font-size: 12px; font-weight: 500; display: none;
+  border: 1px solid transparent;
+}
+.atc-result.success { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+.atc-result.error   { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+
+/* Footer info */
+.atc-footer-info {
+  font-size: 11px; color: #94a3b8; margin-top: 10px;
+  display: flex; align-items: center; gap: 5px;
+}
+</style>
+
+<div class="atc-page">
+
+  <!-- ── Header ────────────────────────────────────────────────── -->
+  <div class="atc-header">
+    <div class="atc-header-left">
+      <div class="atc-header-icon"><i class="bi bi-bell-fill"></i></div>
+      <div>
+        <h1 class="atc-title">Motor de Alertas TC</h1>
+        <p class="atc-subtitle">Tipo de cambio · automático cada 5 min · qoricash.pe</p>
+      </div>
     </div>
-    <div class="page-header-actions d-flex gap-2">
-      <button class="btn btn-outline-secondary btn-sm" onclick="refreshData()" id="btnRefresh">
-        <i class="bi bi-arrow-clockwise me-1"></i>Actualizar
+    <div class="atc-header-actions">
+      <button class="atc-btn atc-btn-ghost" onclick="refreshData()" id="btnRefresh">
+        <i class="bi bi-arrow-clockwise"></i> Actualizar
       </button>
-      <button class="btn btn-success btn-sm" onclick="triggerCheck()" id="btnTrigger">
-        <i class="bi bi-lightning-fill me-1"></i>Verificar ahora
+      <button class="atc-btn atc-btn-primary" onclick="triggerCheck()" id="btnTrigger">
+        <i class="bi bi-lightning-fill"></i> Verificar ahora
       </button>
     </div>
   </div>
 
-  <!-- Estado del sistema -->
-  <div class="card mb-3" id="systemHealth">
-    <div class="card-body py-2 px-3">
-      <div class="d-flex align-items-center gap-4 flex-wrap">
-        <!-- TC Actual -->
-        <div class="d-flex align-items-center gap-2">
-          <span class="text-muted small">TC Actual:</span>
-          {% if tc_compra and tc_venta %}
-          <span class="fw-bold small text-success">
-            Compra <strong>S/ {{ "%.3f"|format(tc_compra) }}</strong>
-            &nbsp;·&nbsp;
-            Venta <strong>S/ {{ "%.3f"|format(tc_venta) }}</strong>
-          </span>
-          {% else %}
-          <span class="text-muted small">No disponible</span>
-          {% endif %}
-        </div>
-        <!-- Último check -->
-        <div class="d-flex align-items-center gap-2" id="lastCheckInfo">
-          <span class="text-muted small">Último check:</span>
-          {% if last_check %}
-          <span class="small fw-semibold" id="lastCheckTime"
-                data-at="{{ last_check.at }}">{{ last_check.at[:10] }}</span>
-          <span class="badge bg-success-subtle text-success border border-success-subtle small" title="Alertas enviadas">
-            {{ last_check.sent }} enviadas
-          </span>
-          {% else %}
-          <span class="text-muted small" id="lastCheckTime">Sin datos</span>
-          {% endif %}
-        </div>
-        <!-- Auto-check status -->
-        <div class="d-flex align-items-center gap-1 ms-auto">
-          <span class="badge bg-success-subtle text-success border border-success-subtle">
-            <i class="bi bi-clock me-1"></i>Auto cada 5 min
-          </span>
-          {% if error %}
-          <span class="badge bg-danger">
-            <i class="bi bi-exclamation-triangle me-1"></i>Error de conexión
-          </span>
-          {% else %}
-          <span class="badge bg-success">
-            <i class="bi bi-wifi me-1"></i>qoricash.pe OK
-          </span>
-          {% endif %}
-        </div>
-      </div>
+  <!-- ── Sistema health ─────────────────────────────────────────── -->
+  <div class="atc-health">
+    <div class="atc-health-item">
+      <span class="atc-health-label">TC</span>
+      {% if tc_compra and tc_venta %}
+      <span class="atc-health-val">C <span style="color:#196BFE;">{{ "%.3f"|format(tc_compra) }}</span></span>
+      <span style="color:#e2e8f0;font-size:11px;">·</span>
+      <span class="atc-health-val">V <span style="color:#196BFE;">{{ "%.3f"|format(tc_venta) }}</span></span>
+      {% else %}
+      <span style="font-size:11px;color:#94a3b8;">No disponible</span>
+      {% endif %}
+    </div>
+    <div class="atc-health-sep"></div>
+    <div class="atc-health-item" id="lastCheckInfo">
+      <span class="atc-health-label">Último check</span>
+      {% if last_check %}
+      <span style="font-size:12px;font-weight:600;color:#0f172a;" id="lastCheckTime" data-at="{{ last_check.at }}">{{ last_check.at[:10] }}</span>
+      <span class="atc-badge atc-badge-ok">{{ last_check.sent }} enviadas</span>
+      {% else %}
+      <span style="font-size:11px;color:#94a3b8;" id="lastCheckTime">Sin datos</span>
+      {% endif %}
+    </div>
+    <div class="atc-health-badges">
+      <span class="atc-badge atc-badge-ok atc-badge-pulse">Auto 5 min</span>
+      {% if error %}
+      <span class="atc-badge atc-badge-error"><i class="bi bi-exclamation-triangle"></i> Sin conexión</span>
+      {% else %}
+      <span class="atc-badge atc-badge-blue"><i class="bi bi-wifi"></i> qoricash.pe OK</span>
+      {% endif %}
     </div>
   </div>
 
   {% if error %}
-  <div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
+  <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#92400e;display:flex;align-items:center;gap:8px;">
     <i class="bi bi-exclamation-triangle-fill"></i>
-    <span>No se pudo conectar con qoricash.pe: <strong>{{ error }}</strong></span>
+    No se pudo conectar con qoricash.pe: <strong>{{ error }}</strong>
   </div>
   {% endif %}
 
-  <!-- Resultado del trigger (hidden inicialmente) -->
-  <div id="triggerResult" class="alert d-none mb-3" role="alert"></div>
+  <!-- Trigger result -->
+  <div id="triggerResult" class="atc-result"></div>
 
-  <!-- Stats -->
-  <div class="row g-3 mb-3">
-    <div class="col-6 col-md-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body py-3">
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <p class="text-muted small mb-0">Total</p>
-              <h4 class="fw-black mb-0" id="statTotal">{{ total }}</h4>
-            </div>
-            <div class="fs-3 text-secondary opacity-25"><i class="bi bi-bell"></i></div>
-          </div>
-        </div>
+  <!-- ── KPIs ───────────────────────────────────────────────────── -->
+  <div class="atc-kpis">
+    <div class="atc-kpi">
+      <div class="atc-kpi-icon atc-kpi-icon-blue"><i class="bi bi-bell"></i></div>
+      <div>
+        <div class="atc-kpi-label">Total</div>
+        <div class="atc-kpi-value" id="statTotal">{{ total }}</div>
       </div>
     </div>
-    <div class="col-6 col-md-3">
-      <div class="card border-0 shadow-sm h-100" style="border-left:3px solid #22c55e !important">
-        <div class="card-body py-3">
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <p class="text-muted small mb-0">Activas</p>
-              <h4 class="fw-black mb-0 text-success" id="statActivas">{{ cnt_activas }}</h4>
-            </div>
-            <div class="fs-3 text-success opacity-25"><i class="bi bi-bell-fill"></i></div>
-          </div>
-        </div>
+    <div class="atc-kpi">
+      <div class="atc-kpi-icon atc-kpi-icon-green"><i class="bi bi-bell-fill"></i></div>
+      <div>
+        <div class="atc-kpi-label">Activas</div>
+        <div class="atc-kpi-value" id="statActivas" style="color:#16a34a;">{{ cnt_activas }}</div>
       </div>
     </div>
-    <div class="col-6 col-md-3">
-      <div class="card border-0 shadow-sm h-100" style="border-left:3px solid #f59e0b !important">
-        <div class="card-body py-3">
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <p class="text-muted small mb-0">Prospectos</p>
-              <h4 class="fw-black mb-0 text-warning" id="statProspectos">{{ cnt_prospectos }}</h4>
-            </div>
-            <div class="fs-3 text-warning opacity-25"><i class="bi bi-person-plus"></i></div>
-          </div>
-        </div>
+    <div class="atc-kpi">
+      <div class="atc-kpi-icon atc-kpi-icon-amber"><i class="bi bi-person-plus"></i></div>
+      <div>
+        <div class="atc-kpi-label">Prospectos</div>
+        <div class="atc-kpi-value" id="statProspectos" style="color:#d97706;">{{ cnt_prospectos }}</div>
       </div>
     </div>
-    <div class="col-6 col-md-3">
-      <div class="card border-0 shadow-sm h-100" style="border-left:3px solid #6366f1 !important">
-        <div class="card-body py-3">
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <p class="text-muted small mb-0">Disparadas</p>
-              <h4 class="fw-black mb-0" style="color:#6366f1" id="statDisparadas">{{ cnt_disparadas }}</h4>
-            </div>
-            <div class="fs-3 opacity-25" style="color:#6366f1"><i class="bi bi-send-check"></i></div>
-          </div>
-        </div>
+    <div class="atc-kpi">
+      <div class="atc-kpi-icon atc-kpi-icon-violet"><i class="bi bi-send-check"></i></div>
+      <div>
+        <div class="atc-kpi-label">Disparadas</div>
+        <div class="atc-kpi-value" id="statDisparadas" style="color:#7c3aed;">{{ cnt_disparadas }}</div>
       </div>
     </div>
   </div>
 
-  <!-- Filtros + búsqueda -->
-  <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-    <button class="btn btn-sm btn-success active" data-filter="todos" onclick="filtrar(this)">
-      Todos <span class="badge bg-white text-success ms-1" id="badgeTodos">{{ total }}</span>
+  <!-- ── Filtros + búsqueda ──────────────────────────────────────── -->
+  <div class="atc-controls">
+    <button class="atc-pill active" data-filter="todos" onclick="filtrar(this)">
+      Todos <span class="atc-pill-cnt" id="badgeTodos">{{ total }}</span>
     </button>
-    <button class="btn btn-sm btn-outline-success" data-filter="activas" onclick="filtrar(this)">
-      Activas <span class="badge bg-success ms-1" id="badgeActivas">{{ cnt_activas }}</span>
+    <button class="atc-pill" data-filter="activas" onclick="filtrar(this)">
+      Activas <span class="atc-pill-cnt" id="badgeActivas">{{ cnt_activas }}</span>
     </button>
-    <button class="btn btn-sm btn-outline-warning" data-filter="prospectos" onclick="filtrar(this)">
-      Prospectos <span class="badge bg-warning text-dark ms-1" id="badgeProspectos">{{ cnt_prospectos }}</span>
+    <button class="atc-pill" data-filter="prospectos" onclick="filtrar(this)">
+      Prospectos <span class="atc-pill-cnt" id="badgeProspectos">{{ cnt_prospectos }}</span>
     </button>
-    <button class="btn btn-sm btn-outline-primary" data-filter="clientes" onclick="filtrar(this)">
-      Clientes <span class="badge bg-primary ms-1" id="badgeClientes">{{ cnt_clientes }}</span>
+    <button class="atc-pill" data-filter="clientes" onclick="filtrar(this)">
+      Clientes <span class="atc-pill-cnt" id="badgeClientes">{{ cnt_clientes }}</span>
     </button>
-    <button class="btn btn-sm btn-outline-secondary" data-filter="disparadas" onclick="filtrar(this)">
-      Disparadas <span class="badge bg-secondary ms-1" id="badgeDisparadas">{{ cnt_disparadas }}</span>
+    <button class="atc-pill" data-filter="disparadas" onclick="filtrar(this)">
+      Disparadas <span class="atc-pill-cnt" id="badgeDisparadas">{{ cnt_disparadas }}</span>
     </button>
-    <div class="ms-auto">
-      <input type="text" class="form-control form-control-sm" id="searchInput"
-             placeholder="Buscar nombre o email…" style="width:200px" oninput="aplicarBusqueda()">
+    <div class="atc-search">
+      <i class="bi bi-search atc-search-icon"></i>
+      <input type="text" id="searchInput" placeholder="Buscar nombre o email…" oninput="aplicarBusqueda()">
     </div>
   </div>
 
-  <!-- Tabla -->
-  <div class="card border-0 shadow-sm">
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0" id="tablaAlertas">
-          <thead class="table-light">
-            <tr>
-              <th class="ps-3">Nombre</th>
-              <th>Email</th>
-              <th>Condición</th>
-              <th>TC objetivo</th>
-              <th>TC actual</th>
-              <th>Estado</th>
-              <th>Notificado</th>
-              <th>Creada</th>
-            </tr>
-          </thead>
-          <tbody id="tablaBody">
-            {% for a in alertas %}
-            {% set tc_ref = tc_venta if a.moneda == 'venta' else tc_compra %}
-            {% set condicion_met = (tc_ref and ((a.tipo == 'sobre' and tc_ref >= a.valor) or (a.tipo == 'bajo' and tc_ref <= a.valor))) %}
-            <tr
-              data-filter-activa="{{ 'true' if a.activa else 'false' }}"
-              data-filter-prospecto="{{ 'true' if a.esProspecto else 'false' }}"
-              data-filter-disparada="{{ 'true' if a.notificada else 'false' }}"
-              data-nombre="{{ (a.nombre or '') | lower }}"
-              data-email="{{ (a.email or '') | lower }}"
-            >
-              <td class="ps-3">
-                <div class="d-flex align-items-center gap-2">
-                  {% if a.esProspecto %}
-                  <span class="badge bg-warning text-dark" title="No registrado en sistema">
-                    <i class="bi bi-person-plus-fill"></i>
-                  </span>
-                  {% else %}
-                  <span class="badge bg-success" title="Cliente registrado">
-                    <i class="bi bi-person-check-fill"></i>
-                  </span>
-                  {% endif %}
-                  <span class="fw-semibold small">{{ a.nombre or '—' }}</span>
+  <!-- ── Tabla ─────────────────────────────────────────────────── -->
+  <div class="atc-card">
+    <div class="table-responsive">
+      <table class="atc-table" id="tablaAlertas">
+        <thead>
+          <tr>
+            <th style="padding-left:18px;">Nombre</th>
+            <th>Email</th>
+            <th>Condición</th>
+            <th>TC objetivo</th>
+            <th>TC actual</th>
+            <th>Estado</th>
+            <th>Notificado</th>
+            <th>Creada</th>
+          </tr>
+        </thead>
+        <tbody id="tablaBody">
+          {% for a in alertas %}
+          {% set tc_ref = tc_venta if a.moneda == 'venta' else tc_compra %}
+          {% set condicion_met = (tc_ref and ((a.tipo == 'sobre' and tc_ref >= a.valor) or (a.tipo == 'bajo' and tc_ref <= a.valor))) %}
+          <tr
+            data-filter-activa="{{ 'true' if a.activa else 'false' }}"
+            data-filter-prospecto="{{ 'true' if a.esProspecto else 'false' }}"
+            data-filter-disparada="{{ 'true' if a.notificada else 'false' }}"
+            data-nombre="{{ (a.nombre or '') | lower }}"
+            data-email="{{ (a.email or '') | lower }}"
+          >
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                {% if a.esProspecto %}
+                <div class="atc-avatar atc-avatar-prospect" title="Prospecto">{{ (a.nombre or '?')[0] }}</div>
+                {% else %}
+                <div class="atc-avatar atc-avatar-client" title="Cliente registrado">{{ (a.nombre or '?')[0] }}</div>
+                {% endif %}
+                <div>
+                  <div class="atc-name">{{ a.nombre or '—' }}</div>
+                  <div style="font-size:10px;color:#94a3b8;">{{ 'Prospecto' if a.esProspecto else 'Cliente' }}</div>
                 </div>
-              </td>
-              <td>
-                <a href="mailto:{{ a.email }}" class="text-decoration-none small text-muted">
-                  {{ a.email }}
-                </a>
-              </td>
-              <td>
+              </div>
+            </td>
+            <td>
+              <a href="mailto:{{ a.email }}" style="color:#64748b;text-decoration:none;font-size:11.5px;">{{ a.email }}</a>
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;gap:5px;">
                 {% if a.tipo == 'sobre' %}
-                <span class="badge bg-success-subtle text-success border border-success-subtle small">
-                  <i class="bi bi-arrow-up-right me-1"></i>Sube a
-                </span>
+                <span class="atc-tag atc-tag-up"><i class="bi bi-arrow-up-short"></i>Sube</span>
                 {% else %}
-                <span class="badge bg-danger-subtle text-danger border border-danger-subtle small">
-                  <i class="bi bi-arrow-down-right me-1"></i>Baja a
-                </span>
+                <span class="atc-tag atc-tag-down"><i class="bi bi-arrow-down-short"></i>Baja</span>
                 {% endif %}
-                <span class="text-muted small ms-1">TC {{ 'Venta' if a.moneda == 'venta' else 'Compra' }}</span>
-              </td>
-              <td>
-                <strong class="small">S/ {{ "%.3f"|format(a.valor) }}</strong>
-              </td>
-              <td>
-                {% if tc_ref %}
-                <span class="small {% if condicion_met %}text-success fw-bold{% else %}text-muted{% endif %}">
-                  S/ {{ "%.3f"|format(tc_ref) }}
-                  {% if condicion_met and a.activa %}
-                  <span class="badge bg-success-subtle text-success border border-success-subtle ms-1" style="font-size:.7rem">
-                    <i class="bi bi-check-lg"></i> Condición cumplida
-                  </span>
-                  {% endif %}
-                </span>
+                <span style="font-size:10px;color:#94a3b8;">{{ 'Venta' if a.moneda == 'venta' else 'Compra' }}</span>
+              </div>
+            </td>
+            <td><span class="atc-mono">S/ {{ "%.3f"|format(a.valor) }}</span></td>
+            <td>
+              {% if tc_ref %}
+              <span class="atc-mono {% if condicion_met %}text-success{% endif %}">S/ {{ "%.3f"|format(tc_ref) }}</span>
+              {% if condicion_met and a.activa %}
+              <div style="margin-top:2px;"><span class="atc-tag atc-tag-met" style="font-size:9px;"><i class="bi bi-check-lg"></i>Cumplida</span></div>
+              {% endif %}
+              {% else %}
+              <span style="color:#94a3b8;">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if a.activa %}
+                {% if condicion_met %}
+                <span class="atc-tag atc-tag-pend"><i class="bi bi-exclamation-circle-fill"></i>Pendiente</span>
                 {% else %}
-                <span class="text-muted small">—</span>
+                <span class="atc-tag atc-tag-ok"><i class="bi bi-bell-fill"></i>Activa</span>
                 {% endif %}
-              </td>
-              <td>
-                {% if a.activa %}
-                  {% if condicion_met %}
-                  <span class="badge bg-warning text-dark">
-                    <i class="bi bi-exclamation-circle-fill me-1"></i>Pendiente disparo
-                  </span>
-                  {% else %}
-                  <span class="badge bg-success">
-                    <i class="bi bi-bell-fill me-1"></i>Activa
-                  </span>
-                  {% endif %}
-                {% elif a.notificada %}
-                <span class="badge" style="background:#6366f1">
-                  <i class="bi bi-send-check me-1"></i>Email enviado
-                </span>
-                {% else %}
-                <span class="badge bg-light text-muted border">Inactiva</span>
-                {% endif %}
-              </td>
-              <td class="text-muted small">
-                {% if a.notificada_at %}
-                <span title="{{ a.notificada_at }}">{{ a.notificada_at[:16] | replace('T', ' ') }}</span>
-                {% if a.tc_disparado %}
-                <div style="font-size:.72rem" class="text-muted">TC: S/ {{ "%.3f"|format(a.tc_disparado) }}</div>
-                {% endif %}
-                {% else %}
-                —
-                {% endif %}
-              </td>
-              <td class="text-muted small">
-                {{ a.fecha[:10] if a.fecha else '—' }}
-              </td>
-            </tr>
-            {% else %}
-            <tr>
-              <td colspan="8" class="text-center text-muted py-5">
-                No hay alertas registradas aún. Las alertas se crean en <strong>qoricash.pe</strong>.
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+              {% elif a.notificada %}
+              <span class="atc-tag atc-tag-sent"><i class="bi bi-send-check"></i>Enviada</span>
+              {% else %}
+              <span class="atc-tag atc-tag-off">Inactiva</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if a.notificada_at %}
+              <span style="font-size:11.5px;">{{ a.notificada_at[:16] | replace('T', ' ') }}</span>
+              {% if a.tc_disparado %}
+              <div style="font-size:10px;color:#94a3b8;">TC: S/ {{ "%.3f"|format(a.tc_disparado) }}</div>
+              {% endif %}
+              {% else %}
+              <span style="color:#94a3b8;">—</span>
+              {% endif %}
+            </td>
+            <td style="font-size:11.5px;color:#94a3b8;">{{ a.fecha[:10] if a.fecha else '—' }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="8" style="text-align:center;padding:56px 24px;color:#94a3b8;font-size:13px;">
+              <div style="margin-bottom:8px;font-size:28px;opacity:.3;">🔔</div>
+              No hay alertas registradas. Las alertas se crean en <strong style="color:#0f172a;">qoricash.pe</strong>.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
 
-  <p class="text-muted small mt-2">
-    <i class="bi bi-info-circle me-1"></i>
-    Datos desde <strong>qoricash.pe</strong> (Redis). El check automático corre cada 5 min vía Vercel Cron.
-    Usa <strong>Verificar ahora</strong> para forzar el chequeo con el TC actual.
-  </p>
+  <div class="atc-footer-info">
+    <i class="bi bi-info-circle"></i>
+    Datos desde <strong style="color:#475569;">qoricash.pe</strong> (Redis) · Check automático cada 5 min vía cron.
+  </div>
 
 </div>
 {% endblock %}
@@ -306,23 +470,9 @@ let filtroActual = 'todos';
 })();
 
 function filtrar(btn) {
-  document.querySelectorAll('[data-filter]').forEach(b => {
-    b.classList.remove('btn-success','btn-warning','btn-primary','btn-secondary','active');
-    b.classList.add('btn-outline-' + (
-      b.dataset.filter === 'prospectos' ? 'warning' :
-      b.dataset.filter === 'clientes'   ? 'primary' :
-      b.dataset.filter === 'disparadas' ? 'secondary' : 'success'
-    ));
-  });
-  const f = btn.dataset.filter;
-  filtroActual = f;
-  btn.classList.remove('btn-outline-success','btn-outline-warning','btn-outline-primary','btn-outline-secondary');
-  btn.classList.add(
-    f === 'prospectos' ? 'btn-warning' :
-    f === 'clientes'   ? 'btn-primary' :
-    f === 'disparadas' ? 'btn-secondary' : 'btn-success',
-    'active'
-  );
+  document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
+  filtroActual = btn.dataset.filter;
+  btn.classList.add('active');
   aplicarBusqueda();
 }
 
