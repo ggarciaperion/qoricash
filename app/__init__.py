@@ -6,10 +6,11 @@ Este archivo crea y configura la aplicación Flask usando el patrón Factory.
 # IMPORTANTE: Monkey patch de eventlet DEBE ir PRIMERO, antes de cualquier otra importación
 import eventlet
 
-# CRITICAL: Desactivar DNS monkey patching para permitir Cloudinary/S3
-# Parchear solo lo necesario para Socket.IO
+# CRITICAL: os=False para no romper subprocess/cloudinary en macOS Python 3.9.
+# En producción run.py ya llama monkey_patch() completo antes de importar la app,
+# por lo que esta llamada es redundante ahí. En local dev evita el crash de cloudinary.
 eventlet.monkey_patch(
-    os=True,
+    os=False,
     select=True,
     socket=True,
     thread=True,
@@ -1140,6 +1141,23 @@ def create_app(config_name=None):
     except Exception as _e:
         print(f"[STARTUP] ⚠️ cotiz_* patch: {_e}")
 
+    # Migración: retención 4ta categoría en expense_records
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text(
+                "ALTER TABLE expense_records ADD COLUMN IF NOT EXISTS "
+                "retencion_4ta BOOLEAN DEFAULT FALSE"
+            ))
+            db.session.execute(text(
+                "ALTER TABLE expense_records ADD COLUMN IF NOT EXISTS "
+                "retencion_4ta_monto NUMERIC(18, 2)"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] expense_records retencion_4ta: {e}")
+
     return app
 
 
@@ -2012,6 +2030,8 @@ def register_cli_commands(app):
             ('1051', 'Pichincha – Cta. Cte. PEN',         'activo',    'deudora',   'PEN'),
             ('1052', 'Pichincha – Cta. Cte. USD',         'activo',    'deudora',   'USD'),
             ('1211', 'Clientes por cobrar',               'activo',    'deudora',   'PEN'),
+            ('1699', 'Cuenta puente — diferencial FX embebido en posición bancaria',
+                                                          'activo',    'deudora',   'PEN'),
             # ── ACTIVO NO CORRIENTE (inmuebles, maq. y equipo) ─────────────
             ('3321', 'Instalaciones en curso',            'activo',    'deudora',   'PEN'),
             ('3351', 'Muebles y enseres',                 'activo',    'deudora',   'PEN'),
@@ -2030,6 +2050,7 @@ def register_cli_commands(app):
             ('4031', 'EsSalud por pagar',                 'pasivo',    'acreedora', 'PEN'),
             ('4032', 'AFP / ONP por pagar',               'pasivo',    'acreedora', 'PEN'),
             ('4111', 'Remuneraciones por pagar',          'pasivo',    'acreedora', 'PEN'),
+            ('4172', 'Retención IR 4ta categoría por pagar (SUNAT)', 'pasivo', 'acreedora', 'PEN'),
             ('4211', 'Facturas por pagar',                'pasivo',    'acreedora', 'PEN'),
             ('4699', 'Otras cuentas por pagar',           'pasivo',    'acreedora', 'PEN'),
             # ── PATRIMONIO ──────────────────────────────────────────────────

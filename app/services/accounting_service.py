@@ -525,23 +525,57 @@ class AccountingService:
         Solo registra la ganancia/pérdida neta (spread) — los movimientos bancarios
         individuales ya están en los asientos de cada operación completada.
 
-        Ganancia: DEBE 3599 / HABER 7711
-        Pérdida:  DEBE 6762 / HABER 3599
+        Ganancia: DEBE 1699 / HABER 7711
+        Pérdida:  DEBE 6762 / HABER 1699
 
-        Se usa 3599 (Otras reservas de capital) como contrapartida en lugar de
-        1041 para evitar duplicar el cash ya capturado en los asientos de operaciones.
+        Se usa 1699 (Otras cuentas por cobrar — cuenta puente FX) como contrapartida
+        para no duplicar el cash ya capturado en operaciones. Esta cuenta refleja el
+        margen cambiario embebido en la posición bancaria y se concilia a fin de período.
+
+        IDEMPOTENCIA: se omite si los matches del batch ya tienen asientos individuales
+        (calce_match) para evitar doble reconocimiento de ingresos.
         """
         from app.services.accounting.journal_service import JournalService
+        from app.models.journal_entry import JournalEntry
 
         profit = Decimal(str(batch.total_profit_pen or 0))
         if profit == 0:
             return
 
+        # Guard A-2: si ya existe un asiento calce_netting para este batch, salir
+        existing = JournalEntry.query.filter_by(
+            source_type='batch',
+            source_id=batch.id,
+            entry_type='calce_netting',
+            status='activo',
+        ).first()
+        if existing:
+            return
+
+        # Guard A-2: si los matches del batch ya tienen asientos calce_match individuales,
+        # el ingreso ya fue reconocido — no duplicar a nivel batch
+        match_ids = [m.id for m in batch.matches] if batch.matches else []
+        if match_ids:
+            already_matched = JournalEntry.query.filter(
+                JournalEntry.source_type == 'match',
+                JournalEntry.source_id.in_(match_ids),
+                JournalEntry.entry_type == 'calce_match',
+                JournalEntry.status == 'activo',
+            ).count()
+            if already_matched > 0:
+                import logging as _lg
+                _lg.getLogger(__name__).info(
+                    f'[Accounting] Batch {batch.batch_code}: '
+                    f'{already_matched} matches ya tienen asientos calce_match — '
+                    f'omitiendo calce_netting para evitar doble reconocimiento'
+                )
+                return
+
         if profit > 0:
             lines = [
                 {
-                    'account_code': '3599',
-                    'description':  f'Diferencial cambiario {batch.batch_code}',
+                    'account_code': '1699',
+                    'description':  f'Puente FX — margen embebido en posición bancaria {batch.batch_code}',
                     'debe':  profit,
                     'haber': Decimal('0'),
                     'currency': 'PEN',
@@ -565,8 +599,8 @@ class AccountingService:
                     'currency': 'PEN',
                 },
                 {
-                    'account_code': '3599',
-                    'description':  f'Diferencial cambiario {batch.batch_code}',
+                    'account_code': '1699',
+                    'description':  f'Puente FX — margen embebido en posición bancaria {batch.batch_code}',
                     'debe':  Decimal('0'),
                     'haber': loss,
                     'currency': 'PEN',
@@ -593,11 +627,13 @@ class AccountingService:
         """
         Reconoce el ingreso por diferencial cambiario en el momento del amarre.
 
-        Ganancia: DEBE 3599 / HABER 7711 Ganancia diferencial
-        Pérdida:  DEBE 6762 Pérdida diferencial / HABER 3599
+        Ganancia: DEBE 1699 / HABER 7711
+        Pérdida:  DEBE 6762 / HABER 1699
 
-        Se usa 3599 (Otras reservas de capital) como contrapartida para no
-        duplicar el cash ya registrado en los asientos de operaciones.
+        Se usa 1699 (Otras cuentas por cobrar — cuenta puente FX) como contrapartida
+        para no duplicar el cash ya registrado en los asientos de operaciones. Esta
+        cuenta refleja el margen cambiario embebido en la posición bancaria y se concilia
+        a fin de período contra la posición real.
 
         El profit_pen representa el spread neto (sell_tc − buy_tc) × USD.
         Se usa source_type='match' y source_id=match.id para trazabilidad.
@@ -617,8 +653,8 @@ class AccountingService:
             if profit > 0:
                 lines = [
                     {
-                        'account_code': '3599',
-                        'description':  f'Diferencial FX amarre #{match.id}',
+                        'account_code': '1699',
+                        'description':  f'Puente FX — margen embebido en posición bancaria, amarre #{match.id}',
                         'debe':  profit,
                         'haber': Decimal('0'),
                         'currency': 'PEN',
@@ -642,8 +678,8 @@ class AccountingService:
                         'currency': 'PEN',
                     },
                     {
-                        'account_code': '3599',
-                        'description':  f'Diferencial FX amarre #{match.id}',
+                        'account_code': '1699',
+                        'description':  f'Puente FX — margen embebido en posición bancaria, amarre #{match.id}',
                         'debe':  Decimal('0'),
                         'haber': loss,
                         'currency': 'PEN',

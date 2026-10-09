@@ -16,10 +16,10 @@
     <div class="dashboard-header mb-3">
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
-                <h2 class="mb-0"><i class="bi bi-speedometer2 me-2" style="color:#4f46e5;"></i>Dashboard</h2>
+                <h2 class="mb-0"><i class="bi bi-speedometer2 me-2" style="color:#196BFE;"></i>Dashboard</h2>
                 <small style="color:#94a3b8;font-size:.78rem;">
                     <i class="bi bi-clock me-1"></i><span id="lastUpdated">Cargando...</span>
-                    <span id="filterIndicator" class="badge ms-2 d-none" style="background:rgba(79,70,229,.12);color:#4f46e5;border:1px solid rgba(79,70,229,.2);font-size:.68rem;">
+                    <span id="filterIndicator" class="badge ms-2 d-none" style="background:rgba(25,107,254,.12);color:#196BFE;border:1px solid rgba(25,107,254,.2);font-size:.68rem;">
                         <i class="bi bi-funnel-fill me-1"></i><span id="filterText"></span>
                     </span>
                 </small>
@@ -153,7 +153,7 @@
     </div>
 
     <div class="stat-chip-row mb-4">
-        <div class="stat-chip" style="--chip-color:#4f46e5;--chip-icon-bg:rgba(79,70,229,.08);">
+        <div class="stat-chip" style="--chip-color:#196BFE;--chip-icon-bg:rgba(25,107,254,.08);">
             <div class="stat-chip-icon"><i class="bi bi-people-fill"></i></div>
             <div class="stat-chip-value counter" id="clientsToday">0</div>
             <div class="stat-chip-label">Clientes atendidos</div>
@@ -185,7 +185,7 @@
             <div class="ops-card">
                 <div class="card-head">
                     <span class="card-head-title">
-                        <i class="bi bi-bar-chart-fill" style="color:#4f46e5;"></i>
+                        <i class="bi bi-bar-chart-fill" style="color:#196BFE;"></i>
                         Crecimiento Mensual
                     </span>
                     <button id="btnSamePeriod" class="growth-period-btn" onclick="toggleSamePeriod()">
@@ -263,7 +263,7 @@
     <div class="analytics-card ranking-master-card mb-4">
         <div class="ranking-card-head">
             <span class="card-head-title">
-                <i class="bi bi-bar-chart-steps me-1" style="color:#4f46e5;"></i> Ranking de Clientes
+                <i class="bi bi-bar-chart-steps me-1" style="color:#196BFE;"></i> Ranking de Clientes
             </span>
             <div class="ranking-tabs">
                 <button class="ranking-tab-btn active" data-tab="volume" onclick="switchRankingTab('volume')">
@@ -277,7 +277,7 @@
                     <span class="badge bg-success ms-1" style="font-size:.6rem;" id="topProfitCount">-</span>
                 </button>
                 <button class="ranking-tab-btn" data-tab="ops" onclick="switchRankingTab('ops')">
-                    <i class="bi bi-lightning-charge-fill" style="color:#4f46e5;"></i>
+                    <i class="bi bi-lightning-charge-fill" style="color:#196BFE;"></i>
                     <span class="ranking-tab-label">Más Operaciones</span>
                     <span class="badge bg-primary ms-1" style="font-size:.6rem;" id="topOpsCount">-</span>
                 </button>
@@ -372,7 +372,7 @@
     <!-- Buscador de Clientes -->
     <div class="analytics-card mb-4">
         <div class="card-head">
-            <span class="card-head-title"><i class="bi bi-search" style="color:#4f46e5;"></i> Buscar Cliente — Historial</span>
+            <span class="card-head-title"><i class="bi bi-search" style="color:#196BFE;"></i> Buscar Cliente — Historial</span>
         </div>
         <div style="padding:1rem 1.25rem;">
             <div class="row g-2 mb-3">
@@ -437,7 +437,7 @@
             </div>
             <div class="qa-grid">
                 <a href="{{ url_for('operations.create_page') }}" class="qa-card">
-                    <i class="bi bi-plus-circle" style="color:#4f46e5;"></i>
+                    <i class="bi bi-plus-circle" style="color:#196BFE;"></i>
                     <h6>Nueva Operación</h6>
                 </a>
                 <a href="{{ url_for('operations.operations_list') }}" class="qa-card">
@@ -463,7 +463,7 @@
     <!-- Widget Precio Base -->
     <div class="analytics-card mb-4">
         <div class="card-head">
-            <span class="card-head-title"><i class="bi bi-toggles" style="color:#4f46e5;"></i> Widget Precio Base — Acceso por Trader</span>
+            <span class="card-head-title"><i class="bi bi-toggles" style="color:#196BFE;"></i> Widget Precio Base — Acceso por Trader</span>
             <span class="badge bg-light text-secondary" style="font-size:.65rem;">Solo Master</span>
         </div>
         <div style="padding:.875rem 1.25rem;">
@@ -705,7 +705,7 @@ function loadGrowthChart(sp) {
             growthChart.data.labels = [c.prev.label, c.curr.label];
             growthChart.data.datasets = [{
                 data: [c.prev.profit, c.curr.profit],
-                backgroundColor: ['rgba(148,163,184,.45)', '#4f46e5'],
+                backgroundColor: ['rgba(148,163,184,.45)', '#196BFE'],
                 hoverBackgroundColor: ['rgba(148,163,184,.65)', '#6366f1'],
                 borderRadius: 7,
                 borderSkipped: false,
@@ -720,8 +720,8 @@ function loadGrowthChart(sp) {
             growthChart.data.labels = bars.map(b => b.label);
             growthChart.data.datasets = [{
                 data: bars.map(b => b.profit),
-                backgroundColor: bars.map(b => b.is_current ? '#4f46e5' : 'rgba(79,70,229,.18)'),
-                hoverBackgroundColor: bars.map(b => b.is_current ? '#6366f1' : 'rgba(79,70,229,.35)'),
+                backgroundColor: bars.map(b => b.is_current ? '#196BFE' : 'rgba(25,107,254,.18)'),
+                hoverBackgroundColor: bars.map(b => b.is_current ? '#6366f1' : 'rgba(25,107,254,.35)'),
                 borderRadius: 7,
                 borderSkipped: false,
                 _meta: bars.map(b => ({ops: b.ops, clients: b.clients}))
@@ -1096,7 +1096,7 @@ function editBreakeven() {
         showCancelButton: true,
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#4f46e5',
+        confirmButtonColor: '#196BFE',
         inputValidator: v => !v || parseFloat(v) <= 0 ? 'Ingresa un monto válido' : null
     }).then(res => {
         if (res.isConfirmed && res.value) {

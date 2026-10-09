@@ -126,80 +126,37 @@
         </div>
     </div>
 
-    <!-- Stats clicables -->
-    <div class="row g-3 mb-3">
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm stat-filter-card stat-card-active"
-                 data-filter="all" data-active-class="stat-card-active"
-                 style="border-left:4px solid #0d6efd!important;cursor:pointer">
-                <div class="card-body py-3">
-                    <div class="d-flex align-items-center gap-3">
-                        <span class="fs-4 text-primary"><i class="bi bi-people-fill"></i></span>
-                        <div><div class="fw-bold fs-5 lh-1">{{ stats.total }}</div><small class="text-muted">Total</small></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm stat-filter-card"
-                 data-filter="active" data-active-class="stat-card-active-green"
-                 style="border-left:4px solid #198754!important;cursor:pointer">
-                <div class="card-body py-3">
-                    <div class="d-flex align-items-center gap-3">
-                        <span class="fs-4 text-success"><i class="bi bi-person-check-fill"></i></span>
-                        <div><div class="fw-bold fs-5 lh-1">{{ stats.active }}</div><small class="text-muted">Activos</small></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm stat-filter-card"
-                 data-filter="nodocs" data-active-class="stat-card-active-yellow"
-                 style="border-left:4px solid #ffc107!important;cursor:pointer">
-                <div class="card-body py-3">
-                    <div class="d-flex align-items-center gap-3">
-                        <span class="fs-4 text-warning"><i class="bi bi-file-earmark-x-fill"></i></span>
-                        <div><div class="fw-bold fs-5 lh-1">{{ stats.no_docs }}</div><small class="text-muted">Sin Docs</small></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm stat-filter-card"
-                 data-filter="inactive" data-active-class="stat-card-active-gray"
-                 style="border-left:4px solid #6c757d!important;cursor:pointer">
-                <div class="card-body py-3">
-                    <div class="d-flex align-items-center gap-3">
-                        <span class="fs-4 text-secondary"><i class="bi bi-person-dash-fill"></i></span>
-                        <div><div class="fw-bold fs-5 lh-1">{{ stats.inactive }}</div><small class="text-muted">Inactivos</small></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm stat-filter-card"
-                 data-filter="kyc_pendiente" data-active-class="stat-card-active-orange"
-                 style="border-left:4px solid #fd7e14!important;cursor:pointer">
-                <div class="card-body py-3">
-                    <div class="d-flex align-items-center gap-3">
-                        <span class="fs-4" style="color:#fd7e14"><i class="bi bi-clock-history"></i></span>
-                        <div><div class="fw-bold fs-5 lh-1">{{ stats.kyc_pendiente }}</div><small class="text-muted">KYC Pendiente</small></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm stat-filter-card"
-                 data-filter="kyc_bloqueado" data-active-class="stat-card-active-red"
-                 style="border-left:4px solid #dc3545!important;cursor:pointer">
-                <div class="card-body py-3">
-                    <div class="d-flex align-items-center gap-3">
-                        <span class="fs-4 text-danger"><i class="bi bi-shield-x"></i></span>
-                        <div><div class="fw-bold fs-5 lh-1">{{ stats.kyc_bloqueado }}</div><small class="text-muted">KYC Bloqueado</small></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <!-- Stats clicables — barra compacta -->
+    <div class="qstats-bar mb-3">
+        <button class="qstat-item qstat-item--active" data-filter="all" data-active-class="qstat-item--active">
+            <span class="qstat-num">{{ stats.total }}</span>
+            <span class="qstat-label">Total</span>
+        </button>
+        <div class="qstat-sep"></div>
+        <button class="qstat-item qstat-item--green" data-filter="active" data-active-class="qstat-item--green">
+            <span class="qstat-num">{{ stats.active }}</span>
+            <span class="qstat-label">Activos</span>
+        </button>
+        <div class="qstat-sep"></div>
+        <button class="qstat-item qstat-item--yellow" data-filter="nodocs" data-active-class="qstat-item--yellow">
+            <span class="qstat-num">{{ stats.no_docs }}</span>
+            <span class="qstat-label">Sin Docs</span>
+        </button>
+        <div class="qstat-sep"></div>
+        <button class="qstat-item qstat-item--gray" data-filter="inactive" data-active-class="qstat-item--gray">
+            <span class="qstat-num">{{ stats.inactive }}</span>
+            <span class="qstat-label">Inactivos</span>
+        </button>
+        <div class="qstat-sep"></div>
+        <button class="qstat-item qstat-item--orange" data-filter="kyc_pendiente" data-active-class="qstat-item--orange">
+            <span class="qstat-num">{{ stats.kyc_pendiente }}</span>
+            <span class="qstat-label">KYC Pendiente</span>
+        </button>
+        <div class="qstat-sep"></div>
+        <button class="qstat-item qstat-item--red" data-filter="kyc_bloqueado" data-active-class="qstat-item--red">
+            <span class="qstat-num">{{ stats.kyc_bloqueado }}</span>
+            <span class="qstat-label">KYC Bloqueado</span>
+        </button>
     </div>
 
     <!-- Tabla de Clientes -->
@@ -796,15 +753,17 @@
 
     document.getElementById('clientSearch').addEventListener('input', applyFilters);
 
-    document.querySelectorAll('.stat-filter-card').forEach(function(card) {
-        card.addEventListener('click', function() {
+    // Marcar el primero como seleccionado al cargar
+    var firstStat = document.querySelector('.qstat-item');
+    if (firstStat) firstStat.classList.add('qstat-item--selected');
+
+    document.querySelectorAll('.qstat-item').forEach(function(btn) {
+        btn.addEventListener('click', function() {
             activeCard = this.dataset.filter;
-            document.querySelectorAll('.stat-filter-card').forEach(function(c) {
-                c.classList.remove('stat-card-active','stat-card-active-green',
-                                   'stat-card-active-yellow','stat-card-active-gray',
-                                   'stat-card-active-orange','stat-card-active-red');
+            document.querySelectorAll('.qstat-item').forEach(function(b) {
+                b.classList.remove('qstat-item--selected');
             });
-            this.classList.add(this.dataset.activeClass);
+            this.classList.add('qstat-item--selected');
             applyFilters();
         });
     });

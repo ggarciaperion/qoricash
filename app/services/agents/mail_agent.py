@@ -1101,7 +1101,7 @@ def _business_days_since(date_str: str) -> int:
 class MailAgent(BaseAgent):
     agent_id     = 'mail_agent'
     name         = 'Prospecting Mail Agent'
-    description  = 'Envía campañas de presentación desde las 3 bandejas · límite 490/bandeja/día'
+    description  = 'Envía campañas de presentación desde las 3 bandejas · límite 1500/bandeja/día'
     icon         = 'bi-envelope-paper'
     color        = 'green'
     run_interval = 1800  # cada 30 min

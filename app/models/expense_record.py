@@ -51,6 +51,11 @@ class ExpenseRecord(db.Model):
     # Cuenta bancaria PCGE que absorbe el cargo directamente (ITF, comisiones, etc.)
     # Ej: '1041' BCP PEN, '1048' Interbank PEN.  Si es None, se genera cuenta por pagar.
     bank_account_code = db.Column(db.String(10), nullable=True)
+    # Retención de 4ta categoría (honorarios persona natural)
+    # Art. 74 LIR: 8% IR cuando honorarios > S/1,500/mes
+    retencion_4ta       = db.Column(db.Boolean, default=False, nullable=True)
+    retencion_4ta_monto = db.Column(db.Numeric(18, 2), nullable=True)
+
     # Asiento generado automáticamente al guardar
     journal_entry_id = db.Column(db.Integer, db.ForeignKey('journal_entries.id'), nullable=True, index=True)
     created_by       = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
@@ -94,5 +99,7 @@ class ExpenseRecord(db.Model):
             'supplier_ruc': self.supplier_ruc,
             'voucher_url': self.voucher_url,
             'bank_account_code': self.bank_account_code,
+            'retencion_4ta': self.retencion_4ta or False,
+            'retencion_4ta_monto': float(self.retencion_4ta_monto) if self.retencion_4ta_monto else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }

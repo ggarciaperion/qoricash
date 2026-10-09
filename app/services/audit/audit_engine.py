@@ -592,7 +592,8 @@ class AuditEngine:
         gastos = gastos_operativos + depreciacion
 
         utilidad = ingresos - gastos
-        ir_pago  = (utilidad * Decimal('0.01')).quantize(Decimal('0.01')) if utilidad > 0 else Decimal('0')
+        # D.Leg. 1269 Art. 6°: pago a cuenta MYPE = 1% sobre INGRESOS NETOS (no sobre utilidad)
+        ir_pago  = (ingresos * Decimal('0.01')).quantize(Decimal('0.01')) if ingresos > 0 else Decimal('0')
 
         # gastos_pen = gastos_operativos (lo que muestra /contabilidad/gastos)
         # utilidad usa el total contable (incluye depreciación + pérdidas FX)

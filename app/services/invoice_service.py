@@ -96,14 +96,14 @@ class InvoiceService:
             if not client:
                 return False, 'Cliente no encontrado', None
 
-            # Verificar si ya existe factura para esta operación
-            existing_invoice = Invoice.query.filter_by(
-                operation_id=operation.id,
-                status='Aceptado'
+            # Verificar si ya existe factura para esta operación (Aceptado o Demo)
+            existing_invoice = Invoice.query.filter(
+                Invoice.operation_id == operation.id,
+                Invoice.status.in_(['Aceptado', 'Demo'])
             ).first()
 
             if existing_invoice:
-                logger.info(f'[INVOICE] Ya existe factura aceptada para operación {operation.operation_id}')
+                logger.info(f'[INVOICE] Ya existe factura ({existing_invoice.status}) para operación {operation.operation_id}')
                 return True, 'Ya existe factura para esta operación', existing_invoice
 
             # Determinar tipo de comprobante según documento del cliente
@@ -251,7 +251,7 @@ class InvoiceService:
             "valor_unitario": total_amount,
             "precio_unitario": total_amount,
             "subtotal": total_amount,
-            "tipo_de_igv": 9,  # 9 = valor aceptado por NubeFact para operaciones inafectas
+            "tipo_de_igv": 8,  # 8 = exonerada (Art. 2 Apéndice I TUO Ley IGV) — casas de cambio
             "igv": 0,
             "total": total_amount,
             "anticipo_regularizacion": False
@@ -425,7 +425,8 @@ class InvoiceService:
             exonerada=operation.amount_pen,  # En BD guardamos como exonerada (inafecta para NubeFact)
             gravada=0,
             igv=0,
-            status='Aceptado',
+            # 'Aceptado' solo si SUNAT lo confirmó; 'Demo' si es entorno de pruebas
+            status='Aceptado' if response_data.get('aceptada_por_sunat') else 'Demo',
             nubefact_response=str(response_data),
             nubefact_enlace_pdf=response_data.get('enlace_del_pdf', ''),
             nubefact_enlace_xml=response_data.get('enlace_del_xml', ''),

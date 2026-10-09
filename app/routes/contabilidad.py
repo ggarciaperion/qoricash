@@ -124,6 +124,18 @@ def dashboard():
     except Exception:
         unmatched_count = 0
 
+    # IR pago a cuenta del mes (del último AuditReport del período)
+    ir_pago_estimado = None
+    try:
+        from app.models.audit_report import AuditReport
+        _ar = AuditReport.query.filter_by(
+            report_year=year, report_month=month
+        ).order_by(AuditReport.id.desc()).first()
+        if _ar and _ar.ir_pago_cuenta_pen:
+            ir_pago_estimado = float(_ar.ir_pago_cuenta_pen)
+    except Exception:
+        pass
+
     # Todos los períodos para el selector
     periods = _get_all_periods()
 
@@ -137,6 +149,7 @@ def dashboard():
         gastos_total=gastos_total,
         gastos_count=gastos_count,
         unmatched_count=unmatched_count,
+        ir_pago_estimado=ir_pago_estimado,
         periods=periods,
         selected_year=year,
         selected_month=month,
@@ -624,6 +637,18 @@ def nuevo_gasto():
         amount_usd_raw    = data.get('amount_usd')
         amount_usd        = float(amount_usd_raw) if amount_usd_raw and float(amount_usd_raw) > 0 else None
 
+        # Retención 4ta categoría (honorarios persona natural — Art. 74 LIR)
+        retencion_4ta       = bool(data.get('retencion_4ta', False))
+        retencion_4ta_monto_raw = data.get('retencion_4ta_monto')
+        if retencion_4ta and retencion_4ta_monto_raw:
+            retencion_4ta_monto = Decimal(str(retencion_4ta_monto_raw))
+        elif retencion_4ta and amount_pen > 0:
+            # Auto-calcular 8% si no se provee
+            retencion_4ta_monto = (amount_pen * Decimal('0.08')).quantize(Decimal('0.01'))
+        else:
+            retencion_4ta_monto = None
+            retencion_4ta = False
+
         record = ExpenseRecord(
             expense_date=expense_date,
             category=data.get('category', '6391'),
@@ -638,6 +663,8 @@ def nuevo_gasto():
             supplier_ruc=data.get('supplier_ruc') or None,
             supplier_name=data.get('supplier_name') or None,
             bank_account_code=bank_account_code,
+            retencion_4ta=retencion_4ta,
+            retencion_4ta_monto=retencion_4ta_monto,
             created_by=current_user.id,
         )
 
@@ -698,6 +725,22 @@ def nuevo_gasto():
                  'debe': amount_pen, 'haber': Decimal('0'), 'currency': 'PEN'},
                 {'account_code': '4211', 'description': f'Factura por pagar: {record.description}',
                  'debe': Decimal('0'), 'haber': amount_pen, 'currency': 'PEN'},
+            ]
+        elif retencion_4ta and retencion_4ta_monto:
+            # Honorarios con retención 4ta (Art. 74 LIR — 8% sobre honorarios > S/1,500)
+            # DEBE  6391           amount_pen   (honorarios brutos)
+            # HABER 4172           ret_monto    (retención IR 4ta a entregar a SUNAT)
+            # HABER 4699           neto_pagar   (neto a pagar al prestador)
+            neto_pagar = amount_pen - retencion_4ta_monto
+            lines = [
+                {'account_code': account_code, 'description': record.description,
+                 'debe': amount_pen, 'haber': Decimal('0'), 'currency': 'PEN'},
+                {'account_code': '4172',
+                 'description': f'Retención IR 4ta 8% — {record.description}',
+                 'debe': Decimal('0'), 'haber': retencion_4ta_monto, 'currency': 'PEN'},
+                {'account_code': '4699',
+                 'description': f'Honorarios netos por pagar — {record.description}',
+                 'debe': Decimal('0'), 'haber': neto_pagar, 'currency': 'PEN'},
             ]
         else:
             # Boleta / recibo / sin comprobante
@@ -2566,6 +2609,131 @@ def export_lig_ple():
         as_attachment=True,
         download_name=f'PLE_LIG_{ruc_clean}_{year}{month:02d}.zip',
     )
+
+
+# ── PLE Registro de Ventas ─────────────────────────────────────────────────────
+
+@contabilidad_bp.route('/ple/registro-ventas')
+@login_required
+@require_role('Master')
+def ple_registro_ventas():
+    """
+    Descarga el Registro de Ventas e Ingresos (LE140100) en formato PLE SUNAT.
+    Obligatorio aunque la actividad esté exonerada de IGV.
+    Fuente: tabla invoices (comprobantes aceptados por SUNAT vía NubeFact).
+    """
+    from app.services.audit.ple_export import export_registro_ventas, get_filename
+    from app.models.system_config import SystemConfig
+
+    year  = request.args.get('year',  type=int, default=date.today().year)
+    month = request.args.get('month', type=int, default=date.today().month)
+    ruc   = SystemConfig.get('RUC', '20615113698')
+
+    content  = export_registro_ventas(year, month)
+    filename = get_filename('ventas', year, month, ruc.replace('-', '').replace(' ', ''))
+
+    return send_file(
+        BytesIO(content),
+        mimetype='text/plain; charset=latin-1',
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
+# ── Pago a cuenta IR mensual ───────────────────────────────────────────────────
+
+@contabilidad_bp.route('/gastos/pago-ir', methods=['POST'])
+@login_required
+@require_role('Master')
+def pago_ir_cuenta():
+    """
+    Registra el pago mensual a cuenta del Impuesto a la Renta.
+    D.Leg. 1269 Art. 6° — MYPE Tributario: 1% de ingresos netos del mes.
+
+    Crea:
+    - ExpenseRecord tipo 'tributo'
+    - JournalEntry tipo 'pago_cuenta_ir':
+        DEBE  4017  Impuesto a la Renta — pago a cuenta
+        HABER 104x  Banco (cuenta pagadora)
+    """
+    from app.services.accounting.journal_service import JournalService
+    from app.models.expense_record import ExpenseRecord
+
+    monto_str = request.form.get('monto', '').strip()
+    banco     = request.form.get('banco', 'BCP')
+    fecha_str = request.form.get('fecha', date.today().isoformat())
+    mes_str   = request.form.get('mes_tributario', '')
+    voucher   = request.form.get('voucher_number', '').strip()
+
+    if not monto_str:
+        flash('Ingresa el monto del pago IR.', 'danger')
+        return redirect(request.referrer or url_for('contabilidad.gastos'))
+
+    try:
+        monto = Decimal(monto_str.replace(',', '.'))
+        if monto <= 0:
+            raise ValueError
+    except Exception:
+        flash('Monto inválido.', 'danger')
+        return redirect(request.referrer or url_for('contabilidad.gastos'))
+
+    try:
+        fecha_pago = date.fromisoformat(fecha_str)
+    except Exception:
+        fecha_pago = date.today()
+
+    # Mapeo banco → código PCGE
+    _banco_cuenta = {
+        'BCP': '1041', 'INTERBANK': '1044', 'BANBIF': '1047',
+        'BBVA': '1048', 'SCOTIABANK': '1049',
+    }
+    cuenta_banco = _banco_cuenta.get(banco.upper(), '1041')
+
+    glosa = f'Pago a cuenta IR MYPE 1% — {mes_str or fecha_pago.strftime("%B %Y")}'
+
+    # 1. ExpenseRecord (period_id obligatorio)
+    _period_ir = JournalService.get_or_create_period(fecha_pago)
+    if _period_ir.status == 'cerrado':
+        flash(f'El período {fecha_pago.strftime("%m/%Y")} está cerrado.', 'danger')
+        return redirect(request.referrer or url_for('contabilidad.dashboard'))
+
+    gasto = ExpenseRecord(
+        period_id      = _period_ir.id,
+        expense_date   = fecha_pago,
+        category       = '4017',
+        description    = glosa,
+        amount_pen     = monto,
+        expense_type   = 'tributo',
+        voucher_type   = 'otro',
+        voucher_number = voucher or None,
+        supplier_name  = 'SUNAT',
+        supplier_ruc   = '20131312955',
+        created_by     = current_user.id,
+    )
+    db.session.add(gasto)
+    db.session.flush()
+
+    # 2. JournalEntry (usa static method de JournalService)
+    entry = JournalService.create_entry(
+        entry_type  = 'pago_cuenta_ir',
+        description = glosa,
+        entry_date  = fecha_pago,
+        source_type = 'manual',
+        source_id   = gasto.id,
+        created_by  = current_user.id,
+        lines=[
+            {'account_code': '4017', 'debe': monto, 'haber': Decimal('0'),
+             'description': 'IR pago a cuenta mensual — D.Leg. 1269 Art. 6°'},
+            {'account_code': cuenta_banco, 'debe': Decimal('0'), 'haber': monto,
+             'description': f'Pago desde {banco}'},
+        ],
+    )
+
+    db.session.commit()
+    entry_num = entry.entry_number if entry else '(sin asiento)'
+    flash(f'Pago IR S/ {monto:.2f} registrado. Asiento {entry_num}.', 'success')
+    return redirect(url_for('contabilidad.gastos',
+                            year=fecha_pago.year, month=fecha_pago.month))
 
 
 # ── Libro Mayor ────────────────────────────────────────────────────────────────

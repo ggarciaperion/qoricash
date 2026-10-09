@@ -140,6 +140,109 @@
 
   </div>
 
+  <!-- ══ SECCIÓN IR + PLE ════════════════════════════════════════════════════ -->
+  <div class="section-label"><i class="bi bi-cash-coin text-danger"></i>Impuesto a la Renta &amp; PLE</div>
+  <div class="row g-3">
+
+    <!-- Panel IR mensual -->
+    <div class="col-md-6 col-xl-4">
+      <div class="card border-0 shadow-sm h-100"
+           style="border-left: 4px solid #dc3545 !important;">
+        <div class="card-body">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="bi bi-percent text-danger fs-5"></i>
+            <span class="fw-semibold">Pago a cuenta IR — 1% ingresos netos</span>
+          </div>
+          {% if ir_pago_estimado is not none %}
+          <div class="fs-3 fw-bold text-danger mb-1">S/ {{ "%.2f"|format(ir_pago_estimado) }}</div>
+          <div class="text-muted small mb-3">Estimado según último reporte de auditoría · D.Leg. 1269</div>
+          {% else %}
+          <div class="text-muted small mb-3">Ejecuta la auditoría para calcular el pago a cuenta del mes.</div>
+          {% endif %}
+          <button class="btn btn-sm btn-outline-danger" onclick="modalPagoIR()">
+            <i class="bi bi-plus-circle me-1"></i>Registrar pago
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLE Registro de Ventas -->
+    <div class="col-md-6 col-xl-4">
+      <a href="{{ url_for('contabilidad.ple_registro_ventas', year=selected_year, month=selected_month) }}"
+         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="conta-card-icon">
+            <i class="bi bi-file-earmark-text"></i>
+          </div>
+          <div>
+            <div class="fw-semibold">PLE Registro de Ventas</div>
+            <div class="text-muted small">LE140100 · comprobantes emitidos · exonerada IGV</div>
+          </div>
+          <i class="bi bi-download ms-auto text-muted opacity-50"></i>
+        </div>
+      </a>
+    </div>
+
+  </div>
+
+  <!-- Modal Pago IR -->
+  <div class="modal fade" id="pagoIRModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-percent me-2 text-danger"></i>Pago a cuenta IR</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form method="POST" action="{{ url_for('contabilidad.pago_ir_cuenta') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="modal-body">
+            <div class="alert alert-info small py-2">
+              D.Leg. 1269 Art. 6° — MYPE Tributario: <strong>1% sobre ingresos netos</strong> del mes.
+              Asiento: <strong>DEBE 4017 / HABER banco pagador</strong>.
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Mes tributario</label>
+              <input type="text" name="mes_tributario" class="form-control"
+                     placeholder="Ej: Octubre 2026"
+                     value="{{ ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][selected_month-1] }} {{ selected_year }}">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Monto a pagar (S/) <span class="text-danger">*</span></label>
+              <input type="number" name="monto" class="form-control" step="0.01" min="0.01"
+                     value="{{ "%.2f"|format(ir_pago_estimado) if ir_pago_estimado else '' }}"
+                     placeholder="Ingresa el monto según PDT presentado">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Fecha de pago <span class="text-danger">*</span></label>
+              <input type="date" name="fecha" class="form-control"
+                     value="{{ selected_year }}-{{ '%02d'|format(selected_month) }}-15">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Banco pagador <span class="text-danger">*</span></label>
+              <select name="banco" class="form-select">
+                <option value="BCP">BCP</option>
+                <option value="INTERBANK">Interbank</option>
+                <option value="BANBIF">BanBif</option>
+                <option value="BBVA">BBVA</option>
+                <option value="SCOTIABANK">Scotiabank</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">N° Operación / NPS (opcional)</label>
+              <input type="text" name="voucher_number" class="form-control" placeholder="Número de constancia SUNAT">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-danger">
+              <i class="bi bi-save me-1"></i>Registrar pago
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- ══ SECCIÓN 2: REPORTES ════════════════════════════════════════════════ -->
   <div class="section-label"><i class="bi bi-bar-chart-line text-secondary"></i>Reportes</div>
   <div class="row g-3">
@@ -345,4 +448,12 @@
   </div>
 
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function modalPagoIR() {
+  new bootstrap.Modal(document.getElementById('pagoIRModal')).show();
+}
+</script>
 {% endblock %}

@@ -5,12 +5,12 @@ Genera archivos .txt en el formato exacto exigido por SUNAT para el
 envío de Libros Electrónicos vía PLE o SLE-PLE.
 
 Libros implementados:
-  LE0301  — Libro Diario (Formato Simplificado — MYPE hasta 300 UIT)
-  LE0801  — Registro de Ventas e Ingresos  (si aplica)
-  LE0801  — Registro de Compras            (si aplica)
+  LE030100  — Libro Diario Formato Simplificado (MYPE hasta 300 UIT)
+  LE140100  — Registro de Ventas e Ingresos
+  LE080100  — Registro de Compras
 
 Para QoriCash (casa de cambio exonerada de IGV):
-  - Registro de Ventas = vacío (actividad exonerada)
+  - Registro de Ventas = OBLIGATORIO aunque exonerada (IGV=0, col Exonerado=monto)
   - Registro de Compras = gastos con factura
   - Libro Diario Formato Simplificado = obligatorio
 
@@ -156,6 +156,64 @@ def export_registro_compras(year: int, month: int) -> bytes:
     return content.encode('latin-1', errors='replace')
 
 
+def export_registro_ventas(year: int, month: int) -> bytes:
+    """
+    Genera el Registro de Ventas e Ingresos (LE140100) para QoriCash.
+
+    Actividad exonerada de IGV (Art. 2 Apéndice I TUO Ley IGV):
+    - BaseImponible = 0, IGV = 0, Exonerado = monto total
+    - Fuente: tabla invoices (facturas y boletas emitidas por NubeFact)
+
+    Campos SUNAT LE140100:
+    Periodo|CUO|CorrelativoAsiento|FechaEmision|FechaVencimiento|
+    TipoComprobante|SerieComprobante|NumeroComprobante|
+    TipoDocCliente|NumDocCliente|NombreCliente|
+    ExportacionFOB|BaseImponible|DescBI|IGV|Exonerado|Inafecto|ISC|IVAP|
+    OtrosTributos|OtrosCargos|TotalCP|TipoMoneda|EstadoAnotacion
+    """
+    from app.models.invoice import Invoice
+    from sqlalchemy import extract
+
+    periodo = _periodo_str(year, month)
+
+    invoices = Invoice.query.filter(
+        extract('year',  Invoice.created_at) == year,
+        extract('month', Invoice.created_at) == month,
+        Invoice.status == 'Aceptado',
+    ).order_by(Invoice.created_at.asc(), Invoice.id.asc()).all()
+
+    buf = io.StringIO()
+
+    for i, inv in enumerate(invoices, 1):
+        # Tipo comprobante: 01=Factura, 03=Boleta
+        tipo_cp = '01' if (inv.invoice_number or '').startswith('F') else '03'
+        # Serie y número (campos directos del modelo)
+        serie  = inv.serie or ''
+        numero = inv.numero or ''
+        # Datos del cliente
+        doc_num  = inv.cliente_numero_documento or ''
+        doc_tipo = '1' if len(doc_num) == 8 else (
+                   '4' if len(doc_num) == 9 else (
+                   '6' if len(doc_num) == 11 else '0'))
+        cliente  = (inv.cliente_denominacion or 'SIN NOMBRE')[:100].replace('|', ' ')
+        fecha    = inv.created_at.strftime('%d/%m/%Y')
+        total    = _fmt_decimal(inv.monto_total)
+        cuo      = f'V{i:06d}'
+
+        row = (
+            f'{periodo}|{cuo}|1|{fecha}|-|'
+            f'{tipo_cp}|{serie}|{numero}|'
+            f'{doc_tipo}|{doc_num}|{cliente}|'
+            f'0.00|0.00|0.00|0.00|{total}|0.00|0.00|0.00|'
+            f'0.00|0.00|{total}|PEN|1\r\n'
+        )
+        buf.write(row)
+
+    content = buf.getvalue()
+    buf.close()
+    return content.encode('latin-1', errors='replace')
+
+
 def get_filename(libro: str, year: int, month: int, ruc: str = '20615113698') -> str:
     """
     Genera el nombre de archivo según la convención SUNAT:
@@ -166,6 +224,8 @@ def get_filename(libro: str, year: int, month: int, ruc: str = '20615113698') ->
         codigo = '030100'
     elif libro == 'compras':
         codigo = '080100'
+    elif libro == 'ventas':
+        codigo = '140100'
     else:
         codigo = '000000'
     return f'LE{ruc}{periodo}{codigo}00011.txt'

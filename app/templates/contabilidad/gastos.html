@@ -277,6 +277,31 @@
                  placeholder="Ej: 2.50">
           <div class="form-text">Importe exacto en dólares cargado por el banco. El monto S/ de arriba se usa solo para el asiento contable.</div>
         </div>
+        <!-- Retención 4ta categoría (honorarios persona natural) -->
+        <div id="retencion4taDiv" class="mb-3 d-none">
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="gRetencion4ta"
+                   onchange="onRetencion4taChange()">
+            <label class="form-check-label fw-semibold" for="gRetencion4ta">
+              <i class="bi bi-percent me-1 text-warning"></i>
+              Aplicar retención 4ta categoría (8% IR — honorarios &gt; S/1,500)
+            </label>
+          </div>
+          <div id="retencion4taDetalle" class="d-none">
+            <div class="row g-2">
+              <div class="col-md-6">
+                <label class="form-label form-label-sm">Monto retención (S/)</label>
+                <input type="number" id="gRetencionMonto" class="form-control form-control-sm"
+                       step="0.01" min="0" placeholder="Auto: 8% del monto">
+              </div>
+            </div>
+            <div class="alert alert-warning py-2 mt-2 small">
+              <i class="bi bi-info-circle me-1"></i>
+              Asiento: <strong>DEBE 6392 / HABER 4172</strong> (retención) + <strong>HABER 4699</strong> (neto a pagar).
+              Debes entregar la retención a SUNAT con el PDT 617.
+            </div>
+          </div>
+        </div>
         <div id="gastoError" class="alert alert-danger d-none"></div>
       </div>
       <div class="modal-footer">
@@ -412,8 +437,23 @@ function nuevoGastoModal() {
   document.getElementById('bancoCargoBadge').classList.add('d-none');
   document.getElementById('amountUsdDiv').classList.add('d-none');
   document.getElementById('gAmountUsd').value = '';
+  document.getElementById('gRetencion4ta').checked = false;
+  document.getElementById('retencion4taDetalle').classList.add('d-none');
+  document.getElementById('retencion4taDiv').classList.add('d-none');
+  document.getElementById('gRetencionMonto').value = '';
   _updateBankRequiredUI();
   new bootstrap.Modal(document.getElementById('gastoModal')).show();
+}
+
+function onRetencion4taChange() {
+  const checked = document.getElementById('gRetencion4ta').checked;
+  document.getElementById('retencion4taDetalle').classList.toggle('d-none', !checked);
+  if (checked && !document.getElementById('gRetencionMonto').value) {
+    const monto = parseFloat(document.getElementById('gAmount').value || 0);
+    if (monto > 0) {
+      document.getElementById('gRetencionMonto').value = (monto * 0.08).toFixed(2);
+    }
+  }
 }
 
 function onCategoryChange() {
@@ -464,6 +504,16 @@ function onExpenseTypeChange() {
 
 function onVoucherTypeChange() {
   checkSinComprobante();
+  // Mostrar retención 4ta solo para Recibo por Honorarios
+  const voucher = document.getElementById('gVoucherType').value;
+  const div4ta = document.getElementById('retencion4taDiv');
+  if (voucher === 'Recibo') {
+    div4ta.classList.remove('d-none');
+  } else {
+    div4ta.classList.add('d-none');
+    document.getElementById('gRetencion4ta').checked = false;
+    document.getElementById('retencion4taDetalle').classList.add('d-none');
+  }
 }
 
 function checkSinComprobante() {
@@ -481,18 +531,23 @@ function guardarGasto() {
   const bankCode = document.getElementById('gBankAccountCode').value || null;
   const amountUsdRaw = document.getElementById('gAmountUsd').value;
 
+  const ret4ta      = document.getElementById('gRetencion4ta').checked;
+  const retMontoRaw = document.getElementById('gRetencionMonto').value;
+
   const payload = {
-    expense_date:      document.getElementById('gExpenseDate').value,
-    expense_type:      document.getElementById('gExpenseType').value,
-    category:          document.getElementById('gCategory').value,
-    description:       document.getElementById('gDescription').value.trim(),
-    amount_pen:        document.getElementById('gAmount').value,
-    voucher_type:      document.getElementById('gVoucherType').value,
-    voucher_number:    document.getElementById('gVoucherNumber').value.trim(),
-    supplier_ruc:      document.getElementById('gSupplierRuc').value.trim(),
-    supplier_name:     document.getElementById('gSupplierName').value.trim(),
-    bank_account_code: bankCode,
-    amount_usd:        (bankCode && _USD_ACCOUNTS.has(bankCode) && amountUsdRaw) ? parseFloat(amountUsdRaw) : null,
+    expense_date:        document.getElementById('gExpenseDate').value,
+    expense_type:        document.getElementById('gExpenseType').value,
+    category:            document.getElementById('gCategory').value,
+    description:         document.getElementById('gDescription').value.trim(),
+    amount_pen:          document.getElementById('gAmount').value,
+    voucher_type:        document.getElementById('gVoucherType').value,
+    voucher_number:      document.getElementById('gVoucherNumber').value.trim(),
+    supplier_ruc:        document.getElementById('gSupplierRuc').value.trim(),
+    supplier_name:       document.getElementById('gSupplierName').value.trim(),
+    bank_account_code:   bankCode,
+    amount_usd:          (bankCode && _USD_ACCOUNTS.has(bankCode) && amountUsdRaw) ? parseFloat(amountUsdRaw) : null,
+    retencion_4ta:       ret4ta,
+    retencion_4ta_monto: (ret4ta && retMontoRaw) ? parseFloat(retMontoRaw) : null,
   };
 
   if (!payload.description || !payload.amount_pen || parseFloat(payload.amount_pen) <= 0) {
