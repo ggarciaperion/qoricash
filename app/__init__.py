@@ -214,6 +214,23 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Migration] wa_bot_sessions crm columns: {e}")
 
+    # Migración: nombre_guardado y empresa_guardada en wa_bot_sessions
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text(
+                "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS "
+                "nombre_guardado VARCHAR(120) DEFAULT ''"
+            ))
+            db.session.execute(text(
+                "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS "
+                "empresa_guardada VARCHAR(200) DEFAULT ''"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] wa_bot_sessions contacto_guardado: {e}")
+
     # Migración: columnas tipo y origen en wa_messages
     try:
         with app.app_context():

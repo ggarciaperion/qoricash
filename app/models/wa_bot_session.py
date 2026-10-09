@@ -41,6 +41,9 @@ class WaBotSession(db.Model):
     assigned_to    = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     # Notas internas del asesor
     notas          = db.Column(db.Text, nullable=True)
+    # Contacto guardado manualmente por el asesor (prioridad sobre nombre auto-detectado)
+    nombre_guardado  = db.Column(db.String(120), default='', nullable=True)
+    empresa_guardada = db.Column(db.String(200), default='', nullable=True)
     # Intentos fallidos consecutivos en el estado actual (para ofrecer salida tras N errores)
     cotiz_intentos = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=now_peru, nullable=False)

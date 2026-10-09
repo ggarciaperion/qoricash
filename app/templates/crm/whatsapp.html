@@ -783,6 +783,15 @@ body.has-pb-bar.has-sidebar .main-wrapper {
   transition: background .2s;
 }
 #btnNota:hover { background: rgba(251,191,36,.3); }
+#btnGuardarContacto {
+  width: auto !important; height: 30px !important; border-radius: 15px !important;
+  padding: 0 12px !important; font-size: 11.5px; font-weight: 600;
+  white-space: nowrap; border: none !important; cursor: pointer;
+  background: rgba(0,222,168,.12); color: #00dea8;
+  box-shadow: 0 0 0 1px rgba(0,222,168,.3);
+  transition: background .2s;
+}
+#btnGuardarContacto:hover { background: rgba(0,222,168,.25); }
 /* Reset sesión — menos prominente */
 #btnResetSesion {
   background: none !important; border: none !important;
@@ -908,6 +917,10 @@ body.has-pb-bar.has-sidebar .main-wrapper {
           <button id="btnNota" onclick="abrirModalNota()" title="Agregar nota interna (no se envía al cliente)">
             📝 Nota
           </button>
+          <!-- Guardar contacto -->
+          <button id="btnGuardarContacto" onclick="abrirModalContacto()" title="Guardar nombre y empresa de este contacto">
+            ✏️ Contacto
+          </button>
           <!-- Reset sesión — menos prominente -->
           <button id="btnResetSesion" onclick="resetSesion()" title="Resetear sesión del bot">
             <i class="bi bi-arrow-counterclockwise"></i>
@@ -992,6 +1005,19 @@ body.has-pb-bar.has-sidebar .main-wrapper {
     <div class="crm-modal-actions">
       <button class="crm-modal-cancel" onclick="cerrarModalNota()">Cancelar</button>
       <button class="crm-modal-save" onclick="guardarNota()">Guardar nota</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal guardar contacto -->
+<div class="crm-modal-overlay" id="contactoModal">
+  <div class="crm-modal">
+    <h6>✏️ Guardar contacto</h6>
+    <input  id="contactoNombre"  type="text" placeholder="Nombre del contacto" style="width:100%;margin-bottom:8px;padding:8px 10px;border-radius:8px;border:1px solid #2a3942;background:#1e2a31;color:#e9edef;font-size:.9rem;">
+    <input  id="contactoEmpresa" type="text" placeholder="Empresa (opcional)"  style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2a3942;background:#1e2a31;color:#e9edef;font-size:.9rem;">
+    <div class="crm-modal-actions" style="margin-top:12px;">
+      <button class="crm-modal-cancel" onclick="cerrarModalContacto()">Cancelar</button>
+      <button class="crm-modal-save"   onclick="guardarContacto()">Guardar</button>
     </div>
   </div>
 </div>
@@ -1105,7 +1131,7 @@ function renderConvs() {
       <div class="crm-conv-avatar">${init}</div>
       <div class="crm-conv-body">
         <div class="crm-conv-top">
-          <span class="crm-conv-name">${esc(c.nombre || c.numero)}</span>
+          <span class="crm-conv-name">${esc(c.nombre || c.numero)}${c.nombre_guardado ? ' <span style=\"font-size:.6rem;color:#00dea8;vertical-align:middle;\" title=\"Contacto guardado\">✏️</span>' : ''}</span>
           <span class="crm-conv-time">${c.hora}</span>
         </div>
         <div class="crm-conv-bottom">
@@ -1293,6 +1319,45 @@ async function guardarNota() {
       cerrarModalNota();
       showToast('Nota guardada', 'ok');
       reloadChat();
+    } else {
+      showToast('Error: ' + (j.error || 'Intenta de nuevo'), 'error');
+    }
+  } catch(e) { showToast('Error de conexión', 'error'); }
+}
+
+function abrirModalContacto() {
+  if (!activeNum) return;
+  const conv = allConvs.find(c => c.numero === activeNum) || {};
+  document.getElementById('contactoNombre').value  = conv.nombre_guardado || (conv.nombre !== conv.numero ? conv.nombre : '') || '';
+  document.getElementById('contactoEmpresa').value = conv.empresa || '';
+  document.getElementById('contactoModal').classList.add('open');
+  setTimeout(() => document.getElementById('contactoNombre').focus(), 50);
+}
+
+function cerrarModalContacto() {
+  document.getElementById('contactoModal').classList.remove('open');
+}
+
+async function guardarContacto() {
+  const nombre  = document.getElementById('contactoNombre').value.trim();
+  const empresa = document.getElementById('contactoEmpresa').value.trim();
+  try {
+    const r = await fetch('/crm/api/guardar-contacto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+      body: JSON.stringify({ numero: activeNum, nombre, empresa }),
+    });
+    const j = await r.json();
+    if (j.ok) {
+      cerrarModalContacto();
+      showToast('Contacto guardado', 'success');
+      // Actualizar header inmediatamente
+      document.getElementById('chatName').textContent = nombre || activeNum;
+      document.getElementById('chatNum').textContent  = activeNum + (empresa ? ` · ${empresa}` : '');
+      const init = (nombre || activeNum).charAt(0).toUpperCase();
+      document.getElementById('chatAvatar').textContent = init;
+      // Refrescar sidebar
+      await loadConversaciones();
     } else {
       showToast('Error: ' + (j.error || 'Intenta de nuevo'), 'error');
     }

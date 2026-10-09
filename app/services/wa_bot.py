@@ -347,8 +347,18 @@ def _save_outgoing(numero, texto):
     if numero and not numero.startswith('+'):
         numero = '+' + numero
     try:
+        # Heredar nombre/empresa del historial para no perder el nombre en sidebar
+        prev = (WaMessage.query
+                .filter(WaMessage.numero == numero,
+                        WaMessage.nombre != '',
+                        WaMessage.nombre != None)
+                .order_by(WaMessage.id.desc())
+                .first())
+        nombre_h  = prev.nombre  if prev else ''
+        empresa_h = prev.empresa if prev else ''
         db.session.add(WaMessage(
-            numero=numero, mensaje=texto, direccion='saliente', leido=True
+            numero=numero, mensaje=texto, direccion='saliente', leido=True,
+            nombre=nombre_h, empresa=empresa_h,
         ))
         db.session.commit()
     except Exception as e:
@@ -1525,8 +1535,8 @@ def _flujo_mostrar_cotizacion(numero, session):
 
     # Aviso si estamos fuera del horario de atención
     if not _is_horario_atencion():
-        _proximo_h = _next_business_day()
-        resumen += f'\n\n⏰ _Fuera de horario. Las ops confirmadas ahora se procesan el {_proximo_h}._'
+        _proximo_h = _proxima_apertura()
+        resumen += f'\n\n⏰ _Fuera de horario. Si confirmas ahora, procesamos {_proximo_h}._'
 
     session.cotiz_tc = tc_final
     try:
@@ -1583,7 +1593,7 @@ def _flujo_como_funciona(numero):
         'de tu constancia bancaria (N° op, referencia o código de transacción).\n\n'
         '3️⃣ *¡Listo!* — En minutos transferimos a tu cuenta y te avisamos aquí por WhatsApp.\n\n'
         '🔒 Inscritos en SBS\n'
-        '🕐 Lun–Vie 9am–6pm · Sáb 9am–2pm'
+        '🕐 Lun–Dom 8am–10pm'
     )
     send_buttons_image(numero, BANNER_URL, msg, [
         {'id': 'btn_elegir_operacion', 'title': '💱 Cotizar'},
@@ -1595,9 +1605,7 @@ def _flujo_horario(numero):
     """Responde directamente con el horario de atención."""
     send_buttons(numero,
         '🕐 *Horario de atención Qoricash*\n\n'
-        '• Lunes a Viernes: *9:00 AM – 6:00 PM*\n'
-        '• Sábados: *9:00 AM – 2:00 PM*\n'
-        '• Domingos: cerrado\n\n'
+        '• Todos los días (incluye feriados): *8:00 AM – 10:00 PM*\n\n'
         'Puedes cotizar el tipo de cambio en cualquier momento 😊',
         [
             {'id': 'btn_cotizar', 'title': '💱 Cotizar ahora'},
@@ -2334,9 +2342,9 @@ def _flujo_op_creada(numero, op, session, client):
         aviso_plazo = '⏱ *Plazo:* 20 minutos para transferir.'
         aviso_horario = ''
     else:
-        proximo = _next_business_day()
-        aviso_plazo   = f'⏱ *Plazo:* hasta las 9:00 AM del {proximo}.'
-        aviso_horario = f'> 🕐 _Fuera de horario: procesaremos el {proximo} al inicio de operaciones._\n\n'
+        proximo = _proxima_apertura()
+        aviso_plazo   = f'⏱ *Plazo:* hasta {proximo}.'
+        aviso_horario = f'> 🕐 _Fuera de horario: procesaremos {proximo}._\n\n'
 
     OP_BANNER_URL = 'https://qoricash.pe/hj.png'
     msg = (
@@ -2457,9 +2465,9 @@ def _flujo_registrar_codigo_op(numero, codigo, session):
         log.info(f'[WaBot] {numero} envió código op {codigo} para {op.operation_id} → En proceso')
 
         if not _is_horario_atencion():
-            proximo = _next_business_day()
+            proximo = _proxima_apertura()
             send_text(numero,
-                f'> 🕐 _Fuera de horario: procesaremos el {proximo} al inicio de operaciones._'
+                f'> 🕐 _Fuera de horario: procesaremos {proximo}._'
             )
 
         send_text(numero,
@@ -3509,11 +3517,11 @@ def _respuesta_ia(texto_usuario, numero, session, wa_id=''):
         nombre_cliente = session.nombre or 'cliente'
         registrado     = bool(session.cotiz_doc)
         en_horario     = _is_horario_atencion()
-        horario_txt    = 'Lunes a viernes: 9:00 am – 6:00 pm | Sábados: 9:00 am – 2:00 pm'
+        horario_txt    = 'Todos los días, incluyendo feriados: 8:00 am – 10:00 pm'
         disponibilidad = (
             'en horario de atención'
             if en_horario else
-            'fuera de horario (la operación se registra y se procesa al inicio del siguiente día hábil)'
+            'fuera de horario (la operación se registra y se procesa cuando abramos, a las 8:00 AM)'
         )
 
         # Contexto estructurado de la sesión actual (estado, cotización, op, cuenta)
@@ -3678,19 +3686,11 @@ def _respuesta_ia(texto_usuario, numero, session, wa_id=''):
 def _is_horario_atencion():
     """
     Retorna True si estamos dentro del horario de atención:
-      Lun–Vie  09:00 – 18:00
-      Sábado   09:00 – 14:00
-      Domingo  cerrado
+      Lun–Dom  08:00 – 22:00  (incluye feriados nacionales)
     """
     from app.utils.formatters import now_peru
     now = now_peru()
-    day  = now.weekday()   # 0=Lun … 4=Vie, 5=Sáb, 6=Dom
-    hour = now.hour
-    if 0 <= day <= 4:          # Lun–Vie
-        return 9 <= hour < 18
-    if day == 5:               # Sábado
-        return 9 <= hour < 14
-    return False               # Domingo
+    return 8 <= now.hour < 22
 
 
 # Feriados nacionales Perú 2026 (fecha, mes)
@@ -3701,37 +3701,91 @@ _FERIADOS_PE = {
 
 
 def _next_business_day():
+    """Alias de compatibilidad para código existente."""
+    return _proxima_apertura()
+
+
+def _proxima_apertura():
     """
-    Retorna un string con el próximo día hábil (lun–vie, no feriado)
-    y la hora de apertura. Ejemplo: 'lunes 11 de agosto a las 9:00 AM'
+    Retorna un string con el próximo día de atención (cualquier día no feriado)
+    a las 8:00 AM. Ejemplo: 'mañana a las 8:00 AM' o 'el lunes 11 de agosto a las 8:00 AM'.
     """
     from app.utils.formatters import now_peru
     from datetime import timedelta
     DIAS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
     MESES = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
              'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
-    candidate = now_peru().date() + timedelta(days=1)
+    hoy = now_peru().date()
+    candidate = hoy + timedelta(days=1)
     for _ in range(14):  # máximo 2 semanas hacia adelante
-        wd = candidate.weekday()
         es_feriado = (candidate.day, candidate.month) in _FERIADOS_PE
-        if wd < 5 and not es_feriado:  # lun–vie, no feriado
-            nombre_dia = DIAS[wd]
-            return f'{nombre_dia} {candidate.day} de {MESES[candidate.month]} a las 9:00 AM'
+        if not es_feriado:
+            if candidate == hoy + timedelta(days=1):
+                return 'mañana a las 8:00 AM'
+            nombre_dia = DIAS[candidate.weekday()]
+            return f'el {nombre_dia} {candidate.day} de {MESES[candidate.month]} a las 8:00 AM'
         candidate += timedelta(days=1)
-    return 'el próximo día hábil a las 9:00 AM'
+    return 'el próximo día a las 8:00 AM'
 
 
 def _flujo_fuera_horario(numero):
-    """Notifica al cliente que el registro manual requiere horario de atención."""
+    """Notifica al cliente que está fuera del horario de atención."""
+    _proximo = _proxima_apertura()
     send_buttons(numero,
         '🕐 *Fuera de horario*\n\n'
-        'El proceso de registro requiere que nuestro equipo esté en línea para verificar tus datos.\n\n'
-        '• Lunes a Viernes: *9:00 AM – 6:00 PM*\n'
-        '• Sábados: *9:00 AM – 2:00 PM*\n\n'
-        'Mientras tanto puedes ver el tipo de cambio o hablar con un asesor 😊',
+        'Nuestro horario de atención es de *8:00 AM a 10:00 PM*, todos los días (incluye feriados).\n\n'
+        f'Retomamos {_proximo} 😊\n\n'
+        'Mientras tanto puedes cotizar el tipo de cambio o dejarnos tu solicitud.',
         [
             {'id': 'btn_cotizar', 'title': '💱 Ver tipo de cambio'},
             {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+        ]
+    )
+
+
+def _flujo_solicitud_fuera_horario(numero, session):
+    """
+    Fuera de horario: no crea operación. Guarda el intento en sesión,
+    notifica al equipo y confirma al cliente que lo atenderán al abrir.
+    """
+    from app.utils.formatters import now_peru
+    _proximo = _proxima_apertura()
+    _op   = session.cotiz_op or 'operación'
+    _imp  = float(session.cotiz_importe or 0)
+    _tc   = float(session.cotiz_tc or 0)
+    _doc  = session.cotiz_doc or ''
+    _nom  = session.nombre or 'cliente'
+
+    _op_label = 'Compra de USD' if _op == 'compra' else 'Venta de USD'
+    _imp_txt  = f'USD {_imp:,.0f}' if _imp >= 1 else 'monto por confirmar'
+    _tc_txt   = f'S/ {_tc:.4f}' if _tc > 0 else 'TC por confirmar'
+
+    # Notificar al equipo (WA + email)
+    _msg_equipo = (
+        f'📋 *Solicitud fuera de horario*\n'
+        f'Cliente: {_nom} ({_doc or numero})\n'
+        f'Operación: {_op_label} · {_imp_txt} · {_tc_txt}\n'
+        f'WA: {numero}\n'
+        f'Hora: {now_peru().strftime("%d/%m/%Y %H:%M")} (PET)'
+    )
+    _notificar_admins_wa(_msg_equipo)
+    _notificar_admins_email(
+        'Solicitud WA fuera de horario',
+        f'{_op_label} — {_imp_txt} — {_nom} ({_doc or numero})'
+    )
+
+    session.estado = 'solicitud_registrada'
+
+    send_buttons(numero,
+        f'✅ *Solicitud registrada*\n\n'
+        f'Recibimos tu intención de cambio:\n'
+        f'› *{_op_label}*: {_imp_txt} a {_tc_txt}\n\n'
+        f'Estamos fuera de horario en este momento. Te contactaremos {_proximo} para '
+        f'completar tu operación. No necesitarás repetir tus datos 😊\n\n'
+        f'Si el tipo de cambio cambia al abrir, te avisaremos antes de proceder.',
+        [
+            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+            {'id': 'btn_cancelar_cotiz', 'title': '❌ Cancelar solicitud'},
         ]
     )
 
@@ -4025,9 +4079,32 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     )
                     session.estado = 'eligiendo_operacion'
                 else:
-                    # Tiene ambos perfiles (o ninguno) → bienvenida normal
-                    _bienvenida(numero, session)
-                    session.estado = 'eligiendo_operacion'
+                    # Tiene ambos perfiles (o ninguno) → el botón dice "TC para empresa"
+                    # → ir directo al flujo empresa sin re-mostrar bienvenida.
+                    if _empresas_cp:
+                        if len(_empresas_cp) == 1:
+                            _e1_cp = _empresas_cp[0]
+                            _razon1_cp = (_e1_cp.razon_social or '').strip() or _e1_cp.dni
+                            session.tipo      = 'empresa'
+                            session.cotiz_doc = _e1_cp.dni
+                            session.nombre    = _razon1_cp
+                            _flujo_menu_operacion_empresa(numero, _razon1_cp,
+                                tercera_opcion={'id': 'btn_como_persona', 'title': '👤 Volver a personal'})
+                        else:
+                            _botones_cp2 = []
+                            for _e_cp in _empresas_cp[:2]:
+                                _r_cp = (_e_cp.razon_social or _e_cp.dni or '')[:16]
+                                _botones_cp2.append({'id': f'btn_operar_empresa_{_e_cp.dni}', 'title': f'🏢 {_r_cp}'[:20]})
+                            _botones_cp2.append({'id': 'btn_como_persona', 'title': '👤 Volver a personal'})
+                            send_buttons(numero, '¿A nombre de qué empresa deseas operar?', _botones_cp2[:3])
+                        session.estado = 'eligiendo_operacion'
+                    else:
+                        # Sin empresa → pedir RUC
+                        session.tipo = 'empresa'
+                        send_text(numero,
+                            '🏢 Para operar como empresa, ingresa el *RUC* de 11 dígitos de tu empresa:'
+                        )
+                        session.estado = 'esperando_ruc_cotizar'
 
             elif btn_id == 'btn_como_persona':
                 # Si el teléfono ya tiene persona registrada → comprometer directamente
@@ -4040,8 +4117,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     session.tipo      = 'persona'
                     session.cotiz_doc = _persona_bp.dni
                     session.nombre    = primer_bp or (_persona_bp.full_name or '').strip()
+                    # Sin saludo: ya se saludó en _bienvenida. Ir directo a la pregunta.
                     send_buttons(numero,
-                        f'¡Hola, {primer_bp}! 👋\n\n¿Qué operación cotizamos hoy?' if primer_bp else '¿Qué operación cotizamos hoy?',
+                        '¿Qué operación deseas cotizar?\n> Elige una opción 👇',
                         [
                             {'id': 'btn_comprar',        'title': 'Soles a dólares'},
                             {'id': 'btn_vender',         'title': 'Dólares a soles'},
@@ -4053,7 +4131,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     session.tipo      = 'persona'
                     session.cotiz_doc = ''
                     send_buttons(numero,
-                        '👤 Perfecto, operas como persona natural.\n\n¿Qué operación cotizamos hoy?',
+                        '👤 Cotizarás como persona natural.\n\n¿Qué operación deseas realizar?',
                         [
                             {'id': 'btn_comprar',        'title': 'Soles a dólares'},
                             {'id': 'btn_vender',         'title': 'Dólares a soles'},
@@ -4063,40 +4141,41 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 session.estado = 'eligiendo_operacion'
 
             elif btn_id == 'btn_como_empresa':
-                # Usuario eligió "Como empresa" — consulta empresas vinculadas antes de pedir RUC
+                # Usuario eligió "Como empresa" — viene del selector persona/empresa en bienvenida
+                # (significa que tiene persona + empresa registradas → ofrecer "Volver a personal")
                 session.tipo = 'empresa'
-                _empresas_ce = [c for c in _buscar_clientes_por_telefono_saludo(numero)
-                                if (c.document_type or '').upper() == 'RUC']
+                _todos_ce = _buscar_clientes_por_telefono_saludo(numero)
+                _empresas_ce = [c for c in _todos_ce if (c.document_type or '').upper() == 'RUC']
+                _personas_ce = [c for c in _todos_ce if (c.document_type or '').upper() in ('DNI', 'CE')]
+                _btn_volver = {'id': 'btn_como_persona', 'title': '👤 Volver a personal'} if _personas_ce else {'id': 'btn_otra_empresa', 'title': '➕ Nueva empresa'}
                 if len(_empresas_ce) == 1:
                     _emp_ce = _empresas_ce[0]
                     _razon_ce = (_emp_ce.razon_social or '').strip() or _emp_ce.dni
                     session.cotiz_doc = _emp_ce.dni
                     session.nombre    = _razon_ce
-                    _flujo_menu_operacion_empresa(numero, _razon_ce,
-                        tercera_opcion={'id': 'btn_otra_empresa', 'title': '🏢 Nueva empresa'})
+                    _flujo_menu_operacion_empresa(numero, _razon_ce, tercera_opcion=_btn_volver)
                     session.estado = 'eligiendo_operacion'
                 elif len(_empresas_ce) == 2:
                     _botones_ce = []
                     for _emp_ce in _empresas_ce:
                         _razon_ce = (_emp_ce.razon_social or '').strip() or _emp_ce.dni
                         _botones_ce.append({'id': f'btn_operar_empresa_{_emp_ce.dni}', 'title': f'🏢 {_razon_ce}'[:20]})
-                    _botones_ce.append({'id': 'btn_otra_empresa', 'title': '➕ Nueva empresa'})
-                    send_buttons(numero,
-                        '¿A nombre de qué empresa deseas operar?',
-                        _botones_ce
-                    )
+                    _botones_ce.append(_btn_volver)
+                    send_buttons(numero, '¿A nombre de qué empresa deseas operar?', _botones_ce)
+                    session.estado = 'eligiendo_operacion'
                 elif len(_empresas_ce) >= 3:
                     _rows_ce = [
                         {'id': f'btn_operar_empresa_{_e.dni}',
                          'title': ((_e.razon_social or '').strip() or _e.dni)[:24]}
                         for _e in _empresas_ce[:9]
                     ]
-                    _rows_ce.append({'id': 'btn_otra_empresa', 'title': '➕ Nueva empresa'})
+                    _rows_ce.append({'id': _btn_volver['id'], 'title': _btn_volver['title']})
                     send_list(numero,
                         '¿A nombre de qué empresa deseas operar?',
                         [{'title': 'Empresas vinculadas', 'rows': _rows_ce}],
                         button='🏢 Elegir empresa'
                     )
+                    session.estado = 'eligiendo_operacion'
                 else:
                     send_text(numero,
                         '🏢 Para mostrarte la *tasa corporativa* necesito verificar tu empresa.\n\n'
@@ -4113,8 +4192,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     session.cotiz_doc = _p_op.dni
                     _primer_op = (_p_op.nombres or '').strip().split()[0].title() if (_p_op.nombres or '').strip() else ''
                     session.nombre = _primer_op or (_p_op.full_name or '').strip()
-                    _msg_op = f'¡Hola, {_primer_op}! 👋\n\n¿Qué operación cotizamos hoy?' if _primer_op else '¿Qué operación cotizamos hoy?'
-                    send_buttons(numero, _msg_op, [
+                    # Sin saludo: ya se saludó en _bienvenida.
+                    send_buttons(numero, '¿Qué operación deseas cotizar?\n> Elige una opción 👇', [
                         {'id': 'btn_comprar',       'title': 'Soles a dólares'},
                         {'id': 'btn_vender',        'title': 'Dólares a soles'},
                         {'id': 'btn_cambiar_perfil','title': '🏢 TC para empresa'},
@@ -4273,7 +4352,10 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 _token_btn = btn_id[len(_prefix):] if len(btn_id) > len(_prefix) else ''
                 _token_ses = getattr(session, 'cotiz_token', None) or ''
                 _cotiz_stale = not _token_btn or not _token_ses or _token_btn != _token_ses
-                if _cotiz_stale:
+                if not _is_horario_atencion() and not _cotiz_stale and session.estado == 'viendo_cotizacion':
+                    # Fuera de horario: no crear op, dejar solicitud referencial
+                    _flujo_solicitud_fuera_horario(numero, session)
+                elif _cotiz_stale:
                     # Wrong token, no token, or superseded quote — reject silently
                     send_text(numero,
                         'Esta cotización ya fue reemplazada. Acepta la más reciente para continuar.'
@@ -5002,7 +5084,10 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 _sfx_co = btn_id[len('btn_confirmar_operacion'):]
                 _co_token = _sfx_co.lstrip('_')            # '' si botón antiguo sin token
                 _sesion_token = getattr(session, 'cotiz_token', None) or ''
-                if estado != 'confirmando_operacion':
+                if not _is_horario_atencion() and estado == 'confirmando_operacion':
+                    # Fuera de horario: no crear op, dejar solicitud referencial
+                    _flujo_solicitud_fuera_horario(numero, session)
+                elif estado != 'confirmando_operacion':
                     send_buttons(numero,
                         '⚠️ El resumen ya no está activo. ¿Quieres cotizar de nuevo?',
                         [
@@ -5073,7 +5158,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 session.cotiz_cuenta  = ''
                 session.estado        = 'eligiendo_operacion'
                 # Re-comprometer perfil desde BD para no pedir identificación de nuevo
-                _recomprometer_perfil(numero, session)
+                _comprometido_vi = _recomprometer_perfil(numero, session)
                 if session.tipo == 'empresa' and session.cotiz_doc:
                     _flujo_menu_operacion_empresa(numero, session.nombre)
                 elif session.tipo == 'persona' and session.cotiz_doc:
@@ -5085,6 +5170,27 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             {'id': 'btn_cambiar_perfil','title': '🏢 TC para empresa'},
                         ]
                     )
+                elif not _comprometido_vi:
+                    # Multi-perfil (persona + empresa): mostrar selector sin re-saludar
+                    _todos_vi = _buscar_clientes_por_telefono_saludo(numero)
+                    _pers_vi = [c for c in _todos_vi if (c.document_type or '').upper() in ('DNI', 'CE')]
+                    _emps_vi = [c for c in _todos_vi if (c.document_type or '').upper() == 'RUC']
+                    if _pers_vi and _emps_vi:
+                        send_buttons(numero,
+                            '¿Deseas cotizar como persona o como empresa?',
+                            [
+                                {'id': 'btn_como_persona', 'title': '👤 Como persona'},
+                                {'id': 'btn_como_empresa',  'title': '🏢 Como empresa'},
+                            ]
+                        )
+                    elif _emps_vi:
+                        _opciones_vi = []
+                        for _e_vi in _emps_vi[:3]:
+                            _r_vi = (_e_vi.razon_social or _e_vi.dni or '')[:16]
+                            _opciones_vi.append({'id': f'btn_operar_empresa_{_e_vi.dni}', 'title': f'🏢 {_r_vi}'[:20]})
+                        send_buttons(numero, '¿A nombre de qué empresa deseas operar?', _opciones_vi)
+                    else:
+                        _flujo_cotizar_inicio(numero)
                 else:
                     _flujo_cotizar_inicio(numero)
 
@@ -6395,6 +6501,41 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             # no tenga que enviar otro mensaje.
                             send_text(numero, msg)
                         session.estado = 'op_pendiente_pago'
+
+            elif estado == 'solicitud_registrada':
+                # Cliente escribe algo mientras espera apertura
+                if _is_horario_atencion():
+                    # Ya abrimos: ofrecer retomar cotización
+                    _op_sr   = session.cotiz_op or ''
+                    _imp_sr  = float(session.cotiz_importe or 0)
+                    _tc_sr   = float(session.cotiz_tc or 0)
+                    if _op_sr and _imp_sr >= 1 and _tc_sr > 0:
+                        _op_label_sr = 'compra de USD' if _op_sr == 'compra' else 'venta de USD'
+                        send_buttons(numero,
+                            f'¡Buenos días! 😊 Ya estamos en horario de atención.\n\n'
+                            f'Tienes una solicitud pendiente:\n'
+                            f'› *{_op_label_sr.capitalize()}*: USD {_imp_sr:,.0f} a S/ {_tc_sr:.4f}\n\n'
+                            '¿Continuamos con esta operación?',
+                            [
+                                {'id': 'btn_cotizar',           'title': '✅ Sí, retomar'},
+                                {'id': 'btn_elegir_operacion',  'title': '🔄 Nueva cotización'},
+                                {'id': 'btn_asesor',            'title': '💬 Hablar con asesor'},
+                            ]
+                        )
+                    else:
+                        # Sin datos de cotización: ir directo al menú
+                        _bienvenida(numero, session)
+                        session.estado = 'menu_mostrado'
+                else:
+                    _proximo_sr = _proxima_apertura()
+                    send_buttons(numero,
+                        f'🕐 Tu solicitud sigue registrada.\n\n'
+                        f'Te atenderemos {_proximo_sr}. No necesitas repetir tus datos 😊',
+                        [
+                            {'id': 'btn_asesor',         'title': '💬 Hablar con asesor'},
+                            {'id': 'btn_cancelar_cotiz', 'title': '❌ Cancelar solicitud'},
+                        ]
+                    )
 
             elif estado == 'esperando_email':
                 email = texto.strip()

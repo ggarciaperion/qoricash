@@ -112,7 +112,7 @@ def api_conversaciones():
         rows = (
             db.session.query(WaMessage)
             .join(sub, WaMessage.id == sub.c.last_id)
-            .order_by(WaMessage.created_at.desc())
+            .order_by(WaMessage.id.desc())
             .all()
         )
         no_leidos = (
@@ -140,7 +140,7 @@ def api_conversaciones():
             .all()
         }
 
-        # Cargar estados de atención por número
+        # Cargar estados de atención + contacto guardado por número
         from app.models.wa_bot_session import WaBotSession
         from app.models.user import User
         sesiones = WaBotSession.query.with_entities(
@@ -148,6 +148,8 @@ def api_conversaciones():
             WaBotSession.estado_atencion,
             WaBotSession.assigned_to,
             WaBotSession.bot_pausado,
+            WaBotSession.nombre_guardado,
+            WaBotSession.empresa_guardada,
         ).all()
         sesion_map = {s.numero: s for s in sesiones}
 
@@ -156,6 +158,9 @@ def api_conversaciones():
         users_map = {}
         if assigned_ids:
             users_map = {u.id: u.username for u in User.query.filter(User.id.in_(assigned_ids)).all()}
+
+        # Mapa last_id → para sort secundario determinista
+        last_id_map = {m.numero: m.id for m in rows}
 
         result = []
         for m in rows:
@@ -167,13 +172,19 @@ def api_conversaciones():
             else:
                 estado = 'nuevo'
             ses = sesion_map.get(num)
-            estado_atencion = getattr(ses, 'estado_atencion', 'bot') if ses else 'bot'
-            assigned_to     = getattr(ses, 'assigned_to', None) if ses else None
-            assigned_name   = users_map.get(assigned_to, '') if assigned_to else ''
+            estado_atencion  = getattr(ses, 'estado_atencion', 'bot') if ses else 'bot'
+            assigned_to      = getattr(ses, 'assigned_to', None) if ses else None
+            assigned_name    = users_map.get(assigned_to, '') if assigned_to else ''
+            nombre_guardado  = (getattr(ses, 'nombre_guardado', '') or '') if ses else ''
+            empresa_guardada = (getattr(ses, 'empresa_guardada', '') or '') if ses else ''
+            # Nombre: guardado manualmente tiene prioridad; luego el del mensaje; luego número
+            nombre_disp  = nombre_guardado  or m.nombre  or num
+            empresa_disp = empresa_guardada or m.empresa or ''
             result.append({
                 'numero':          num,
-                'nombre':          m.nombre or num,
-                'empresa':         m.empresa,
+                'nombre':          nombre_disp,
+                'empresa':         empresa_disp,
+                'nombre_guardado': nombre_guardado,
                 'ultimo':          m.mensaje[:60] + ('...' if len(m.mensaje) > 60 else ''),
                 'hora':            _fmt_hora_conv(m.created_at),
                 'direccion':       m.direccion,
@@ -182,15 +193,17 @@ def api_conversaciones():
                 'estado_atencion': estado_atencion,
                 'assigned_to':     assigned_to,
                 'assigned_name':   assigned_name,
+                'last_id':         m.id,
             })
 
-        # Ordenar: esperando > no leídos > resto (fecha más reciente dentro de cada grupo)
+        # Ordenar: esperando > no leídos > resto; secundario: last_id desc (determinista)
         def _sort_key(x):
+            lid = -x['last_id']
             if x['estado_atencion'] == 'esperando':
-                return 0
+                return (0, lid)
             if x['no_leidos'] > 0:
-                return 1
-            return 2
+                return (1, lid)
+            return (2, lid)
         result.sort(key=_sort_key)
         return jsonify(result)
     except Exception as e:
@@ -1810,6 +1823,40 @@ def api_nota():
     db.session.commit()
     log.info(f'[CRM] Nota interna guardada en {numero} por {current_user.username}')
     return jsonify({'ok': True, 'nota': nota.to_dict()})
+
+
+# ── API — Guardar contacto (nombre/empresa manual) ──────────────
+@crm_bp.route('/api/guardar-contacto', methods=['POST'])
+@login_required
+@require_role('Master')
+def api_guardar_contacto():
+    """Guarda nombre y empresa asignados manualmente a un número."""
+    from app.models.wa_bot_session import WaBotSession
+    data    = request.get_json() or {}
+    numero  = data.get('numero', '').strip()
+    nombre  = data.get('nombre', '').strip()
+    empresa = data.get('empresa', '').strip()
+    if not numero:
+        return jsonify({'ok': False, 'error': 'numero requerido'}), 400
+    try:
+        ses = WaBotSession.query.filter_by(numero=numero).first()
+        if not ses:
+            ses = WaBotSession(numero=numero, estado='inicio')
+            db.session.add(ses)
+        ses.nombre_guardado  = nombre
+        ses.empresa_guardada = empresa
+        # Propagar a mensajes del historial si los existentes tienen nombre vacío
+        if nombre:
+            WaMessage.query.filter(
+                WaMessage.numero == numero,
+                (WaMessage.nombre == None) | (WaMessage.nombre == '')
+            ).update({'nombre': nombre, 'empresa': empresa})
+        db.session.commit()
+        log.info(f'[CRM] Contacto guardado {numero} → {nombre} / {empresa} por {current_user.username}')
+        return jsonify({'ok': True, 'nombre': nombre, 'empresa': empresa})
+    except Exception as e:
+        log.error(f'[CRM] Error guardando contacto {numero}: {e}')
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 
 # ── Limpieza historial WA anterior a julio 2026 ───────────────────
