@@ -1,0 +1,410 @@
+{% extends "base.html" %}
+{% block title %}Campaña WA — QoriCash{% endblock %}
+
+{% block head %}
+<style>
+.cw-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+.cw-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.cw-header h1 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+.cw-header .cw-subtitle {
+  font-size: .8rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+.cw-refresh-btn {
+  margin-left: auto;
+  background: #196BFE;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background .15s;
+}
+.cw-refresh-btn:hover { background: #1058d4; }
+
+/* ── Stats cards ── */
+.cw-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.cw-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,.04);
+}
+.cw-card .cw-card-label {
+  font-size: .72rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 6px;
+}
+.cw-card .cw-card-val {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+}
+.cw-card.seq-0  .cw-card-val { color: #64748b; }
+.cw-card.seq-1  .cw-card-val { color: #196BFE; }
+.cw-card.seq-2  .cw-card-val { color: #7c3aed; }
+.cw-card.seq-3  .cw-card-val { color: #d97706; }
+.cw-card.seq-4  .cw-card-val { color: #16a34a; }
+.cw-card.opt-out .cw-card-val { color: #dc2626; }
+.cw-card.pausados .cw-card-val { color: #f59e0b; }
+
+/* ── Sections ── */
+.cw-section {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.04);
+}
+.cw-section-head {
+  padding: 14px 18px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+}
+.cw-section-head h2 {
+  font-size: .9rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+.cw-section-head .cw-count {
+  background: #196BFE;
+  color: #fff;
+  font-size: .7rem;
+  font-weight: 700;
+  border-radius: 20px;
+  padding: 2px 8px;
+  margin-left: auto;
+}
+
+/* ── Tables ── */
+.cw-table-wrap { overflow-x: auto; }
+table.cw-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .8rem;
+}
+table.cw-table th {
+  padding: 8px 14px;
+  text-align: left;
+  font-size: .7rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+table.cw-table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  vertical-align: middle;
+}
+table.cw-table tr:last-child td { border-bottom: none; }
+table.cw-table tr:hover td { background: #f8fafc; }
+
+/* ── Badges ── */
+.seq-badge {
+  display: inline-block;
+  font-size: .68rem;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 2px 7px;
+  color: #fff;
+}
+.seq-badge.s0 { background: #94a3b8; }
+.seq-badge.s1 { background: #196BFE; }
+.seq-badge.s2 { background: #7c3aed; }
+.seq-badge.s3 { background: #d97706; }
+.seq-badge.s4 { background: #16a34a; }
+
+/* ── Pause btn ── */
+.btn-pause {
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: .72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.btn-pause:hover { opacity: .8; }
+.btn-pause.pausar { background: #fef3c7; color: #92400e; }
+.btn-pause.reanudar { background: #dcfce7; color: #166534; }
+
+/* ── Empty ── */
+.cw-empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: #94a3b8;
+  font-size: .82rem;
+}
+.cw-empty i { font-size: 1.8rem; display: block; margin-bottom: 8px; }
+
+/* ── Toast ── */
+#cwToast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #0f172a;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: .82rem;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s;
+  z-index: 9999;
+}
+#cwToast.show { opacity: 1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cw-page">
+
+  <div class="cw-header">
+    <div style="width:36px;height:36px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;border:1px solid #bfdbfe;flex-shrink:0;">
+      <i class="bi bi-megaphone" style="color:#196BFE;font-size:1.1rem;"></i>
+    </div>
+    <div>
+      <h1>Campaña WA — Monitoreo</h1>
+      <div class="cw-subtitle">Reactivación de clientes via WhatsApp · actualizado <span id="ultimaActualizacion">—</span></div>
+    </div>
+    <button class="cw-refresh-btn" onclick="cargarStats()">
+      <i class="bi bi-arrow-clockwise" id="refreshIcon"></i> Actualizar
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="cw-stats" id="statsGrid">
+    <div class="cw-card seq-0">
+      <div class="cw-card-label">Seq 0 — Sin enviar</div>
+      <div class="cw-card-val" id="s0">—</div>
+    </div>
+    <div class="cw-card seq-1">
+      <div class="cw-card-label">Seq 1 — 1er envío</div>
+      <div class="cw-card-val" id="s1">—</div>
+    </div>
+    <div class="cw-card seq-2">
+      <div class="cw-card-label">Seq 2 — +15 días</div>
+      <div class="cw-card-val" id="s2">—</div>
+    </div>
+    <div class="cw-card seq-3">
+      <div class="cw-card-label">Seq 3 — +45 días</div>
+      <div class="cw-card-val" id="s3">—</div>
+    </div>
+    <div class="cw-card seq-4">
+      <div class="cw-card-label">Seq 4 — Completa</div>
+      <div class="cw-card-val" id="s4">—</div>
+    </div>
+    <div class="cw-card opt-out">
+      <div class="cw-card-label">Opt-out</div>
+      <div class="cw-card-val" id="sOptOut">—</div>
+    </div>
+    <div class="cw-card pausados">
+      <div class="cw-card-label">En pausa</div>
+      <div class="cw-card-val" id="sPausados">—</div>
+    </div>
+  </div>
+
+  <!-- Enviados hoy -->
+  <div class="cw-section">
+    <div class="cw-section-head">
+      <i class="bi bi-send" style="color:#196BFE;"></i>
+      <h2>Enviados hoy</h2>
+      <span class="cw-count" id="countHoy">0</span>
+    </div>
+    <div class="cw-table-wrap">
+      <table class="cw-table">
+        <thead>
+          <tr>
+            <th>Hora</th>
+            <th>Número</th>
+            <th>Nombre</th>
+            <th>Empresa</th>
+            <th>Mensaje</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyHoy">
+          <tr><td colspan="5" class="cw-empty"><i class="bi bi-hourglass-split"></i>Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pausados -->
+  <div class="cw-section">
+    <div class="cw-section-head">
+      <i class="bi bi-pause-circle" style="color:#f59e0b;"></i>
+      <h2>Contactos en pausa manual</h2>
+      <span class="cw-count" id="countPausados" style="background:#f59e0b;">0</span>
+    </div>
+    <div class="cw-table-wrap">
+      <table class="cw-table">
+        <thead>
+          <tr>
+            <th>Número</th>
+            <th>Nombre</th>
+            <th>Empresa</th>
+            <th>Seq</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyPausados">
+          <tr><td colspan="5" class="cw-empty"><i class="bi bi-hourglass-split"></i>Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div id="cwToast"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toast(msg, ok = true) {
+  const t = document.getElementById('cwToast');
+  t.textContent = msg;
+  t.style.background = ok ? '#0f172a' : '#dc2626';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function seqBadge(n) {
+  return `<span class="seq-badge s${n}">Seq ${n}</span>`;
+}
+
+async function cargarStats() {
+  const icon = document.getElementById('refreshIcon');
+  icon.style.animation = 'spin 1s linear infinite';
+  try {
+    const r = await fetch('/crm/api/wa-campana-stats', {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if (!d.ok) throw new Error('API error');
+
+    // Secuencias
+    [0,1,2,3,4].forEach(i => {
+      const el = document.getElementById('s' + i);
+      if (el) el.textContent = (d.por_secuencia[String(i)] ?? '—');
+    });
+    document.getElementById('sOptOut').textContent   = d.total_opt_out ?? '—';
+    document.getElementById('sPausados').textContent = d.total_pausados ?? '—';
+
+    // Enviados hoy
+    const tbody = document.getElementById('tbodyHoy');
+    document.getElementById('countHoy').textContent = d.enviados_hoy.length;
+    if (!d.enviados_hoy.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="cw-empty"><i class="bi bi-inbox"></i>Sin envíos de campaña hoy</td></tr>`;
+    } else {
+      tbody.innerHTML = d.enviados_hoy.map(e => `
+        <tr>
+          <td style="white-space:nowrap;font-weight:600;color:#196BFE;">${e.hora}</td>
+          <td style="font-family:monospace;">${e.numero}</td>
+          <td>${e.nombre || '—'}</td>
+          <td>${e.empresa || '—'}</td>
+          <td style="color:#64748b;font-size:.75rem;">${e.mensaje}</td>
+        </tr>`).join('');
+    }
+
+    // Pausados
+    const tbodyP = document.getElementById('tbodyPausados');
+    document.getElementById('countPausados').textContent = d.pausadas.length;
+    if (!d.pausadas.length) {
+      tbodyP.innerHTML = `<tr><td colspan="5" class="cw-empty"><i class="bi bi-check-circle"></i>No hay contactos en pausa</td></tr>`;
+    } else {
+      tbodyP.innerHTML = d.pausadas.map(p => `
+        <tr>
+          <td style="font-family:monospace;">${p.numero}</td>
+          <td>${p.nombre}</td>
+          <td>${p.empresa}</td>
+          <td>${seqBadge(p.seq)}</td>
+          <td>
+            <button class="btn-pause reanudar" onclick="togglePausa('${p.numero}', false, this)">
+              <i class="bi bi-play-fill"></i> Reanudar
+            </button>
+          </td>
+        </tr>`).join('');
+    }
+
+    document.getElementById('ultimaActualizacion').textContent =
+      new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+
+  } catch(e) {
+    toast('Error cargando estadísticas: ' + e.message, false);
+  } finally {
+    icon.style.animation = '';
+  }
+}
+
+async function togglePausa(numero, pausar, btn) {
+  btn.disabled = true;
+  try {
+    const r = await fetch('/crm/api/wa-campana-pausar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ numero, pausar }),
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'Error');
+    toast(pausar ? `Campaña pausada para ${numero}` : `Campaña reanudada para ${numero}`);
+    setTimeout(cargarStats, 400);
+  } catch(e) {
+    toast('Error: ' + e.message, false);
+    btn.disabled = false;
+  }
+}
+
+// Spin animation
+const st = document.createElement('style');
+st.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+document.head.appendChild(st);
+
+// Carga inicial
+cargarStats();
+// Auto-refresh cada 60s
+setInterval(cargarStats, 60000);
+</script>
+{% endblock %}

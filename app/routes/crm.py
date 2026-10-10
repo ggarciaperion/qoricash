@@ -727,13 +727,26 @@ def webhook_receive():
         log.info(f'[CRM Webhook] {len(messages)} mensaje(s) recibido(s)')
 
         # Si una conversación marcada como "resuelta" recibe nuevo mensaje, resetear estado
+        # También detectar opt-out de campaña WA (palabras clave de baja)
+        _OPT_OUT_KEYWORDS = {
+            'stop', 'detener', 'parar', 'baja', 'no me interesa',
+            'no gracias', 'salir', 'cancelar suscripcion', 'cancelar suscripción',
+            'no enviar', 'no más', 'no mas', 'eliminar', 'darme de baja',
+        }
         try:
             from app.models.wa_bot_session import WaBotSession
             for msg in messages:
-                _num = f"+{msg.get('from', '')}"
-                _ses = WaBotSession.query.filter_by(numero=_num).first()
-                if _ses and getattr(_ses, 'estado_atencion', '') == 'resuelto':
-                    _ses.estado_atencion = 'bot'
+                _num  = f"+{msg.get('from', '')}"
+                _ses  = WaBotSession.query.filter_by(numero=_num).first()
+                if _ses:
+                    if getattr(_ses, 'estado_atencion', '') == 'resuelto':
+                        _ses.estado_atencion = 'bot'
+                    # Opt-out de campaña
+                    if msg.get('type') == 'text':
+                        _txt_lower = msg.get('text', {}).get('body', '').strip().lower()
+                        if any(_kw in _txt_lower for _kw in _OPT_OUT_KEYWORDS):
+                            _ses.opt_out_wa = True
+                            log.info(f'[CRM-WA-CAMP] Opt-out automático registrado → {_num}')
             db.session.commit()
         except Exception as _er:
             log.warning(f'[CRM Webhook] Error reseteando estado resuelto: {_er}')
@@ -1886,5 +1899,301 @@ def api_limpiar_wa_historial():
     db.session.commit()
     log.info(f'[CRM] Limpieza WA: {msgs_del} mensajes, {sesiones_del} sesiones eliminadas')
     return jsonify({'ok': True, 'mensajes_eliminados': msgs_del, 'sesiones_eliminadas': sesiones_del})
+
+
+# ── API — Campaña de reactivación WA (clientes del chatbot) ──────
+
+@crm_bp.route('/api/wa-campana-clientes')
+@csrf.exempt
+def api_wa_campana_clientes():
+    """
+    Retorna sesiones WaBotSession elegibles para la campaña de reactivación WA.
+
+    Elegibilidad:
+      - opt_out_wa   IS NULL OR FALSE       (no pidió baja)
+      - campana_pausada IS NULL OR FALSE    (no está en pausa manual)
+      - bot_pausado  = FALSE                (sin conversación humana activa)
+      - estado_atencion != 'en_atencion'    (sin asesor atendiendo ahora)
+      - campana_secuencia < 4              (secuencia no agotada)
+      - Timing por secuencia:
+          seq=0 → elegible siempre (primer contacto)
+          seq=1 → campana_ultimo_envio >= 15 días
+          seq=2 → campana_ultimo_envio >= 30 días (45d totales)
+          seq=3 → campana_ultimo_envio >= 45 días (90d totales)
+      - Sin mensaje ENTRANTE desde campana_ultimo_envio (ya respondieron → parar)
+
+    Auth: X-API-Key header.
+    """
+    from app.models.wa_bot_session import WaBotSession
+
+    api_key = request.headers.get('X-API-Key', '')
+    if api_key != CRM_API_KEY:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    ahora = now_peru()
+
+    # Días de espera mínima entre mensajes por posición en secuencia
+    DIAS_ESPERA = {1: 15, 2: 30, 3: 45}
+
+    sesiones = WaBotSession.query.filter(
+        (WaBotSession.opt_out_wa.is_(None)   | (WaBotSession.opt_out_wa == False)),
+        (WaBotSession.campana_pausada.is_(None) | (WaBotSession.campana_pausada == False)),
+        WaBotSession.bot_pausado == False,
+        WaBotSession.estado_atencion != 'en_atencion',
+        (WaBotSession.campana_secuencia.is_(None) | (WaBotSession.campana_secuencia < 4)),
+    ).all()
+
+    # Números con mensaje entrante DESPUÉS de campana_ultimo_envio
+    # (significa que el contacto respondió → no enviar más en esta secuencia)
+    respondieron = set()
+    for s in sesiones:
+        if s.campana_ultimo_envio:
+            tiene_respuesta = WaMessage.query.filter(
+                WaMessage.numero == s.numero,
+                WaMessage.direccion == 'entrante',
+                WaMessage.created_at > s.campana_ultimo_envio,
+            ).first()
+            if tiene_respuesta:
+                respondieron.add(s.numero)
+
+    resultado = []
+    for s in sesiones:
+        if s.numero in respondieron:
+            continue
+
+        seq = s.campana_secuencia or 0
+        ultimo = s.campana_ultimo_envio
+
+        # Verificar timing
+        if seq > 0:
+            dias_min = DIAS_ESPERA.get(seq)
+            if dias_min is None:
+                continue  # seq >= 4, agotada
+            if not ultimo:
+                continue  # no debería pasar, pero seguro
+            dias_transcurridos = (ahora - ultimo).days
+            if dias_transcurridos < dias_min:
+                continue
+
+        nombre  = (s.nombre_guardado or s.nombre or '').strip() or 'Estimado/a'
+        empresa = (s.empresa_guardada or '').strip()
+
+        resultado.append({
+            'id':                   s.id,
+            'numero':               s.numero,
+            'nombre':               nombre,
+            'empresa':              empresa,
+            'campana_secuencia':    seq,
+            'campana_ultimo_envio': s.campana_ultimo_envio.isoformat() if s.campana_ultimo_envio else None,
+        })
+
+    return jsonify({'ok': True, 'total': len(resultado), 'contactos': resultado})
+
+
+@crm_bp.route('/api/wa-campana-clientes/registrar', methods=['POST'])
+@csrf.exempt
+def api_wa_campana_clientes_registrar():
+    """
+    Registra un envío exitoso de campaña de reactivación WA.
+    Actualiza campana_secuencia y campana_ultimo_envio en WaBotSession.
+    Guarda el mensaje como WaMessage saliente (origen='campaña').
+
+    Body JSON:
+      numero   : str  — número E.164 (+51XXXXXXXXX) o 9 dígitos
+      nombre   : str
+      empresa  : str
+      mensaje  : str  — texto del template enviado
+      secuencia: int  — número de secuencia ENVIADO (1-4)
+    """
+    from app.models.wa_bot_session import WaBotSession
+
+    api_key = request.headers.get('X-API-Key', '')
+    if api_key != CRM_API_KEY:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    data     = request.get_json(silent=True) or {}
+    numero   = (data.get('numero') or '').strip()
+    nombre   = (data.get('nombre') or '').strip()
+    empresa  = (data.get('empresa') or '').strip()
+    mensaje  = (data.get('mensaje') or '').strip()
+    secuencia = int(data.get('secuencia', 1))
+
+    if not numero or not mensaje:
+        return jsonify({'ok': False, 'error': 'Faltan datos'}), 400
+
+    # Normalizar a E.164
+    digits = ''.join(c for c in numero if c.isdigit())
+    if not digits.startswith('51'):
+        digits = f'51{digits}'
+    numero_e164 = f'+{digits}'
+
+    # Actualizar sesión
+    sesion = WaBotSession.query.filter_by(numero=numero_e164).first()
+    if sesion:
+        sesion.campana_secuencia    = secuencia
+        sesion.campana_ultimo_envio = now_peru()
+
+    # Guardar mensaje saliente
+    db.session.add(WaMessage(
+        numero    = numero_e164,
+        nombre    = nombre,
+        empresa   = empresa,
+        mensaje   = mensaje,
+        direccion = 'saliente',
+        leido     = True,
+        tipo      = 'mensaje',
+        origen    = 'campaña',
+    ))
+
+    db.session.commit()
+    log.info(f'[CRM-WA-CAMP] Registrado envío seq={secuencia} → {numero_e164} ({nombre})')
+    return jsonify({'ok': True})
+
+
+@crm_bp.route('/api/wa-campana-clientes/opt-out', methods=['POST'])
+@csrf.exempt
+def api_wa_campana_clientes_opt_out():
+    """
+    Marca un número como opt-out de la campaña de reactivación WA.
+    Puede llamarse desde el script de campaña cuando el contacto responde
+    con una palabra clave de baja (STOP, No me interesa, etc.).
+
+    Body JSON: { "numero": str }
+    """
+    from app.models.wa_bot_session import WaBotSession
+
+    api_key = request.headers.get('X-API-Key', '')
+    if api_key != CRM_API_KEY:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    data   = request.get_json(silent=True) or {}
+    numero = (data.get('numero') or '').strip()
+    if not numero:
+        return jsonify({'ok': False, 'error': 'Falta numero'}), 400
+
+    digits = ''.join(c for c in numero if c.isdigit())
+    if not digits.startswith('51'):
+        digits = f'51{digits}'
+    numero_e164 = f'+{digits}'
+
+    sesion = WaBotSession.query.filter_by(numero=numero_e164).first()
+    if not sesion:
+        return jsonify({'ok': False, 'error': 'Sesión no encontrada'}), 404
+
+    sesion.opt_out_wa = True
+    db.session.commit()
+    log.info(f'[CRM-WA-CAMP] Opt-out registrado → {numero_e164}')
+    return jsonify({'ok': True})
+
+
+# ── Panel de monitoreo — Campaña WA ──────────────────────────────
+
+@crm_bp.route('/campana-wa')
+@login_required
+def campana_wa_panel():
+    if current_user.role != 'Master':
+        abort(403)
+    return render_template('crm/campana_wa.html')
+
+
+@crm_bp.route('/api/wa-campana-stats')
+@csrf.exempt
+@login_required
+def api_wa_campana_stats():
+    """Retorna estadísticas de la campaña de reactivación WA para el panel."""
+    from app.models.wa_bot_session import WaBotSession
+
+    ahora     = now_peru()
+    hoy_start = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Totales por secuencia (excluye opt-outs)
+    por_seq = {}
+    for seq in range(5):
+        n = WaBotSession.query.filter(
+            WaBotSession.campana_secuencia == seq,
+            (WaBotSession.opt_out_wa.is_(None) | (WaBotSession.opt_out_wa == False)),
+        ).count()
+        por_seq[str(seq)] = n
+
+    total_opt_out  = WaBotSession.query.filter(WaBotSession.opt_out_wa == True).count()
+    total_pausados = WaBotSession.query.filter(WaBotSession.campana_pausada == True).count()
+
+    # Envíos de campaña del día (últimos 200)
+    enviados_hoy = WaMessage.query.filter(
+        WaMessage.origen == 'campaña',
+        WaMessage.created_at >= hoy_start,
+    ).order_by(WaMessage.created_at.desc()).limit(200).all()
+
+    enviados_hoy_list = [
+        {
+            'numero':  m.numero,
+            'nombre':  m.nombre or '',
+            'empresa': m.empresa or '',
+            'mensaje': m.mensaje[:100] if m.mensaje else '',
+            'hora':    m.created_at.strftime('%H:%M') if m.created_at else '',
+        }
+        for m in enviados_hoy
+    ]
+
+    # Sesiones en pausa manual
+    pausadas = WaBotSession.query.filter(
+        WaBotSession.campana_pausada == True,
+    ).order_by(WaBotSession.updated_at.desc()).limit(100).all()
+
+    pausadas_list = [
+        {
+            'id':      s.id,
+            'numero':  s.numero,
+            'nombre':  (s.nombre_guardado or s.nombre or '').strip() or '—',
+            'empresa': (s.empresa_guardada or '').strip() or '—',
+            'seq':     s.campana_secuencia or 0,
+        }
+        for s in pausadas
+    ]
+
+    return jsonify({
+        'ok':             True,
+        'por_secuencia':  por_seq,
+        'total_opt_out':  total_opt_out,
+        'total_pausados': total_pausados,
+        'enviados_hoy':   enviados_hoy_list,
+        'pausadas':       pausadas_list,
+    })
+
+
+@crm_bp.route('/api/wa-campana-pausar', methods=['POST'])
+@csrf.exempt
+@login_required
+def api_wa_campana_pausar():
+    """
+    Pausa o reanuda la campaña WA para un número específico.
+    Body JSON: { "numero": str, "pausar": bool }
+    """
+    if current_user.role != 'Master':
+        return jsonify({'ok': False, 'error': 'Forbidden'}), 403
+
+    from app.models.wa_bot_session import WaBotSession
+
+    data   = request.get_json(silent=True) or {}
+    numero = (data.get('numero') or '').strip()
+    pausar = bool(data.get('pausar', True))
+
+    if not numero:
+        return jsonify({'ok': False, 'error': 'Falta numero'}), 400
+
+    digits = ''.join(c for c in numero if c.isdigit())
+    if not digits.startswith('51'):
+        digits = f'51{digits}'
+    numero_e164 = f'+{digits}'
+
+    sesion = WaBotSession.query.filter_by(numero=numero_e164).first()
+    if not sesion:
+        return jsonify({'ok': False, 'error': 'Sesión no encontrada'}), 404
+
+    sesion.campana_pausada = pausar
+    db.session.commit()
+    accion = 'pausada' if pausar else 'reanudada'
+    log.info(f'[CRM-WA-CAMP] Campaña {accion} para {numero_e164} por {current_user.username}')
+    return jsonify({'ok': True, 'pausada': pausar})
 
 

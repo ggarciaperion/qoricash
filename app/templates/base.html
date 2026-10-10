@@ -125,6 +125,11 @@
                 <span class="sidebar-link-text">Chat Bot</span>
                 <span id="waBadge" class="sidebar-badge" style="display:none;">0</span>
             </a>
+            <a class="sidebar-link {% if request.endpoint == 'crm.campana_wa_panel' %}active{% endif %}"
+               href="{{ url_for('crm.campana_wa_panel') }}">
+                <i class="bi bi-megaphone"></i>
+                <span class="sidebar-link-text">Campaña WA</span>
+            </a>
             {% endif %}
 
             {% if current_user.role in ['Master', 'Presidente de Negocios', 'Trader'] %}
