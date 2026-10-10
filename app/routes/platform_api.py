@@ -500,44 +500,56 @@ def get_public_exchange_rates():
         }
     """
     try:
+        from app.models.datatec_rate import DatatecRate
         from app.models.exchange_rate import ExchangeRate
-        from datetime import datetime
 
-        # Obtener tipos de cambio desde la base de datos
+        # Fuente primaria: DatatecRate — el TC que el operador fija en el widget.
+        # Siempre fresco (actualizado manualmente cada día hábil) y es el precio
+        # oficial que Qoricash muestra y usa en prospección.
+        # Fallback: ExchangeRate (solo si DatatecRate tiene valores 0 o no existe).
+        compra = venta = None
+        fecha  = None
+
         try:
-            rate = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
+            dt = DatatecRate.get()
+            if dt and float(dt.compra) > 0 and float(dt.venta) > 0:
+                compra = float(dt.compra)
+                venta  = float(dt.venta)
+                fecha  = dt.updated_at.isoformat() if dt.updated_at else now_peru().isoformat()
+        except Exception as e:
+            logger.warning(f"[public/exchange-rates] DatatecRate error: {e}")
 
-            if rate:
-                return jsonify({
-                    'success': True,
-                    'data': {
-                        'tipo_compra': float(rate.buy_rate),
-                        'tipo_venta': float(rate.sell_rate),
-                        'fecha_actualizacion': rate.updated_at.isoformat() if rate.updated_at else None
-                    }
-                }), 200
-        except Exception as db_error:
-            logger.warning(f"Error al consultar base de datos: {str(db_error)}")
-            # Continuar con valores por defecto
+        if compra is None or venta is None:
+            try:
+                rate = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
+                if rate and float(rate.buy_rate) > 0:
+                    compra = float(rate.buy_rate)
+                    venta  = float(rate.sell_rate)
+                    fecha  = rate.updated_at.isoformat() if rate.updated_at else now_peru().isoformat()
+            except Exception as e:
+                logger.warning(f"[public/exchange-rates] ExchangeRate fallback error: {e}")
 
-        # Valores por defecto si no hay registros o si hay error en BD
+        if compra is not None and venta is not None:
+            return jsonify({
+                'success': True,
+                'data': {
+                    'tipo_compra': compra,
+                    'tipo_venta':  venta,
+                    'fecha_actualizacion': fecha,
+                }
+            }), 200
+
+        # Sin datos en BD — no retornar valores hardcodeados para evitar TC incorrecto
         return jsonify({
-            'success': True,
-            'data': {
-                'tipo_compra': 3.75,
-                'tipo_venta': 3.77,
-                'fecha_actualizacion': now_peru().isoformat()
-            }
-        }), 200
+            'success': False,
+            'error': 'TC no disponible',
+            'data': {'tipo_compra': None, 'tipo_venta': None, 'fecha_actualizacion': None}
+        }), 503
 
     except Exception as e:
         logger.error(f"Error al obtener tipos de cambio públicos: {str(e)}")
-        # Aún en caso de error, retornar valores por defecto
         return jsonify({
-            'success': True,
-            'data': {
-                'tipo_compra': 3.75,
-                'tipo_venta': 3.77,
-                'fecha_actualizacion': None
-            }
-        }), 200
+            'success': False,
+            'error': str(e),
+            'data': {'tipo_compra': None, 'tipo_venta': None, 'fecha_actualizacion': None}
+        }), 500

@@ -1,12 +1,12 @@
 """
 Agente 3: Prospecting Mail Agent — QoriCash
 Ejecuta campañas de email automáticas desde las 3 bandejas de QoriCash.
-Usa la plantilla oficial con imagen de encabezado y logos de bancos embebidos (CID).
+Emails sin imágenes CID (URLs hosted) para máxima entregabilidad.
 
 Límites:
-  - 1500 emails / bandeja / día (Google Workspace: 2000/día hard limit)
-  - Mañana  09:00–13:30: modo precios      — 100 emails/bandeja/ciclo (30 min)
-  - Tarde   13:30–18:00: modo prospección  —  50 emails/bandeja/ciclo (30 min)
+  - 150 emails / bandeja / día
+  - Mañana  09:00–13:30: modo precios      — 30 emails/bandeja/ciclo (30 min)
+  - Tarde   13:30–18:00: modo prospección  — 20 emails/bandeja/ciclo (30 min)
   - Horario: lunes a viernes, Lima (UTC-5)
 """
 import logging
@@ -16,7 +16,6 @@ import io
 from datetime import timedelta, timezone, date
 from email.mime.multipart import MIMEMultipart
 from email.mime.text      import MIMEText
-from email.mime.image     import MIMEImage
 from email.utils          import formatdate, make_msgid
 from .base import BaseAgent
 
@@ -45,7 +44,7 @@ _EXCLUDE_ESTADOS   = {'NO CONTACTAR', 'REBOTE', 'INVALIDO', 'cliente', 'P4', 'ne
 _EXCLUDE_EMAIL_EST = {'REBOTE', 'INVALIDO', 'NO CONTACTAR'}
 _DIAS_HABIL_ESPERA    = 5
 _CALENDAR_DAYS_APPROX = 7     # 5 días hábiles ≈ 7 calendario — filtro SQL previo
-_DAILY_LIMIT          = 1500  # límite diario por bandeja (Google Workspace: 2,000/día)
+_DAILY_LIMIT          = 150   # límite diario conservador para proteger reputación del dominio
 
 # Horario y modos de envío
 _HORA_INICIO      = 9.0    # 09:00 Lima
@@ -53,8 +52,8 @@ _HORA_CORTE       = 13.5   # 13:30 — fin modo precios, inicio modo prospecció
 _HORA_FIN_TARDE   = 18.0   # 18:00 — fin modo prospección
 
 # Batch sizes por modo (el cap _DAILY_LIMIT actúa de tope duro)
-_BATCH_MAÑANA     = 100    # agresivo: maximizar envíos en ventana de precios
-_BATCH_TARDE      = 50     # moderado: prospección de tarde
+_BATCH_MAÑANA     = 30     # conservador: proteger reputación del dominio
+_BATCH_TARDE      = 20     # conservador: prospección de tarde
 
 # Rutas de imágenes embebidas (relativas al módulo)
 _STATIC_IMAGES = os.path.join(
@@ -1211,8 +1210,8 @@ class MailAgent(BaseAgent):
             # Pasar solo IDs entre contextos (objetos SQLAlchemy no son seguros entre sesiones)
             ids_por_bandeja = {b: [p.id for p in por_bandeja.get(b, [])] for b in _BANDEJAS}
 
-        # Cargar imágenes una vez, compartidas entre las 3 greenlets (solo lectura)
-        img_cache = self._load_image_cache()
+        # img_cache ya no se usa (sin CID images) — se pasa vacío por compatibilidad
+        img_cache = {}
 
         # ── Fase 2: worker por bandeja ─────────────────────────────────────────
         worker_results = []
@@ -1469,33 +1468,53 @@ class MailAgent(BaseAgent):
                            subject: str, html: str, img_cache: dict,
                            solo_precios: bool = False) -> bool:
         """Envía un email usando el servicio Gmail pre-construido del ciclo.
-        Refresca el token solo si expiró (ciclos > 1h)."""
+        Sin imágenes CID — usa URLs hosted para máxima entregabilidad.
+        Incluye text/plain y headers anti-spam requeridos."""
+        import re as _re
         from google.auth.transport.requests import Request
 
         try:
             if creds.expired:
                 creds.refresh(Request())
 
-            msg_related = MIMEMultipart('related')
-            msg_related['From']       = sender
-            msg_related['To']         = to
-            msg_related['Subject']    = subject
-            msg_related['Date']       = formatdate(localtime=True)
-            msg_related['Message-ID'] = make_msgid(domain='qoricash.pe')
+            # Reemplazar referencias CID por URLs hosted
+            _BASE = 'https://app.qoricash.pe/static/images'
+            _CID_MAP = {
+                'cid:encabezado':    f'{_BASE}/encabezado_prospeccion.jpg',
+                'cid:logo_bcp':      f'{_BASE}/bcp_logo.png',
+                'cid:logo_interbank':f'{_BASE}/interbank_logo.png',
+                'cid:logo_banbif':   f'{_BASE}/banbif_logo.png',
+                'cid:logo_qori':     f'{_BASE}/logo-email-sm.png',
+            }
+            html_clean = html
+            for cid_ref, url in _CID_MAP.items():
+                html_clean = html_clean.replace(cid_ref, url)
 
-            msg_alt = MIMEMultipart('alternative')
-            msg_alt.attach(MIMEText(html, 'html'))
-            msg_related.attach(msg_alt)
+            # Generar versión texto plano (requerida anti-spam)
+            plain = _re.sub(r'<style[^>]*>.*?</style>', '', html_clean, flags=_re.DOTALL)
+            plain = _re.sub(r'<[^>]+>', ' ', plain)
+            plain = _re.sub(r'&nbsp;', ' ', plain)
+            plain = _re.sub(r'&[a-z]+;', '', plain)
+            plain = _re.sub(r' {2,}', ' ', plain)
+            plain = _re.sub(r'
+{3,}', '
 
-            for cid, (data, fname, tipo) in img_cache.items():
-                if solo_precios and cid == 'encabezado':
-                    continue  # solo precios usa header propio, no el banner
-                part = MIMEImage(data, tipo)
-                part.add_header('Content-ID', f'<{cid}>')
-                part.add_header('Content-Disposition', 'inline', filename=fname)
-                msg_related.attach(part)
+', plain).strip()
 
-            raw = base64.urlsafe_b64encode(msg_related.as_bytes()).decode()
+            msg = MIMEMultipart('alternative')
+            msg['From']                  = f'Qoricash <{sender}>'
+            msg['To']                    = to
+            msg['Subject']               = subject
+            msg['Date']                  = formatdate(localtime=True)
+            msg['Message-ID']            = make_msgid(domain='qoricash.pe')
+            msg['Precedence']            = 'bulk'
+            msg['List-Unsubscribe']      = f'<mailto:{sender}?subject=NO%20CONTACTAR>'
+            msg['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
+
+            msg.attach(MIMEText(plain,      'plain', 'utf-8'))
+            msg.attach(MIMEText(html_clean, 'html',  'utf-8'))
+
+            raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
             service.users().messages().send(userId='me', body={'raw': raw}).execute()
             return True
 
@@ -1505,6 +1524,8 @@ class MailAgent(BaseAgent):
 
     def _send_via_gmail(self, sender: str, to: str, subject: str, html: str,
                         solo_precios: bool = False) -> bool:
+        """Fallback: construye credenciales frescas y envía. Sin CID images."""
+        import re as _re
         try:
             from google.oauth2.credentials import Credentials
             from google.auth.transport.requests import Request
@@ -1528,37 +1549,43 @@ class MailAgent(BaseAgent):
             creds.refresh(Request())
             service = build('gmail', 'v1', credentials=creds)
 
-            # MIMEMultipart/related para soportar imágenes CID embebidas
-            msg_related = MIMEMultipart('related')
-            msg_related['From']       = sender
-            msg_related['To']         = to
-            msg_related['Subject']    = subject
-            msg_related['Date']       = formatdate(localtime=True)
-            msg_related['Message-ID'] = make_msgid(domain='qoricash.pe')
+            # Reemplazar CID por URLs hosted
+            _BASE = 'https://app.qoricash.pe/static/images'
+            _CID_MAP = {
+                'cid:encabezado':    f'{_BASE}/encabezado_prospeccion.jpg',
+                'cid:logo_bcp':      f'{_BASE}/bcp_logo.png',
+                'cid:logo_interbank':f'{_BASE}/interbank_logo.png',
+                'cid:logo_banbif':   f'{_BASE}/banbif_logo.png',
+                'cid:logo_qori':     f'{_BASE}/logo-email-sm.png',
+            }
+            html_clean = html
+            for cid_ref, url in _CID_MAP.items():
+                html_clean = html_clean.replace(cid_ref, url)
 
-            msg_alt = MIMEMultipart('alternative')
-            msg_alt.attach(MIMEText(html, 'html'))
-            msg_related.attach(msg_alt)
+            plain = _re.sub(r'<style[^>]*>.*?</style>', '', html_clean, flags=_re.DOTALL)
+            plain = _re.sub(r'<[^>]+>', ' ', plain)
+            plain = _re.sub(r'&nbsp;', ' ', plain)
+            plain = _re.sub(r'&[a-z]+;', '', plain)
+            plain = _re.sub(r' {2,}', ' ', plain)
+            plain = _re.sub(r'
+{3,}', '
 
-            # Adjuntar imágenes CID si los archivos existen
-            def _adjuntar(path: str, cid: str, fname: str, tipo: str):
-                if not os.path.exists(path):
-                    return
-                with open(path, 'rb') as f:
-                    part = MIMEImage(f.read(), tipo)
-                part.add_header('Content-ID', f'<{cid}>')
-                part.add_header('Content-Disposition', 'inline', filename=fname)
-                msg_related.attach(part)
+', plain).strip()
 
-            if not solo_precios:
-                _adjuntar(_IMG_ENCABEZADO, 'encabezado', 'encabezado.jpg', 'jpeg')
-            _adjuntar(_IMG_BCP,        'logo_bcp',      'bcp.png',        'png')
-            _adjuntar(_IMG_INTERBANK,  'logo_interbank','interbank.png',  'png')
-            _adjuntar(_IMG_BANBIF,     'logo_banbif',   'banbif.png',     'png')
+            msg = MIMEMultipart('alternative')
+            msg['From']                  = f'Qoricash <{sender}>'
+            msg['To']                    = to
+            msg['Subject']               = subject
+            msg['Date']                  = formatdate(localtime=True)
+            msg['Message-ID']            = make_msgid(domain='qoricash.pe')
+            msg['Precedence']            = 'bulk'
+            msg['List-Unsubscribe']      = f'<mailto:{sender}?subject=NO%20CONTACTAR>'
+            msg['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
 
-            _adjuntar(_IMG_LOGO, 'logo_qori', 'logo.png', 'png')
+            msg.attach(MIMEText(plain,      'plain', 'utf-8'))
+            msg.attach(MIMEText(html_clean, 'html',  'utf-8'))
 
-            raw = base64.urlsafe_b64encode(msg_related.as_bytes()).decode()
+            raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
             service.users().messages().send(userId='me', body={'raw': raw}).execute()
             return True
 
