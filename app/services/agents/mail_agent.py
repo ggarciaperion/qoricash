@@ -1265,6 +1265,10 @@ class MailAgent(BaseAgent):
                             skipped += 1
                             continue
 
+                        # Refrescar TC antes de cada envío — DatatecRate es la fuente
+                        # live del operador, siempre vigente al momento del envío.
+                        compra_tc, venta_tc = self._fetch_tc()
+
                         nombre_dest = (
                             (p.nombre_contacto or p.razon_social or 'equipo')
                             .split()[0].capitalize()
