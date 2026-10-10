@@ -173,7 +173,7 @@
                         <thead>
                             <tr>
                                 {% if current_user.role in ('Master', 'Presidente de Negocios') %}
-                                <th><input type="checkbox" id="selectAllClients" title="Seleccionar todos"></th>
+                                <th class="d-none"><input type="checkbox" id="selectAllClients" title="Seleccionar todos"></th>
                                 {% endif %}
                                 <th>ID</th>
                                 <th>Tipo Doc</th>
@@ -185,7 +185,7 @@
                                 <th>Usuario</th>
                                 {% endif %}
                                 <th>Estado</th>
-                                <th>Origen</th>
+                                <th class="d-none">Origen</th>
                                 <th id="thRegistro">Registro</th>
                                 <th>Acciones</th>
                             </tr>
@@ -198,7 +198,7 @@
                                 data-kyc="{{ c.kyc_status or 'pendiente' }}"
                                 data-search="{{ (c.full_name ~ ' ' ~ c.dni ~ ' ' ~ (c.email or '') ~ ' ' ~ (c.phone or ''))|lower }}">
                                 {% if current_user.role in ('Master', 'Presidente de Negocios') %}
-                                <td><input type="checkbox" class="client-checkbox" value="{{ c.id }}"></td>
+                                <td class="d-none"><input type="checkbox" class="client-checkbox" value="{{ c.id }}"></td>
                                 {% endif %}
                                 <td class="text-muted" style="font-size:.8rem;">{{ loop.revindex }}</td>
                                 <td>
@@ -243,7 +243,7 @@
                                     {% endif %}
                                 </td>
                                 <!-- Origen / Reasignado -->
-                                <td>
+                                <td class="d-none">
                                     {% if c.reassigned_at %}
                                         <span class="badge bg-primary" style="font-size:.7rem"
                                               title="Reasignado el {{ c.reassigned_at.strftime('%d/%m/%Y') }}">
