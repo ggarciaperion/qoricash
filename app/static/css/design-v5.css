@@ -1533,6 +1533,15 @@ body:not(.has-sidebar) {
 .mobile-pb-bar {
   background: var(--black) !important;
   border-bottom: 1px solid #21262D !important;
+  flex-wrap: wrap !important;
+}
+/* Form de edición aparece en segunda fila, sin ocultar las pills */
+.mb-pb-form {
+  width: 100% !important;
+  order: 10 !important;
+  border-top: 1px solid rgba(255,255,255,.08) !important;
+  padding: .3rem .75rem .35rem !important;
+  gap: .5rem !important;
 }
 
 .mb-pb-brand-text { color: #8B949E !important; font-size: .68rem !important; }

@@ -2275,7 +2275,7 @@ body.has-sidebar.sidebar-collapsed .desk-pb-bar {
 }
 
 /* ── Formulario de edición inline ──────────────────────── */
-.dpb-form { display: none; align-items: center; gap: 12px; flex: 1; }
+.dpb-form { display: none; align-items: center; gap: 12px; flex: none; }
 .dpb-form-inner {
     display: flex;
     align-items: center;

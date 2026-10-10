@@ -962,16 +962,12 @@
                     var sVal = document.getElementById('deskPbSell').textContent;
                     iC.value = (bVal !== '—') ? bVal : '';
                     iV.value = (sVal !== '—') ? sVal : '';
-                    rates.style.display = 'none';
                     form.style.display  = 'flex';
-                    if (meta) meta.style.display = 'none';
                     iC.focus();
                 });
 
                 function _closeForm() {
                     form.style.display  = 'none';
-                    rates.style.display = 'flex';
-                    if (meta) meta.style.display = 'flex';
                 }
 
                 btnCancel.addEventListener('click', _closeForm);
@@ -1027,9 +1023,6 @@
                 var sVal = document.getElementById('mbPbSell').textContent.trim();
                 document.getElementById('mbPbInputCompra').value = (bVal !== '—') ? bVal : '';
                 document.getElementById('mbPbInputVenta').value  = (sVal !== '—') ? sVal : '';
-                document.getElementById('mbPbPills').style.display  = 'none';
-                document.getElementById('mbPbBrand').style.display  = 'none';
-                document.getElementById('mbPbEditBtn').style.display = 'none';
                 document.getElementById('mbPbForm').style.display   = 'flex';
                 document.getElementById('mbPbInputCompra').focus();
             };
@@ -1041,9 +1034,6 @@
 
                 function mbClose() {
                     document.getElementById('mbPbForm').style.display    = 'none';
-                    document.getElementById('mbPbPills').style.display   = 'flex';
-                    document.getElementById('mbPbBrand').style.display   = 'flex';
-                    document.getElementById('mbPbEditBtn').style.display = 'flex';
                 }
 
                 document.getElementById('mbPbBtnCancel').addEventListener('click', mbClose);
