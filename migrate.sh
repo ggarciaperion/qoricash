@@ -650,3 +650,46 @@ except Exception as e:
     print(f"   ⚠️  Error en patch fx_rate_current: {e}")
 PYEOF
 echo ""
+
+# ── Patch directo: columnas campaña WA en wa_bot_sessions ────────────────────
+echo "⚡ Garantizando columnas de campaña WA en wa_bot_sessions..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando patch directo")
+    sys.exit(0)
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    print("   DATABASE_URL no definida — saltando patch directo")
+    sys.exit(0)
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name='wa_bot_sessions'")
+    if not cur.fetchone():
+        print("   ⏭  wa_bot_sessions aún no existe — se creará en upgrade")
+        conn.close()
+        sys.exit(0)
+    cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS opt_out_wa          BOOLEAN DEFAULT FALSE")
+    cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS campana_secuencia    INTEGER DEFAULT 0")
+    cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS campana_ultimo_envio TIMESTAMP WITHOUT TIME ZONE")
+    cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS campana_pausada      BOOLEAN DEFAULT FALSE")
+    cur.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name='wa_bot_sessions' AND column_name IN "
+        "('opt_out_wa','campana_secuencia','campana_ultimo_envio','campana_pausada')"
+    )
+    found = [r[0] for r in cur.fetchall()]
+    conn.close()
+    if len(found) == 4:
+        print("   ✅ opt_out_wa, campana_secuencia, campana_ultimo_envio, campana_pausada confirmadas en wa_bot_sessions")
+    else:
+        print(f"   ❌ Solo se encontraron: {found}")
+        sys.exit(1)
+except Exception as e:
+    print(f"   ⚠️  Error en patch columnas campaña WA: {e}")
+PYEOF
+echo ""
