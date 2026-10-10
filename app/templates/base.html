@@ -271,36 +271,30 @@
                 <div class="dpb-pill dpb-pill-buy">
                     <span class="dpb-pill-label">COMPRA</span>
                     <span class="dpb-pill-value" id="deskPbBuy">—</span>
+                    {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}
+                    <input type="number" class="dpb-inline-input dpb-inline-buy" id="deskPbInputCompra"
+                           step="0.0001" min="3" max="5" inputmode="decimal" placeholder="0.0000" style="display:none">
+                    {% endif %}
                 </div>
                 <div class="dpb-sep"></div>
                 <div class="dpb-pill dpb-pill-sell">
                     <span class="dpb-pill-label">VENTA</span>
                     <span class="dpb-pill-value" id="deskPbSell">—</span>
+                    {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}
+                    <input type="number" class="dpb-inline-input dpb-inline-sell" id="deskPbInputVenta"
+                           step="0.0001" min="3" max="5" inputmode="decimal" placeholder="0.0000" style="display:none">
+                    {% endif %}
                 </div>
             </div>
         </div>
-
-        {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}
-        <div class="dpb-form" id="deskPbForm">
-            <div class="dpb-form-inner">
-                <div class="dpb-input-group">
-                    <label class="dpb-input-label">COMPRA</label>
-                    <input type="number" class="dpb-input" id="deskPbInputCompra" step="0.0001" min="3" max="5" placeholder="0.0000">
-                </div>
-                <div class="dpb-input-group">
-                    <label class="dpb-input-label">VENTA</label>
-                    <input type="number" class="dpb-input" id="deskPbInputVenta" step="0.0001" min="3" max="5" placeholder="0.0000">
-                </div>
-                <button class="dpb-btn-save" id="deskPbBtnSave"><i class="bi bi-check-lg"></i> Guardar</button>
-                <button class="dpb-btn-cancel" id="deskPbBtnCancel">Cancelar</button>
-            </div>
-        </div>
-        {% endif %}
 
         <div class="dpb-meta">
             {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}
             <button class="dpb-edit-btn" id="deskPbEditBtn">
                 <i class="bi bi-pencil-fill"></i> Actualizar
+            </button>
+            <button class="dpb-btn-save" id="deskPbBtnSave" style="display:none">
+                <i class="bi bi-check-lg"></i> Guardar
             </button>
             {% endif %}
         </div>
@@ -333,23 +327,29 @@
             <div class="mb-pb-pill mb-pb-pill-buy" {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}style="cursor:pointer" onclick="mbPbOpenEdit()"{% endif %}>
                 <span class="mb-pb-pill-label">COMPRA</span>
                 <span class="mb-pb-pill-value" id="mbPbBuy">—</span>
+                {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}
+                <input type="number" class="mb-pb-inline-input" id="mbPbInputCompra"
+                       step="0.0001" min="3" max="5" inputmode="decimal" placeholder="0.0000"
+                       style="display:none" onclick="event.stopPropagation()">
+                {% endif %}
             </div>
             <div class="mb-pb-pill mb-pb-pill-sell" {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}style="cursor:pointer" onclick="mbPbOpenEdit()"{% endif %}>
                 <span class="mb-pb-pill-label">VENTA</span>
                 <span class="mb-pb-pill-value" id="mbPbSell">—</span>
+                {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}
+                <input type="number" class="mb-pb-inline-input" id="mbPbInputVenta"
+                       step="0.0001" min="3" max="5" inputmode="decimal" placeholder="0.0000"
+                       style="display:none" onclick="event.stopPropagation()">
+                {% endif %}
             </div>
         </div>
         {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}
         <button class="mb-pb-edit-btn" id="mbPbEditBtn" onclick="mbPbOpenEdit()">
             <i class="bi bi-pencil-fill"></i>
         </button>
-        <!-- Formulario de edición móvil -->
-        <div class="mb-pb-form" id="mbPbForm" style="display:none">
-            <input type="number" class="mb-pb-input" id="mbPbInputCompra" step="0.0001" min="3" max="5" placeholder="Compra">
-            <input type="number" class="mb-pb-input" id="mbPbInputVenta"  step="0.0001" min="3" max="5" placeholder="Venta">
-            <button class="mb-pb-btn-save"   id="mbPbBtnSave"><i class="bi bi-check-lg"></i></button>
-            <button class="mb-pb-btn-cancel" id="mbPbBtnCancel"><i class="bi bi-x-lg"></i></button>
-        </div>
+        <button class="mb-pb-btn-save" id="mbPbBtnSave" style="display:none">
+            <i class="bi bi-check-lg"></i> Guardar
+        </button>
         {% endif %}
     </div>
     {% endif %}
@@ -938,48 +938,53 @@
                 .catch(function() {});
         }
 
-        // Edit toggle — Desktop bar (Master/Operador only)
+        // Edit toggle — Desktop bar (inline dentro de cada pill)
         if (_canEdit) {
             document.addEventListener('DOMContentLoaded', function() {
-                var btnEdit   = document.getElementById('deskPbEditBtn');
-                var btnSave   = document.getElementById('deskPbBtnSave');
-                var btnCancel = document.getElementById('deskPbBtnCancel');
-                var form      = document.getElementById('deskPbForm');
-                var rates     = document.getElementById('deskPbRates');
-                var iC        = document.getElementById('deskPbInputCompra');
-                var iV        = document.getElementById('deskPbInputVenta');
-                var meta      = document.querySelector('.dpb-meta');
+                var btnEdit  = document.getElementById('deskPbEditBtn');
+                var btnSave  = document.getElementById('deskPbBtnSave');
+                var iC       = document.getElementById('deskPbInputCompra');
+                var iV       = document.getElementById('deskPbInputVenta');
+                var spanBuy  = document.getElementById('deskPbBuy');
+                var spanSell = document.getElementById('deskPbSell');
 
-                if (!btnEdit) return;
+                if (!btnEdit || !iC) return;
 
-                // Click on price pill also opens edit form
-                document.querySelectorAll('.dpb-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() { btnEdit.click(); });
-                });
-
-                btnEdit.addEventListener('click', function() {
-                    var bVal = document.getElementById('deskPbBuy').textContent;
-                    var sVal = document.getElementById('deskPbSell').textContent;
-                    iC.value = (bVal !== '—') ? bVal : '';
-                    iV.value = (sVal !== '—') ? sVal : '';
-                    form.style.display  = 'flex';
+                function _openEdit() {
+                    iC.value = (spanBuy.textContent.trim() !== '—') ? spanBuy.textContent.trim() : '';
+                    iV.value = (spanSell.textContent.trim() !== '—') ? spanSell.textContent.trim() : '';
+                    spanBuy.style.display  = 'none';
+                    spanSell.style.display = 'none';
+                    iC.style.display = '';
+                    iV.style.display = '';
+                    btnEdit.style.display = 'none';
+                    btnSave.style.display = '';
                     iC.focus();
-                });
-
-                function _closeForm() {
-                    form.style.display  = 'none';
+                    iC.select();
                 }
 
-                btnCancel.addEventListener('click', _closeForm);
+                function _closeForm() {
+                    iC.style.display = 'none';
+                    iV.style.display = 'none';
+                    spanBuy.style.display  = '';
+                    spanSell.style.display = '';
+                    btnEdit.style.display = '';
+                    btnSave.style.display = 'none';
+                }
+
+                document.querySelectorAll('.dpb-pill').forEach(function(pill) {
+                    pill.addEventListener('click', _openEdit);
+                });
+                btnEdit.addEventListener('click', _openEdit);
 
                 btnSave.addEventListener('click', function() {
                     var c = parseFloat(iC.value), v = parseFloat(iV.value);
                     if (!c || !v || isNaN(c) || isNaN(v)) {
-                        iC.style.borderColor = (!c || isNaN(c)) ? '#ef4444' : '';
-                        iV.style.borderColor = (!v || isNaN(v)) ? '#ef4444' : '';
+                        iC.style.outline = (!c || isNaN(c)) ? '2px solid #ef4444' : '';
+                        iV.style.outline = (!v || isNaN(v)) ? '2px solid #ef4444' : '';
                         return;
                     }
-                    iC.style.borderColor = ''; iV.style.borderColor = '';
+                    iC.style.outline = ''; iV.style.outline = '';
                     btnSave.disabled = true;
                     btnSave.innerHTML = '<i class="bi bi-hourglass-split"></i>';
 
@@ -1016,15 +1021,23 @@
             });
         }
 
-        // ── Mobile bar edit (Master/Operador) ────────────────────────────────
+        // ── Mobile bar edit — inline dentro de cada pill ─────────────────────
         if (_canEdit) {
             window.mbPbOpenEdit = function() {
-                var bVal = document.getElementById('mbPbBuy').textContent.trim();
-                var sVal = document.getElementById('mbPbSell').textContent.trim();
-                document.getElementById('mbPbInputCompra').value = (bVal !== '—') ? bVal : '';
-                document.getElementById('mbPbInputVenta').value  = (sVal !== '—') ? sVal : '';
-                document.getElementById('mbPbForm').style.display   = 'flex';
-                document.getElementById('mbPbInputCompra').focus();
+                var spanBuy  = document.getElementById('mbPbBuy');
+                var spanSell = document.getElementById('mbPbSell');
+                var iC = document.getElementById('mbPbInputCompra');
+                var iV = document.getElementById('mbPbInputVenta');
+                if (!iC) return;
+                iC.value = (spanBuy.textContent.trim() !== '—') ? spanBuy.textContent.trim() : '';
+                iV.value = (spanSell.textContent.trim() !== '—') ? spanSell.textContent.trim() : '';
+                spanBuy.style.display  = 'none';
+                spanSell.style.display = 'none';
+                iC.style.display = '';
+                iV.style.display = '';
+                document.getElementById('mbPbEditBtn').style.display  = 'none';
+                document.getElementById('mbPbBtnSave').style.display  = '';
+                iC.focus();
             };
 
             document.addEventListener('DOMContentLoaded', function() {
@@ -1033,19 +1046,22 @@
                 if (!iC) return;
 
                 function mbClose() {
-                    document.getElementById('mbPbForm').style.display    = 'none';
+                    iC.style.display = 'none';
+                    iV.style.display = 'none';
+                    document.getElementById('mbPbBuy').style.display  = '';
+                    document.getElementById('mbPbSell').style.display = '';
+                    document.getElementById('mbPbEditBtn').style.display = '';
+                    document.getElementById('mbPbBtnSave').style.display = 'none';
                 }
-
-                document.getElementById('mbPbBtnCancel').addEventListener('click', mbClose);
 
                 document.getElementById('mbPbBtnSave').addEventListener('click', function() {
                     var c = parseFloat(iC.value), v = parseFloat(iV.value);
                     if (!c || !v || isNaN(c) || isNaN(v)) {
-                        iC.style.borderColor = (!c || isNaN(c)) ? '#ef4444' : '';
-                        iV.style.borderColor = (!v || isNaN(v)) ? '#ef4444' : '';
+                        iC.style.outline = (!c || isNaN(c)) ? '2px solid #ef4444' : '';
+                        iV.style.outline = (!v || isNaN(v)) ? '2px solid #ef4444' : '';
                         return;
                     }
-                    iC.style.borderColor = ''; iV.style.borderColor = '';
+                    iC.style.outline = ''; iV.style.outline = '';
                     var btn = document.getElementById('mbPbBtnSave');
                     btn.disabled = true;
                     fetch('/dashboard/api/precio-base', {

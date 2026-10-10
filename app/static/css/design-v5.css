@@ -1530,18 +1530,59 @@ body:not(.has-sidebar) {
 /* ══════════════════════════════════════════════
    MOBILE PRICE BAR
 ══════════════════════════════════════════════ */
+/* ── Inputs inline dentro de pills — desktop ─── */
+.dpb-inline-input {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 2px solid rgba(255,255,255,.55) !important;
+  outline: none !important;
+  font-size: 1.625rem !important;
+  font-weight: 900 !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: -.02em !important;
+  line-height: 1 !important;
+  width: 88px !important;
+  padding: 0 !important;
+  color: #fff !important;
+  -moz-appearance: textfield !important;
+}
+.dpb-inline-input::-webkit-outer-spin-button,
+.dpb-inline-input::-webkit-inner-spin-button { -webkit-appearance: none !important; }
+.dpb-inline-input:focus { border-bottom-color: #fff !important; outline: none !important; }
+.dpb-inline-sell {
+  color: var(--q) !important;
+  border-bottom-color: rgba(25,107,254,.55) !important;
+}
+.dpb-inline-sell:focus { border-bottom-color: var(--q) !important; }
+
+/* ── Inputs inline dentro de pills — mobile ─── */
+.mb-pb-inline-input {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1.5px solid rgba(255,255,255,.5) !important;
+  outline: none !important;
+  font-size: .9rem !important;
+  font-weight: 800 !important;
+  color: #fff !important;
+  width: 72px !important;
+  padding: 0 !important;
+  text-align: center !important;
+  -moz-appearance: textfield !important;
+}
+.mb-pb-inline-input::-webkit-outer-spin-button,
+.mb-pb-inline-input::-webkit-inner-spin-button { -webkit-appearance: none !important; }
+.mb-pb-inline-input:focus { border-bottom-color: #fff !important; outline: none !important; }
+
+/* Botón Guardar móvil — azul institucional */
+.mb-pb-btn-save {
+  background: var(--q) !important;
+  border-color: var(--q) !important;
+  color: #fff !important;
+}
+
 .mobile-pb-bar {
   background: var(--black) !important;
   border-bottom: 1px solid #21262D !important;
-  flex-wrap: wrap !important;
-}
-/* Form de edición aparece en segunda fila, sin ocultar las pills */
-.mb-pb-form {
-  width: 100% !important;
-  order: 10 !important;
-  border-top: 1px solid rgba(255,255,255,.08) !important;
-  padding: .3rem .75rem .35rem !important;
-  gap: .5rem !important;
 }
 
 .mb-pb-brand-text { color: #8B949E !important; font-size: .68rem !important; }
