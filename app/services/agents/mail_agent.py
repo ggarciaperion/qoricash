@@ -44,7 +44,10 @@ _EXCLUDE_ESTADOS   = {'NO CONTACTAR', 'REBOTE', 'INVALIDO', 'cliente', 'P4', 'ne
 _EXCLUDE_EMAIL_EST = {'REBOTE', 'INVALIDO', 'NO CONTACTAR'}
 _DIAS_HABIL_ESPERA    = 5
 _CALENDAR_DAYS_APPROX = 7     # 5 días hábiles ≈ 7 calendario — filtro SQL previo
-_DAILY_LIMIT          = 150   # límite diario conservador para proteger reputación del dominio
+# Fase de recuperación: controlado por env var RENDER_RECOVERY_PHASE (1/2/3)
+# Fase 1=recuperación(15/día), Fase 2=calentamiento(30/día), Fase 3=normal(50/día)
+_RECOVERY_PHASE = int(os.environ.get('RENDER_RECOVERY_PHASE', '1'))
+_DAILY_LIMIT    = {1: 15, 2: 30, 3: 50}.get(_RECOVERY_PHASE, 15)
 
 # Horario y modos de envío
 _HORA_INICIO      = 9.0    # 09:00 Lima
@@ -52,8 +55,8 @@ _HORA_CORTE       = 13.5   # 13:30 — fin modo precios, inicio modo prospecció
 _HORA_FIN_TARDE   = 18.0   # 18:00 — fin modo prospección
 
 # Batch sizes por modo (el cap _DAILY_LIMIT actúa de tope duro)
-_BATCH_MAÑANA     = 30     # conservador: proteger reputación del dominio
-_BATCH_TARDE      = 20     # conservador: prospección de tarde
+_BATCH_MAÑANA     = _DAILY_LIMIT  # un solo batch al día — sin ráfagas
+_BATCH_TARDE      = max(5, _DAILY_LIMIT // 3)  # tarde: tercio del límite diario
 
 # Rutas de imágenes embebidas (relativas al módulo)
 _STATIC_IMAGES = os.path.join(
@@ -1273,7 +1276,7 @@ class MailAgent(BaseAgent):
                                 cargo=bot_cargo, compra=compra_tc, venta=venta_tc,
                                 hoy=hoy_full_w,
                             )
-                            subject     = 'QoriCash \u2014 Tipo de cambio actualizado'
+                            subject     = ['Tipo de cambio del día — Qoricash', 'TC actualizado para su empresa', 'Qoricash · Tipo de cambio competitivo hoy'][int(__import__('hashlib').md5(p.email.encode()).hexdigest(), 16) % 3]
                             tipo_envio  = 'solo_precios'
                             descripcion = f'Follow-up precios enviado [TC {compra_tc}/{venta_tc}]'
                         elif modo == 'precios':
@@ -1282,7 +1285,7 @@ class MailAgent(BaseAgent):
                                 cargo=bot_cargo, compra=compra_tc, venta=venta_tc,
                                 hoy=hoy_full_w, es_personal=es_personal,
                             )
-                            subject     = 'QoriCash \u2014 Tipo de cambio preferencial'
+                            subject     = ['Tipo de cambio para empresas — Qoricash', 'Cambie dólares con mejor tipo de cambio', 'Qoricash · Fintech de cambio de divisas · SBS'][int(__import__('hashlib').md5(p.email.encode()).hexdigest(), 16) % 3]
                             tipo_envio  = 'precios'
                             descripcion = f'Email de precios enviado [TC {compra_tc}/{venta_tc}]'
                         else:
@@ -1291,7 +1294,7 @@ class MailAgent(BaseAgent):
                                 cargo=bot_cargo, compra=compra_tc, venta=venta_tc,
                                 hoy=hoy_full_w, es_personal=es_personal,
                             )
-                            subject     = 'QoriCash \u2014 Casa de cambio digital \u00b7 SBS'
+                            subject     = ['Tipo de cambio para empresas — Qoricash', 'Cambie dólares con mejor tipo de cambio · SBS', 'Qoricash · Casa de cambio digital regulada'][int(__import__('hashlib').md5(p.email.encode()).hexdigest(), 16) % 3]
                             tipo_envio  = 'presentacion'
                             descripcion = 'Email de presentación institucional enviado'
 
