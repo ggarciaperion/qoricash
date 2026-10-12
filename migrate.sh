@@ -778,3 +778,32 @@ except Exception as e:
     print(f"   ⚠️  Error en patch wa_messages columnas: {e}")
 PYEOF
 echo ""
+
+# ── Patch directo: índice compuesto (numero, id DESC) en wa_messages ──────────
+# Acelera la carga del historial: la query de los últimos 150 mensajes pasa de
+# index scan + filesort a un index-only scan sobre (numero, id).
+echo "⚡ Garantizando índice de rendimiento en wa_messages(numero, id)..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando")
+    sys.exit(0)
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    sys.exit(0)
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS ix_wa_messages_numero_id "
+        "ON wa_messages (numero, id DESC)"
+    )
+    conn.close()
+    print("   ✅ ix_wa_messages_numero_id OK")
+except Exception as e:
+    print(f"   ⚠️  Error en patch índice wa_messages: {e}")
+PYEOF
+echo ""

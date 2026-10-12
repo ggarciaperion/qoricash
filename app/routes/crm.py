@@ -2,14 +2,17 @@
 CRM WhatsApp — QoriCash Trading V2
 Webhook + Panel de conversaciones para Master
 """
-import os, json, logging, requests as http_req
+import os, json, logging, requests as http_req, threading, uuid, time
 from datetime import datetime, timedelta
-from flask import Blueprint, render_template, request, jsonify, abort
+from flask import Blueprint, render_template, request, jsonify, abort, current_app
 from flask_login import login_required, current_user
 from app.extensions import db, csrf
 from app.models.wa_message import WaMessage
 from app.utils.decorators import require_role
 from app.utils.formatters import now_peru
+
+# ── Estado en memoria de jobs de campaña WA ───────────────────────────────────
+_campana_jobs: dict = {}  # job_id → { estado, total, enviados, errores, log[] }
 
 crm_bp = Blueprint('crm', __name__, url_prefix='/crm')
 log    = logging.getLogger(__name__)
@@ -217,10 +220,20 @@ def api_conversaciones():
 @login_required
 @require_role('Master')
 def api_mensajes(numero):
-    """Devuelve todos los mensajes de un número y los marca como leídos."""
+    """Devuelve los últimos 150 mensajes de un número y los marca como leídos."""
+    from sqlalchemy import desc as _desc
+    LIMITE = 150
+    sub = (
+        WaMessage.query
+        .with_entities(WaMessage.id)
+        .filter(WaMessage.numero == numero)
+        .order_by(_desc(WaMessage.id))
+        .limit(LIMITE)
+        .subquery()
+    )
     mensajes = (
         WaMessage.query
-        .filter_by(numero=numero)
+        .filter(WaMessage.id.in_(sub))
         .order_by(WaMessage.created_at.asc())
         .all()
     )
@@ -2230,6 +2243,209 @@ def api_wa_campana_pausar():
     accion = 'pausada' if pausar else 'reanudada'
     log.info(f'[CRM-WA-CAMP] Campaña {accion} para {numero_e164} por {current_user.username}')
     return jsonify({'ok': True, 'pausada': pausar})
+
+
+# ── Lanzar campaña WA desde el CRM ──────────────────────────────────────────
+
+CAMPANA_TEMPLATE_NAME  = 'qoricash_precios_ok'
+CAMPANA_TEMPLATE_LANG  = 'es'
+CAMPANA_HEADER_IMAGE   = 'https://www.qoricash.pe/banerwsp.png'
+CAMPANA_PAUSA_SEG      = 4   # segundos entre mensajes
+
+def _ejecutar_campana_wa(job_id, compra, venta, dry_run, limite):
+    """Función que corre en background thread. Envía mensajes de campaña WA."""
+    from app.models.wa_bot_session import WaBotSession
+    from sqlalchemy import or_
+
+    job = _campana_jobs[job_id]
+
+    def _log(msg):
+        job['log'].append(msg)
+        log.info(f'[CAMP-WA {job_id}] {msg}')
+
+    try:
+        ahora = now_peru()
+        DIAS_ESPERA = {1: 15, 2: 30, 3: 45}
+
+        sesiones = WaBotSession.query.filter(
+            or_(WaBotSession.opt_out_wa.is_(None),    WaBotSession.opt_out_wa == False),
+            or_(WaBotSession.campana_pausada.is_(None), WaBotSession.campana_pausada == False),
+            WaBotSession.bot_pausado == False,
+            WaBotSession.estado_atencion != 'en_atencion',
+            or_(WaBotSession.campana_secuencia.is_(None), WaBotSession.campana_secuencia < 4),
+        ).all()
+
+        # Excluir quienes respondieron
+        respondieron = set()
+        for s in sesiones:
+            if s.campana_ultimo_envio:
+                resp = WaMessage.query.filter(
+                    WaMessage.numero == s.numero,
+                    WaMessage.direccion == 'entrante',
+                    WaMessage.created_at > s.campana_ultimo_envio,
+                ).first()
+                if resp:
+                    respondieron.add(s.numero)
+
+        elegibles = []
+        for s in sesiones:
+            if s.numero in respondieron:
+                continue
+            seq = s.campana_secuencia or 0
+            if seq > 0:
+                dias_min = DIAS_ESPERA.get(seq)
+                if dias_min is None:
+                    continue
+                if not s.campana_ultimo_envio:
+                    continue
+                if (ahora - s.campana_ultimo_envio).days < dias_min:
+                    continue
+            nombre  = (s.nombre_guardado or s.nombre or '').strip() or 'Estimado/a'
+            empresa = (s.empresa_guardada or '').strip()
+            elegibles.append({'sesion': s, 'nombre': nombre, 'empresa': empresa, 'seq': seq})
+
+        elegibles = elegibles[:limite]
+        job['total'] = len(elegibles)
+        _log(f'Elegibles: {len(elegibles)} | dry_run={dry_run} | compra={compra} venta={venta}')
+
+        if not elegibles:
+            job['estado'] = 'completado'
+            return
+
+        wa_token  = os.environ.get('WA_ACCESS_TOKEN', '')
+        wa_phone  = os.environ.get('WA_PHONE_NUMBER_ID', '')
+        wa_url    = f'https://graph.facebook.com/v19.0/{wa_phone}/messages'
+        headers   = {'Authorization': f'Bearer {wa_token}', 'Content-Type': 'application/json'}
+
+        for idx, item in enumerate(elegibles, 1):
+            s       = item['sesion']
+            nombre  = item['nombre']
+            empresa = item['empresa']
+            seq     = item['seq']
+            seq_nuevo = seq + 1
+            numero_dest = s.numero.lstrip('+')
+
+            _log(f'[{idx}/{len(elegibles)}] {s.numero} ({nombre}) seq {seq}→{seq_nuevo}')
+
+            if dry_run:
+                job['enviados'] += 1
+                job['progreso'] = idx
+                continue
+
+            payload = {
+                'messaging_product': 'whatsapp',
+                'to': numero_dest,
+                'type': 'template',
+                'template': {
+                    'name': CAMPANA_TEMPLATE_NAME,
+                    'language': {'code': CAMPANA_TEMPLATE_LANG},
+                    'components': [
+                        {
+                            'type': 'header',
+                            'parameters': [{'type': 'image', 'image': {'link': CAMPANA_HEADER_IMAGE}}],
+                        },
+                        {
+                            'type': 'body',
+                            'parameters': [
+                                {'type': 'text', 'text': nombre},
+                                {'type': 'text', 'text': compra},
+                                {'type': 'text', 'text': venta},
+                            ],
+                        },
+                    ],
+                },
+            }
+
+            try:
+                r = http_req.post(wa_url, json=payload, headers=headers, timeout=15)
+                resp = r.json()
+                if r.ok and resp.get('messages'):
+                    # Actualizar sesión
+                    s.campana_secuencia    = seq_nuevo
+                    s.campana_ultimo_envio = now_peru()
+                    # Guardar mensaje en WaMessage
+                    texto = (f'[Campaña WA Seq {seq_nuevo}] '
+                             f'Plantilla {CAMPANA_TEMPLATE_NAME}: compra={compra} venta={venta}')
+                    msg = WaMessage(
+                        numero=s.numero, nombre=nombre, empresa=empresa,
+                        mensaje=texto, direccion='saliente', origen='campaña',
+                    )
+                    db.session.add(msg)
+                    db.session.commit()
+                    job['enviados'] += 1
+                    _log(f'  OK wa_id={resp["messages"][0].get("id","")}')
+                else:
+                    err = resp.get('error', {}).get('message', str(resp))
+                    job['errores'] += 1
+                    _log(f'  ERROR Meta: {err}')
+            except Exception as e:
+                db.session.rollback()
+                job['errores'] += 1
+                _log(f'  EXCEPCIÓN: {e}')
+
+            job['progreso'] = idx
+            if idx < len(elegibles):
+                time.sleep(CAMPANA_PAUSA_SEG)
+
+        job['estado'] = 'completado'
+        _log(f'Resumen: enviados={job["enviados"]} errores={job["errores"]}')
+
+    except Exception as e:
+        import traceback
+        job['estado'] = 'error'
+        job['error']  = str(e)
+        log.error(f'[CAMP-WA {job_id}] Error fatal: {traceback.format_exc()}')
+
+
+@crm_bp.route('/api/wa-campana-lanzar', methods=['POST'])
+@csrf.exempt
+@login_required
+def api_wa_campana_lanzar():
+    """Lanza la campaña WA en background. Body: {compra, venta, dry_run, limite}."""
+    if current_user.role != 'Master':
+        return jsonify({'ok': False, 'error': 'Forbidden'}), 403
+
+    data    = request.get_json(silent=True) or {}
+    compra  = str(data.get('compra', '')).strip()
+    venta   = str(data.get('venta', '')).strip()
+    dry_run = bool(data.get('dry_run', False))
+    limite  = int(data.get('limite', 300))
+
+    if not compra or not venta:
+        return jsonify({'ok': False, 'error': 'Faltan compra y/o venta'}), 400
+
+    # Solo un job activo a la vez
+    for j in _campana_jobs.values():
+        if j.get('estado') == 'corriendo':
+            return jsonify({'ok': False, 'error': 'Ya hay una campaña en curso'}), 409
+
+    job_id = str(uuid.uuid4())[:8]
+    _campana_jobs[job_id] = {
+        'estado': 'corriendo', 'total': 0, 'enviados': 0, 'errores': 0,
+        'progreso': 0, 'compra': compra, 'venta': venta,
+        'dry_run': dry_run, 'log': [],
+    }
+
+    app_obj = current_app._get_current_object()
+
+    def run():
+        with app_obj.app_context():
+            _ejecutar_campana_wa(job_id, compra, venta, dry_run, limite)
+
+    threading.Thread(target=run, daemon=True).start()
+    log.info(f'[CRM] Campaña WA lanzada job_id={job_id} por {current_user.username}')
+    return jsonify({'ok': True, 'job_id': job_id})
+
+
+@crm_bp.route('/api/wa-campana-job/<job_id>')
+@csrf.exempt
+@login_required
+def api_wa_campana_job(job_id):
+    """Retorna el estado de un job de campaña WA."""
+    job = _campana_jobs.get(job_id)
+    if not job:
+        return jsonify({'ok': False, 'error': 'Job no encontrado'}), 404
+    return jsonify({'ok': True, **{k: v for k, v in job.items() if k != 'sesion'}})
 
 
 # ── Migración one-shot columnas campaña WA ───────────────────────
