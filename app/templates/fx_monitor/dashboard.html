@@ -435,7 +435,7 @@
                 <input type="number" class="form-control form-control-sm tc-input-compra" id="tcNewBuy"
                        step="0.001" min="0" placeholder="0.000"
                        tabindex="1" autocomplete="off"
-                       onfocus="this.select()" onclick="this.select()">
+                       onfocus="setTimeout(()=>this.select(),0)">
               </div>
             </div>
             <div class="col-6">
@@ -445,7 +445,7 @@
                 <input type="number" class="form-control form-control-sm tc-input-venta" id="tcNewSell"
                        step="0.001" min="0" placeholder="0.000"
                        tabindex="2" autocomplete="off"
-                       onfocus="this.select()" onclick="this.select()">
+                       onfocus="setTimeout(()=>this.select(),0)">
               </div>
             </div>
           </div>
