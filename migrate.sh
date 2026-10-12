@@ -693,3 +693,88 @@ except Exception as e:
     print(f"   ⚠️  Error en patch columnas campaña WA: {e}")
 PYEOF
 echo ""
+
+# ── Patch directo: cotiz_mod_token y cotiz_nuevo_importe en wa_bot_sessions ───
+echo "⚡ Garantizando cotiz_mod_token y cotiz_nuevo_importe en wa_bot_sessions..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando patch directo")
+    sys.exit(0)
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    print("   DATABASE_URL no definida — saltando patch directo")
+    sys.exit(0)
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name='wa_bot_sessions'")
+    if not cur.fetchone():
+        print("   ⏭  wa_bot_sessions aún no existe — se creará en upgrade")
+        conn.close()
+        sys.exit(0)
+    cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_mod_token     VARCHAR(36)")
+    cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_nuevo_importe FLOAT DEFAULT 0")
+    cur.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name='wa_bot_sessions' AND column_name IN "
+        "('cotiz_mod_token','cotiz_nuevo_importe')"
+    )
+    found = [r[0] for r in cur.fetchall()]
+    conn.close()
+    if len(found) == 2:
+        print("   ✅ cotiz_mod_token, cotiz_nuevo_importe confirmadas en wa_bot_sessions")
+    else:
+        print(f"   ❌ Solo se encontraron: {found}")
+        sys.exit(1)
+except Exception as e:
+    print(f"   ⚠️  Error en patch cotiz_mod_token/cotiz_nuevo_importe: {e}")
+PYEOF
+echo ""
+
+# ── Patch directo: columnas faltantes en wa_messages ─────────────────────────
+echo "⚡ Garantizando columnas wa_id, tipo, origen, media_id, media_tipo en wa_messages..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando patch directo")
+    sys.exit(0)
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    print("   DATABASE_URL no definida — saltando patch directo")
+    sys.exit(0)
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name='wa_messages'")
+    if not cur.fetchone():
+        print("   ⏭  wa_messages aún no existe — se creará en upgrade")
+        conn.close()
+        sys.exit(0)
+    cur.execute("ALTER TABLE wa_messages ADD COLUMN IF NOT EXISTS wa_id      VARCHAR(120) DEFAULT ''")
+    cur.execute("ALTER TABLE wa_messages ADD COLUMN IF NOT EXISTS media_id   VARCHAR(120) DEFAULT ''")
+    cur.execute("ALTER TABLE wa_messages ADD COLUMN IF NOT EXISTS media_tipo VARCHAR(20)  DEFAULT ''")
+    cur.execute("ALTER TABLE wa_messages ADD COLUMN IF NOT EXISTS tipo       VARCHAR(20)  DEFAULT 'mensaje'")
+    cur.execute("ALTER TABLE wa_messages ADD COLUMN IF NOT EXISTS origen     VARCHAR(20)  DEFAULT 'bot'")
+    cur.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name='wa_messages' AND column_name IN "
+        "('wa_id','media_id','media_tipo','tipo','origen')"
+    )
+    found = [r[0] for r in cur.fetchall()]
+    conn.close()
+    if len(found) == 5:
+        print("   ✅ wa_id, media_id, media_tipo, tipo, origen confirmadas en wa_messages")
+    else:
+        print(f"   ❌ Solo se encontraron: {found}")
+        sys.exit(1)
+except Exception as e:
+    print(f"   ⚠️  Error en patch wa_messages columnas: {e}")
+PYEOF
+echo ""
