@@ -2254,6 +2254,12 @@ def api_wa_campana_migrate():
         db.session.execute(db.text(
             "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS campana_pausada      BOOLEAN DEFAULT FALSE"
         ))
+        db.session.execute(db.text(
+            "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_mod_token      VARCHAR(64)"
+        ))
+        db.session.execute(db.text(
+            "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_nuevo_importe  NUMERIC(14,2)"
+        ))
         db.session.commit()
         log.info('[CRM] Migración columnas campaña WA ejecutada OK')
         return jsonify({'ok': True, 'msg': 'Columnas creadas correctamente'})
