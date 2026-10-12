@@ -1550,6 +1550,13 @@ tr[data-status="Cancelado"] {
     .modal-header { padding: 0.875rem 1rem !important; }
     .modal-footer { padding: 0.75rem 1rem !important; }
 
+    /* Modal form columns: 3-col layouts → 2-col on mobile (only in forms) */
+    .modal-body form .col-4 { width: 50%; }
+
+    /* Prevent input-group prefix/suffix from wrapping onto new line */
+    .modal-body .input-group { flex-wrap: nowrap; }
+    .modal-body .input-group .input-group-text { flex-shrink: 0; }
+
     /* Forms tighter on mobile */
     .form-label { font-size: 0.8125rem; margin-bottom: 0.25rem; }
     .form-control, .form-select { font-size: 0.875rem; }
