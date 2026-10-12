@@ -2226,3 +2226,34 @@ def api_wa_campana_pausar():
     return jsonify({'ok': True, 'pausada': pausar})
 
 
+# ── Migración one-shot columnas campaña WA ───────────────────────
+
+@crm_bp.route('/api/wa-campana-migrate')
+@csrf.exempt
+@login_required
+def api_wa_campana_migrate():
+    """Crea las columnas de campaña WA en PostgreSQL si no existen. Llamar una vez."""
+    if current_user.role != 'Master':
+        return jsonify({'ok': False, 'error': 'Forbidden'}), 403
+    try:
+        db.session.execute(db.text(
+            "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS opt_out_wa          BOOLEAN DEFAULT FALSE"
+        ))
+        db.session.execute(db.text(
+            "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS campana_secuencia    INTEGER DEFAULT 0"
+        ))
+        db.session.execute(db.text(
+            "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS campana_ultimo_envio TIMESTAMP WITHOUT TIME ZONE"
+        ))
+        db.session.execute(db.text(
+            "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS campana_pausada      BOOLEAN DEFAULT FALSE"
+        ))
+        db.session.commit()
+        log.info('[CRM] Migración columnas campaña WA ejecutada OK')
+        return jsonify({'ok': True, 'msg': 'Columnas creadas correctamente'})
+    except Exception as e:
+        db.session.rollback()
+        log.error(f'[CRM] Error migración campaña WA: {e}')
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
