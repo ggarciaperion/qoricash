@@ -338,13 +338,24 @@ def manage_exchange_rates():
             "rates": {"compra": 3.75, "venta": 3.77}
         }
     """
+    import math as _math
     from app.models.exchange_rate import ExchangeRate
+    from app.models.datatec_rate import DatatecRate
+
+    PIPS = 0.0020  # mismo spread que dashboard.py
 
     try:
         if request.method == 'GET':
-            # Obtener tipos actuales
-            rate = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
+            # Leer precio base (raw) desde DatatecRate — fuente de verdad del widget
+            drate = DatatecRate.get()
+            if drate and float(drate.compra) > 0:
+                return jsonify({
+                    'success': True,
+                    'rates': drate.to_dict()
+                }), 200
 
+            # Fallback: último ExchangeRate si DatatecRate aún no fue poblado
+            rate = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
             if rate:
                 return jsonify({
                     'success': True,
@@ -422,27 +433,42 @@ def manage_exchange_rates():
                 if warnings:
                     logger.warning(f"⚠️ Tipos de cambio con variación alta por {current_user.username}: {', '.join(warnings)}")
 
-            # Actualizar tipos de cambio
+            # 1) Actualizar DatatecRate con valores base (raw) — fuente de verdad para chatbot y web pública
+            DatatecRate.update(buy_rate, sell_rate, None, None, current_user.id)
+
+            # 2) Calcular valores ajustados ±PIPS para ExchangeRate (usado en crear operaciones)
+            mtc_compra = _math.floor((buy_rate  - PIPS) * 1000) / 1000
+            mtc_venta  = _math.ceil( (sell_rate + PIPS) * 1000) / 1000
+
             new_rate = ExchangeRate.update_rates(
-                buy_rate=buy_rate,
-                sell_rate=sell_rate,
+                buy_rate=mtc_compra,
+                sell_rate=mtc_venta,
                 user_id=current_user.id
             )
 
-            logger.info(f"💱 Tipos de cambio actualizados por {current_user.username}: Compra={buy_rate}, Venta={sell_rate}")
+            logger.info(
+                f"💱 Tipos de cambio actualizados por {current_user.username}: "
+                f"Base={buy_rate}/{sell_rate} → MTC={mtc_compra}/{mtc_venta}"
+            )
 
-            # Emitir evento Socket.IO para actualizar tipos en tiempo real en todas las apps
+            # 3) Emitir eventos Socket.IO
             try:
                 from app.extensions import socketio
-                event_data = {
+                # precio_base_actualizado → pill base.html (valores raw)
+                socketio.emit('precio_base_actualizado', {
                     'compra': float(buy_rate),
-                    'venta': float(sell_rate),
+                    'venta':  float(sell_rate),
                     'updated_by': current_user.username,
                     'updated_at': new_rate.updated_at.isoformat()
-                }
-                # Emitir a TODOS los clientes conectados (broadcast)
-                socketio.emit('tipos_cambio_actualizados', event_data, namespace='/')
-                logger.info(f"📡 Evento Socket.IO emitido a TODOS los clientes: tipos_cambio_actualizados - Compra: {buy_rate}, Venta: {sell_rate}")
+                }, namespace='/')
+                # tipos_cambio_actualizados → dashboard fx_monitor (valores raw para display)
+                socketio.emit('tipos_cambio_actualizados', {
+                    'compra': float(buy_rate),
+                    'venta':  float(sell_rate),
+                    'updated_by': current_user.username,
+                    'updated_at': new_rate.updated_at.isoformat()
+                }, namespace='/')
+                logger.info(f"📡 SocketIO emitido: base={buy_rate}/{sell_rate} MTC={mtc_compra}/{mtc_venta}")
             except Exception as socket_error:
                 logger.error(f"❌ Error al emitir evento Socket.IO: {str(socket_error)}")
                 logger.exception(socket_error)
@@ -450,7 +476,14 @@ def manage_exchange_rates():
             return jsonify({
                 'success': True,
                 'message': 'Tipos de cambio actualizados exitosamente',
-                'rates': new_rate.to_dict()
+                'rates': {
+                    'compra':     float(buy_rate),
+                    'venta':      float(sell_rate),
+                    'mtc_compra': mtc_compra,
+                    'mtc_venta':  mtc_venta,
+                    'updated_by': current_user.username,
+                    'updated_at': new_rate.updated_at.isoformat()
+                }
             }), 200
 
     except Exception as e:
