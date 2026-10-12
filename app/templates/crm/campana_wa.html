@@ -177,6 +177,116 @@ table.cw-table tr:hover td { background: #f8fafc; }
 }
 .cw-empty i { font-size: 1.8rem; display: block; margin-bottom: 8px; }
 
+/* ── Launch form ── */
+.cw-launch {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.04);
+}
+.cw-launch h2 {
+  font-size: .9rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cw-launch-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+.cw-launch-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cw-launch-field label {
+  font-size: .72rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.cw-launch-field input[type=number] {
+  width: 110px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: .85rem;
+  font-weight: 600;
+  color: #0f172a;
+  outline: none;
+}
+.cw-launch-field input[type=number]:focus { border-color: #196BFE; }
+.cw-launch-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.btn-dryrun {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.btn-dryrun:hover { background: #e2e8f0; }
+.btn-lanzar {
+  background: #16a34a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 20px;
+  font-size: .82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s;
+}
+.btn-lanzar:hover { background: #15803d; }
+.btn-lanzar:disabled, .btn-dryrun:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Progress ── */
+#cwProgress {
+  margin-top: 16px;
+  display: none;
+}
+.cw-prog-bar-wrap {
+  background: #f1f5f9;
+  border-radius: 8px;
+  height: 10px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.cw-prog-bar {
+  height: 100%;
+  background: #196BFE;
+  border-radius: 8px;
+  transition: width .3s;
+  width: 0%;
+}
+.cw-prog-label {
+  font-size: .75rem;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+.cw-prog-log {
+  background: #0f172a;
+  color: #94a3b8;
+  font-family: monospace;
+  font-size: .72rem;
+  border-radius: 8px;
+  padding: 10px 12px;
+  max-height: 160px;
+  overflow-y: auto;
+  line-height: 1.6;
+}
+
 /* ── Toast ── */
 #cwToast {
   position: fixed;
@@ -211,6 +321,38 @@ table.cw-table tr:hover td { background: #f8fafc; }
     <button class="cw-refresh-btn" onclick="cargarStats()">
       <i class="bi bi-arrow-clockwise" id="refreshIcon"></i> Actualizar
     </button>
+  </div>
+
+  <!-- Launch form -->
+  <div class="cw-launch">
+    <h2><i class="bi bi-send-fill" style="color:#16a34a;"></i> Lanzar campaña</h2>
+    <div class="cw-launch-form">
+      <div class="cw-launch-field">
+        <label>Compra (S/)</label>
+        <input type="number" id="inCompra" step="0.001" min="1" placeholder="3.377">
+      </div>
+      <div class="cw-launch-field">
+        <label>Venta (S/)</label>
+        <input type="number" id="inVenta" step="0.001" min="1" placeholder="3.381">
+      </div>
+      <div class="cw-launch-field">
+        <label>Límite</label>
+        <input type="number" id="inLimite" value="300" min="1" max="500">
+      </div>
+      <div class="cw-launch-actions">
+        <button class="btn-dryrun" id="btnDryRun" onclick="lanzarCampana(true)">
+          <i class="bi bi-eye"></i> Simular
+        </button>
+        <button class="btn-lanzar" id="btnLanzar" onclick="lanzarCampana(false)">
+          <i class="bi bi-send-fill"></i> Lanzar envío
+        </button>
+      </div>
+    </div>
+    <div id="cwProgress">
+      <div class="cw-prog-bar-wrap"><div class="cw-prog-bar" id="progBar"></div></div>
+      <div class="cw-prog-label" id="progLabel">Iniciando...</div>
+      <div class="cw-prog-log" id="progLog"></div>
+    </div>
   </div>
 
   <!-- Stats -->
@@ -395,6 +537,79 @@ async function togglePausa(numero, pausar, btn) {
     toast('Error: ' + e.message, false);
     btn.disabled = false;
   }
+}
+
+// ── Lanzar campaña ──────────────────────────────────────────────────────────
+let _pollInterval = null;
+
+async function lanzarCampana(dryRun) {
+  const compra = document.getElementById('inCompra').value.trim();
+  const venta  = document.getElementById('inVenta').value.trim();
+  const limite = parseInt(document.getElementById('inLimite').value) || 300;
+
+  if (!compra || !venta) { toast('Ingresa compra y venta', false); return; }
+  if (parseFloat(compra) >= parseFloat(venta)) { toast('Compra debe ser menor que venta', false); return; }
+
+  const btnL = document.getElementById('btnLanzar');
+  const btnD = document.getElementById('btnDryRun');
+  btnL.disabled = btnD.disabled = true;
+
+  const prog = document.getElementById('cwProgress');
+  prog.style.display = 'block';
+  document.getElementById('progBar').style.width = '0%';
+  document.getElementById('progLabel').textContent = 'Iniciando...';
+  document.getElementById('progLog').textContent = '';
+
+  try {
+    const r = await fetch('/crm/api/wa-campana-lanzar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ compra, venta, dry_run: dryRun, limite }),
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'Error al lanzar');
+
+    const jobId = d.job_id;
+    toast(dryRun ? `Simulación iniciada (job ${jobId})` : `Campaña iniciada (job ${jobId})`);
+
+    _pollInterval = setInterval(() => pollJob(jobId, btnL, btnD), 2000);
+  } catch(e) {
+    toast('Error: ' + e.message, false);
+    btnL.disabled = btnD.disabled = false;
+  }
+}
+
+async function pollJob(jobId, btnL, btnD) {
+  try {
+    const r = await fetch(`/crm/api/wa-campana-job/${jobId}`, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    });
+    const d = await r.json();
+    if (!d.ok) return;
+
+    const pct   = d.total > 0 ? Math.round((d.progreso / d.total) * 100) : 0;
+    const label = `${d.progreso || 0} / ${d.total} — enviados: ${d.enviados} | errores: ${d.errores}`;
+    document.getElementById('progBar').style.width = pct + '%';
+    document.getElementById('progLabel').textContent = label;
+
+    const logEl = document.getElementById('progLog');
+    if (d.log && d.log.length) {
+      logEl.textContent = d.log.slice(-30).join('\n');
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    if (d.estado === 'completado' || d.estado === 'error') {
+      clearInterval(_pollInterval);
+      _pollInterval = null;
+      btnL.disabled = btnD.disabled = false;
+      if (d.estado === 'completado') {
+        toast(`✓ Completado — ${d.enviados} enviados, ${d.errores} errores`);
+        setTimeout(cargarStats, 1000);
+      } else {
+        toast('Error en campaña: ' + (d.error || ''), false);
+      }
+    }
+  } catch(e) { /* ignore poll errors */ }
 }
 
 // Spin animation
