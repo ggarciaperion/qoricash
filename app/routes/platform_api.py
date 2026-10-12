@@ -533,34 +533,36 @@ def get_public_exchange_rates():
         }
     """
     try:
-        from app.models.datatec_rate import DatatecRate
         from app.models.exchange_rate import ExchangeRate
+        from app.models.datatec_rate import DatatecRate
+        import math as _math_pub
 
-        # Fuente primaria: DatatecRate — el TC que el operador fija en el widget.
-        # Siempre fresco (actualizado manualmente cada día hábil) y es el precio
-        # oficial que Qoricash muestra y usa en prospección.
-        # Fallback: ExchangeRate (solo si DatatecRate tiene valores 0 o no existe).
+        # Fuente primaria: ExchangeRate — precio ajustado (base ± 20 pips) que Qoricash
+        # ofrece al cliente y al que se ejecutan las operaciones.
+        # Fallback: DatatecRate con ajuste ±20 pips aplicado en el momento, por si
+        # ExchangeRate aún no fue populado desde el widget.
+        PIPS_PUB = 0.0020
         compra = venta = None
         fecha  = None
 
         try:
-            dt = DatatecRate.get()
-            if dt and float(dt.compra) > 0 and float(dt.venta) > 0:
-                compra = float(dt.compra)
-                venta  = float(dt.venta)
-                fecha  = dt.updated_at.isoformat() if dt.updated_at else now_peru().isoformat()
+            rate = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
+            if rate and float(rate.buy_rate) > 0:
+                compra = float(rate.buy_rate)
+                venta  = float(rate.sell_rate)
+                fecha  = rate.updated_at.isoformat() if rate.updated_at else now_peru().isoformat()
         except Exception as e:
-            logger.warning(f"[public/exchange-rates] DatatecRate error: {e}")
+            logger.warning(f"[public/exchange-rates] ExchangeRate error: {e}")
 
         if compra is None or venta is None:
             try:
-                rate = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
-                if rate and float(rate.buy_rate) > 0:
-                    compra = float(rate.buy_rate)
-                    venta  = float(rate.sell_rate)
-                    fecha  = rate.updated_at.isoformat() if rate.updated_at else now_peru().isoformat()
+                dt = DatatecRate.get()
+                if dt and float(dt.compra) > 0 and float(dt.venta) > 0:
+                    compra = _math_pub.floor((float(dt.compra) - PIPS_PUB) * 1000) / 1000
+                    venta  = _math_pub.ceil( (float(dt.venta)  + PIPS_PUB) * 1000) / 1000
+                    fecha  = dt.updated_at.isoformat() if dt.updated_at else now_peru().isoformat()
             except Exception as e:
-                logger.warning(f"[public/exchange-rates] ExchangeRate fallback error: {e}")
+                logger.warning(f"[public/exchange-rates] DatatecRate fallback error: {e}")
 
         if compra is not None and venta is not None:
             return jsonify({
