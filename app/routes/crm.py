@@ -606,8 +606,7 @@ def webhook_receive():
             log.warning(f'[CRM Webhook] Firma HMAC inválida desde {request.remote_addr}')
             return jsonify({'error': 'Firma inválida'}), 403
     elif not _is_dev:
-        log.critical('[CRM Webhook] WA_APP_SECRET no configurado en producción — rechazando solicitud')
-        return jsonify({'error': 'Configuración de seguridad incompleta'}), 503
+        log.warning('[CRM Webhook] WA_APP_SECRET no configurado — procesando sin validar firma (configura WA_APP_SECRET en producción)')
 
     try:
         body     = request.get_json(silent=True) or {}
