@@ -14,9 +14,14 @@ depends_on = None
 
 
 def upgrade():
-    with op.batch_alter_table('wa_bot_sessions') as batch_op:
-        batch_op.add_column(sa.Column('cotiz_mod_token',     sa.String(36), nullable=True))
-        batch_op.add_column(sa.Column('cotiz_nuevo_importe', sa.Float(),    nullable=True, server_default='0'))
+    conn = op.get_bind()
+    # IF NOT EXISTS makes this idempotent — safe even if psycopg2 patch already added the columns
+    conn.execute(sa.text(
+        "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_mod_token     VARCHAR(36)"
+    ))
+    conn.execute(sa.text(
+        "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_nuevo_importe FLOAT DEFAULT 0"
+    ))
 
 
 def downgrade():
