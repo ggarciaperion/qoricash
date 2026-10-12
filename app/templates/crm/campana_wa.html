@@ -336,12 +336,12 @@ table.cw-table tr:hover td { background: #f8fafc; }
         <input type="number" id="inVenta" step="0.001" min="1" placeholder="3.381">
       </div>
       <div class="cw-launch-field">
-        <label>Límite</label>
+        <label>Máx. mensajes</label>
         <input type="number" id="inLimite" value="300" min="1" max="500">
       </div>
       <div class="cw-launch-actions">
         <button class="btn-dryrun" id="btnDryRun" onclick="lanzarCampana(true)">
-          <i class="bi bi-eye"></i> Simular
+          <i class="bi bi-eye"></i> Vista previa (sin enviar)
         </button>
         <button class="btn-lanzar" id="btnLanzar" onclick="lanzarCampana(false)">
           <i class="bi bi-send-fill"></i> Lanzar envío
@@ -612,6 +612,18 @@ async function pollJob(jobId, btnL, btnD) {
   } catch(e) { /* ignore poll errors */ }
 }
 
+// ── Pre-cargar TC del sistema ────────────────────────────────────────────────
+async function cargarTC() {
+  try {
+    const r = await fetch('/api/platform/public/exchange-rates');
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d.success || !d.data) return;
+    document.getElementById('inCompra').value = parseFloat(d.data.tipo_compra).toFixed(3);
+    document.getElementById('inVenta').value  = parseFloat(d.data.tipo_venta).toFixed(3);
+  } catch(e) { /* silencioso */ }
+}
+
 // Spin animation
 const st = document.createElement('style');
 st.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
@@ -619,6 +631,7 @@ document.head.appendChild(st);
 
 // Carga inicial
 cargarStats();
+cargarTC();
 // Auto-refresh cada 60s
 setInterval(cargarStats, 60000);
 </script>
