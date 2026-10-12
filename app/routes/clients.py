@@ -249,23 +249,23 @@ def change_status(client_id):
                 from app.utils.password_generator import generate_simple_password
                 from app.extensions import db
 
-                # Solo generar contraseña temporal si fue creado manualmente por un Trader
-                creator_role = None
-                if hasattr(client, 'creator') and client.creator:
-                    creator_role = client.creator.role if hasattr(client.creator, 'role') else None
+                # Discriminar por canal de registro:
+                # registration_canal='web'|'app' → auto-registrado (tiene su propia contraseña)
+                # registration_canal=None        → registrado por staff (cualquier rol) → contraseña temporal
+                is_self_registered = getattr(client, 'registration_canal', None) in ('web', 'app')
 
-                if creator_role == 'Trader':
-                    # Cliente creado por Trader: generar contraseña temporal y enviar con ella
+                if not is_self_registered:
+                    # Registrado por ejecutivo (Master/Admin/Trader/etc.): generar contraseña temporal
                     temporary_password = generate_simple_password(length=10)
                     client.set_password(temporary_password)
                     client.requires_password_change = True
                     db.session.commit()
-                    logger.info(f'✅ Contraseña temporal generada para cliente {client.dni} (creado por Trader)')
-                    trader = client.creator
-                    EmailTemplates.send_activation_with_temp_password(client, trader, temporary_password)
+                    ejecutivo = client.creator  # puede ser cualquier rol de staff
+                    logger.info(f'✅ Contraseña temporal generada para cliente {client.dni} (registrado por staff)')
+                    EmailTemplates.send_activation_with_temp_password(client, ejecutivo, temporary_password)
                 else:
-                    # Cliente auto-registrado: ya tiene su propia contraseña, NO sobrescribir
-                    logger.info(f'ℹ️ Cliente {client.dni} auto-registrado — NO se genera contraseña temporal')
+                    # Auto-registrado: ya tiene su propia contraseña, NO sobrescribir
+                    logger.info(f'ℹ️ Cliente {client.dni} auto-registrado (canal={client.registration_canal}) — sin contraseña temporal')
                     EmailTemplates.send_activation_without_password(client)
 
             except Exception as e:
