@@ -28,6 +28,9 @@ class WaBotSession(db.Model):
     cotiz_cuenta  = db.Column(db.String(50),  default='')   # cuenta destino del cliente
     cotiz_timestamp = db.Column(db.DateTime, nullable=True)  # timestamp cuando se mostró la cotización
     cotiz_token     = db.Column(db.String(36), nullable=True)  # token UUID corto que identifica la versión de cotización
+    # Modificación de importe en operación existente (esperando_nuevo_importe → confirmando_cambio_importe)
+    cotiz_mod_token     = db.Column(db.String(36), nullable=True)   # token para confirmar cambio de importe
+    cotiz_nuevo_importe = db.Column(db.Float,      default=0.0, nullable=True)  # importe propuesto pendiente de confirmar
     # Control de ciclo de sesión: marca el inicio de un nuevo ciclo tras expiración por inactividad.
     # Permite acotar el historial de IA y rechazar botones de ciclos anteriores.
     # NULL = sesión nunca expirada (cliente nuevo o sesión activa sin reset por inactividad).
@@ -46,6 +49,11 @@ class WaBotSession(db.Model):
     empresa_guardada = db.Column(db.String(200), default='', nullable=True)
     # Intentos fallidos consecutivos en el estado actual (para ofrecer salida tras N errores)
     cotiz_intentos = db.Column(db.Integer, default=0, nullable=False)
+    # Campaña de reactivación WA
+    opt_out_wa           = db.Column(db.Boolean,  default=False, nullable=True)   # pidió no recibir más mensajes
+    campana_secuencia    = db.Column(db.Integer,  default=0,     nullable=True)   # 0=sin enviar; 1,2,3,4=enviados
+    campana_ultimo_envio = db.Column(db.DateTime, nullable=True)                  # timestamp último envío campaña
+    campana_pausada      = db.Column(db.Boolean,  default=False, nullable=True)   # pausa manual individual
     created_at = db.Column(db.DateTime, default=now_peru, nullable=False)
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru, nullable=False)
 

@@ -74,6 +74,7 @@ def _enviar_notif_wa_email(numero: str, nombre: str, preview: str):
 
 
 WA_VERIFY_TOKEN   = os.environ.get('WA_VERIFY_TOKEN',    'qoricash_wa_verify_2026')
+WA_APP_SECRET     = os.environ.get('WA_APP_SECRET',      '')
 WA_ACCESS_TOKEN   = os.environ.get('WA_ACCESS_TOKEN',    '')
 WA_PHONE_ID       = os.environ.get('WA_PHONE_NUMBER_ID', '1197587863432080')
 WA_TEMPLATE_NAME  = os.environ.get('WA_TEMPLATE_NAME',   'qoricash_precios_ok')
@@ -591,6 +592,23 @@ def webhook_verify():
 @crm_bp.route('/webhook', methods=['POST'])
 @csrf.exempt
 def webhook_receive():
+    # ── HMAC-SHA256 webhook signature validation ─────────────────
+    # Mandatory in production; explicit dev bypass (never silent).
+    import hmac as _hmac, hashlib as _hashlib
+    _is_dev = os.environ.get('FLASK_ENV', '') == 'development'
+    if WA_APP_SECRET:
+        _sig_header = request.headers.get('X-Hub-Signature-256', '')
+        _raw_body   = request.get_data()
+        _expected   = 'sha256=' + _hmac.new(
+            WA_APP_SECRET.encode('utf-8'), _raw_body, _hashlib.sha256
+        ).hexdigest()
+        if not _hmac.compare_digest(_sig_header, _expected):
+            log.warning(f'[CRM Webhook] Firma HMAC inválida desde {request.remote_addr}')
+            return jsonify({'error': 'Firma inválida'}), 403
+    elif not _is_dev:
+        log.critical('[CRM Webhook] WA_APP_SECRET no configurado en producción — rechazando solicitud')
+        return jsonify({'error': 'Configuración de seguridad incompleta'}), 503
+
     try:
         body     = request.get_json(silent=True) or {}
         entry    = body.get('entry', [{}])[0]
@@ -602,6 +620,7 @@ def webhook_receive():
         if not messages:
             return jsonify({'status': 'ok'})
 
+        _newly_inserted = set()  # wa_ids insertados en este request; evita duplicados
         for msg in messages:
             numero    = f"+{msg.get('from', '')}"
             wa_id     = msg.get('id', '')
@@ -670,6 +689,11 @@ def webhook_receive():
             prev = WaMessage.query.filter_by(numero=numero).first()
             empresa = prev.empresa if prev else ''
 
+            # Dedup: skip if wa_id already stored (retry or duplicate delivery)
+            if wa_id and WaMessage.query.filter_by(wa_id=wa_id).first():
+                log.debug(f'[CRM Webhook] wa_id duplicado ignorado: {wa_id}')
+                continue
+
             wa_msg = WaMessage(
                 numero     = numero,
                 nombre     = nombre,
@@ -682,6 +706,8 @@ def webhook_receive():
                 media_tipo = media_tipo_val,
             )
             db.session.add(wa_msg)
+            if wa_id:
+                _newly_inserted.add(wa_id)
 
             # Vincular respuesta WA al prospecto
             try:
@@ -752,9 +778,14 @@ def webhook_receive():
             log.warning(f'[CRM Webhook] Error reseteando estado resuelto: {_er}')
 
         # ── Bot automático ────────────────────────────────────────
+        # Solo procesa wa_ids nuevos (insertados en este request).
+        # Mensajes duplicados o retried se ignoran por no estar en _newly_inserted.
         try:
             from app.services.wa_bot import handle_message as _bot
             for msg in messages:
+                wa_id_b = msg.get('id', '')
+                if wa_id_b not in _newly_inserted:
+                    continue
                 numero_b = f"+{msg.get('from', '')}"
                 tipo_b   = msg.get('type', '')
                 if tipo_b == 'text':
@@ -781,7 +812,6 @@ def webhook_receive():
                     media_b = ''
                 contacto_b = next((c for c in contacts if c.get('wa_id') == msg.get('from')), {})
                 nombre_b   = contacto_b.get('profile', {}).get('name', '')
-                wa_id_b    = msg.get('id', '')
                 _bot(numero_b, nombre_b, tipo_b, texto_b, media_b, wa_id_b)
         except Exception as _eb:
             log.warning(f'[CRM Webhook] Bot error: {_eb}')

@@ -68,8 +68,45 @@
   .tc-input-group .currency-label {
     position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
     font-size: .72rem; font-weight: 600; color: var(--muted); pointer-events: none;
+    transition: color .15s;
   }
-  .tc-input-group input { padding-left: 26px; }
+  .tc-input-group input {
+    padding-left: 26px;
+    transition: border-color .15s, box-shadow .15s;
+    cursor: text;
+  }
+  .tc-input-compra:focus {
+    border-color: var(--green) !important;
+    box-shadow: 0 0 0 3px rgba(25,135,84,.18) !important;
+    outline: none;
+  }
+  .tc-input-venta:focus {
+    border-color: var(--blue) !important;
+    box-shadow: 0 0 0 3px rgba(13,110,253,.18) !important;
+    outline: none;
+  }
+  /* Flash al actualizar valor publicado */
+  @keyframes rateFlash {
+    0%   { background: transparent; }
+    35%  { background: #fef9c3; border-radius: 6px; }
+    100% { background: transparent; }
+  }
+  .rate-flash { animation: rateFlash .55s ease; }
+  /* Flash KPI cards */
+  @keyframes kpiFlash {
+    0%   { opacity: 1; transform: scale(1); }
+    25%  { opacity: .5; transform: scale(.97); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  .kpi-flash { animation: kpiFlash .4s ease; }
+  /* Botón guardar estados */
+  #tcSaveBtn { transition: background .2s, opacity .2s; }
+  #tcSaveBtn:disabled { opacity: .75; cursor: not-allowed; }
+  #tcError {
+    font-size: .7rem; color: #dc3545;
+    min-height: 1rem; text-align: center;
+    transition: opacity .2s;
+  }
 
   /* Legend dots */
   .legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
@@ -366,11 +403,12 @@
       <div class="card shadow-sm">
         <div class="card-header bg-white border-bottom py-2">
           <span class="fw-semibold text-dark">
-            <i class="bi bi-currency-exchange me-1 text-primary"></i>Mis Tipos de Cambio
+            <i class="bi bi-currency-exchange me-1 text-primary"></i>Tipos de Cambio
           </span>
         </div>
         <div class="card-body p-3">
 
+          <!-- Valores publicados actualmente -->
           <div class="row g-2 mb-3">
             <div class="col-6">
               <div class="rounded-3 p-2 text-center" style="background:#eafaf1;border:1px solid #b7e4c7">
@@ -388,32 +426,39 @@
             </div>
           </div>
 
+          <!-- Inputs de actualización -->
           <div class="row g-2 mb-2">
             <div class="col-6">
-              <label class="form-label mb-1" style="font-size:.7rem;font-weight:600;color:var(--green)">Nueva compra</label>
+              <label class="form-label mb-1" style="font-size:.7rem;font-weight:600;color:var(--green)">Compra</label>
               <div class="tc-input-group">
                 <span class="currency-label">S/</span>
-                <input type="number" class="form-control form-control-sm" id="tcNewBuy"
-                       step="0.001" min="0" placeholder="0.000">
+                <input type="number" class="form-control form-control-sm tc-input-compra" id="tcNewBuy"
+                       step="0.001" min="0" placeholder="0.000"
+                       tabindex="1" autocomplete="off"
+                       onfocus="this.select()" onclick="this.select()">
               </div>
             </div>
             <div class="col-6">
-              <label class="form-label mb-1" style="font-size:.7rem;font-weight:600;color:var(--blue)">Nueva venta</label>
+              <label class="form-label mb-1" style="font-size:.7rem;font-weight:600;color:var(--blue)">Venta</label>
               <div class="tc-input-group">
                 <span class="currency-label">S/</span>
-                <input type="number" class="form-control form-control-sm" id="tcNewSell"
-                       step="0.001" min="0" placeholder="0.000">
+                <input type="number" class="form-control form-control-sm tc-input-venta" id="tcNewSell"
+                       step="0.001" min="0" placeholder="0.000"
+                       tabindex="2" autocomplete="off"
+                       onfocus="this.select()" onclick="this.select()">
               </div>
             </div>
           </div>
 
-          <button class="btn btn-primary btn-sm w-100 mb-2" onclick="tcUpdateRates()">
+          <div id="tcError" class="mb-2"></div>
+
+          <button class="btn btn-primary btn-sm w-100 mb-2" id="tcSaveBtn" tabindex="3">
             <i class="bi bi-send me-1"></i>Guardar y publicar
           </button>
 
           <div class="text-center text-muted" style="font-size:.68rem">
             <i class="bi bi-clock me-1"></i>
-            <span id="tcLastUpdate">--</span> · por <span id="tcUpdatedBy">--</span>
+            <span id="tcLastUpdate">--</span> · <span id="tcUpdatedBy">--</span>
           </div>
 
         </div>
@@ -938,6 +983,13 @@ function caApplySuggestion(buy, sell) {
 }
 
 // ── Tipos de Cambio ────────────────────────────────────────────────────────
+function _tcFlash(el) {
+  if (!el) return;
+  el.classList.remove('rate-flash', 'kpi-flash');
+  void el.offsetWidth; // reflow para reiniciar animación
+  el.classList.add(el.classList.contains('kpi-value') ? 'kpi-flash' : 'rate-flash');
+}
+
 function tcLoadRates() {
   fetch('/api/platform/exchange-rates')
     .then(r => r.json())
@@ -946,26 +998,69 @@ function tcLoadRates() {
       const { compra, venta, updated_at, updated_by } = res.rates;
       const buy  = parseFloat(compra).toFixed(3);
       const sell = parseFloat(venta).toFixed(3);
-      document.getElementById('tcBuyRate').textContent  = 'S/ ' + buy;
-      document.getElementById('tcSellRate').textContent = 'S/ ' + sell;
-      document.getElementById('tcNewBuy').value  = buy;
-      document.getElementById('tcNewSell').value = sell;
-      document.getElementById('kpiBuy').textContent    = 'S/ ' + parseFloat(compra).toFixed(4);
-      document.getElementById('kpiSell').textContent   = 'S/ ' + parseFloat(venta).toFixed(4);
-      document.getElementById('kpiSpread').textContent = 'S/ ' + (parseFloat(venta) - parseFloat(compra)).toFixed(4);
+
+      const buyRateEl  = document.getElementById('tcBuyRate');
+      const sellRateEl = document.getElementById('tcSellRate');
+      const kpiBuyEl   = document.getElementById('kpiBuy');
+      const kpiSellEl  = document.getElementById('kpiSell');
+      const kpiSprEl   = document.getElementById('kpiSpread');
+
+      const prevBuy  = buyRateEl  ? buyRateEl.textContent  : '';
+      const prevSell = sellRateEl ? sellRateEl.textContent : '';
+
+      if (buyRateEl)  buyRateEl.textContent  = 'S/ ' + buy;
+      if (sellRateEl) sellRateEl.textContent = 'S/ ' + sell;
+
+      const kpiBuyTxt  = 'S/ ' + parseFloat(compra).toFixed(4);
+      const kpiSellTxt = 'S/ ' + parseFloat(venta).toFixed(4);
+      const kpiSprTxt  = 'S/ ' + (parseFloat(venta) - parseFloat(compra)).toFixed(4);
+
+      if (kpiBuyEl  && kpiBuyEl.textContent  !== kpiBuyTxt)  { kpiBuyEl.textContent  = kpiBuyTxt;  _tcFlash(kpiBuyEl); }
+      if (kpiSellEl && kpiSellEl.textContent !== kpiSellTxt) { kpiSellEl.textContent = kpiSellTxt; _tcFlash(kpiSellEl); }
+      if (kpiSprEl)  kpiSprEl.textContent = kpiSprTxt;
+
+      // Flash display si el valor cambió
+      if (buyRateEl  && prevBuy  !== 'S/ ' + buy)  _tcFlash(buyRateEl);
+      if (sellRateEl && prevSell !== 'S/ ' + sell) _tcFlash(sellRateEl);
+
+      // Rellenar inputs solo si no tienen el foco (no interrumpir al usuario)
+      const buyInput  = document.getElementById('tcNewBuy');
+      const sellInput = document.getElementById('tcNewSell');
+      if (buyInput  && document.activeElement !== buyInput)  buyInput.value  = buy;
+      if (sellInput && document.activeElement !== sellInput) sellInput.value = sell;
+
       const parsed = parseSafeDate(updated_at);
-      if (parsed) document.getElementById('tcLastUpdate').textContent = parsed.toLocaleString('es-PE');
-      if (updated_by) document.getElementById('tcUpdatedBy').textContent = updated_by;
+      if (parsed) document.getElementById('tcLastUpdate').textContent = parsed.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'});
+      const byEl = document.getElementById('tcUpdatedBy');
+      if (byEl && updated_by) byEl.textContent = updated_by;
     })
     .catch(err => console.error('[TC]', err));
 }
 
 function tcUpdateRates() {
-  const buy  = parseFloat(document.getElementById('tcNewBuy').value);
-  const sell = parseFloat(document.getElementById('tcNewSell').value);
-  if (!buy || !sell) { alert('Ingresa ambos tipos de cambio.'); return; }
-  if (sell < buy)    { alert('La venta debe ser mayor o igual a la compra.'); return; }
-  if (!confirm(`¿Actualizar tipos de cambio?\n\nCompra: S/ ${buy.toFixed(3)}\nVenta:  S/ ${sell.toFixed(3)}`)) return;
+  const buyInput  = document.getElementById('tcNewBuy');
+  const sellInput = document.getElementById('tcNewSell');
+  const errEl     = document.getElementById('tcError');
+  const btn       = document.getElementById('tcSaveBtn');
+
+  const buy  = parseFloat(buyInput ? buyInput.value : 0);
+  const sell = parseFloat(sellInput ? sellInput.value : 0);
+
+  if (errEl) errEl.textContent = '';
+
+  if (!buy || !sell) {
+    if (errEl) errEl.textContent = 'Ingresa compra y venta.';
+    (buy ? sellInput : buyInput)?.focus();
+    return;
+  }
+  if (sell < buy) {
+    if (errEl) errEl.textContent = 'La venta debe ser ≥ compra.';
+    sellInput?.focus(); sellInput?.select();
+    return;
+  }
+
+  // Estado cargando
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Publicando…'; }
 
   const csrf = document.querySelector('meta[name=csrf-token]');
   fetch('/api/platform/exchange-rates', {
@@ -975,11 +1070,35 @@ function tcUpdateRates() {
   })
   .then(r => r.json())
   .then(res => {
-    if (res.success) tcLoadRates();
-    else alert(res.message || 'Error al actualizar');
+    if (res.success) {
+      if (btn) { btn.innerHTML = '<i class="bi bi-check2 me-1"></i>Publicado'; btn.classList.replace('btn-primary','btn-success'); }
+      tcLoadRates();
+      setTimeout(() => {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send me-1"></i>Guardar y publicar'; btn.classList.replace('btn-success','btn-primary'); }
+      }, 1800);
+    } else {
+      if (errEl) errEl.textContent = res.message || 'Error al actualizar.';
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send me-1"></i>Guardar y publicar'; }
+    }
   })
-  .catch(() => alert('Error de conexión'));
+  .catch(() => {
+    if (errEl) errEl.textContent = 'Error de conexión.';
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send me-1"></i>Guardar y publicar'; }
+  });
 }
+
+// Inicializar botón y atajos de teclado del widget TC
+(function tcWidgetInit() {
+  const btn       = document.getElementById('tcSaveBtn');
+  const buyInput  = document.getElementById('tcNewBuy');
+  const sellInput = document.getElementById('tcNewSell');
+  if (btn)       btn.addEventListener('click', tcUpdateRates);
+  // Enter en cualquier input del widget → guardar
+  [buyInput, sellInput].forEach(el => {
+    if (!el) return;
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); tcUpdateRates(); } });
+  });
+})();
 
 // ── Botón Scrape (Master) ──────────────────────────────────────────────────
 const btnNow = document.getElementById('btnScrapeNow');
@@ -1243,20 +1362,35 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof io !== 'undefined') {
     const _sock = io();
     _sock.on('tipos_cambio_actualizados', function(data) {
-      const buyEl  = document.getElementById('tcBuyRate');
-      const sellEl = document.getElementById('tcSellRate');
+      const buyEl     = document.getElementById('tcBuyRate');
+      const sellEl    = document.getElementById('tcSellRate');
+      const kpiBuyEl  = document.getElementById('kpiBuy');
+      const kpiSellEl = document.getElementById('kpiSell');
+      const kpiSprEl  = document.getElementById('kpiSpread');
+      const buyInput  = document.getElementById('tcNewBuy');
+      const sellInput = document.getElementById('tcNewSell');
       if (!buyEl || !sellEl) return;
+
       const buy  = parseFloat(data.compra).toFixed(3);
       const sell = parseFloat(data.venta).toFixed(3);
-      buyEl.textContent  = 'S/ ' + buy;
-      sellEl.textContent = 'S/ ' + sell;
-      document.getElementById('tcNewBuy').value  = buy;
-      document.getElementById('tcNewSell').value = sell;
-      document.getElementById('kpiBuy').textContent    = 'S/ ' + parseFloat(data.compra).toFixed(4);
-      document.getElementById('kpiSell').textContent   = 'S/ ' + parseFloat(data.venta).toFixed(4);
-      document.getElementById('kpiSpread').textContent = 'S/ ' + (parseFloat(data.venta) - parseFloat(data.compra)).toFixed(4);
-      if (data.updated_by) document.getElementById('tcUpdatedBy').textContent = data.updated_by;
-      document.getElementById('tcLastUpdate').textContent = new Date().toLocaleString('es-PE');
+
+      if (buyEl.textContent  !== 'S/ ' + buy)  { buyEl.textContent  = 'S/ ' + buy;  _tcFlash(buyEl); }
+      if (sellEl.textContent !== 'S/ ' + sell) { sellEl.textContent = 'S/ ' + sell; _tcFlash(sellEl); }
+
+      const kpiBuyTxt  = 'S/ ' + parseFloat(data.compra).toFixed(4);
+      const kpiSellTxt = 'S/ ' + parseFloat(data.venta).toFixed(4);
+      if (kpiBuyEl  && kpiBuyEl.textContent  !== kpiBuyTxt)  { kpiBuyEl.textContent  = kpiBuyTxt;  _tcFlash(kpiBuyEl); }
+      if (kpiSellEl && kpiSellEl.textContent !== kpiSellTxt) { kpiSellEl.textContent = kpiSellTxt; _tcFlash(kpiSellEl); }
+      if (kpiSprEl) kpiSprEl.textContent = 'S/ ' + (parseFloat(data.venta) - parseFloat(data.compra)).toFixed(4);
+
+      // Solo actualizar inputs si el usuario no los está editando
+      if (buyInput  && document.activeElement !== buyInput)  buyInput.value  = buy;
+      if (sellInput && document.activeElement !== sellInput) sellInput.value = sell;
+
+      const byEl = document.getElementById('tcUpdatedBy');
+      if (byEl && data.updated_by) byEl.textContent = data.updated_by;
+      const luEl = document.getElementById('tcLastUpdate');
+      if (luEl) luEl.textContent = new Date().toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'});
     });
   }
 });

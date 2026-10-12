@@ -1394,9 +1394,9 @@ def _bienvenida(numero, session):
             'Cambia dólares al mejor tipo de cambio, sin salir de tu WhatsApp.\n\n'
             '¿Qué operación te interesa?',
             [
-                {'id': 'btn_comprar', 'title': 'Soles a dólares'},
-                {'id': 'btn_vender',  'title': 'Dólares a soles'},
-                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                {'id': 'btn_comprar',     'title': 'Soles a dólares'},
+                {'id': 'btn_vender',      'title': 'Dólares a soles'},
+                {'id': 'btn_soy_empresa', 'title': '🏢 Soy empresa'},
             ]
         )
 
@@ -3861,44 +3861,17 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
         _typing(numero, wa_id)
 
         # ── Bot pausado: asesor atendiendo manualmente ─────────────
+        # El control vuelve al bot únicamente mediante acción explícita del asesor
+        # desde el CRM (/crm/toggle-bot/<numero> o cierre de atención).
+        # Ningún mensaje ni botón del cliente reactiva el bot automáticamente.
         try:
             _bot_pausado = session.bot_pausado
         except Exception:
             _bot_pausado = False
         if _bot_pausado:
-            # Si el cliente presiona un botón mientras el asesor está activo,
-            # reactivar el bot y procesar el botón normalmente.
-            if tipo_msg == 'interactive':
-                log.info(f'[WaBot] {numero} — bot pausado pero cliente presionó botón, reactivando.')
-                try:
-                    session.bot_pausado = False
-                    session.estado_atencion = 'bot'
-                except Exception:
-                    pass
-                _bot_pausado = False
-            else:
-                # Auto-reanudar si el asesor no respondió en más de 30 minutos.
-                # Cubre sesiones congeladas por días/meses (bot_pausado=True, estado='inicio').
-                from datetime import timedelta as _td_pausa
-                from app.utils.formatters import now_peru as _now_pausa
-                _pausa_desde = session.updated_at
-                _pausa_min = ((_now_pausa() - _pausa_desde).total_seconds() / 60) if _pausa_desde else 9999
-                if _pausa_min > 30:
-                    log.info(
-                        f'[WaBot] {numero} — bot pausado hace {_pausa_min:.0f} min '
-                        f'sin respuesta de asesor; reanudando automáticamente.'
-                    )
-                    try:
-                        session.bot_pausado = False
-                        session.estado_atencion = 'bot'
-                    except Exception:
-                        pass
-                    _bot_pausado = False
-                    # Fall through: procesar el mensaje normalmente
-                else:
-                    log.info(f'[WaBot] {numero} — bot pausado (asesor activo, hace {_pausa_min:.0f} min), mensaje ignorado.')
-                    db.session.commit()
-                    return
+            log.info(f'[WaBot] {numero} — bot pausado (asesor en control), mensaje ignorado.')
+            db.session.commit()
+            return
 
         # ── Sesión expirada por inactividad (cliente escribe tras 20 min) ──
         # Excepción: si el cliente tiene una operación En proceso, no expirar —
@@ -3975,7 +3948,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 if _op_activa:
                     _flujo_op_ya_activa(numero, _op_activa)
                 else:
-                    _flujo_cotizar_inicio(numero, session)
+                    _flujo_cotizar_inicio(numero)
                     session.estado = 'eligiendo_operacion'
 
             elif btn_id == 'btn_soy_empresa':
@@ -4887,6 +4860,132 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 else:
                     _flujo_modificar_importe(numero, session)
 
+            elif btn_id.startswith('btn_confirmar_mod_importe_'):
+                # Formato: btn_confirmar_mod_importe_{op_id}_{token}
+                # Aplica la modificación de importe con 4 revalidaciones bajo bloqueo.
+                _sfx_cm = btn_id[len('btn_confirmar_mod_importe_'):]
+                _parts_cm = _sfx_cm.rsplit('_', 1)
+                if len(_parts_cm) != 2:
+                    send_buttons(numero,
+                        '⏱️ Ese botón ya no es válido. ¿Qué deseas hacer?',
+                        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                    )
+                else:
+                    _btn_op_id, _btn_token = _parts_cm
+                    _ses_op_id    = session.cotiz_op_id or ''
+                    _ses_token    = session.cotiz_mod_token or ''
+                    _ses_nuevo    = float(session.cotiz_nuevo_importe or 0)
+
+                    if _btn_op_id != _ses_op_id or _btn_token != _ses_token or _ses_nuevo <= 0:
+                        send_buttons(numero,
+                            '⏱️ Este cambio ya no corresponde a tu operación activa.',
+                            [
+                                {'id': f'btn_modificar_importe_{_ses_op_id}' if _ses_op_id else 'btn_asesor',
+                                 'title': '✏️ Modificar importe' if _ses_op_id else '💬 Hablar con asesor'},
+                                {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'},
+                            ]
+                        )
+                    else:
+                        from app.models.operation import Operation as _OpCM
+                        from app.services.email_service import EmailService as _ES_CM
+                        from app.services.notification_service import NotificationService as _NS_CM
+                        try:
+                            # Revalidación 1: operación existe (bajo bloqueo de fila)
+                            op_cm = _OpCM.query.filter_by(operation_id=_btn_op_id).with_for_update().first()
+                            if not op_cm:
+                                send_buttons(numero,
+                                    '⚠️ No encontramos tu operación. Contacta a un asesor.',
+                                    [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                                )
+                                session.estado = 'inicio'
+                            # Revalidación 2: estado sigue siendo Pendiente
+                            elif op_cm.status != 'Pendiente':
+                                send_text(numero,
+                                    f'ℹ️ Tu operación *{op_cm.operation_id}* ya está en estado '
+                                    f'*{op_cm.status}* y no puede modificarse.')
+                                session.estado = 'op_pendiente_pago'
+                            # Revalidación 3: la operación pertenece a este cliente
+                            elif (session.cotiz_doc or '') and op_cm.document_id != (session.cotiz_doc or ''):
+                                send_buttons(numero,
+                                    '⚠️ No podemos verificar tu titularidad. Habla con un asesor.',
+                                    [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                                )
+                                session.estado = 'op_pendiente_pago'
+                            # Revalidación 4: no tiene código de pago registrado
+                            elif getattr(op_cm, 'payment_code', None):
+                                send_text(numero,
+                                    f'ℹ️ La operación *{op_cm.operation_id}* ya tiene un pago registrado '
+                                    f'y no puede modificarse.')
+                                session.estado = 'op_pendiente_pago'
+                            else:
+                                old_usd_cm = float(op_cm.amount_usd)
+                                old_pen_cm = float(op_cm.amount_pen)
+                                tc_cm      = float(op_cm.exchange_rate)
+                                nuevo_pen_cm = round(_ses_nuevo * tc_cm, 2)
+
+                                op_cm.amount_usd = round(_ses_nuevo, 2)
+                                op_cm.amount_pen = nuevo_pen_cm
+                                # Limpiar token de modificación
+                                session.cotiz_mod_token     = None
+                                session.cotiz_nuevo_importe = 0.0
+                                session.estado = 'op_pendiente_pago'
+                                db.session.commit()
+
+                                log.info(
+                                    f'[WaBot] {numero} confirmó modificación {op_cm.operation_id}: '
+                                    f'USD {old_usd_cm} → {round(_ses_nuevo, 2)} | '
+                                    f'PEN {old_pen_cm} → {nuevo_pen_cm}'
+                                )
+
+                                try:
+                                    _NS_CM.notify_operation_updated(op_cm, old_status=op_cm.status)
+                                except Exception as _ne_cm:
+                                    log.warning(f'[WaBot] notify_operation_updated error: {_ne_cm}')
+
+                                try:
+                                    _ES_CM.send_amount_modified_operation_email(op_cm, old_usd_cm, old_pen_cm)
+                                except Exception as _ee_cm:
+                                    log.warning(f'[WaBot] email modificación importe error: {_ee_cm}')
+
+                                moneda_e_cm = 'PEN' if session.cotiz_op == 'compra' else 'USD'
+                                _env_lbl_cm = 'S/' if moneda_e_cm == 'PEN' else 'USD'
+                                _rec_lbl_cm = 'USD' if moneda_e_cm == 'PEN' else 'S/'
+                                _env_val_cm = nuevo_pen_cm if moneda_e_cm == 'PEN' else round(_ses_nuevo, 2)
+                                _rec_val_cm = round(_ses_nuevo, 2) if moneda_e_cm == 'PEN' else nuevo_pen_cm
+
+                                send_buttons(numero,
+                                    f'✅ *Importe actualizado · {op_cm.operation_id}*\n\n'
+                                    f'Tú envías:   *{_env_lbl_cm} {_env_val_cm:,.2f}*\n'
+                                    f'Tú recibes:  *{_rec_lbl_cm} {_rec_val_cm:,.2f}*\n'
+                                    f'Tipo de cambio: S/ {tc_cm:.4f}',
+                                    [
+                                        {'id': 'btn_ya_transferi',                             'title': '✅ Ya transferí'},
+                                        {'id': f'btn_modificar_importe_{op_cm.operation_id}',  'title': '✏️ Modificar importe'},
+                                        {'id': f'btn_cancelar_operacion_{op_cm.operation_id}', 'title': '❌ Cancelar'},
+                                    ]
+                                )
+                        except Exception as _ex_cm:
+                            log.error(f'[WaBot] btn_confirmar_mod_importe error: {_ex_cm}')
+                            send_buttons(numero,
+                                '⚠️ No fue posible aplicar el cambio. Habla con un asesor.',
+                                [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                            )
+
+            elif btn_id.startswith('btn_cancelar_mod_importe_'):
+                # Cancelar el cambio de importe pendiente de confirmación
+                _ses_op_mod = session.cotiz_op_id or ''
+                session.cotiz_mod_token     = None
+                session.cotiz_nuevo_importe = 0.0
+                session.estado = 'op_pendiente_pago'
+                send_buttons(numero,
+                    '↩️ Cambio de importe cancelado. Tu operación sigue igual.',
+                    [
+                        {'id': 'btn_ya_transferi',                                        'title': '✅ Ya transferí'},
+                        {'id': f'btn_modificar_importe_{_ses_op_mod}' if _ses_op_mod else 'btn_asesor',
+                         'title': '✏️ Modificar importe' if _ses_op_mod else '💬 Hablar con asesor'},
+                    ]
+                )
+
             elif btn_id == 'btn_tengo_cuenta':
                 _flujo_pedir_doc_verificacion(numero)
                 session.estado = 'esperando_doc'
@@ -5231,33 +5330,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                              'chau', 'adios', 'adiós', 'bye bye', 'nos vemos',
                              'hasta mañana', 'hasta manana', 'hasta pronto')
 
-            # GUARDIA viendo_cotizacion: cualquier texto tras el primer intento va directo
-            # al contador de intentos, sin pasar por keywords ni handlers globales.
-            if estado == 'viendo_cotizacion' and (session.cotiz_intentos or 0) >= 1:
-                _token_gv = getattr(session, 'cotiz_token', None) or ''
-                _intentos_gv = (session.cotiz_intentos or 0) + 1
-                session.cotiz_intentos = _intentos_gv
-                if _intentos_gv == 2:
-                    send_buttons(numero,
-                        'Si deseas continuar con tu cotización, por favor elige una opción 👇',
-                        [
-                            {'id': f'btn_aceptar_cotiz_{_token_gv}', 'title': 'Aceptar Cotizacion'},
-                        ]
-                    )
-                else:
-                    _reset_sesion(session)
-                    send_buttons(numero,
-                        'No hemos podido continuar con tu cotización. '
-                        'Por favor vuelve a cotizar cuando quieras 😊',
-                        [
-                            {'id': 'btn_elegir_operacion', 'title': 'Volver a cotizar'},
-                            {'id': 'btn_asesor',           'title': '💬 Hablar con asesor'},
-                            {'id': 'btn_cerrar_sesion',    'title': 'Cerrar sesión'},
-                        ]
-                    )
-
             # N0 — despedida universal
-            elif any(k in txt_lower for k in _despedida_kw):
+            if any(k in txt_lower for k in _despedida_kw):
                 primer_nombre = (session.nombre or '').split()[0].title() if session.nombre else ''
                 _reset_sesion(session)
                 send_text(numero,
@@ -5265,24 +5339,46 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     f'Cuando necesites cambiar, aquí estaremos. ¡Que tengas un excelente día!'
                 )
 
-            # N1 — "cancelar" universal: cualquier estado activo (excepto inicio)
+            # N1 — "cancelar" / "salir": comportamiento según contexto.
+            # Usa coincidencia de palabras completas para evitar falsos positivos
+            # ("¿cómo puedo cancelar?", "no quiero cancelar").
             elif (estado != 'inicio'
-                    and not (estado == 'viendo_cotizacion' and (session.cotiz_intentos or 0) >= 2)
-                    and any(k in txt_lower for k in ('cancelar', 'salir', 'no gracias', 'stop', 'quiero salir'))):
-                _msg_cancel = (
-                    'Cotización cancelada. 😊\n\n'
-                    'Si cambias de opinión, aquí estaremos.'
-                    if estado in ('viendo_cotizacion', 'esperando_importe', 'confirmando_operacion')
-                    else 'Entendido, no hay problema. 😊\n\nEscríbenos cuando necesites cambiar.'
-                )
-                _reset_sesion(session)
-                send_buttons(numero,
-                    _msg_cancel,
-                    [
-                        {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
-                        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
-                    ]
-                )
+                    and re.search(r'\b(cancelar|salir|stop|quiero\s+salir)\b', txt_lower)
+                    and not re.search(r'\bno\s+(quiero\s+)?cancelar\b|\bc[oó]mo\s+(se\s+|puedo\s+)?cancelar\b', txt_lower)):
+                if estado == 'op_pendiente_pago' and session.cotiz_op_id:
+                    # Hay una operación en DB: no resetear silenciosamente.
+                    # El cliente debe usar el botón específico de cancelación de operación,
+                    # que valida titularidad, estado y depósitos antes de cancelar.
+                    send_buttons(numero,
+                        f'⚠️ Tienes la operación *{session.cotiz_op_id}* registrada en nuestro sistema.\n\n'
+                        'Resetear el chat *no* cancela la operación. Si deseas cancelarla formalmente, '
+                        'usa el botón o habla con un asesor.',
+                        [
+                            {'id': f'btn_cancelar_operacion_{session.cotiz_op_id}', 'title': '❌ Cancelar operación'},
+                            {'id': 'btn_asesor',                                    'title': '💬 Hablar con asesor'},
+                            {'id': 'btn_ya_transferi',                              'title': '✅ Ya transferí'},
+                        ]
+                    )
+                elif estado in ('viendo_cotizacion', 'esperando_importe', 'confirmando_operacion',
+                                'eligiendo_cuenta_destino', 'esperando_cuenta_destino', 'confirmando_cuenta'):
+                    # Solo hay datos de cotización en sesión — ningún registro en DB.
+                    _reset_sesion(session)
+                    send_buttons(numero,
+                        'Cotización cancelada. 😊\n\nCuando quieras, aquí estamos.',
+                        [
+                            {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
+                            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                        ]
+                    )
+                else:
+                    _reset_sesion(session)
+                    send_buttons(numero,
+                        'Entendido. 😊\n\nEscríbenos cuando necesites cambiar.',
+                        [
+                            {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+                            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                        ]
+                    )
 
             # N2 — moneda no soportada: euros, libras, yuan, etc. (universal, cualquier estado)
             elif re.search(r'\b(euros?|eur\b|libras?|gbp|yuan|yenes?|pesos?|bitcoin|btc|cripto|crypto)\b', txt_lower) and re.search(r'\d', txt_lower):
@@ -5314,6 +5410,28 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 )
             ):
                 _flujo_tc_publico(numero)
+
+            # N4 — solicitud explícita de asesor (universal, todos los estados
+            # excepto op_pendiente_pago que tiene su propia derivación más adelante)
+            elif (estado not in ('op_pendiente_pago', 'inicio')
+                    and re.search(
+                        r'\b(asesor|asesora|ayuda|ay[uú]dame|ayudame|'
+                        r'hablar\s+con\s+alguien|quiero\s+hablar|necesito\s+ayuda|'
+                        r'soporte|agente|ejecutivo)\b',
+                        txt_lower
+                    )):
+                _flujo_asesor(numero, estado_anterior=estado)
+                try:
+                    session.bot_pausado     = True
+                    session.estado_atencion = 'esperando'
+                except Exception:
+                    pass
+                try:
+                    from app.services.notification_service import NotificationService as _NS4
+                    _NS4.notify_wa_needs_human(numero, nombre, texto[:80] if texto else 'Solicita asesor', 1)
+                except Exception:
+                    pass
+                # Conservar estado: el asesor retoma desde donde está el cliente
 
             elif estado in _ESTADOS_CON_HORARIO and not _is_horario_atencion():
                 _flujo_fuera_horario(numero)
@@ -6350,24 +6468,46 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
             elif estado == 'esperando_doc_kyc_titular':
                 # Cliente con número de teléfono ambiguo (múltiples registros) debe
                 # identificarse con su DNI o RUC antes de asociar el documento enviado.
+                # Se verifica que el teléfono esté registrado en la cuenta encontrada.
                 _doc_id_raw = texto.strip().upper()
                 if not _doc_id_raw:
                     send_text(numero,
                         '✏️ Por favor escribe tu número de *DNI* o *RUC* para que podamos identificarte.')
                 else:
                     _c_kyc_id = _buscar_cliente(_doc_id_raw)
-                    if _c_kyc_id:
-                        session.cotiz_doc = _doc_id_raw
-                        send_text(numero,
-                            '✅ Identidad verificada. Por favor envía nuevamente el documento '
-                            'para que lo asociemos a tu cuenta.')
-                    else:
+                    if not _c_kyc_id:
                         send_buttons(numero,
                             '⚠️ No encontramos ese número en nuestro sistema.\n\n'
                             'Verifica que sea correcto o habla con un asesor.',
                             [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                         )
-                    session.estado = 'inicio'
+                        session.estado = 'inicio'
+                    elif not _telefono_autorizado(_c_kyc_id, numero):
+                        # Teléfono no coincide con el registrado → no podemos verificar
+                        _flujo_telefono_no_autorizado(
+                            numero,
+                            getattr(_c_kyc_id, 'name', '') or _doc_id_raw
+                        )
+                        session.estado = 'inicio'
+                    else:
+                        session.cotiz_doc = _doc_id_raw
+                        # Determinar qué documento falta y pedir que lo reenvíen
+                        if (getattr(session, 'tipo', '') == 'empresa') and not (session.ruc_doc or '').strip():
+                            send_text(numero,
+                                '✅ Identidad verificada. Por favor envía la *Ficha RUC* de tu empresa '
+                                '(imagen o PDF de sunat.gob.pe).')
+                            session.estado = 'esperando_ruc'
+                        elif not (session.dni_front or '').strip():
+                            send_text(numero,
+                                '✅ Identidad verificada. Por favor envía la *foto del frente de tu DNI*.')
+                            session.estado = 'esperando_dni_front'
+                        elif not (session.dni_back or '').strip():
+                            send_text(numero,
+                                '✅ Identidad verificada. Por favor envía la *foto del reverso de tu DNI*.')
+                            session.estado = 'esperando_dni_back'
+                        else:
+                            _flujo_pedir_email(numero)
+                            session.estado = 'esperando_email'
 
             elif estado == 'esperando_nuevo_importe':
                 nuevo_monto = _parse_monto(texto)
@@ -6421,86 +6561,40 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         )
                         session.estado = 'op_pendiente_pago'
                     else:
-                        # Guardar importes anteriores para el email
-                        old_usd = float(op.amount_usd)
-                        old_pen = float(op.amount_pen)
+                        # Mostrar resumen del cambio y pedir confirmación explícita.
+                        # La modificación en DB ocurre solo al confirmar el token.
+                        import uuid as _uuid_mod
                         tc      = float(op.exchange_rate)
-
-                        # Calcular nuevos importes con el mismo TC
+                        old_usd = float(op.amount_usd)
                         nuevo_usd = round(nuevo_monto, 2)
                         nuevo_pen = round(nuevo_monto * tc, 2)
 
-                        op.amount_usd = nuevo_usd
-                        op.amount_pen = nuevo_pen
-                        db.session.commit()
+                        _mod_token = str(_uuid_mod.uuid4())[:8]
+                        session.cotiz_nuevo_importe = nuevo_usd
+                        session.cotiz_mod_token     = _mod_token
+                        session.estado = 'confirmando_cambio_importe'
 
-                        log.info(
-                            f'[WaBot] {numero} modificó importe {op.operation_id}: '
-                            f'USD {old_usd} → {nuevo_usd} | PEN {old_pen} → {nuevo_pen}'
+                        moneda_enviar = 'PEN' if session.cotiz_op == 'compra' else 'USD'
+                        _envia_label  = 'S/' if moneda_enviar == 'PEN' else 'USD'
+                        _recibe_label = 'USD' if moneda_enviar == 'PEN' else 'S/'
+                        monto_enviar  = nuevo_pen if moneda_enviar == 'PEN' else nuevo_usd
+                        _recibe_monto = nuevo_usd if moneda_enviar == 'PEN' else nuevo_pen
+
+                        send_buttons(numero,
+                            f'✏️ *Confirmar cambio de importe — {op.operation_id}*\n\n'
+                            f'Importe actual:  USD {old_usd:,.2f}\n'
+                            f'Importe nuevo:   USD {nuevo_usd:,.2f}\n\n'
+                            f'Tú envías:   *{_envia_label} {monto_enviar:,.2f}*\n'
+                            f'Tú recibes:  *{_recibe_label} {_recibe_monto:,.2f}*\n'
+                            f'Tipo de cambio: S/ {tc:.4f}\n\n'
+                            '¿Confirmas el cambio?',
+                            [
+                                {'id': f'btn_confirmar_mod_importe_{op.operation_id}_{_mod_token}',
+                                 'title': '✅ Confirmar cambio'},
+                                {'id': f'btn_cancelar_mod_importe_{op.operation_id}',
+                                 'title': '❌ Cancelar cambio'},
+                            ]
                         )
-
-                        # Notificación en tiempo real al sistema web
-                        try:
-                            NotificationService.notify_operation_updated(op, old_status=op.status)
-                        except Exception as _ne:
-                            log.warning(f'[WaBot] notify_operation_updated error: {_ne}')
-
-                        # Email automático de modificación de importe
-                        try:
-                            EmailService.send_amount_modified_operation_email(op, old_usd, old_pen)
-                        except Exception as _ee:
-                            log.warning(f'[WaBot] email modificación importe error: {_ee}')
-
-                        # Construcción del mensaje de confirmación.
-                        moneda_enviar  = 'PEN' if session.cotiz_op == 'compra' else 'USD'
-                        _envia_label   = 'S/' if moneda_enviar == 'PEN' else 'USD'
-                        _recibe_label  = 'USD' if moneda_enviar == 'PEN' else 'S/'
-                        monto_enviar   = nuevo_pen if moneda_enviar == 'PEN' else nuevo_usd
-                        _recibe_monto  = nuevo_usd if moneda_enviar == 'PEN' else nuevo_pen
-
-                        # Plazo real desde created_at original; tolerante a naive/aware.
-                        from datetime import timedelta as _td3b, timezone as _tz3b
-                        from app.utils.formatters import now_peru
-                        try:
-                            _created = op.created_at
-                            _now3b   = now_peru()
-                            if _created.tzinfo is None:
-                                _created = _created.replace(tzinfo=_tz3b.utc)
-                            _expira3b   = _created + _td3b(minutes=15)
-                            _restante3b = max(0, int((_expira3b - _now3b).total_seconds() / 60))
-                            _hora_lim   = _expira3b.astimezone(_now3b.tzinfo).strftime('%I:%M %p').lstrip('0')
-                        except Exception as _pe:
-                            log.warning(f'[WaBot] plazo calc error ({op.operation_id}): {_pe}')
-                            _restante3b = 0
-                            _hora_lim   = '—'
-
-                        _plazo_txt = (
-                            f'Transfiere antes de las {_hora_lim}.'
-                            if _restante3b > 0 else
-                            'Procesaremos mañana al inicio de operaciones.'
-                        )
-
-                        msg = (
-                            f'✅ *Importe actualizado · {op.operation_id}*\n\n'
-                            f'Tú envías: *{_envia_label} {monto_enviar:,.2f}*\n'
-                            f'Tú recibes: *{_recibe_label} {_recibe_monto:,.2f}*\n'
-                            f'Tipo de cambio: S/ {tc:.4f}\n'
-                            f'{_plazo_txt}'
-                        )
-                        _enviado = send_buttons(numero, msg, [
-                            {'id': 'btn_ya_transferi',                          'title': '✅ Ya transferí'},
-                            {'id': f'btn_modificar_importe_{op.operation_id}',  'title': '✏️ Modificar importe'},
-                            {'id': f'btn_cancelar_operacion_{op.operation_id}', 'title': '❌ Cancelar'},
-                        ])
-                        if not _enviado:
-                            log.error(
-                                f'[WaBot] send_buttons falló tras actualizar {op.operation_id}; '
-                                'modificación persistida, enviando texto de respaldo'
-                            )
-                            # Fallback: resumen completo en texto plano para que el cliente
-                            # no tenga que enviar otro mensaje.
-                            send_text(numero, msg)
-                        session.estado = 'op_pendiente_pago'
 
             elif estado == 'solicitud_registrada':
                 # Cliente escribe algo mientras espera apertura
@@ -6632,7 +6726,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         )
                     except Exception:
                         pass
-                    session.estado = 'inicio'
+                    # Conservar estado: el asesor retoma desde donde estaba el cliente
                 elif any(k in txt_lower for k in ('registr', 'mi cuenta', 'activar', 'cuándo activan', 'cuando activan', 'estado de mi cuenta')):
                     if session.cotiz_doc:
                         send_buttons(numero,
@@ -6673,19 +6767,27 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                 _no_entendidos = 1
 
                             if _no_entendidos >= 2:
-                                # Tras 2 mensajes sin entender: derivar a asesor automáticamente
+                                # Tras 2 mensajes sin entender: escalar a asesor con el bot pausado.
                                 try:
                                     session.cotiz_intentos = 0
                                 except Exception:
                                     pass
-                                send_buttons(numero,
-                                    'Parece que no logro entenderte bien. 😊\n\n'
-                                    'Te conecto con un asesor para que pueda ayudarte mejor.',
-                                    [
-                                        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
-                                        {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
-                                    ]
-                                )
+                                _flujo_asesor(numero, estado_anterior=estado)
+                                try:
+                                    session.bot_pausado     = True
+                                    session.estado_atencion = 'esperando'
+                                except Exception:
+                                    pass
+                                try:
+                                    from app.services.notification_service import NotificationService as _NS_m
+                                    _NS_m.notify_wa_needs_human(
+                                        numero, nombre,
+                                        texto[:80] if texto else 'Mensajes no entendidos',
+                                        1
+                                    )
+                                except Exception:
+                                    pass
+                                # Conservar estado: el asesor retoma desde aquí
                             else:
                                 _menu_rapido(numero)
 
@@ -6739,6 +6841,20 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         if _interp_e.get('tipo'):
                             session.cotiz_op = _interp_e['tipo']
                         _aplicar_interpretacion_pre_op(numero, session, _interp_e)
+                    elif any(k in txt_lower for k in (
+                        'ok', 'okey', 'okay', 'entendido', 'gracias', 'listo',
+                        'perfecto', 'bien', 'dale', 'claro', 'de acuerdo',
+                        'le aviso', 'aviso', 'ya veo', 'hola', 'buenas', 'buenos',
+                        'hi ', 'saludos',
+                    )):
+                        # Mensaje conversacional: recordatorio suave sin re-enviar menú completo
+                        send_buttons(numero,
+                            '😊 ¡Aquí estamos! Cuando desees, elige una opción:',
+                            [
+                                {'id': 'btn_comprar', 'title': 'Soles a dólares'},
+                                {'id': 'btn_vender',  'title': 'Dólares a soles'},
+                            ]
+                        )
                     else:
                         _flujo_cotizar_inicio(numero)
 
@@ -6769,27 +6885,10 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     session.estado = 'esperando_cuenta_destino'
 
                 elif estado == 'viendo_cotizacion':
-                    _dudas_kw = ('conveniente', 'precio',
-                                 'como funciona', 'cómo funciona', 'garantia', 'garantía',
-                                 'cuanto', 'cuánto', 'comparar', 'banco', 'diferencia',
-                                 'recomend', 'mejor', 'sirve', 'vale la pena')
                     _seguridad_kw = ('es seguro', 'seguro', 'confiable', 'confianza',
                                      'riesgo', 'estafa', 'fraude')
                     _cancelar_kw = ('cancelar', 'salir', 'no gracias', 'volver', 'inicio', 'menu', 'no quiero')
-                    # Tercer intento: ofrecer asesor antes de cancelar del todo
-                    if (session.cotiz_intentos or 0) >= 2:
-                        _imp_cot = float(session.cotiz_importe or 0)
-                        _imp_txt = f' de *USD {_imp_cot:,.0f}*' if _imp_cot >= 1 else ''
-                        send_buttons(numero,
-                            f'¿Necesitas ayuda para completar tu cotización{_imp_txt}? 😊\n\n'
-                            'Un asesor puede guiarte en segundos.',
-                            [
-                                {'id': 'btn_asesor',           'title': '💬 Hablar con asesor'},
-                                {'id': 'btn_elegir_operacion', 'title': '🔄 Cotizar de nuevo'},
-                            ]
-                        )
-                        _reset_sesion(session)
-                    elif any(k in txt_lower for k in _despedida_kw):
+                    if any(k in txt_lower for k in _despedida_kw):
                         primer_nombre = (session.nombre or '').split()[0].title() if session.nombre else ''
                         _reset_sesion(session)
                         send_text(numero,
@@ -6832,18 +6931,20 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             _flujo_mostrar_cotizacion(numero, session)
                             session.estado = 'viendo_cotizacion'
                             _handled_v = True
-                        # Correction: explicit amount change -> new quote (invalidates previous acceptance)
+                        # Correction request: orient to the configured button (btn_cambiar_monto).
+                        # Las solicitudes conversacionales de cambio no modifican la sesión silenciosamente.
                         if (not _handled_v and _interp_v.get('es_correccion')
                                 and _interp_v.get('importe')
                                 and (_interp_v.get('moneda_importe') or 'USD') == 'USD'):
-                            _nuevo_m = _interp_v['importe']
-                            if _nuevo_m < MONTO_MINIMO_USD:
-                                send_text(numero,
-                                    f'El monto mínimo es *USD {MONTO_MINIMO_USD:,.0f}*. ¿Cuántos dólares deseas?'
-                                )
-                            else:
-                                session.cotiz_importe = _nuevo_m
-                                _flujo_mostrar_cotizacion(numero, session)
+                            _imp_actual = float(session.cotiz_importe or 0)
+                            send_buttons(numero,
+                                f'Para cambiar el importe usa el botón del menú.\n\n'
+                                f'Tu cotización actual es *USD {_imp_actual:,.0f}*.',
+                                [
+                                    {'id': 'btn_cambiar_monto',                'title': '✏️ Cambiar importe'},
+                                    {'id': f'btn_aceptar_cotiz_{_token_v}',    'title': '✅ Aceptar actual'},
+                                ]
+                            )
                             _handled_v = True
                         # Hypothetical: informational calculation without modifying session
                         elif (_interp_v.get('es_hipotetico')
@@ -6897,61 +6998,53 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             _handled_v = True
 
                         if not _handled_v:
-                            _intentos_cot = (session.cotiz_intentos or 0) + 1
-                            session.cotiz_intentos = _intentos_cot
-                            if _intentos_cot == 1:
-                                # Primer intento: reenviar la cotización completa
-                                _flujo_mostrar_cotizacion(numero, session)
-                                session.cotiz_intentos = 1  # restaurar tras el reset interno
-                            elif _intentos_cot == 2:
-                                # Segundo intento: recordatorio amable
+                            _ack_kw_v = (
+                                'ok', 'okey', 'okay', 'entendido', 'gracias', 'listo',
+                                'perfecto', 'bien', 'dale', 'claro', 'de acuerdo',
+                                'le aviso', 'aviso', 'ya veo',
+                            )
+                            if any(k in txt_lower for k in _ack_kw_v):
+                                # Mensaje de cortesía: no re-enviar la cotización completa
                                 send_buttons(numero,
-                                    'Si deseas continuar con tu cotización, por favor elige una opción 👇',
+                                    '😊 ¡Sin problema! Tu cotización sigue vigente. ¿Continuamos?',
                                     [
-                                        {'id': f'btn_aceptar_cotiz_{_token_v}', 'title': 'Aceptar Cotizacion'},
+                                        {'id': f'btn_aceptar_cotiz_{_token_v}', 'title': '✅ Aceptar cotización'},
+                                        {'id': 'btn_volver_cotizar',            'title': '🔄 Nueva cotización'},
                                     ]
                                 )
                             else:
-                                # Tercer intento: ya manejado al inicio del bloque viendo_cotizacion
-                                pass
+                                _intentos_cot = (session.cotiz_intentos or 0) + 1
+                                session.cotiz_intentos = _intentos_cot
+                                if _intentos_cot == 1:
+                                    # Primer intento: reenviar la cotización completa
+                                    _flujo_mostrar_cotizacion(numero, session)
+                                    session.cotiz_intentos = 1  # restaurar tras el reset interno
+                                elif _intentos_cot == 2:
+                                    # Segundo intento: recordatorio amable
+                                    send_buttons(numero,
+                                        'Si deseas continuar con tu cotización, por favor elige una opción 👇',
+                                        [
+                                            {'id': f'btn_aceptar_cotiz_{_token_v}', 'title': 'Aceptar Cotizacion'},
+                                        ]
+                                    )
+                                else:
+                                    # Tercer intento: ya manejado al inicio del bloque viendo_cotizacion
+                                    pass
 
                 elif estado == 'decidiendo_registro':
                     # P1 — Cliente escribió texto en lugar de usar los botones "¿Ya eres cliente?"
                     _flujo_cotiz_aceptada(numero, session)
 
                 elif estado == 'op_pendiente_pago':
-                    # Detectar código inline: "código 001234", "ya transferí 001234", etc.
-                    _codigo_inline = None
-                    _m_codigo = re.search(
-                        r'(?:c[oó]digo|cod\.?|operaci[oó]n|referencia|ref\.?|voucher|n[uú]mero)\s*[:\-]?\s*([A-Za-z0-9]{4,20})',
-                        txt_lower
-                    )
-                    if not _m_codigo:
-                        # Mensaje que solo contiene un código alfanumérico
-                        _m_codigo = re.match(r'^([A-Za-z0-9]{6,20})$', texto.strip())
-                    if _m_codigo:
-                        _codigo_inline = texto[_m_codigo.start(1):_m_codigo.start(1) + len(_m_codigo.group(1))]
-                        # Preservar capitalización original buscando en texto original
-                        _raw_match = re.search(
-                            r'(?:c[oó]digo|cod\.?|operaci[oó]n|referencia|ref\.?|voucher|n[uú]mero)\s*[:\-]?\s*([A-Za-z0-9]{4,20})',
-                            texto
-                        )
-                        if _raw_match:
-                            _codigo_inline = _raw_match.group(1)
-                        elif re.match(r'^([A-Za-z0-9]{6,20})$', texto.strip()):
-                            _codigo_inline = texto.strip()
-
                     # Consulta de TC con operación activa: responder sin tocar la operación.
+                    # Los códigos bancarios SOLO se procesan en esperando_codigo_op (tras "Ya transferí").
                     _tc_query_kw = (
                         'cuanto esta', 'cuánto está', 'a cuanto', 'a cuánto',
                         'tipo de cambio', 'tasa', ' tc ', 'precio del dolar',
                         'precio del dólar', 'dolar hoy', 'dólar hoy', 'cuanto cuesta',
                         'cuánto cuesta', 'cotizacion hoy', 'cotización hoy',
                     )
-                    _es_consulta_tc_op = (
-                        not _codigo_inline
-                        and any(k in txt_lower for k in _tc_query_kw)
-                    )
+                    _es_consulta_tc_op = any(k in txt_lower for k in _tc_query_kw)
                     if _es_consulta_tc_op:
                         _c_op, _v_op = _get_tc()
                         if _c_op and _v_op:
@@ -6970,28 +7063,74 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         else:
                             send_text(numero, '⚠️ El tipo de cambio no está disponible en este momento.')
                         # Estado no cambia: la operación sigue pendiente
-                    elif _codigo_inline:
-                        _flujo_registrar_codigo_op(numero, _codigo_inline, session)
+                    elif re.search(
+                        r'\b(asesor|asesora|ayuda|ay[uú]dame|ayudame|'
+                        r'hablar\s+con\s+alguien|quiero\s+hablar|necesito\s+ayuda|'
+                        r'soporte|agente|ejecutivo)\b',
+                        txt_lower
+                    ):
+                        _flujo_asesor(numero, estado_anterior=estado)
+                        try:
+                            session.bot_pausado     = True
+                            session.estado_atencion = 'esperando'
+                        except Exception:
+                            pass
+                        try:
+                            from app.services.notification_service import NotificationService as _NS_op
+                            _NS_op.notify_wa_needs_human(numero, nombre, texto[:80] if texto else 'Solicita asesor', 1)
+                        except Exception:
+                            pass
+                        # Conservar estado op_pendiente_pago: la operación sigue activa
                     else:
-                        # P1 — Cliente escribió texto libre; recordar qué hacer
-                        from app.models.operation import Operation as _Op2
-                        op_act = _Op2.query.filter_by(operation_id=session.cotiz_op_id).first() if session.cotiz_op_id else None
-                        if op_act and op_act.status == 'Pendiente':
-                            moneda_e = 'PEN' if session.cotiz_op == 'compra' else 'USD'
-                            simbolo_e = 'S/' if moneda_e == 'PEN' else 'USD'
-                            monto_e = float(op_act.amount_pen) if moneda_e == 'PEN' else float(op_act.amount_usd)
-                            _cuentas_q = _texto_cuentas_qoricash(moneda_e)
+                        # ACK keywords → recordatorio breve sin re-enviar el bloque completo
+                        _ack_kw_op = (
+                            'ok', 'okey', 'okay', 'entendido', 'gracias', 'listo',
+                            'perfecto', 'bien', 'dale', 'claro', 'de acuerdo',
+                        )
+                        if any(k in txt_lower for k in _ack_kw_op):
                             send_buttons(numero,
-                                f'📋 Tu operación *{op_act.operation_id}* sigue pendiente de pago.\n\n'
-                                f'Transfiere *{simbolo_e} {monto_e:,.2f}* a:\n\n'
-                                f'{_cuentas_q}\n\n'
-                                'Cuando hayas transferido, pulsa el botón e ingresa el *código de operación* '
-                                'de tu constancia bancaria (N° operación, referencia o código de transacción).',
+                                '😊 Cuando hayas transferido, pulsa el botón.',
                                 [{'id': 'btn_ya_transferi', 'title': '✅ Ya transferí'}]
                             )
                         else:
-                            _bienvenida(numero, session)
-                            session.estado = 'inicio'
+                            # P1 — Cliente escribió texto libre; recordar qué hacer
+                            from app.models.operation import Operation as _Op2
+                            op_act = _Op2.query.filter_by(operation_id=session.cotiz_op_id).first() if session.cotiz_op_id else None
+                            if op_act and op_act.status == 'Pendiente':
+                                moneda_e = 'PEN' if session.cotiz_op == 'compra' else 'USD'
+                                simbolo_e = 'S/' if moneda_e == 'PEN' else 'USD'
+                                monto_e = float(op_act.amount_pen) if moneda_e == 'PEN' else float(op_act.amount_usd)
+                                _cuentas_q = _texto_cuentas_qoricash(moneda_e)
+                                send_buttons(numero,
+                                    f'📋 Tu operación *{op_act.operation_id}* sigue pendiente de pago.\n\n'
+                                    f'Transfiere *{simbolo_e} {monto_e:,.2f}* a:\n\n'
+                                    f'{_cuentas_q}\n\n'
+                                    'Cuando hayas transferido, pulsa el botón e ingresa el *código de operación* '
+                                    'de tu constancia bancaria (N° operación, referencia o código de transacción).',
+                                    [{'id': 'btn_ya_transferi', 'title': '✅ Ya transferí'}]
+                                )
+                            else:
+                                _bienvenida(numero, session)
+                                session.estado = 'inicio'
+
+                elif estado == 'confirmando_cambio_importe':
+                    # Cliente escribió texto en lugar de usar los botones de confirmación
+                    _mod_tok_r = session.cotiz_mod_token or ''
+                    _new_imp_r = float(session.cotiz_nuevo_importe or 0)
+                    _op_id_r   = session.cotiz_op_id or ''
+                    if _mod_tok_r and _new_imp_r > 0 and _op_id_r:
+                        send_buttons(numero,
+                            f'✏️ Tu cambio de importe a *USD {_new_imp_r:,.2f}* está pendiente de confirmación.\n\n'
+                            '¿Confirmas el cambio?',
+                            [
+                                {'id': f'btn_confirmar_mod_importe_{_op_id_r}_{_mod_tok_r}',
+                                 'title': '✅ Confirmar cambio'},
+                                {'id': f'btn_cancelar_mod_importe_{_op_id_r}',
+                                 'title': '❌ Cancelar cambio'},
+                            ]
+                        )
+                    else:
+                        session.estado = 'op_pendiente_pago'
 
                 elif estado == 'confirmando_operacion':
                     # Cliente escribió texto mientras esperaba confirmar el resumen
