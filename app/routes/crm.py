@@ -2130,64 +2130,70 @@ def campana_wa_panel():
 @login_required
 def api_wa_campana_stats():
     """Retorna estadísticas de la campaña de reactivación WA para el panel."""
+    import traceback
     from app.models.wa_bot_session import WaBotSession
+    from sqlalchemy import or_
+    try:
+        ahora     = now_peru()
+        hoy_start = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    ahora     = now_peru()
-    hoy_start = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
+        # Totales por secuencia (excluye opt-outs)
+        por_seq = {}
+        for seq in range(5):
+            n = WaBotSession.query.filter(
+                WaBotSession.campana_secuencia == seq,
+                or_(WaBotSession.opt_out_wa.is_(None), WaBotSession.opt_out_wa == False),
+            ).count()
+            por_seq[str(seq)] = n
 
-    # Totales por secuencia (excluye opt-outs)
-    por_seq = {}
-    for seq in range(5):
-        n = WaBotSession.query.filter(
-            WaBotSession.campana_secuencia == seq,
-            (WaBotSession.opt_out_wa.is_(None) | (WaBotSession.opt_out_wa == False)),
-        ).count()
-        por_seq[str(seq)] = n
+        total_opt_out  = WaBotSession.query.filter(WaBotSession.opt_out_wa == True).count()
+        total_pausados = WaBotSession.query.filter(WaBotSession.campana_pausada == True).count()
 
-    total_opt_out  = WaBotSession.query.filter(WaBotSession.opt_out_wa == True).count()
-    total_pausados = WaBotSession.query.filter(WaBotSession.campana_pausada == True).count()
+        # Envíos de campaña del día (últimos 200)
+        enviados_hoy = WaMessage.query.filter(
+            WaMessage.origen == 'campaña',
+            WaMessage.created_at >= hoy_start,
+        ).order_by(WaMessage.created_at.desc()).limit(200).all()
 
-    # Envíos de campaña del día (últimos 200)
-    enviados_hoy = WaMessage.query.filter(
-        WaMessage.origen == 'campaña',
-        WaMessage.created_at >= hoy_start,
-    ).order_by(WaMessage.created_at.desc()).limit(200).all()
+        enviados_hoy_list = [
+            {
+                'numero':  m.numero,
+                'nombre':  m.nombre or '',
+                'empresa': m.empresa or '',
+                'mensaje': m.mensaje[:100] if m.mensaje else '',
+                'hora':    m.created_at.strftime('%H:%M') if m.created_at else '',
+            }
+            for m in enviados_hoy
+        ]
 
-    enviados_hoy_list = [
-        {
-            'numero':  m.numero,
-            'nombre':  m.nombre or '',
-            'empresa': m.empresa or '',
-            'mensaje': m.mensaje[:100] if m.mensaje else '',
-            'hora':    m.created_at.strftime('%H:%M') if m.created_at else '',
-        }
-        for m in enviados_hoy
-    ]
+        # Sesiones en pausa manual
+        pausadas = WaBotSession.query.filter(
+            WaBotSession.campana_pausada == True,
+        ).order_by(WaBotSession.updated_at.desc()).limit(100).all()
 
-    # Sesiones en pausa manual
-    pausadas = WaBotSession.query.filter(
-        WaBotSession.campana_pausada == True,
-    ).order_by(WaBotSession.updated_at.desc()).limit(100).all()
+        pausadas_list = [
+            {
+                'id':      s.id,
+                'numero':  s.numero,
+                'nombre':  (s.nombre_guardado or s.nombre or '').strip() or '—',
+                'empresa': (s.empresa_guardada or '').strip() or '—',
+                'seq':     s.campana_secuencia or 0,
+            }
+            for s in pausadas
+        ]
 
-    pausadas_list = [
-        {
-            'id':      s.id,
-            'numero':  s.numero,
-            'nombre':  (s.nombre_guardado or s.nombre or '').strip() or '—',
-            'empresa': (s.empresa_guardada or '').strip() or '—',
-            'seq':     s.campana_secuencia or 0,
-        }
-        for s in pausadas
-    ]
-
-    return jsonify({
-        'ok':             True,
-        'por_secuencia':  por_seq,
-        'total_opt_out':  total_opt_out,
-        'total_pausados': total_pausados,
-        'enviados_hoy':   enviados_hoy_list,
-        'pausadas':       pausadas_list,
-    })
+        return jsonify({
+            'ok':             True,
+            'por_secuencia':  por_seq,
+            'total_opt_out':  total_opt_out,
+            'total_pausados': total_pausados,
+            'enviados_hoy':   enviados_hoy_list,
+            'pausadas':       pausadas_list,
+        })
+    except Exception as e:
+        tb = traceback.format_exc()
+        log.error(f'[CRM-WA-STATS] Error: {tb}')
+        return jsonify({'ok': False, 'error': str(e), 'traceback': tb}), 500
 
 
 @crm_bp.route('/api/wa-campana-pausar', methods=['POST'])
