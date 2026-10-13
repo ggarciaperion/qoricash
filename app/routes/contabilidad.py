@@ -89,10 +89,13 @@ def dashboard():
         JournalEntry.status == 'activo',
     ).first()
 
-    # Gastos del mes — fuente única: Libro Diario 6xxx (consistente con LIG y ER)
-    _gastos_mes  = _gastos_journal(year, month)
-    gastos_total = sum(g['amount_pen'] for g in _gastos_mes)
-    gastos_count = len(_gastos_mes)
+    # Gastos del mes — solo registros manuales (ExpenseRecord), excluye pérdidas FX automáticas
+    _er_mes = ExpenseRecord.query.filter(
+        extract('year',  ExpenseRecord.expense_date) == year,
+        extract('month', ExpenseRecord.expense_date) == month,
+    ).all()
+    gastos_total = sum(float(g.amount_pen or 0) for g in _er_mes)
+    gastos_count = len(_er_mes)
 
     # Operaciones del mes sin amarrar (para KPI de alerta)
     try:
