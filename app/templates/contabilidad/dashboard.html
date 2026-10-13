@@ -483,7 +483,7 @@
               <div class="col-sm-6">
                 <label class="form-label small fw-semibold">Fecha del comprobante <span class="text-danger">*</span></label>
                 <input type="date" id="fg_date" name="expense_date" class="form-control form-control-sm"
-                       value="{{ date.today().isoformat() }}">
+                       value="{{ today.isoformat() }}">
               </div>
               <div class="col-sm-6">
                 <label class="form-label small fw-semibold">Monto total (S/) <span class="text-danger">*</span></label>
@@ -606,7 +606,7 @@
               <div class="col-sm-4">
                 <label class="form-label small fw-semibold">Fecha de débito <span class="text-danger">*</span></label>
                 <input type="date" name="expense_date" class="form-control form-control-sm"
-                       value="{{ date.today().isoformat() }}">
+                       value="{{ today.isoformat() }}">
               </div>
               <div class="col-sm-4">
                 <label class="form-label small fw-semibold">Capital (S/) <span class="text-danger">*</span></label>

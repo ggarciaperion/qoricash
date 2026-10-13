@@ -201,6 +201,7 @@ def dashboard():
         periods=periods,
         selected_year=year,
         selected_month=month,
+        today=date.today(),
         user=current_user,
     )
 
