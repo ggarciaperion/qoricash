@@ -5217,11 +5217,16 @@ def revertir_gastos_clonados():
 
             gastos = ExpenseRecord.query.filter_by(period_id=periodo.id).all()
             eliminados = 0
+            entry_ids = [g.journal_entry_id for g in gastos if g.journal_entry_id]
             for g in gastos:
-                if g.journal_entry_id:
-                    JournalEntryLine.query.filter_by(journal_entry_id=g.journal_entry_id).delete()
-                    JournalEntry.query.filter_by(id=g.journal_entry_id).delete()
+                g.journal_entry_id = None
+            db.session.flush()
+            for g in gastos:
                 db.session.delete(g)
+            db.session.flush()
+            for eid in entry_ids:
+                JournalEntryLine.query.filter_by(journal_entry_id=eid).delete()
+                JournalEntry.query.filter_by(id=eid).delete()
                 eliminados += 1
 
             db.session.commit()
