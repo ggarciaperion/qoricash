@@ -124,41 +124,62 @@ def dashboard():
     except Exception:
         unmatched_count = 0
 
-    # IR pago a cuenta del mes — primero desde AuditReport, si no: calcula al vuelo
+    # Ingresos del mes desde amarres (cuentas 7xxx — fuente real del spread)
+    ingresos_mes = Decimal('0')
+    try:
+        from app.models.journal_entry_line import JournalEntryLine as _JEL3
+        from app.models.journal_entry import JournalEntry as _JE3
+        from sqlalchemy import extract as _ex3, func as _fn3
+        _ing3 = db.session.query(
+            _fn3.coalesce(_fn3.sum(_JEL3.haber), Decimal('0'))
+        ).join(_JE3, _JEL3.journal_entry_id == _JE3.id
+        ).filter(
+            extract('year',  _JE3.entry_date) == year,
+            extract('month', _JE3.entry_date) == month,
+            _JE3.status == 'activo',
+            _JEL3.account_code.like('7%'),
+            _JEL3.haber > 0,
+        ).scalar() or Decimal('0')
+        ingresos_mes = Decimal(str(_ing3))
+    except Exception:
+        pass
+
+    # Gastos sin comprobante (sin voucher_type ni supplier_ruc)
+    gastos_sin_comprobante = 0
+    try:
+        gastos_sin_comprobante = ExpenseRecord.query.filter(
+            extract('year',  ExpenseRecord.expense_date) == year,
+            extract('month', ExpenseRecord.expense_date) == month,
+            ExpenseRecord.voucher_type.is_(None),
+            ExpenseRecord.supplier_ruc.is_(None),
+        ).count()
+    except Exception:
+        pass
+
+    # IR pago a cuenta del mes — 1% sobre ingresos de amarres (7xxx)
     ir_pago_estimado = None
     try:
         from app.models.audit_report import AuditReport
-        from app.models.journal_entry_line import JournalEntryLine as _JEL2
-        from app.models.journal_entry import JournalEntry as _JE2
-        from sqlalchemy import extract as _ex2, func as _fn2
-        from decimal import Decimal as _D2
-
         _ar = AuditReport.query.filter_by(
             report_year=year, report_month=month
         ).order_by(AuditReport.id.desc()).first()
 
         if _ar and _ar.ir_pago_cuenta_pen:
             ir_pago_estimado = float(_ar.ir_pago_cuenta_pen)
-        else:
-            # Calcular al vuelo: 1% de ingresos netos del Libro Diario (cuentas 7xxx)
-            _ing = db.session.query(
-                _fn2.coalesce(_fn2.sum(_JEL2.haber), _D2('0'))
-            ).join(_JE2, _JEL2.journal_entry_id == _JE2.id
-            ).filter(
-                _ex2('year',  _JE2.entry_date) == year,
-                _ex2('month', _JE2.entry_date) == month,
-                _JE2.status == 'activo',
-                _JEL2.account_code.like('7%'),
-                _JEL2.haber > 0,
-            ).scalar() or _D2('0')
-
-            _ing_neto = _D2(str(_ing))
-            if _ing_neto > 0:
-                ir_pago_estimado = float(
-                    (_ing_neto * _D2('0.01')).quantize(_D2('0.01'))
-                )
+        elif ingresos_mes > 0:
+            ir_pago_estimado = float(
+                (ingresos_mes * Decimal('0.01')).quantize(Decimal('0.01'))
+            )
     except Exception:
         pass
+
+    # ¿Ya se registró pago IR este mes? (asiento tipo pago_ir)
+    ir_pagado = JournalEntry.query.filter(
+        extract('year',  JournalEntry.entry_date) == year,
+        extract('month', JournalEntry.entry_date) == month,
+        JournalEntry.entry_type == 'pago_ir',
+        JournalEntry.status == 'activo',
+    ).first() is not None
 
     # Todos los períodos para el selector
     periods = _get_all_periods()
@@ -172,8 +193,11 @@ def dashboard():
         entries_count=totals.count or 0,
         gastos_total=gastos_total,
         gastos_count=gastos_count,
+        ingresos_mes=ingresos_mes,
+        gastos_sin_comprobante=gastos_sin_comprobante,
         unmatched_count=unmatched_count,
         ir_pago_estimado=ir_pago_estimado,
+        ir_pagado=ir_pagado,
         periods=periods,
         selected_year=year,
         selected_month=month,

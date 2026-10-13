@@ -1,458 +1,900 @@
 {% extends "base.html" %}
 {% block title %}Contabilidad — QoriCash{% endblock %}
 
+{% set mes_nombre = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][selected_month-1] %}
+{% set resultado_mes = (ingresos_mes|float) - (gastos_total|float) %}
+
 {% block head %}
 <style>
-.conta-card {
-    transition: transform .15s ease, box-shadow .15s ease;
-    color: inherit;
-}
-.conta-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0,0,0,.1) !important;
-    color: inherit;
-}
-.conta-card-icon {
-    width: 40px; height: 40px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.5rem; flex-shrink: 0;
-    color: #6c757d;
-}
-.section-label {
-    font-size: .7rem; font-weight: 700; letter-spacing: .08em;
-    text-transform: uppercase; color: #6c757d;
+/* ── Layout general ───────────────────────────────────────────── */
+.sec-title {
+    font-size: .68rem; font-weight: 800; letter-spacing: .1em;
+    text-transform: uppercase; color: #94a3b8;
     display: flex; align-items: center; gap: 8px;
-    margin-bottom: .75rem; margin-top: 1.75rem;
+    margin: 1.5rem 0 .75rem;
 }
-.section-label::after {
-    content: ''; flex: 1; height: 1px; background: #e9ecef;
-}
-.admin-card {
-    opacity: .75;
-    transition: opacity .15s;
-}
-.admin-card:hover { opacity: 1; }
+.sec-title::after { content:''; flex:1; height:1px; background:#e2e8f0; }
 
+/* ── Resumen del mes ──────────────────────────────────────────── */
+.resumen-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+}
+.resumen-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: .875rem 1.25rem;
+    border-bottom: 1px solid #f1f5f9;
+    gap: .5rem;
+}
+.resumen-row:last-child { border-bottom: none; }
+.resumen-label { font-size: .875rem; color: #475569; }
+.resumen-label small { display: block; font-size: .72rem; color: #94a3b8; margin-top: 1px; }
+.resumen-value { font-size: 1rem; font-weight: 700; white-space: nowrap; }
+.resumen-row.highlight { background: #f8fafc; }
+.resumen-row.ir-row { background: #fffbeb; }
+.badge-est {
+    font-size: .6rem; font-weight: 700; letter-spacing: .05em;
+    background: #fef3c7; color: #92400e;
+    border: 1px solid #fcd34d; border-radius: 4px;
+    padding: 1px 5px; vertical-align: middle; margin-left: 4px;
+}
+.pendiente-bar {
+    background: #fef9ec; border: 1px solid #fde68a;
+    border-radius: 8px; padding: .6rem 1rem;
+    font-size: .8rem; color: #78350f;
+    display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+}
+.pendiente-bar.ok { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+
+/* ── Botón registrar ─────────────────────────────────────────── */
+.btn-registrar {
+    display: flex; align-items: center; justify-content: center; gap: .75rem;
+    background: #0d1b2a; color: #fff;
+    border: none; border-radius: 12px;
+    padding: 1rem 1.5rem; width: 100%;
+    font-size: 1rem; font-weight: 600; cursor: pointer;
+    transition: background .15s;
+}
+.btn-registrar:hover { background: #1a2f3f; color: #fff; }
+.btn-registrar i { font-size: 1.25rem; }
+
+/* ── Tipo de gasto selector ──────────────────────────────────── */
+.tipo-btn {
+    display: flex; align-items: center; gap: .75rem;
+    border: 1.5px solid #e2e8f0; border-radius: 10px;
+    padding: .75rem 1rem; cursor: pointer;
+    background: #fff; width: 100%;
+    text-align: left; transition: border-color .15s, background .15s;
+    font-size: .875rem; color: #1e293b;
+}
+.tipo-btn:hover { border-color: #00dea8; background: #f0fdfb; }
+.tipo-btn.selected { border-color: #00dea8; background: #f0fdfb; }
+.tipo-btn .tipo-icon { font-size: 1.4rem; width: 32px; text-align: center; flex-shrink: 0; }
+.tipo-btn .tipo-desc { font-size: .72rem; color: #64748b; }
+
+/* ── Checklist cierre ────────────────────────────────────────── */
+.check-item {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .6rem 1rem; border-radius: 8px;
+    font-size: .875rem;
+}
+.check-item.ok { background: #f0fdf4; color: #166534; }
+.check-item.warn { background: #fffbeb; color: #92400e; }
+.check-item.info { background: #f1f5f9; color: #334155; }
+.check-item i { font-size: 1rem; flex-shrink: 0; }
+
+/* ── Detalle contable (collapsed) ───────────────────────────── */
+.detalle-link {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .625rem .875rem; border-radius: 8px;
+    text-decoration: none; color: #475569; font-size: .875rem;
+    transition: background .12s;
+}
+.detalle-link:hover { background: #f8fafc; color: #0d1b2a; }
+.detalle-link i { color: #94a3b8; width: 18px; text-align: center; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid" style="max-width:860px;">
 
-  <!-- Header -->
-  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <!-- ── Header ────────────────────────────────────────────────────────── -->
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3 mt-1">
     <div>
-      <h2 class="mb-0"><i class="bi bi-calculator me-2"></i>Contabilidad</h2>
-      <small class="text-muted">
-        Régimen MYPE Tributario · PCGE ·
-        {{ ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][selected_month-1] }}
-        {{ selected_year }}
-      </small>
+      <h2 class="mb-0 fw-bold" style="font-size:1.35rem;">
+        <i class="bi bi-calculator me-2 text-primary"></i>Contabilidad
+      </h2>
+      <div class="text-muted" style="font-size:.8rem;">
+        MYPE Tributario · Régimen Simplificado · 1% IR mensual
+      </div>
     </div>
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-      {% if current_period %}
-        {% if current_period.status == 'abierto' %}
-          <span class="badge bg-success fs-6 px-3 py-2">{{ current_period.label }} — Abierto</span>
+    <!-- Selector de período -->
+    <form method="get" class="d-flex align-items-center gap-2" style="font-size:.875rem;">
+      <select name="month" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+        {% for p in periods %}
+        <option value="{{ p.month }}"
+          {% if p.year == selected_year and p.month == selected_month %}selected{% endif %}
+          data-year="{{ p.year }}">
+          {{ ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][p.month-1] }} {{ p.year }}
+        </option>
+        {% endfor %}
+      </select>
+      <input type="hidden" name="year" id="yearHidden" value="{{ selected_year }}">
+    </form>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       SECCIÓN 1 — RESUMEN DEL MES
+  ══════════════════════════════════════════════════════════════════════ -->
+  <div class="sec-title"><i class="bi bi-bar-chart-line-fill text-primary"></i>Resumen de {{ mes_nombre }} {{ selected_year }}</div>
+
+  <div class="resumen-card mb-3">
+
+    <!-- Resultado de operaciones -->
+    <div class="resumen-row">
+      <div class="resumen-label">
+        Resultado de operaciones (cambio de divisas)
+        <small>Spread acumulado del mes · fuente: Amarres</small>
+      </div>
+      <div class="resumen-value text-success">
+        {% if ingresos_mes > 0 %}
+          S/ {{ "%.2f"|format(ingresos_mes|float) }}
         {% else %}
-          <span class="badge bg-secondary fs-6 px-3 py-2">{{ current_period.label }} — Cerrado</span>
+          <span class="text-muted fw-normal" style="font-size:.875rem;">Sin datos — amarrar operaciones</span>
         {% endif %}
-      {% else %}
-        <span class="badge bg-warning text-dark fs-6 px-3 py-2">Sin período activo</span>
-      {% endif %}
-      <a href="{{ url_for('contabilidad.exportar_excel', year=selected_year, month=selected_month) }}"
-         class="btn btn-sm btn-outline-success">
-        <i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel
-      </a>
+      </div>
     </div>
+
+    <!-- Gastos -->
+    <div class="resumen-row">
+      <div class="resumen-label">
+        Gastos del mes
+        <small>{{ gastos_count }} registros · alquiler, internet, préstamo, servicios…</small>
+      </div>
+      <div class="resumen-value text-danger">
+        {% if gastos_total > 0 %}
+          − S/ {{ "%.2f"|format(gastos_total|float) }}
+        {% else %}
+          <span class="text-muted fw-normal" style="font-size:.875rem;">Sin gastos registrados</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Resultado neto -->
+    <div class="resumen-row highlight">
+      <div class="resumen-label">
+        <strong>Resultado del mes</strong>
+        <small>Antes de impuestos</small>
+      </div>
+      <div class="resumen-value {% if resultado_mes >= 0 %}text-success{% else %}text-danger{% endif %}">
+        S/ {{ "%.2f"|format(resultado_mes) }}
+      </div>
+    </div>
+
+    <!-- IR estimado -->
+    <div class="resumen-row ir-row">
+      <div class="resumen-label">
+        IR a cuenta estimado <span class="badge-est">ESTIMADO</span>
+        <small>
+          {% if ingresos_mes > 0 %}
+            1% × S/ {{ "%.2f"|format(ingresos_mes|float) }} (ingresos de operaciones)
+          {% else %}
+            Requiere amarrar operaciones para calcular
+          {% endif %}
+        </small>
+      </div>
+      <div class="resumen-value" style="color:#92400e;">
+        {% if ir_pago_estimado %}
+          S/ {{ "%.2f"|format(ir_pago_estimado) }}
+          {% if ir_pagado %}
+            <span class="badge bg-success ms-1" style="font-size:.65rem;">PAGADO</span>
+          {% endif %}
+        {% else %}
+          <span class="text-muted fw-normal" style="font-size:.875rem;">—</span>
+        {% endif %}
+      </div>
+    </div>
+
   </div>
 
-  <!-- ══ SECCIÓN 1: USO DIARIO ══════════════════════════════════════════════ -->
-  <div class="section-label"><i class="bi bi-lightning-charge text-primary"></i>Uso diario</div>
-  <div class="row g-3">
+  <!-- Barra de pendientes -->
+  {% set tiene_pendientes = (unmatched_count > 0) or (gastos_sin_comprobante > 0) %}
+  {% if tiene_pendientes %}
+  <div class="pendiente-bar mb-3">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <span><strong>Pendientes del mes:</strong></span>
+    {% if unmatched_count > 0 %}
+      <span>{{ unmatched_count }} operación{{ 'es' if unmatched_count != 1 else '' }} sin amarrar
+        <a href="{{ url_for('contabilidad.amarres') }}" class="fw-semibold ms-1">→ Ir a Amarres</a>
+      </span>
+    {% endif %}
+    {% if gastos_sin_comprobante > 0 %}
+      <span>· {{ gastos_sin_comprobante }} gasto{{ 's' if gastos_sin_comprobante != 1 else '' }} sin comprobante</span>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="pendiente-bar ok mb-3">
+    <i class="bi bi-check-circle-fill"></i>
+    <span>Todo al día en {{ mes_nombre }} · sin pendientes</span>
+  </div>
+  {% endif %}
 
-    <div class="col-md-6 col-xl-3">
+  <!-- Nota sobre base tributaria -->
+  {% if ingresos_mes == 0 and gastos_total > 0 %}
+  <div class="alert alert-warning py-2 mb-3" style="font-size:.82rem;">
+    <i class="bi bi-info-circle me-1"></i>
+    <strong>Para calcular el PDT 621</strong> de este mes necesitas amarrar las operaciones de cambio primero.
+    Los amarres generan los ingresos que usa el sistema como base imponible.
+    <a href="{{ url_for('contabilidad.amarres') }}" class="alert-link">Ir a Amarres →</a>
+  </div>
+  {% endif %}
+
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       SECCIÓN 2 — REGISTRAR COMPRA O GASTO
+  ══════════════════════════════════════════════════════════════════════ -->
+  <div class="sec-title"><i class="bi bi-plus-circle-fill text-success"></i>Registrar compra o gasto</div>
+
+  <button class="btn-registrar mb-3" onclick="abrirRegistro()">
+    <i class="bi bi-plus-circle"></i>
+    <span>Nueva compra o gasto</span>
+  </button>
+
+  <!-- Lista rápida de últimos gastos del mes -->
+  {% set gastos_recientes = [] %}
+  {% if gastos_count > 0 %}
+  <div class="card border-0 shadow-sm mb-2">
+    <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center">
+      <span class="fw-semibold" style="font-size:.875rem;">
+        <i class="bi bi-receipt me-1 text-muted"></i>Gastos de {{ mes_nombre }}
+      </span>
       <a href="{{ url_for('contabilidad.gastos', year=selected_year, month=selected_month) }}"
-         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon">
-            <i class="bi bi-receipt-cutoff"></i>
-          </div>
-          <div>
-            <div class="fw-semibold">Gastos</div>
-            <div class="text-muted small">Registro de egresos · asiento automático</div>
-          </div>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
-        </div>
-      </a>
+         class="btn btn-sm btn-outline-secondary" style="font-size:.75rem;">Ver todos</a>
     </div>
-
-    <div class="col-md-6 col-xl-3">
-      <a href="{{ url_for('contabilidad.amarres') }}"
-         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon">
-            <i class="bi bi-intersect"></i>
-          </div>
-          <div>
-            <div class="fw-semibold">Amarres y Neteo</div>
-            <div class="text-muted small">Cruce compra/venta · utilidad por operación</div>
-          </div>
-          {% if unmatched_count > 0 %}
-          <span class="badge bg-danger ms-auto">{{ unmatched_count }}</span>
-          {% else %}
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
-          {% endif %}
-        </div>
-      </a>
-    </div>
-
-    <div class="col-md-6 col-xl-3">
-      <a href="{{ url_for('contabilidad.caja', year=selected_year, month=selected_month) }}"
-         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon">
-            <i class="bi bi-bank2"></i>
-          </div>
-          <div>
-            <div class="fw-semibold">Caja y Bancos</div>
-            <div class="text-muted small">Movimientos por cuenta · conciliación</div>
-          </div>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
-        </div>
-      </a>
-    </div>
-
-    <div class="col-md-6 col-xl-3">
-      <a href="{{ url_for('contabilidad.diario', year=selected_year, month=selected_month) }}"
-         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon">
-            <i class="bi bi-journal-bookmark-fill"></i>
-          </div>
-          <div>
-            <div class="fw-semibold">Libro Diario</div>
-            <div class="text-muted small">Asientos de partida doble · exporta Excel</div>
-          </div>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
-        </div>
-      </a>
-    </div>
-
-  </div>
-
-  <!-- ══ SECCIÓN IR + PLE ════════════════════════════════════════════════════ -->
-  <div class="section-label"><i class="bi bi-cash-coin text-danger"></i>Impuesto a la Renta &amp; PLE</div>
-  <div class="row g-3">
-
-    <!-- Panel IR mensual -->
-    <div class="col-md-6 col-xl-4">
-      <div class="card border-0 shadow-sm h-100"
-           style="border-left: 4px solid #dc3545 !important;">
-        <div class="card-body">
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <i class="bi bi-percent text-danger fs-5"></i>
-            <span class="fw-semibold">Pago a cuenta IR — 1% ingresos netos</span>
-          </div>
-          {% if ir_pago_estimado is not none %}
-          <div class="fs-3 fw-bold text-danger mb-1">S/ {{ "%.2f"|format(ir_pago_estimado) }}</div>
-          <div class="text-muted small mb-1">Estimado provisional · D.Leg. 1269 Art. 6°</div>
-          <div class="text-warning small mb-3"><i class="bi bi-exclamation-triangle me-1"></i>Confirmar base imponible con contador antes de presentar PDT.</div>
-          {% else %}
-          <div class="text-muted small mb-3">Ejecuta la auditoría para obtener el estimado del mes. Confirmar monto con contador antes de presentar PDT.</div>
-          {% endif %}
-          <button class="btn btn-sm btn-outline-danger" onclick="modalPagoIR()">
-            <i class="bi bi-plus-circle me-1"></i>Registrar pago
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- PLE Registro de Ventas -->
-    <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.ple_registro_ventas', year=selected_year, month=selected_month) }}"
-         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon">
-            <i class="bi bi-file-earmark-text"></i>
-          </div>
-          <div>
-            <div class="fw-semibold">PLE Registro de Ventas</div>
-            <div class="text-muted small">LE140100 · comprobantes emitidos · inafecta IGV</div>
-          </div>
-          <i class="bi bi-download ms-auto text-muted opacity-50"></i>
-        </div>
-      </a>
-    </div>
-
-  </div>
-
-  <!-- Modal Pago IR -->
-  <div class="modal fade" id="pagoIRModal" tabindex="-1">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title"><i class="bi bi-percent me-2 text-danger"></i>Pago a cuenta IR</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <form method="POST" action="{{ url_for('contabilidad.pago_ir_cuenta') }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <div class="modal-body">
-            <div class="alert alert-info small py-2">
-              D.Leg. 1269 Art. 6° — MYPE Tributario: <strong>1% sobre ingresos netos</strong> del mes.
-              Asiento: <strong>DEBE 4017 / HABER banco pagador</strong>.
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Mes tributario</label>
-              <input type="text" name="mes_tributario" class="form-control"
-                     placeholder="Ej: Octubre 2026"
-                     value="{{ ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][selected_month-1] }} {{ selected_year }}">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Monto a pagar (S/) <span class="text-danger">*</span></label>
-              <input type="number" name="monto" class="form-control" step="0.01" min="0.01"
-                     value=""
-                     placeholder="Ingresa el monto confirmado con tu contador">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Fecha de pago <span class="text-danger">*</span></label>
-              <input type="date" name="fecha" class="form-control"
-                     value="{{ selected_year }}-{{ '%02d'|format(selected_month) }}-15">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Banco pagador <span class="text-danger">*</span></label>
-              <select name="banco" class="form-select">
-                <option value="BCP">BCP</option>
-                <option value="INTERBANK">Interbank</option>
-                <option value="BANBIF">BanBif</option>
-                <option value="BBVA">BBVA</option>
-                <option value="SCOTIABANK">Scotiabank</option>
-              </select>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">N° Operación / NPS (opcional)</label>
-              <input type="text" name="voucher_number" class="form-control" placeholder="Número de constancia SUNAT">
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-danger">
-              <i class="bi bi-save me-1"></i>Registrar pago
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ SECCIÓN 2: REPORTES ════════════════════════════════════════════════ -->
-  <div class="section-label"><i class="bi bi-bar-chart-line text-secondary"></i>Reportes</div>
-  <div class="row g-3">
-
-    <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.resultados', year=selected_year, month=selected_month) }}"
-         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon">
-            <i class="bi bi-graph-up-arrow"></i>
-          </div>
-          <div>
-            <div class="fw-semibold">Estado de Resultados</div>
-            <div class="text-muted small">P&amp;L · estimación IR MYPE</div>
-          </div>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
-        </div>
-      </a>
-    </div>
-
-    <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.balance', year=selected_year, month=selected_month) }}"
-         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon">
-            <i class="bi bi-bar-chart-steps"></i>
-          </div>
-          <div>
-            <div class="fw-semibold">Balance de Comprobación</div>
-            <div class="text-muted small">Sumas y saldos por cuenta · exporta Excel</div>
-          </div>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
-        </div>
-      </a>
-    </div>
-
-    <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.balance_general', year=selected_year, month=selected_month) }}"
-         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon">
-            <i class="bi bi-clipboard2-data"></i>
-          </div>
-          <div>
-            <div class="fw-semibold">Balance General</div>
-            <div class="text-muted small">Estado de Situación Financiera · PCGE</div>
-          </div>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
-        </div>
-      </a>
-    </div>
-
-    <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.mayor', year=selected_year, month=selected_month) }}"
-         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon">
-            <i class="bi bi-journals"></i>
-          </div>
-          <div>
-            <div class="fw-semibold">Libro Mayor</div>
-            <div class="text-muted small">Saldo acumulado por cuenta PCGE</div>
-          </div>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
-        </div>
-      </a>
-    </div>
-
-    <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.lig', year=selected_year, month=selected_month) }}"
-         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon">
-            <i class="bi bi-file-earmark-ruled"></i>
-          </div>
-          <div>
-            <div class="fw-semibold">Libro de Ingresos y Gastos</div>
-            <div class="text-muted small">Formato SUNAT · ingresos y egresos del mes</div>
-          </div>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
-        </div>
-      </a>
-    </div>
-
-  </div>
-
-  <!-- ══ AGENTE IA ══════════════════════════════════════════════════════════ -->
-  <div class="section-label"><i class="bi bi-robot text-primary"></i>Agente Contable IA</div>
-  <div class="row g-3 mb-3">
-    <div class="col-12">
-      <a href="{{ url_for('auditoria.dashboard') }}"
-         class="card conta-card border-0 shadow-sm h-100 text-decoration-none"
-         style="background: linear-gradient(135deg, #1e3a5f 0%, #0f2340 100%); color:#fff;">
-        <div class="card-body d-flex align-items-center gap-3">
-          <div style="font-size:2rem">🤖</div>
-          <div>
-            <div class="fw-bold" style="font-size:1rem">Auditoría Contable Autónoma</div>
-            <div class="small" style="opacity:.8">
-              SSoT · Conciliación · G&P · Depreciación · PLE SUNAT · Alertas críticas
-            </div>
-          </div>
-          <i class="bi bi-chevron-right ms-auto" style="opacity:.6"></i>
-        </div>
-      </a>
-    </div>
-  </div>
-
-  <!-- ══ SECCIÓN 3: ADMINISTRACIÓN ══════════════════════════════════════════ -->
-  <div class="section-label"><i class="bi bi-gear text-secondary"></i>Administración</div>
-  <div class="row g-3">
-
-    <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.periodos') }}"
-         class="card conta-card admin-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon">
-            <i class="bi bi-calendar3-range"></i>
-          </div>
-          <div>
-            <div class="fw-semibold">Períodos Contables</div>
-            <div class="text-muted small">Cerrar períodos · ajuste FX · generar asientos</div>
-          </div>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
-        </div>
-      </a>
-    </div>
-
-    <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.apertura', year=selected_year) }}"
-         class="card conta-card admin-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon">
-            <i class="bi bi-door-open"></i>
-          </div>
-          <div>
-            <div class="fw-semibold">Asiento de Apertura</div>
-            <div class="text-muted small">Saldos iniciales de caja y bancos</div>
-          </div>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
-        </div>
-      </a>
-    </div>
-
-    <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.activos_fijos') }}"
-         class="card conta-card admin-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon">
-            <i class="bi bi-pc-display"></i>
-          </div>
-          <div>
-            <div class="fw-semibold">Activos Fijos</div>
-            <div class="text-muted small">Depreciación mensual · vida útil SUNAT</div>
-          </div>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
-        </div>
-      </a>
-    </div>
-
-  </div>
-
-  <!-- Últimos asientos -->
-  <div class="section-label mt-4"><i class="bi bi-clock-history text-secondary"></i>Últimos asientos del período</div>
-  <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-hover table-sm mb-0 align-middle">
-          <thead class="table-light">
-            <tr>
-              <th>N° Asiento</th>
-              <th>Fecha</th>
-              <th>Tipo</th>
-              <th>Descripción</th>
-              <th class="text-end">DEBE (S/)</th>
-              <th class="text-end">HABER (S/)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for e in entries_this_month %}
-            <tr>
-              <td><code class="text-primary">{{ e.entry_number }}</code></td>
-              <td>{{ e.entry_date.strftime('%d/%m/%Y') }}</td>
-              <td><span class="badge bg-light text-dark border">{{ e.entry_type }}</span></td>
-              <td class="text-truncate" style="max-width:260px;" title="{{ e.description }}">{{ e.description }}</td>
-              <td class="text-end">{{ "%.2f"|format(e.total_debe|float) }}</td>
-              <td class="text-end">{{ "%.2f"|format(e.total_haber|float) }}</td>
-            </tr>
-            {% else %}
-            <tr>
-              <td colspan="6" class="text-center text-muted py-4">No hay asientos en este período.</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      <a href="{{ url_for('contabilidad.gastos', year=selected_year, month=selected_month) }}"
+         class="d-flex align-items-center justify-content-between px-3 py-3 text-decoration-none"
+         style="color:inherit; border-bottom:1px solid #f1f5f9;">
+        <span class="text-muted" style="font-size:.875rem;">
+          <i class="bi bi-list-ul me-1"></i>{{ gastos_count }} gastos registrados
+        </span>
+        <span class="fw-bold text-danger">− S/ {{ "%.2f"|format(gastos_total|float) }}</span>
+      </a>
+    </div>
+  </div>
+  {% endif %}
+
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       SECCIÓN 3 — CIERRE Y DOCUMENTOS DEL MES
+  ══════════════════════════════════════════════════════════════════════ -->
+  <div class="sec-title"><i class="bi bi-calendar-check-fill text-info"></i>Cierre y documentos de {{ mes_nombre }}</div>
+
+  <div class="d-flex flex-column gap-2 mb-3">
+
+    <!-- Operaciones ammarradas -->
+    <div class="check-item {% if unmatched_count == 0 %}ok{% else %}warn{% endif %}">
+      <i class="bi bi-{% if unmatched_count == 0 %}check-circle-fill{% else %}exclamation-triangle-fill{% endif %}"></i>
+      <div>
+        <strong>Amarres de operaciones</strong> —
+        {% if unmatched_count == 0 %}
+          Todas las operaciones están amarradas ✓
+        {% else %}
+          {{ unmatched_count }} operación{{ 'es' if unmatched_count != 1 else '' }} pendiente{{ 's' if unmatched_count != 1 else '' }}
+          <a href="{{ url_for('contabilidad.amarres') }}" class="fw-semibold ms-1">Amarrar ahora →</a>
+        {% endif %}
       </div>
     </div>
-    {% if entries_this_month %}
-    <div class="card-footer bg-white text-end">
-      <a href="{{ url_for('contabilidad.diario', year=selected_year, month=selected_month) }}"
-         class="btn btn-sm btn-outline-primary">Ver todos los asientos</a>
+
+    <!-- PDT 621 -->
+    <div class="check-item {% if ir_pagado %}ok{% else %}info{% endif %}">
+      <i class="bi bi-{% if ir_pagado %}check-circle-fill{% else %}circle{% endif %}"></i>
+      <div>
+        <strong>PDT 621 — {{ mes_nombre }} {{ selected_year }}</strong> —
+        {% if ir_pagado %}
+          Pago a cuenta IR registrado ✓
+        {% else %}
+          Pendiente de declarar
+          <small class="d-block text-muted" style="font-size:.75rem;">
+            Declara en SUNAT SOL → Declara Fácil → IGV Renta Mensual 621
+          </small>
+        {% endif %}
+      </div>
     </div>
+
+    <!-- Gastos con comprobante -->
+    <div class="check-item {% if gastos_sin_comprobante == 0 %}ok{% else %}warn{% endif %}">
+      <i class="bi bi-{% if gastos_sin_comprobante == 0 %}check-circle-fill{% else %}file-earmark-x{% endif %}"></i>
+      <div>
+        <strong>Comprobantes</strong> —
+        {% if gastos_sin_comprobante == 0 %}
+          Todos los gastos tienen comprobante ✓
+        {% else %}
+          {{ gastos_sin_comprobante }} gasto{{ 's' if gastos_sin_comprobante != 1 else '' }} sin comprobante registrado
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Acciones de exportación -->
+  <div class="d-flex flex-wrap gap-2 mb-4">
+    <a href="{{ url_for('contabilidad.lig', year=selected_year, month=selected_month) }}"
+       class="btn btn-sm btn-outline-primary">
+      <i class="bi bi-file-earmark-ruled me-1"></i>Ver Libro de Ingresos y Gastos
+    </a>
+    <a href="{{ url_for('contabilidad.export_lig', year=selected_year, month=selected_month) }}"
+       class="btn btn-sm btn-outline-success">
+      <i class="bi bi-download me-1"></i>Exportar LIG (Excel)
+    </a>
+    {% if not ir_pagado %}
+    <button class="btn btn-sm btn-outline-warning" onclick="modalPagoIR()">
+      <i class="bi bi-cash me-1"></i>Registrar pago PDT 621
+    </button>
+    {% else %}
+    <button class="btn btn-sm btn-outline-warning" onclick="modalPagoIR()">
+      <i class="bi bi-cash me-1"></i>Editar pago PDT 621
+    </button>
     {% endif %}
   </div>
 
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       DETALLE CONTABLE (colapsado)
+  ══════════════════════════════════════════════════════════════════════ -->
+  <div class="accordion border-0 mb-4" id="detalleAcc">
+    <div class="accordion-item border rounded-3 shadow-sm">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed py-3 px-4 fw-semibold" style="font-size:.875rem;background:#f8fafc;"
+                type="button" data-bs-toggle="collapse" data-bs-target="#detalleBody">
+          <i class="bi bi-gear-wide-connected me-2 text-muted"></i>
+          Detalle contable técnico
+          <span class="badge bg-light text-muted border ms-2" style="font-size:.7rem;">
+            {{ entries_count }} asientos · S/{{ "%.0f"|format(total_debe|float) }} debe
+          </span>
+        </button>
+      </h2>
+      <div id="detalleBody" class="accordion-collapse collapse">
+        <div class="accordion-body px-3 py-3">
+          <div class="row g-1">
+            {% set links = [
+              (url_for('contabilidad.gastos', year=selected_year, month=selected_month), 'bi-receipt-cutoff', 'Registro de gastos', 'Ver y editar todos los gastos del mes'),
+              (url_for('contabilidad.amarres'), 'bi-intersect', 'Amarres y Neteo', 'Cruce compra/venta · utilidad por operación'),
+              (url_for('contabilidad.diario', year=selected_year, month=selected_month), 'bi-journal-bookmark-fill', 'Libro Diario', 'Asientos de partida doble'),
+              (url_for('contabilidad.caja', year=selected_year, month=selected_month), 'bi-bank2', 'Caja y Bancos', 'Movimientos por cuenta'),
+              (url_for('contabilidad.lig', year=selected_year, month=selected_month), 'bi-file-earmark-ruled', 'Libro de Ingresos y Gastos', 'Formato SUNAT RS 234-2006'),
+              (url_for('contabilidad.resultados', year=selected_year, month=selected_month), 'bi-graph-up-arrow', 'Estado de Resultados', 'P&L completo'),
+              (url_for('contabilidad.mayor', year=selected_year, month=selected_month), 'bi-journals', 'Libro Mayor', 'Saldo por cuenta PCGE'),
+              (url_for('contabilidad.balance', year=selected_year, month=selected_month), 'bi-bar-chart-steps', 'Balance de Comprobación', 'Sumas y saldos'),
+              (url_for('contabilidad.balance_general', year=selected_year, month=selected_month), 'bi-clipboard2-data', 'Balance General', 'Estado de Situación Financiera'),
+              (url_for('contabilidad.activos_fijos'), 'bi-pc-display', 'Activos Fijos', 'Depreciación mensual'),
+              (url_for('contabilidad.periodos'), 'bi-calendar3-range', 'Períodos Contables', 'Cerrar · ajuste FX'),
+              (url_for('contabilidad.exportar_excel', year=selected_year, month=selected_month), 'bi-file-earmark-excel', 'Exportar Excel completo', 'Todos los libros'),
+            ] %}
+            {% for href, icon, label, desc in links %}
+            <div class="col-12 col-md-6">
+              <a href="{{ href }}" class="detalle-link">
+                <i class="bi {{ icon }}"></i>
+                <div>
+                  <div class="fw-semibold" style="font-size:.8rem;">{{ label }}</div>
+                  <div style="font-size:.7rem; color:#94a3b8;">{{ desc }}</div>
+                </div>
+                <i class="bi bi-chevron-right ms-auto" style="font-size:.7rem; color:#cbd5e1;"></i>
+              </a>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     MODAL — REGISTRAR COMPRA O GASTO
+════════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="registroModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow">
+
+      <div class="modal-header border-0 pb-0 px-4 pt-4">
+        <div>
+          <h5 class="modal-title fw-bold mb-0" style="font-size:1rem;">
+            <i class="bi bi-plus-circle me-2 text-success"></i>Registrar compra o gasto
+          </h5>
+          <div class="text-muted" style="font-size:.75rem;" id="registroSubtitle">Elige el tipo de registro</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body px-4 pt-3" style="max-height:72vh; overflow-y:auto;">
+
+        <!-- PASO 0: Selector de tipo -->
+        <div id="pasoTipo">
+          <div class="d-flex flex-column gap-2">
+
+            <button class="tipo-btn" onclick="seleccionarTipo('habitual')">
+              <span class="tipo-icon">🏠</span>
+              <div>
+                <div class="fw-semibold">Gasto habitual</div>
+                <div class="tipo-desc">Alquiler, internet, agua, luz, teléfono, servicios mensuales</div>
+              </div>
+            </button>
+
+            <button class="tipo-btn" onclick="seleccionarTipo('freelancer')">
+              <span class="tipo-icon">👤</span>
+              <div>
+                <div class="fw-semibold">Honorario a freelancer</div>
+                <div class="tipo-desc">Recibo por honorarios · diseñador, contador, programador, etc.</div>
+              </div>
+            </button>
+
+            <button class="tipo-btn" onclick="seleccionarTipo('prestamo')">
+              <span class="tipo-icon">🏦</span>
+              <div>
+                <div class="fw-semibold">Cuota de préstamo bancario</div>
+                <div class="tipo-desc">Separa automáticamente capital e intereses · ITF opcional</div>
+              </div>
+            </button>
+
+            <button class="tipo-btn" onclick="seleccionarTipo('equipo')">
+              <span class="tipo-icon">💻</span>
+              <div>
+                <div class="fw-semibold">Compra de equipo o mueble</div>
+                <div class="tipo-desc">Computadora, silla, teléfono, impresora — se deprecia mes a mes</div>
+              </div>
+            </button>
+
+            <button class="tipo-btn" onclick="seleccionarTipo('transferencia')">
+              <span class="tipo-icon">🔄</span>
+              <div>
+                <div class="fw-semibold">Transferencia entre mis propias cuentas</div>
+                <div class="tipo-desc">No es un gasto — solo mueve dinero entre tus cuentas QoriCash</div>
+              </div>
+            </button>
+
+          </div>
+        </div>
+
+        <!-- PASO 1A: Formulario gasto habitual / freelancer / equipo -->
+        <div id="pasoFormGasto" style="display:none;">
+          <form id="formGasto">
+            <input type="hidden" id="fg_expense_type" name="expense_type" value="servicio">
+
+            <!-- Aviso freelancer -->
+            <div id="avisoFreelancer" class="alert alert-info py-2 mb-3" style="font-size:.8rem; display:none;">
+              <i class="bi bi-info-circle me-1"></i>
+              Si el honorario supera <strong>S/ 1,500</strong>, debes retener el 8% de IR y pagarlo a SUNAT.
+              El sistema lo calcula automáticamente si marcas la casilla.
+            </div>
+
+            <!-- Aviso equipo -->
+            <div id="avisoEquipo" class="alert alert-info py-2 mb-3" style="font-size:.8rem; display:none;">
+              <i class="bi bi-info-circle me-1"></i>
+              Los equipos se registran como <strong>activos fijos</strong> y se deprecian mes a mes según SUNAT.
+              No se deducen de una vez como gasto.
+            </div>
+
+            <div class="row g-3">
+              <div class="col-sm-6">
+                <label class="form-label small fw-semibold">Fecha del comprobante <span class="text-danger">*</span></label>
+                <input type="date" id="fg_date" name="expense_date" class="form-control form-control-sm"
+                       value="{{ date.today().isoformat() }}">
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label small fw-semibold">Monto total (S/) <span class="text-danger">*</span></label>
+                <input type="number" id="fg_amount" name="amount_pen" class="form-control form-control-sm"
+                       step="0.01" min="0" placeholder="0.00" oninput="calcularRetencion()">
+              </div>
+
+              <div class="col-12">
+                <label class="form-label small fw-semibold">¿Qué es este gasto? <span class="text-danger">*</span></label>
+                <input type="text" id="fg_desc" name="description" class="form-control form-control-sm"
+                       placeholder="Ej: Alquiler oficina Miraflores — Noviembre 2026">
+              </div>
+
+              <!-- Categoría automática (oculta al usuario) -->
+              <input type="hidden" id="fg_category" name="category" value="6391">
+
+              <!-- Proveedor -->
+              <div class="col-sm-6">
+                <label class="form-label small fw-semibold">Proveedor / empresa</label>
+                <input type="text" id="fg_supplier" name="supplier_name" class="form-control form-control-sm"
+                       placeholder="Nombre del proveedor">
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label small fw-semibold">RUC o DNI del proveedor</label>
+                <input type="text" id="fg_ruc" name="supplier_ruc" class="form-control form-control-sm"
+                       placeholder="20xxxxxxxxx">
+              </div>
+
+              <!-- Tipo de comprobante -->
+              <div class="col-sm-6">
+                <label class="form-label small fw-semibold">Tipo de comprobante</label>
+                <select id="fg_voucher_type" name="voucher_type" class="form-select form-select-sm">
+                  <option value="">Sin comprobante (guardar como pendiente)</option>
+                  <option value="factura">Factura</option>
+                  <option value="boleta">Boleta</option>
+                  <option value="recibo">Recibo por honorarios</option>
+                  <option value="ticket">Ticket / voucher</option>
+                </select>
+              </div>
+              <div class="col-sm-6" id="campoNumDoc">
+                <label class="form-label small fw-semibold">Serie y número</label>
+                <input type="text" id="fg_voucher_num" name="voucher_number" class="form-control form-control-sm"
+                       placeholder="Ej: F001-00001234">
+              </div>
+
+              <!-- Retención 4ta (solo freelancer) -->
+              <div class="col-12" id="campoRetencion" style="display:none;">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="fg_retencion" name="retencion_4ta"
+                         onchange="calcularRetencion()">
+                  <label class="form-check-label small" for="fg_retencion">
+                    Aplicar retención 8% IR (honorario &gt; S/ 1,500)
+                  </label>
+                </div>
+                <div id="retPreview" class="text-muted mt-1" style="font-size:.75rem;"></div>
+              </div>
+
+              <!-- Campos para activo fijo -->
+              <div id="camposActivo" style="display:none;" class="col-12">
+                <div class="row g-2">
+                  <div class="col-sm-6">
+                    <label class="form-label small fw-semibold">Nombre del equipo</label>
+                    <input type="text" id="fg_fa_name" name="fa_name" class="form-control form-control-sm"
+                           placeholder="Ej: Laptop Dell Inspiron">
+                  </div>
+                  <div class="col-sm-6">
+                    <label class="form-label small fw-semibold">Vida útil (años SUNAT)</label>
+                    <select id="fg_fa_life" name="fa_life_months" class="form-select form-select-sm">
+                      <option value="24">Celular / tablet — 2 años</option>
+                      <option value="48" selected>Computadora / laptop — 4 años</option>
+                      <option value="60">Equipo de oficina — 5 años</option>
+                      <option value="120">Mueble / silla — 10 años</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Pago directo desde banco (opcional) -->
+              <div class="col-12">
+                <div id="pagoBancoCheck" class="form-check">
+                  <input class="form-check-input" type="checkbox" id="fg_tiene_banco" onchange="toggleBanco()">
+                  <label class="form-check-label small" for="fg_tiene_banco">
+                    Ya lo pagué directamente desde mi cuenta bancaria
+                  </label>
+                </div>
+                <div id="campoBanco" style="display:none;" class="mt-2">
+                  <select name="bank_account_code" id="fg_banco" class="form-select form-select-sm">
+                    <option value="">— Selecciona el banco —</option>
+                    <option value="1041">BCP (soles)</option>
+                    <option value="1044">BCP (dólares)</option>
+                    <option value="1048">Interbank (soles)</option>
+                    <option value="1047">Interbank (dólares)</option>
+                    <option value="1049">BanBif (soles)</option>
+                  </select>
+                </div>
+              </div>
+
+            </div><!-- /row -->
+
+            <div class="alert alert-light border py-2 mt-3" style="font-size:.75rem;">
+              <i class="bi bi-info-circle me-1 text-muted"></i>
+              Si no tienes comprobante, guarda igual — quedará marcado como
+              <strong>pendiente de comprobante</strong>. Los gastos sin comprobante
+              se muestran en los pendientes del mes.
+            </div>
+
+          </form>
+        </div>
+
+        <!-- PASO 1B: Formulario préstamo -->
+        <div id="pasoFormPrestamo" style="display:none;">
+          <form id="formPrestamo">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label small fw-semibold">Descripción del préstamo <span class="text-danger">*</span></label>
+                <input type="text" name="description" class="form-control form-control-sm"
+                       placeholder="Ej: Cuota préstamo BCP octubre 2026"
+                       value="Cuota préstamo bancario {{ mes_nombre }} {{ selected_year }}">
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label small fw-semibold">Fecha de débito <span class="text-danger">*</span></label>
+                <input type="date" name="expense_date" class="form-control form-control-sm"
+                       value="{{ date.today().isoformat() }}">
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label small fw-semibold">Capital (S/) <span class="text-danger">*</span></label>
+                <input type="number" name="capital" id="pre_capital" class="form-control form-control-sm"
+                       step="0.01" min="0" placeholder="0.00" oninput="calcularTotalPrestamo()">
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label small fw-semibold">Intereses (S/) <span class="text-danger">*</span></label>
+                <input type="number" name="intereses" id="pre_intereses" class="form-control form-control-sm"
+                       step="0.01" min="0" placeholder="0.00" oninput="calcularTotalPrestamo()">
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label small fw-semibold">ITF (S/) <small class="text-muted">(opcional)</small></label>
+                <input type="number" name="itf" id="pre_itf" class="form-control form-control-sm"
+                       step="0.01" min="0" placeholder="0.00" oninput="calcularTotalPrestamo()">
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label small fw-semibold">Banco que debita <span class="text-danger">*</span></label>
+                <select name="bank_account" class="form-select form-select-sm" id="pre_banco">
+                  <option value="1041">BCP (soles)</option>
+                  <option value="1048">Interbank (soles)</option>
+                  <option value="1049">BanBif (soles)</option>
+                  <option value="1044">BCP (dólares)</option>
+                </select>
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label small fw-semibold">Total cuota</label>
+                <input type="text" id="pre_total" class="form-control form-control-sm bg-light"
+                       readonly placeholder="Se calcula automáticamente">
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <!-- PASO INFO: Transferencia entre cuentas -->
+        <div id="pasoTransferencia" style="display:none;">
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle-fill me-2"></i>
+            <strong>Las transferencias entre tus propias cuentas no son un gasto.</strong>
+            <p class="mb-0 mt-2" style="font-size:.875rem;">
+              Si moviste dinero de BCP a Interbank, o de soles a dólares dentro de QoriCash,
+              ese movimiento ya se refleja en los saldos bancarios del sistema.
+              No necesitas registrar nada aquí.
+            </p>
+          </div>
+        </div>
+
+      </div><!-- /modal-body -->
+
+      <div class="modal-footer border-0 px-4 pb-4 pt-2 justify-content-between" id="registroFooter">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="volverTipo()">
+          <i class="bi bi-arrow-left me-1"></i>Cambiar tipo
+        </button>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-sm btn-success fw-semibold px-4" id="btnGuardar"
+                  onclick="guardarRegistro()" style="display:none;">
+            <i class="bi bi-check-circle me-1"></i>Guardar
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
 </div>
+
+
+<!-- ══ Modal Pago IR ══════════════════════════════════════════════════════ -->
+<div class="modal fade" id="pagoIRModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-percent me-2 text-warning"></i>Registrar pago PDT 621</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('contabilidad.pago_ir_cuenta') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="alert alert-light border py-2" style="font-size:.8rem;">
+            Registra aquí el monto que <strong>efectivamente declaraste y pagaste</strong> en SUNAT.
+            No uses el estimado del sistema — usa el monto del recibo de pago de SUNAT.
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Mes declarado</label>
+            <input type="text" name="mes_tributario" class="form-control form-control-sm"
+                   value="{{ mes_nombre }} {{ selected_year }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Monto pagado (S/) <span class="text-danger">*</span></label>
+            <input type="number" name="monto" class="form-control form-control-sm"
+                   step="0.01" min="0.01"
+                   placeholder="Monto del recibo SUNAT"
+                   value="{% if ir_pago_estimado %}{{ ir_pago_estimado }}{% endif %}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Fecha de pago <span class="text-danger">*</span></label>
+            <input type="date" name="fecha" class="form-control form-control-sm"
+                   value="{{ date.today().isoformat() }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Banco usado para pagar</label>
+            <select name="banco" class="form-select form-select-sm">
+              <option value="BCP">BCP</option>
+              <option value="INTERBANK">Interbank</option>
+              <option value="BANBIF">BanBif</option>
+              <option value="BBVA">BBVA</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">N° de orden SUNAT <small class="text-muted">(opcional)</small></label>
+            <input type="text" name="voucher_number" class="form-control form-control-sm"
+                   placeholder="Número de la boleta de pago SUNAT">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-sm btn-warning fw-semibold">
+            <i class="bi bi-save me-1"></i>Guardar pago
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
+// ── Selector de período ────────────────────────────────────────────────────
+document.querySelector('select[name="month"]').addEventListener('change', function() {
+  const opt = this.options[this.selectedIndex];
+  document.getElementById('yearHidden').value = opt.dataset.year;
+});
+
+// ── Modal registrar ────────────────────────────────────────────────────────
+let tipoActual = null;
+const modal = () => bootstrap.Modal.getOrCreate(document.getElementById('registroModal'));
+
+function abrirRegistro() {
+  tipoActual = null;
+  mostrarPaso('tipo');
+  document.getElementById('btnGuardar').style.display = 'none';
+  modal().show();
+}
+
+function seleccionarTipo(tipo) {
+  tipoActual = tipo;
+  document.getElementById('registroSubtitle').textContent = {
+    habitual: 'Gasto habitual — alquiler, internet, servicios…',
+    freelancer: 'Honorario a freelancer',
+    prestamo: 'Cuota de préstamo bancario',
+    equipo: 'Compra de equipo o mueble',
+    transferencia: 'Transferencia entre tus cuentas',
+  }[tipo] || '';
+
+  if (tipo === 'transferencia') {
+    mostrarPaso('transferencia');
+    document.getElementById('btnGuardar').style.display = 'none';
+    return;
+  }
+  if (tipo === 'prestamo') {
+    mostrarPaso('prestamo');
+  } else {
+    // habitual / freelancer / equipo
+    configurarFormGasto(tipo);
+    mostrarPaso('gasto');
+  }
+  document.getElementById('btnGuardar').style.display = '';
+}
+
+function configurarFormGasto(tipo) {
+  document.getElementById('avisoFreelancer').style.display = tipo === 'freelancer' ? '' : 'none';
+  document.getElementById('avisoEquipo').style.display     = tipo === 'equipo'     ? '' : 'none';
+  document.getElementById('campoRetencion').style.display  = tipo === 'freelancer' ? '' : 'none';
+  document.getElementById('camposActivo').style.display    = tipo === 'equipo'     ? '' : 'none';
+
+  const et = tipo === 'equipo' ? 'activo_fijo' : 'servicio';
+  document.getElementById('fg_expense_type').value = et;
+
+  // Categoría PCGE automática
+  const cats = { habitual: '6391', freelancer: '6391', equipo: '3361' };
+  document.getElementById('fg_category').value = cats[tipo] || '6391';
+
+  // Placeholder descripción
+  const plac = {
+    habitual: 'Ej: Alquiler oficina — {{ mes_nombre }} {{ selected_year }}',
+    freelancer: 'Ej: Honorario diseño web — {{ mes_nombre }} {{ selected_year }}',
+    equipo: 'Ej: Laptop Dell Inspiron 15"',
+  };
+  document.getElementById('fg_desc').placeholder = plac[tipo] || '';
+}
+
+function mostrarPaso(paso) {
+  document.getElementById('pasoTipo').style.display       = paso === 'tipo'          ? '' : 'none';
+  document.getElementById('pasoFormGasto').style.display  = paso === 'gasto'         ? '' : 'none';
+  document.getElementById('pasoFormPrestamo').style.display = paso === 'prestamo'    ? '' : 'none';
+  document.getElementById('pasoTransferencia').style.display = paso === 'transferencia' ? '' : 'none';
+}
+
+function volverTipo() {
+  mostrarPaso('tipo');
+  document.getElementById('btnGuardar').style.display = 'none';
+  document.getElementById('registroSubtitle').textContent = 'Elige el tipo de registro';
+}
+
+function toggleBanco() {
+  const show = document.getElementById('fg_tiene_banco').checked;
+  document.getElementById('campoBanco').style.display = show ? '' : 'none';
+  if (!show) document.querySelector('[name="bank_account_code"]').value = '';
+}
+
+function calcularRetencion() {
+  const cb = document.getElementById('fg_retencion');
+  if (!cb || !cb.checked) { document.getElementById('retPreview').textContent = ''; return; }
+  const amt = parseFloat(document.getElementById('fg_amount').value) || 0;
+  const ret = Math.round(amt * 0.08 * 100) / 100;
+  const neto = Math.round((amt - ret) * 100) / 100;
+  document.getElementById('retPreview').textContent =
+    `Retención: S/ ${ret.toFixed(2)} · Neto a pagar al freelancer: S/ ${neto.toFixed(2)}`;
+}
+
+function calcularTotalPrestamo() {
+  const c = parseFloat(document.getElementById('pre_capital').value) || 0;
+  const i = parseFloat(document.getElementById('pre_intereses').value) || 0;
+  const itf = parseFloat(document.getElementById('pre_itf').value) || 0;
+  document.getElementById('pre_total').value = 'S/ ' + (c + i + itf).toFixed(2);
+}
+
+async function guardarRegistro() {
+  const btn = document.getElementById('btnGuardar');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando…';
+
+  try {
+    let url, data;
+
+    if (tipoActual === 'prestamo') {
+      const f = document.getElementById('formPrestamo');
+      const fd = new FormData(f);
+      // Mapear bank_account_code → bank_label
+      const bankLabels = {'1041':'BCP PEN','1048':'Interbank PEN','1049':'BanBif PEN','1044':'BCP USD'};
+      fd.append('bank_label', bankLabels[fd.get('bank_account')] || fd.get('bank_account'));
+      url = '/contabilidad/gastos/cuota-prestamo';
+      data = Object.fromEntries(fd.entries());
+    } else {
+      const f = document.getElementById('formGasto');
+      const fd = new FormData(f);
+      if (!document.getElementById('fg_tiene_banco').checked) {
+        fd.delete('bank_account_code');
+      }
+      url = '/contabilidad/gastos/nuevo';
+      data = Object.fromEntries(fd.entries());
+    }
+
+    // Validar campos requeridos
+    if (tipoActual !== 'prestamo') {
+      if (!data.amount_pen || parseFloat(data.amount_pen) <= 0) {
+        alert('Ingresa el monto del gasto.'); btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Guardar'; return;
+      }
+      if (!data.description || !data.description.trim()) {
+        alert('Describe el gasto.'); btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Guardar'; return;
+      }
+    }
+
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const json = await resp.json();
+
+    if (json.success) {
+      bootstrap.Modal.getInstance(document.getElementById('registroModal')).hide();
+      window.location.reload();
+    } else {
+      alert('Error: ' + (json.error || 'No se pudo guardar.'));
+    }
+  } catch(e) {
+    alert('Error de conexión. Intenta de nuevo.');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Guardar';
+}
+
 function modalPagoIR() {
   new bootstrap.Modal(document.getElementById('pagoIRModal')).show();
 }
