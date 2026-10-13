@@ -2278,6 +2278,20 @@ def _ejecutar_campana_wa(job_id, compra, venta, dry_run, limite):
             or_(WaBotSession.campana_secuencia.is_(None), WaBotSession.campana_secuencia < 4),
         ).all()
 
+        # Excluir clientes ya registrados
+        from app.models.client import Client
+        def _normalizar(num):
+            """Retorna últimos 9 dígitos del número para comparación."""
+            return ''.join(filter(str.isdigit, str(num or '')))[-9:]
+
+        numeros_clientes = set()
+        for c in Client.query.with_entities(Client.phone).filter(Client.phone.isnot(None)).all():
+            for parte in c.phone.split(';'):
+                n = _normalizar(parte)
+                if n:
+                    numeros_clientes.add(n)
+        _log(f'Clientes registrados a excluir: {len(numeros_clientes)} números')
+
         # Excluir quienes respondieron
         respondieron = set()
         for s in sesiones:
@@ -2293,6 +2307,8 @@ def _ejecutar_campana_wa(job_id, compra, venta, dry_run, limite):
         elegibles = []
         for s in sesiones:
             if s.numero in respondieron:
+                continue
+            if _normalizar(s.numero) in numeros_clientes:
                 continue
             seq = s.campana_secuencia or 0
             if seq > 0:
