@@ -5194,3 +5194,41 @@ def clonar_gastos_junio():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@contabilidad_bp.route('/admin/revertir-gastos-clonados', methods=['POST'])
+@csrf.exempt
+@login_required
+@require_role('Master')
+def revertir_gastos_clonados():
+    """Elimina todos los gastos (y sus asientos) de Agosto y Septiembre 2026."""
+    from app.models.expense_record import ExpenseRecord
+    from app.models.accounting_period import AccountingPeriod
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+
+    try:
+        resumen = []
+        for (year, month, label) in [(2026, 8, 'Agosto'), (2026, 9, 'Septiembre')]:
+            periodo = AccountingPeriod.query.filter_by(year=year, month=month).first()
+            if not periodo:
+                resumen.append({'mes': label, 'eliminados': 0, 'razon': 'período no existe'})
+                continue
+
+            gastos = ExpenseRecord.query.filter_by(period_id=periodo.id).all()
+            eliminados = 0
+            for g in gastos:
+                if g.journal_entry_id:
+                    JournalEntryLine.query.filter_by(entry_id=g.journal_entry_id).delete()
+                    JournalEntry.query.filter_by(id=g.journal_entry_id).delete()
+                db.session.delete(g)
+                eliminados += 1
+
+            db.session.commit()
+            resumen.append({'mes': label, 'eliminados': eliminados})
+
+        return jsonify({'success': True, 'resumen': resumen})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
