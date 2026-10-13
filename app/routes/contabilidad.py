@@ -5021,6 +5021,7 @@ def rollover_position():
 # ── Clonar gastos de un período a otro ────────────────────────────────────────
 
 @contabilidad_bp.route('/admin/clonar-gastos-junio', methods=['POST'])
+@csrf.exempt
 @login_required
 @require_role('Master')
 def clonar_gastos_junio():
