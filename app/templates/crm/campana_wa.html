@@ -250,6 +250,34 @@ table.cw-table tr:hover td { background: #f8fafc; }
 }
 .btn-lanzar:hover { background: #15803d; }
 .btn-lanzar:disabled, .btn-dryrun:disabled { opacity: .5; cursor: not-allowed; }
+.btn-stop {
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 20px;
+  font-size: .82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s;
+  display: none;
+}
+.btn-stop:hover { background: #b91c1c; }
+.btn-stop:disabled { opacity: .5; cursor: not-allowed; }
+.cw-estado-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin-left: 10px;
+}
+.cw-estado-badge.corriendo { background: #eff6ff; color: #196BFE; }
+.cw-estado-badge.completado { background: #f0fdf4; color: #16a34a; }
+.cw-estado-badge.detenida { background: #fef2f2; color: #dc2626; }
+.cw-estado-badge.error { background: #fef2f2; color: #dc2626; }
 
 /* ── Progress ── */
 #cwProgress {
@@ -346,6 +374,10 @@ table.cw-table tr:hover td { background: #f8fafc; }
         <button class="btn-lanzar" id="btnLanzar" onclick="lanzarCampana(false)">
           <i class="bi bi-send-fill"></i> Lanzar envío
         </button>
+        <button class="btn-stop" id="btnStop" onclick="detenerCampana()">
+          <i class="bi bi-stop-fill"></i> STOP
+        </button>
+        <span id="cwEstadoBadge"></span>
       </div>
     </div>
     <div id="cwProgress">
@@ -541,6 +573,15 @@ async function togglePausa(numero, pausar, btn) {
 
 // ── Lanzar campaña ──────────────────────────────────────────────────────────
 let _pollInterval = null;
+let _activeJobId  = null;
+
+function _setEstadoBadge(estado) {
+  const badge = document.getElementById('cwEstadoBadge');
+  const labels = { corriendo: '⏳ Enviando…', completado: '✓ Completado', detenida: '⛔ Detenida', error: '✗ Error' };
+  badge.className = `cw-estado-badge ${estado}`;
+  badge.textContent = labels[estado] || estado;
+  badge.style.display = estado ? 'inline-flex' : 'none';
+}
 
 async function lanzarCampana(dryRun) {
   const compra = document.getElementById('inCompra').value.trim();
@@ -552,13 +593,16 @@ async function lanzarCampana(dryRun) {
 
   const btnL = document.getElementById('btnLanzar');
   const btnD = document.getElementById('btnDryRun');
+  const btnS = document.getElementById('btnStop');
   btnL.disabled = btnD.disabled = true;
+  if (!dryRun) btnS.style.display = 'inline-flex';
 
   const prog = document.getElementById('cwProgress');
   prog.style.display = 'block';
   document.getElementById('progBar').style.width = '0%';
   document.getElementById('progLabel').textContent = 'Iniciando...';
   document.getElementById('progLog').textContent = '';
+  _setEstadoBadge('corriendo');
 
   try {
     const r = await fetch('/crm/api/wa-campana-lanzar', {
@@ -569,17 +613,38 @@ async function lanzarCampana(dryRun) {
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || 'Error al lanzar');
 
-    const jobId = d.job_id;
-    toast(dryRun ? `Simulación iniciada (job ${jobId})` : `Campaña iniciada (job ${jobId})`);
+    _activeJobId = d.job_id;
+    toast(dryRun ? `Simulación iniciada (job ${_activeJobId})` : `Campaña iniciada (job ${_activeJobId})`);
 
-    _pollInterval = setInterval(() => pollJob(jobId, btnL, btnD), 2000);
+    _pollInterval = setInterval(() => pollJob(_activeJobId, btnL, btnD, btnS), 2000);
   } catch(e) {
     toast('Error: ' + e.message, false);
     btnL.disabled = btnD.disabled = false;
+    btnS.style.display = 'none';
+    _setEstadoBadge('');
   }
 }
 
-async function pollJob(jobId, btnL, btnD) {
+async function detenerCampana() {
+  if (!_activeJobId) { toast('No hay campaña activa', false); return; }
+  const btnS = document.getElementById('btnStop');
+  btnS.disabled = true;
+  try {
+    const r = await fetch('/crm/api/wa-campana-stop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ job_id: _activeJobId }),
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'Error');
+    toast('⛔ Señal STOP enviada — el proceso se detiene antes del próximo envío. Los mensajes ya entregados a Meta no pueden retirarse.');
+  } catch(e) {
+    toast('Error al detener: ' + e.message, false);
+    btnS.disabled = false;
+  }
+}
+
+async function pollJob(jobId, btnL, btnD, btnS) {
   try {
     const r = await fetch(`/crm/api/wa-campana-job/${jobId}`, {
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -588,26 +653,37 @@ async function pollJob(jobId, btnL, btnD) {
     if (!d.ok) return;
 
     const pct   = d.total > 0 ? Math.round((d.progreso / d.total) * 100) : 0;
-    const label = `${d.progreso || 0} / ${d.total} — enviados: ${d.enviados} | errores: ${d.errores}`;
+    const excl  = d.excluidos_clientes > 0 ? ` | excluidos clientes: ${d.excluidos_clientes}` : '';
+    const label = `${d.progreso || 0} / ${d.total} — enviados: ${d.enviados} | errores: ${d.errores}${excl}`;
     document.getElementById('progBar').style.width = pct + '%';
     document.getElementById('progLabel').textContent = label;
 
     const logEl = document.getElementById('progLog');
     if (d.log && d.log.length) {
-      logEl.textContent = d.log.slice(-30).join('\n');
+      logEl.textContent = d.log.slice(-40).join('\n');
       logEl.scrollTop = logEl.scrollHeight;
     }
 
-    if (d.estado === 'completado' || d.estado === 'error') {
+    const terminado = ['completado', 'error', 'detenida'].includes(d.estado);
+    if (terminado) {
       clearInterval(_pollInterval);
       _pollInterval = null;
+      _activeJobId  = null;
       btnL.disabled = btnD.disabled = false;
+      btnS.style.display = 'none';
+      btnS.disabled = false;
+      _setEstadoBadge(d.estado);
       if (d.estado === 'completado') {
-        toast(`✓ Completado — ${d.enviados} enviados, ${d.errores} errores`);
+        toast(`✓ Completado — ${d.enviados} enviados, ${d.errores} errores, ${d.excluidos_clientes || 0} excluidos`);
+        setTimeout(cargarStats, 1000);
+      } else if (d.estado === 'detenida') {
+        toast(`⛔ Campaña detenida — ${d.enviados} enviados antes del stop`);
         setTimeout(cargarStats, 1000);
       } else {
         toast('Error en campaña: ' + (d.error || ''), false);
       }
+    } else {
+      _setEstadoBadge(d.estado);
     }
   } catch(e) { /* ignore poll errors */ }
 }

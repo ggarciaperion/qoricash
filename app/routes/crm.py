@@ -2255,6 +2255,34 @@ CAMPANA_TEMPLATE_LANG  = 'es'
 CAMPANA_BANNER_URL     = 'https://app.qoricash.pe/static/images/campana_banner.png'
 CAMPANA_PAUSA_SEG      = 4   # segundos entre mensajes
 
+def _normalizar_telefono(num):
+    """Retorna últimos 9 dígitos del número para comparación normalizada."""
+    return ''.join(filter(str.isdigit, str(num or '')))[-9:]
+
+
+def _build_numeros_clientes():
+    """
+    Construye un set exhaustivo con los últimos 9 dígitos de todos los teléfonos
+    de clientes registrados. Revisa el campo phone (puede contener múltiples
+    números separados por ';'). Retorna (set_numeros, total_encontrados).
+    """
+    from app.models.client import Client
+    numeros = set()
+    total_raw = 0
+    for c in Client.query.with_entities(Client.phone).all():
+        if not c.phone:
+            continue
+        for parte in c.phone.split(';'):
+            parte = parte.strip()
+            if not parte:
+                continue
+            total_raw += 1
+            n = _normalizar_telefono(parte)
+            if len(n) >= 7:          # al menos 7 dígitos para ser válido
+                numeros.add(n)
+    return numeros, total_raw
+
+
 def _ejecutar_campana_wa(job_id, compra, venta, dry_run, limite):
     """Función que corre en background thread. Envía mensajes de campaña WA."""
     from app.models.wa_bot_session import WaBotSession
@@ -2266,33 +2294,26 @@ def _ejecutar_campana_wa(job_id, compra, venta, dry_run, limite):
         job['log'].append(msg)
         log.info(f'[CAMP-WA {job_id}] {msg}')
 
+    def _cancelado():
+        return job.get('cancelado', False)
+
     try:
         ahora = now_peru()
         DIAS_ESPERA = {1: 15, 2: 30, 3: 45}
 
+        # ── Construir lista exhaustiva de teléfonos de clientes registrados ──
+        numeros_clientes, raw_count = _build_numeros_clientes()
+        _log(f'Clientes registrados: {raw_count} teléfonos → {len(numeros_clientes)} normalizados')
+
         sesiones = WaBotSession.query.filter(
-            or_(WaBotSession.opt_out_wa.is_(None),    WaBotSession.opt_out_wa == False),
+            or_(WaBotSession.opt_out_wa.is_(None),      WaBotSession.opt_out_wa == False),
             or_(WaBotSession.campana_pausada.is_(None), WaBotSession.campana_pausada == False),
-            WaBotSession.bot_pausado == False,
+            or_(WaBotSession.bot_pausado.is_(None),     WaBotSession.bot_pausado == False),
             WaBotSession.estado_atencion != 'en_atencion',
             or_(WaBotSession.campana_secuencia.is_(None), WaBotSession.campana_secuencia < 4),
         ).all()
 
-        # Excluir clientes ya registrados
-        from app.models.client import Client
-        def _normalizar(num):
-            """Retorna últimos 9 dígitos del número para comparación."""
-            return ''.join(filter(str.isdigit, str(num or '')))[-9:]
-
-        numeros_clientes = set()
-        for c in Client.query.with_entities(Client.phone).filter(Client.phone.isnot(None)).all():
-            for parte in c.phone.split(';'):
-                n = _normalizar(parte)
-                if n:
-                    numeros_clientes.add(n)
-        _log(f'Clientes registrados a excluir: {len(numeros_clientes)} números')
-
-        # Excluir quienes respondieron
+        # Excluir quienes respondieron tras último envío
         respondieron = set()
         for s in sesiones:
             if s.campana_ultimo_envio:
@@ -2305,10 +2326,19 @@ def _ejecutar_campana_wa(job_id, compra, venta, dry_run, limite):
                     respondieron.add(s.numero)
 
         elegibles = []
+        excluidos_cliente = 0
         for s in sesiones:
             if s.numero in respondieron:
                 continue
-            if _normalizar(s.numero) in numeros_clientes:
+            # ── Validar contra clientes registrados (pre y por número dudoso) ──
+            norm = _normalizar_telefono(s.numero)
+            if len(norm) < 7:
+                # Número no determinable — marcar para revisión, excluir
+                _log(f'  DUDOSO (número corto): {s.numero} — excluido por precaución')
+                excluidos_cliente += 1
+                continue
+            if norm in numeros_clientes:
+                excluidos_cliente += 1
                 continue
             seq = s.campana_secuencia or 0
             if seq > 0:
@@ -2323,9 +2353,12 @@ def _ejecutar_campana_wa(job_id, compra, venta, dry_run, limite):
             empresa = (s.empresa_guardada or '').strip()
             elegibles.append({'sesion': s, 'nombre': nombre, 'empresa': empresa, 'seq': seq})
 
+        _log(f'Excluidos clientes registrados: {excluidos_cliente}')
+        job['excluidos_clientes'] = excluidos_cliente
+
         elegibles = elegibles[:limite]
         job['total'] = len(elegibles)
-        _log(f'Elegibles: {len(elegibles)} | dry_run={dry_run} | compra={compra} venta={venta}')
+        _log(f'Elegibles finales: {len(elegibles)} | dry_run={dry_run} | compra={compra} venta={venta}')
 
         if not elegibles:
             job['estado'] = 'completado'
@@ -2337,12 +2370,26 @@ def _ejecutar_campana_wa(job_id, compra, venta, dry_run, limite):
         headers   = {'Authorization': f'Bearer {wa_token}', 'Content-Type': 'application/json'}
 
         for idx, item in enumerate(elegibles, 1):
-            s       = item['sesion']
-            nombre  = item['nombre']
-            empresa = item['empresa']
-            seq     = item['seq']
+            # ── Verificar STOP antes de cada mensaje ──────────────────────────
+            if _cancelado():
+                _log(f'⛔ DETENIDA por el operador en mensaje {idx}/{len(elegibles)}. '
+                     f'Ya enviados: {job["enviados"]}. '
+                     f'Los mensajes entregados a Meta no pueden retirarse.')
+                job['estado'] = 'detenida'
+                return
+
+            s         = item['sesion']
+            nombre    = item['nombre']
+            empresa   = item['empresa']
+            seq       = item['seq']
             seq_nuevo = seq + 1
             numero_dest = s.numero.lstrip('+')
+
+            # ── Revalidar contra clientes justo antes de enviar ──────────────
+            if _normalizar_telefono(s.numero) in numeros_clientes:
+                _log(f'  [SKIP] {s.numero} — identificado como cliente registrado en validación final')
+                job['progreso'] = idx
+                continue
 
             _log(f'[{idx}/{len(elegibles)}] {s.numero} ({nombre}) seq {seq}→{seq_nuevo}')
 
@@ -2379,10 +2426,8 @@ def _ejecutar_campana_wa(job_id, compra, venta, dry_run, limite):
                 r = http_req.post(wa_url, json=payload, headers=headers, timeout=15)
                 resp = r.json()
                 if r.ok and resp.get('messages'):
-                    # Actualizar sesión
                     s.campana_secuencia    = seq_nuevo
                     s.campana_ultimo_envio = now_peru()
-                    # Guardar mensaje en WaMessage
                     texto = (f'[Campaña WA Seq {seq_nuevo}] '
                              f'Plantilla {CAMPANA_TEMPLATE_NAME}: compra={compra} venta={venta}')
                     msg = WaMessage(
@@ -2403,11 +2448,12 @@ def _ejecutar_campana_wa(job_id, compra, venta, dry_run, limite):
                 _log(f'  EXCEPCIÓN: {e}')
 
             job['progreso'] = idx
-            if idx < len(elegibles):
+            if idx < len(elegibles) and not _cancelado():
                 time.sleep(CAMPANA_PAUSA_SEG)
 
-        job['estado'] = 'completado'
-        _log(f'Resumen: enviados={job["enviados"]} errores={job["errores"]}')
+        if not _cancelado():
+            job['estado'] = 'completado'
+            _log(f'Resumen final: enviados={job["enviados"]} errores={job["errores"]} excluidos_clientes={job["excluidos_clientes"]}')
 
     except Exception as e:
         import traceback
@@ -2442,7 +2488,8 @@ def api_wa_campana_lanzar():
     _campana_jobs[job_id] = {
         'estado': 'corriendo', 'total': 0, 'enviados': 0, 'errores': 0,
         'progreso': 0, 'compra': compra, 'venta': venta,
-        'dry_run': dry_run, 'log': [],
+        'dry_run': dry_run, 'log': [], 'cancelado': False,
+        'excluidos_clientes': 0,
     }
 
     app_obj = current_app._get_current_object()
@@ -2465,6 +2512,26 @@ def api_wa_campana_job(job_id):
     if not job:
         return jsonify({'ok': False, 'error': 'Job no encontrado'}), 404
     return jsonify({'ok': True, **{k: v for k, v in job.items() if k != 'sesion'}})
+
+
+@crm_bp.route('/api/wa-campana-stop', methods=['POST'])
+@csrf.exempt
+@login_required
+def api_wa_campana_stop():
+    """Detiene el job de campaña WA activo. Body: {job_id}."""
+    if current_user.role != 'Master':
+        return jsonify({'ok': False, 'error': 'Forbidden'}), 403
+    data   = request.get_json(silent=True) or {}
+    job_id = data.get('job_id', '').strip()
+    job    = _campana_jobs.get(job_id)
+    if not job:
+        return jsonify({'ok': False, 'error': 'Job no encontrado'}), 404
+    if job.get('estado') != 'corriendo':
+        return jsonify({'ok': False, 'error': f'El job ya está en estado: {job["estado"]}'}), 400
+    job['cancelado'] = True
+    job['estado']    = 'detenida'
+    log.info(f'[CRM] Campaña WA job_id={job_id} DETENIDA por {current_user.username}')
+    return jsonify({'ok': True, 'msg': 'Señal de stop enviada. El proceso se detendrá antes del próximo envío.'})
 
 
 # ── Migración one-shot columnas campaña WA ───────────────────────
