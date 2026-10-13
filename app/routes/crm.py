@@ -127,11 +127,24 @@ def api_conversaciones():
         )
         no_leidos_map = {r[0]: r[1] for r in no_leidos}
 
-        # Números que tienen al menos 1 mensaje entrante (respondieron)
+        # Números que tienen al menos 1 mensaje entrante (respondieron alguna vez)
         respondio_set = {
             r[0] for r in
             db.session.query(WaMessage.numero)
             .filter(WaMessage.direccion == 'entrante')
+            .distinct()
+            .all()
+        }
+        # Números que respondieron HOY (para el filtro "Respondieron")
+        from datetime import date as _date
+        hoy_str = _date.today()
+        respondio_hoy_set = {
+            r[0] for r in
+            db.session.query(WaMessage.numero)
+            .filter(
+                WaMessage.direccion == 'entrante',
+                func.date(WaMessage.created_at) == hoy_str,
+            )
             .distinct()
             .all()
         }
@@ -198,6 +211,7 @@ def api_conversaciones():
                 'assigned_to':     assigned_to,
                 'assigned_name':   assigned_name,
                 'last_id':         m.id,
+                'respondio_hoy':   num in respondio_hoy_set,
             })
 
         # Ordenar: esperando > no leídos > resto; secundario: last_id desc (determinista)

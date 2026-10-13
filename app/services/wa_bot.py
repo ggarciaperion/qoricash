@@ -1315,6 +1315,19 @@ def _bienvenida(numero, session):
       - Múltiples perfiles     → selector de perfil sin commit
       - Sin perfil             → botones "Como persona" / "Como empresa"
     """
+    # Si el número respondió a una campaña → menú limpio sin banner ni "¡Bienvenido!"
+    if (session.campana_secuencia or 0) > 0:
+        send_buttons(numero,
+            'Cambia dólares al mejor tipo de cambio, sin salir de tu WhatsApp.\n\n'
+            '¿Qué operación te interesa?',
+            [
+                {'id': 'btn_comprar',     'title': 'Soles a dólares'},
+                {'id': 'btn_vender',      'title': 'Dólares a soles'},
+                {'id': 'btn_soy_empresa', 'title': '🏢 Soy empresa'},
+            ]
+        )
+        return
+
     BANNER_URL = 'https://qoricash.pe/213.jpg'
     todos = _buscar_clientes_por_telefono_saludo(numero)
     personas = [c for c in todos if (c.document_type or '').upper() in ('DNI', 'CE')]

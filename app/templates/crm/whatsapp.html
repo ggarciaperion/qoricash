@@ -984,7 +984,7 @@ function renderConvs() {
     (c.empresa || '').toLowerCase().includes(q)
   );
   if (activeFilter === 'no_leidos')  list = list.filter(c => c.no_leidos > 0);
-  if (activeFilter === 'respondio')  list = list.filter(c => c.estado === 'respondio');
+  if (activeFilter === 'respondio')  list = list.filter(c => c.respondio_hoy === true);
   if (activeFilter === 'esperando')  list = list.filter(c => c.estado_atencion === 'esperando');
 
   // Actualizar punto en tab Esperando
@@ -1428,7 +1428,7 @@ function renderContent(m) {
       </div>`;
     } catch (e) { /* fallback texto */ }
   }
-  return esc(m.mensaje);
+  return `<span style="white-space:pre-wrap;word-break:break-word;">${esc(m.mensaje)}</span>`;
 }
 
 function fmtDate(ddmmyyyy) {
