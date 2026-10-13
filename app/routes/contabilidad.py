@@ -5265,3 +5265,61 @@ def revertir_gastos_clonados():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@contabilidad_bp.route('/admin/eliminar-operacion', methods=['POST'])
+@csrf.exempt
+@login_required
+@require_role('Master')
+def eliminar_operacion():
+    """Elimina completamente una operación y todos sus registros asociados."""
+    data = request.get_json() or {}
+    op_id = data.get('operation_id')
+    if not op_id:
+        return jsonify({'success': False, 'error': 'operation_id requerido'}), 400
+
+    try:
+        from app.models.operation import Operation
+        from app.models.journal_entry import JournalEntry
+        from app.models.journal_entry_line import JournalEntryLine
+        from app.models.accounting_match import AccountingMatch
+
+        op = Operation.query.filter_by(id=op_id).first()
+        if not op:
+            op = Operation.query.filter_by(operation_id=str(op_id)).first()
+        if not op:
+            return jsonify({'success': False, 'error': f'Operación {op_id} no encontrada'}), 404
+
+        op_label = op.operation_id or str(op.id)
+
+        # 1. Eliminar asientos contables vinculados
+        entries = JournalEntry.query.filter_by(source_type='operation', source_id=op.id).all()
+        for e in entries:
+            JournalEntryLine.query.filter_by(journal_entry_id=e.id).delete()
+            db.session.delete(e)
+        db.session.flush()
+
+        # 2. Eliminar amarres donde participa
+        AccountingMatch.query.filter(
+            (AccountingMatch.buy_operation_id == op.id) |
+            (AccountingMatch.sell_operation_id == op.id)
+        ).delete(synchronize_session=False)
+        db.session.flush()
+
+        # 3. Eliminar registros dependientes genéricos (vouchers, notificaciones, etc.)
+        for tbl_attr in ['vouchers', 'proofs', 'operator_proofs', 'deposit_proofs']:
+            rel = getattr(op, tbl_attr, None)
+            if rel is not None:
+                for item in list(rel):
+                    db.session.delete(item)
+        db.session.flush()
+
+        # 4. Eliminar la operación
+        db.session.delete(op)
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': f'Operación {op_label} eliminada completamente'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
