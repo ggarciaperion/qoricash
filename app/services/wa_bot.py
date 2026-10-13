@@ -1389,16 +1389,29 @@ def _bienvenida(numero, session):
 
     else:
         # Sin perfil registrado: nuevo usuario
-        send_buttons_image(numero, BANNER_URL,
-            '¡Bienvenido a Qoricash! 👋\n'
-            'Cambia dólares al mejor tipo de cambio, sin salir de tu WhatsApp.\n\n'
-            '¿Qué operación te interesa?',
-            [
-                {'id': 'btn_comprar',     'title': 'Soles a dólares'},
-                {'id': 'btn_vender',      'title': 'Dólares a soles'},
-                {'id': 'btn_soy_empresa', 'title': '🏢 Soy empresa'},
-            ]
-        )
+        _viene_de_campana = (session.campana_secuencia or 0) > 0
+        if _viene_de_campana:
+            # Cliente que respondió un mensaje de campaña — omitir banner y "¡Bienvenido!"
+            send_buttons(numero,
+                'Cambia dólares al mejor tipo de cambio, sin salir de tu WhatsApp.\n\n'
+                '¿Qué operación te interesa?',
+                [
+                    {'id': 'btn_comprar',     'title': 'Soles a dólares'},
+                    {'id': 'btn_vender',      'title': 'Dólares a soles'},
+                    {'id': 'btn_soy_empresa', 'title': '🏢 Soy empresa'},
+                ]
+            )
+        else:
+            send_buttons_image(numero, BANNER_URL,
+                '¡Bienvenido a Qoricash! 👋\n'
+                'Cambia dólares al mejor tipo de cambio, sin salir de tu WhatsApp.\n\n'
+                '¿Qué operación te interesa?',
+                [
+                    {'id': 'btn_comprar',     'title': 'Soles a dólares'},
+                    {'id': 'btn_vender',      'title': 'Dólares a soles'},
+                    {'id': 'btn_soy_empresa', 'title': '🏢 Soy empresa'},
+                ]
+            )
 
 
 def _flujo_menu_operacion_empresa(numero, razon_social=None, tercera_opcion=None):
