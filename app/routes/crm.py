@@ -2250,9 +2250,9 @@ def api_wa_campana_pausar():
 
 # ── Lanzar campaña WA desde el CRM ──────────────────────────────────────────
 
-CAMPANA_TEMPLATE_NAME  = 'qoricash_precios_ok'
+CAMPANA_TEMPLATE_NAME  = 'qoricash_clientes_reactivacion'
 CAMPANA_TEMPLATE_LANG  = 'es'
-CAMPANA_HEADER_IMAGE   = 'https://www.qoricash.pe/banerwsp.png'
+CAMPANA_BANNER_URL     = 'https://app.qoricash.pe/static/images/campana_banner.png'
 CAMPANA_PAUSA_SEG      = 4   # segundos entre mensajes
 
 def _ejecutar_campana_wa(job_id, compra, venta, dry_run, limite):
@@ -2345,7 +2345,7 @@ def _ejecutar_campana_wa(job_id, compra, venta, dry_run, limite):
                     'components': [
                         {
                             'type': 'header',
-                            'parameters': [{'type': 'image', 'image': {'link': CAMPANA_HEADER_IMAGE}}],
+                            'parameters': [{'type': 'image', 'image': {'link': CAMPANA_BANNER_URL}}],
                         },
                         {
                             'type': 'body',
