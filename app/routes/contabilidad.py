@@ -5219,7 +5219,7 @@ def revertir_gastos_clonados():
             eliminados = 0
             for g in gastos:
                 if g.journal_entry_id:
-                    JournalEntryLine.query.filter_by(entry_id=g.journal_entry_id).delete()
+                    JournalEntryLine.query.filter_by(journal_entry_id=g.journal_entry_id).delete()
                     JournalEntry.query.filter_by(id=g.journal_entry_id).delete()
                 db.session.delete(g)
                 eliminados += 1
