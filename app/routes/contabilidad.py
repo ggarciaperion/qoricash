@@ -127,23 +127,23 @@ def dashboard():
     except Exception:
         unmatched_count = 0
 
-    # Ingresos del mes desde amarres (cuentas 7xxx — fuente real del spread)
+    # Ingresos del mes — spread neto desde AccountingMatch.profit_pen
+    # (misma fuente que el panel principal; ya neta ganancias y pérdidas FX)
     ingresos_mes = Decimal('0')
     try:
-        from app.models.journal_entry_line import JournalEntryLine as _JEL3
-        from app.models.journal_entry import JournalEntry as _JE3
-        from sqlalchemy import extract as _ex3, func as _fn3
-        _ing3 = db.session.query(
-            _fn3.coalesce(_fn3.sum(_JEL3.haber), Decimal('0'))
-        ).join(_JE3, _JEL3.journal_entry_id == _JE3.id
+        from app.models.accounting_match import AccountingMatch as _AM
+        import calendar as _cal2
+        _last2 = _cal2.monthrange(year, month)[1]
+        _start2 = datetime(year, month, 1)
+        _end2   = datetime(year, month, _last2, 23, 59, 59)
+        _net = db.session.query(
+            func.coalesce(func.sum(_AM.profit_pen), Decimal('0'))
         ).filter(
-            extract('year',  _JE3.entry_date) == year,
-            extract('month', _JE3.entry_date) == month,
-            _JE3.status == 'activo',
-            _JEL3.account_code.like('7%'),
-            _JEL3.haber > 0,
+            _AM.status == 'Activo',
+            _AM.created_at >= _start2,
+            _AM.created_at <= _end2,
         ).scalar() or Decimal('0')
-        ingresos_mes = Decimal(str(_ing3))
+        ingresos_mes = Decimal(str(_net))
     except Exception:
         pass
 
