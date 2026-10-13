@@ -2074,6 +2074,9 @@ def api_wa_campana_clientes_registrar():
     if sesion:
         sesion.campana_secuencia    = secuencia
         sesion.campana_ultimo_envio = now_peru()
+        # Reiniciar estado a 'inicio' para que el timeout de 20 min no
+        # dispare al responder el mensaje de campaña (conversación anterior ya es obsoleta)
+        sesion.estado = 'inicio'
 
     # Guardar mensaje saliente
     db.session.add(WaMessage(
