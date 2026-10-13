@@ -5032,6 +5032,7 @@ def clonar_gastos_junio():
     """
     import calendar as _cal
     from app.models.expense_record import ExpenseRecord
+    from app.models.accounting_period import AccountingPeriod
     from app.services.accounting.journal_service import JournalService
 
     try:
