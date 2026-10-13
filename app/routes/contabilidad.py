@@ -5016,3 +5016,179 @@ def rollover_position():
 
     except Exception as e:
         return jsonify({'success': False, 'count': 0, 'error': str(e)}), 500
+
+
+# ── Clonar gastos de un período a otro ────────────────────────────────────────
+
+@contabilidad_bp.route('/admin/clonar-gastos-junio', methods=['POST'])
+@login_required
+@require_role('Master')
+def clonar_gastos_junio():
+    """
+    Clona todos los gastos de Junio 2026 → Julio, Agosto y Septiembre 2026.
+    Endpoint temporal de uso único para poner al día la contabilidad.
+    Solo ejecutable por Master. Idempotente: omite meses que ya tienen gastos.
+    """
+    import calendar as _cal
+    from app.models.expense_record import ExpenseRecord
+    from app.services.accounting.journal_service import JournalService
+
+    try:
+        periodo_jun = AccountingPeriod.query.filter_by(year=2026, month=6).first()
+        if not periodo_jun:
+            return jsonify({'success': False, 'error': 'No existe el período Junio 2026'}), 404
+
+        gastos_jun = (ExpenseRecord.query
+                      .filter_by(period_id=periodo_jun.id)
+                      .order_by(ExpenseRecord.expense_date, ExpenseRecord.id)
+                      .all())
+
+        if not gastos_jun:
+            return jsonify({'success': False, 'error': 'No hay gastos en Junio 2026'}), 404
+
+        def _ajustar_fecha(dia, year, month):
+            ultimo = _cal.monthrange(year, month)[1]
+            return date(year, month, min(dia, ultimo))
+
+        _bank_labels = {
+            '1011': 'Caja MN', '1012': 'Caja ME',
+            '1041': 'BCP PEN', '1044': 'BCP USD',
+            '1047': 'Interbank USD', '1048': 'Interbank PEN',
+            '1049': 'BanBif PEN', '1050': 'BanBif USD',
+        }
+
+        resumen = []
+        meses = [(2026, 7, 'Julio'), (2026, 8, 'Agosto'), (2026, 9, 'Septiembre')]
+
+        for (target_year, target_month, label) in meses:
+            periodo_dest = JournalService.get_or_create_period(date(target_year, target_month, 1))
+
+            if periodo_dest.status == 'cerrado':
+                resumen.append({'mes': label, 'status': 'omitido', 'razon': 'período cerrado', 'creados': 0})
+                continue
+
+            ya_existen = ExpenseRecord.query.filter_by(period_id=periodo_dest.id).count()
+            if ya_existen > 0:
+                resumen.append({'mes': label, 'status': 'omitido', 'razon': f'ya tiene {ya_existen} gastos', 'creados': 0})
+                continue
+
+            creados = 0
+            for g in gastos_jun:
+                nueva_fecha = _ajustar_fecha(g.expense_date.day, target_year, target_month)
+                amount_pen = g.amount_pen
+                igv_pen = g.igv_pen
+                base_pen = g.base_pen
+                credito_fiscal = g.credito_fiscal or False
+                voucher_type = (g.voucher_type or '').lower()
+                expense_type = g.expense_type or 'servicio'
+                bank_account_code = g.bank_account_code
+                ret_monto = g.retencion_4ta_monto
+
+                nuevo = ExpenseRecord(
+                    period_id=periodo_dest.id,
+                    expense_date=nueva_fecha,
+                    category=g.category,
+                    description=g.description,
+                    amount_pen=amount_pen,
+                    base_pen=base_pen,
+                    igv_pen=igv_pen,
+                    credito_fiscal=credito_fiscal,
+                    expense_type=expense_type,
+                    amount_usd=g.amount_usd,
+                    exchange_rate_used=g.exchange_rate_used,
+                    voucher_type=g.voucher_type,
+                    voucher_number=g.voucher_number,
+                    supplier_ruc=g.supplier_ruc,
+                    supplier_name=g.supplier_name,
+                    bank_account_code=bank_account_code,
+                    retencion_4ta=g.retencion_4ta or False,
+                    retencion_4ta_monto=ret_monto,
+                    created_by=current_user.id,
+                )
+                db.session.add(nuevo)
+                db.session.flush()
+
+                # Reconstruir líneas del asiento
+                if bank_account_code:
+                    bank_label = _bank_labels.get(bank_account_code, bank_account_code)
+                    lines = [
+                        {'account_code': g.category, 'description': nuevo.description,
+                         'debe': amount_pen, 'haber': Decimal('0'), 'currency': 'PEN'},
+                        {'account_code': bank_account_code,
+                         'description': f'Cargo banco {bank_label}: {nuevo.description}',
+                         'debe': Decimal('0'), 'haber': amount_pen, 'currency': 'PEN'},
+                    ]
+                elif expense_type == 'planilla':
+                    lines = [
+                        {'account_code': g.category, 'description': nuevo.description,
+                         'debe': amount_pen, 'haber': Decimal('0'), 'currency': 'PEN'},
+                        {'account_code': '4111', 'description': f'Por pagar planilla: {nuevo.description}',
+                         'debe': Decimal('0'), 'haber': amount_pen, 'currency': 'PEN'},
+                    ]
+                elif voucher_type == 'factura' and credito_fiscal and igv_pen:
+                    lines = [
+                        {'account_code': g.category, 'description': nuevo.description,
+                         'debe': base_pen, 'haber': Decimal('0'), 'currency': 'PEN'},
+                        {'account_code': '4011', 'description': f'IGV compras – {nuevo.description}',
+                         'debe': igv_pen, 'haber': Decimal('0'), 'currency': 'PEN'},
+                        {'account_code': '4211', 'description': f'Factura por pagar: {nuevo.description}',
+                         'debe': Decimal('0'), 'haber': amount_pen, 'currency': 'PEN'},
+                    ]
+                elif voucher_type == 'factura':
+                    lines = [
+                        {'account_code': g.category, 'description': nuevo.description,
+                         'debe': amount_pen, 'haber': Decimal('0'), 'currency': 'PEN'},
+                        {'account_code': '4211', 'description': f'Factura por pagar: {nuevo.description}',
+                         'debe': Decimal('0'), 'haber': amount_pen, 'currency': 'PEN'},
+                    ]
+                elif g.retencion_4ta and ret_monto:
+                    neto_pagar = amount_pen - ret_monto
+                    lines = [
+                        {'account_code': g.category, 'description': nuevo.description,
+                         'debe': amount_pen, 'haber': Decimal('0'), 'currency': 'PEN'},
+                        {'account_code': '4172',
+                         'description': f'Retención IR 4ta 8% — {nuevo.description}',
+                         'debe': Decimal('0'), 'haber': ret_monto, 'currency': 'PEN'},
+                        {'account_code': '4699',
+                         'description': f'Honorarios netos por pagar — {nuevo.description}',
+                         'debe': Decimal('0'), 'haber': neto_pagar, 'currency': 'PEN'},
+                    ]
+                else:
+                    lines = [
+                        {'account_code': g.category, 'description': nuevo.description,
+                         'debe': amount_pen, 'haber': Decimal('0'), 'currency': 'PEN'},
+                        {'account_code': '4699', 'description': f'Por pagar: {nuevo.description}',
+                         'debe': Decimal('0'), 'haber': amount_pen, 'currency': 'PEN'},
+                    ]
+
+                et = 'activo_fijo' if expense_type == 'activo_fijo' else 'gasto'
+                entry = JournalService.create_entry(
+                    entry_type=et,
+                    description=f"{'Adq. activo' if et == 'activo_fijo' else 'Gasto'}: {nuevo.description}",
+                    lines=lines,
+                    source_type='expense',
+                    source_id=nuevo.id,
+                    entry_date=nueva_fecha,
+                    created_by=current_user.id,
+                )
+                if entry:
+                    nuevo.journal_entry_id = entry.id
+                creados += 1
+
+            db.session.commit()
+            resumen.append({
+                'mes': label,
+                'status': 'ok',
+                'creados': creados,
+                'total_pen': float(sum(g.amount_pen for g in gastos_jun)),
+            })
+
+        return jsonify({
+            'success': True,
+            'gastos_junio': len(gastos_jun),
+            'resumen': resumen,
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
