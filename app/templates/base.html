@@ -338,7 +338,7 @@
                        style="display:none" onclick="event.stopPropagation()">
                 {% endif %}
             </div>
-            <div class="mb-pb-pill mb-pb-pill-sell" {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}style="cursor:pointer" onclick="mbPbOpenEdit()"{% endif %}>
+            <div class="mb-pb-pill mb-pb-pill-sell" {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}style="cursor:pointer" onclick="mbPbOpenEdit(true)"{% endif %}>
                 <span class="mb-pb-pill-label">VENTA</span>
                 <span class="mb-pb-pill-value" id="mbPbSell">—</span>
                 {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}
@@ -955,7 +955,7 @@
 
                 if (!btnEdit || !iC) return;
 
-                function _openEdit() {
+                function _openEdit(focusSell) {
                     iC.value = (spanBuy.textContent.trim() !== '—') ? spanBuy.textContent.trim() : '';
                     iV.value = (spanSell.textContent.trim() !== '—') ? spanSell.textContent.trim() : '';
                     spanBuy.style.display  = 'none';
@@ -964,8 +964,8 @@
                     iV.style.display = '';
                     btnEdit.style.display = 'none';
                     btnSave.style.display = '';
-                    iC.focus();
-                    iC.select();
+                    if (focusSell) { iV.focus(); iV.select(); }
+                    else           { iC.focus(); iC.select(); }
                 }
 
                 function _closeForm() {
@@ -978,9 +978,11 @@
                 }
 
                 document.querySelectorAll('.dpb-pill').forEach(function(pill) {
-                    pill.addEventListener('click', _openEdit);
+                    pill.addEventListener('click', function() {
+                        _openEdit(pill.classList.contains('dpb-pill-sell'));
+                    });
                 });
-                btnEdit.addEventListener('click', _openEdit);
+                btnEdit.addEventListener('click', function() { _openEdit(false); });
 
                 btnSave.addEventListener('click', function() {
                     var c = parseFloat(iC.value), v = parseFloat(iV.value);
@@ -1028,7 +1030,7 @@
 
         // ── Mobile bar edit — inline dentro de cada pill ─────────────────────
         if (_canEdit) {
-            window.mbPbOpenEdit = function() {
+            window.mbPbOpenEdit = function(focusSell) {
                 var spanBuy  = document.getElementById('mbPbBuy');
                 var spanSell = document.getElementById('mbPbSell');
                 var iC = document.getElementById('mbPbInputCompra');
@@ -1042,7 +1044,8 @@
                 iV.style.display = '';
                 document.getElementById('mbPbEditBtn').style.display  = 'none';
                 document.getElementById('mbPbBtnSave').style.display  = '';
-                iC.focus();
+                if (focusSell) { iV.focus(); iV.select(); }
+                else           { iC.focus(); }
             };
 
             document.addEventListener('DOMContentLoaded', function() {
