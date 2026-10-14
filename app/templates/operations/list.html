@@ -215,7 +215,7 @@
                                         <span class="badge bg-danger">Cancelado</span>
                                     {% endif %}
                                 </td>
-                                <td class="d-none d-md-table-cell">{{ op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-' }}</td>
+                                <td class="d-none d-md-table-cell">{{ op.created_at.strftime('%H:%M') if op.created_at else '-' }}</td>
                                 {% if current_user.role != 'Middle Office' %}
                                 <td>
                                     <div class="btn-group btn-group-sm">
@@ -924,10 +924,7 @@ function buildOperationRow(op) {
     }
 
     // Fecha formateada
-    const fecha = op.created_at ? (parseSafeDate(op.created_at) || new Date()).toLocaleString('es-PE', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
+    const fecha = op.created_at ? (parseSafeDate(op.created_at) || new Date()).toLocaleTimeString('es-PE', {
         hour: '2-digit',
         minute: '2-digit'
     }) : '-';
