@@ -355,37 +355,38 @@ a:hover { color: var(--q-h); text-decoration: underline; }
    DASHBOARD HERO — cmd-hero
 ══════════════════════════════════════════════ */
 .cmd-hero {
-  background: var(--black) !important;
+  background: linear-gradient(135deg, #196BFE 0%, #0F5CE8 50%, #0a4ec8 100%) !important;
   border: none !important;
+  border-top: 3px solid rgba(255,255,255,.25) !important;
   border-radius: var(--r2) !important;
   position: relative !important;
   overflow: hidden !important;
+  box-shadow: 0 4px 20px rgba(25,107,254,.35) !important;
 }
 
 .cmd-hero::before,
 .cmd-hero::after { display: none !important; }
 
-/* Línea azul sutil en el borde superior */
-.cmd-hero { border-top: 2px solid var(--q) !important; }
-
 .cmd-kpi-label {
-  color: #484F58 !important;
-  font-size: .65rem !important;
+  color: rgba(255,255,255,.7) !important;
+  font-size: .72rem !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
   letter-spacing: .1em !important;
 }
 
 .cmd-kpi-value {
-  color: #E6EDF3 !important;
-  font-weight: 800 !important;
-  font-size: 1.5rem !important;
+  color: #ffffff !important;
+  font-weight: 900 !important;
+  font-size: 2.5rem !important;
   font-variant-numeric: tabular-nums !important;
 }
 
-.cmd-kpi-value.is-positive { color: #3FB950 !important; }
-.cmd-kpi-value.is-negative { color: #F85149 !important; }
-.cmd-kpi-detail { color: #8B949E !important; font-size: .75rem !important; }
+.cmd-kpi-value.is-positive { color: #a7f3d0 !important; }
+.cmd-kpi-value.is-negative { color: #fca5a5 !important; }
+.cmd-kpi-detail { color: rgba(255,255,255,.75) !important; font-size: .85rem !important; }
+.cmd-kpi-row .lbl { color: rgba(255,255,255,.55) !important; }
+.cmd-kpi-row .val { color: #ffffff !important; font-weight: 700 !important; font-size: .9rem !important; }
 
 .cmd-hero-vdiv { background: #21262D !important; width: 1px !important; }
 
