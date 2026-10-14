@@ -31,14 +31,33 @@
     </div>
 
     <!-- ════════════════════════════
-         COMMAND CENTER HERO
-         Utilidad del Día + Mes
+         FILTROS (sin card)
     ════════════════════════════ -->
-    <div class="cmd-hero mb-4">
-        <div class="d-flex gap-0 align-items-stretch flex-wrap gap-3">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#filterDateModal" title="Filtrar por fecha">
+                <i class="bi bi-calendar3 me-1"></i>Fecha
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#filterTraderModal" onclick="loadTraders()">
+                <i class="bi bi-person-circle me-1"></i>Trader
+            </button>
+            <button class="btn btn-sm btn-outline-primary" onclick="openGoalsModal()">
+                <i class="bi bi-bullseye me-1"></i>Metas
+            </button>
+        </div>
+        <span class="badge text-bg-light border" id="analyticsBadgeTrader" style="font-size:.72rem;font-weight:600;">
+            <i class="bi bi-bar-chart-line me-1"></i>Todos los traders
+        </span>
+    </div>
 
-            <!-- Utilidad del Día -->
-            <div style="min-width:200px;">
+    <!-- ════════════════════════════
+         3 CARDS INDEPENDIENTES
+    ════════════════════════════ -->
+    <div class="row g-3 mb-4">
+
+        <!-- Card 1: Utilidad del Día -->
+        <div class="col-12 col-md-4">
+            <div class="cmd-hero h-100 mb-0">
                 <div class="cmd-kpi-label"><i class="bi bi-sun-fill" style="font-size:.65rem;"></i> Utilidad del Día</div>
                 <div class="cmd-kpi-value" id="profitToday">S/ 0.00</div>
                 <div class="cmd-kpi-detail">
@@ -52,11 +71,11 @@
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="cmd-hero-vdiv mx-4 d-none d-md-block"></div>
-
-            <!-- Acumulado del Mes -->
-            <div style="min-width:200px;">
+        <!-- Card 2: Acumulado del Mes -->
+        <div class="col-12 col-md-4">
+            <div class="cmd-hero h-100 mb-0">
                 <div class="cmd-kpi-label"><i class="bi bi-calendar-month" style="font-size:.65rem;"></i> Acumulado del Mes</div>
                 <div class="cmd-kpi-value" id="profitMonth">S/ 0.00</div>
                 <div class="cmd-kpi-detail">
@@ -70,13 +89,11 @@
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="cmd-hero-vdiv mx-4 d-none d-lg-block"></div>
-
-            <!-- Punto de Equilibrio (hero) -->
-            <div class="d-none d-lg-block" style="min-width:230px;">
-
-                <!-- Label + edit -->
+        <!-- Card 3: Punto de Equilibrio -->
+        <div class="col-12 col-md-4">
+            <div class="cmd-hero h-100 mb-0">
                 <div class="cmd-kpi-label">
                     <i class="bi bi-bullseye" style="font-size:.65rem;"></i>
                     Punto de Equilibrio
@@ -84,12 +101,8 @@
                         <i class="bi bi-pencil-fill"></i>
                     </button>
                 </div>
-
-                <!-- Main value -->
                 <div style="font-size:.5rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.28);margin-bottom:.1rem;">Acumulado</div>
                 <div class="cmd-kpi-value" style="font-size:2.25rem;margin-bottom:.55rem;" id="heroBeProfit">S/ 0.00</div>
-
-                <!-- Progress bar full-width -->
                 <div class="hero-be-bar-wrap">
                     <div class="hero-be-track">
                         <div id="heroBeBar" class="hero-be-fill"></div>
@@ -99,49 +112,24 @@
                         <span class="hero-be-meta" id="beTargetLabel">meta S/ 5,200</span>
                     </div>
                 </div>
-
-                <!-- Falta row -->
                 <div class="cmd-kpi-detail mt-2">
                     <div class="cmd-kpi-row">
                         <span class="lbl">Falta para equilibrio</span>
                         <span class="val" id="heroBeRemaining">S/ 5,200</span>
                     </div>
                 </div>
-
-                <!-- Status -->
                 <div id="heroBeStatus" style="margin-top:.5rem;"></div>
             </div>
-
-            <!-- Hidden heroCompra/heroVenta (loadExchangeRates los sigue actualizando) -->
-            <div class="d-none"><span id="heroCompra"></span><span id="heroVenta"></span></div>
-
-            <!-- Controles (derecha) -->
-            <div class="ms-auto d-flex flex-column align-items-end justify-content-between gap-2">
-                <div class="d-flex gap-2 flex-wrap justify-content-end">
-                    <button class="cmd-btn" data-bs-toggle="modal" data-bs-target="#filterDateModal" title="Filtrar por fecha">
-                        <i class="bi bi-calendar3"></i> Fecha
-                    </button>
-                    <button class="cmd-btn" data-bs-toggle="modal" data-bs-target="#filterTraderModal" onclick="loadTraders()">
-                        <i class="bi bi-person-circle"></i> Trader
-                    </button>
-                    <button class="cmd-btn cmd-btn-primary" onclick="openGoalsModal()">
-                        <i class="bi bi-bullseye"></i> Metas
-                    </button>
-                </div>
-                <div>
-                    <span class="cmd-hero-badge" id="analyticsBadgeTrader">
-                        <i class="bi bi-bar-chart-line" style="font-size:.75rem;"></i> Todos los traders
-                    </span>
-                </div>
-            </div>
         </div>
 
-        <!-- Hidden IDs requeridos por JS -->
-        <div class="d-none">
-            <span id="goalMonthAmount"></span>
-            <div id="goalProgress" class="progress-bar"></div>
-            <span id="goalText"></span>
-        </div>
+    </div>
+
+    <!-- Hidden IDs requeridos por JS -->
+    <div class="d-none">
+        <span id="heroCompra"></span><span id="heroVenta"></span>
+        <span id="goalMonthAmount"></span>
+        <div id="goalProgress" class="progress-bar"></div>
+        <span id="goalText"></span>
     </div>
 
     <!-- ════════════════════════════
