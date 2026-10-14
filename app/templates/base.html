@@ -268,7 +268,6 @@
         <div class="dpb-center">
             <div class="dpb-brand">
                 <span class="dpb-dot" id="deskPbDot"></span>
-                <span class="dpb-brand-text">Mercado en vivo</span>
                 <span class="dpb-age" id="deskPbAge"></span>
             </div>
 
@@ -326,7 +325,6 @@
         <!-- Vista normal -->
         <div class="mb-pb-brand" id="mbPbBrand">
             <span class="mb-pb-dot" id="mbPbDot"></span>
-            <span class="mb-pb-brand-text">Mercado en vivo</span>
         </div>
         <div class="mb-pb-pills" id="mbPbPills">
             <div class="mb-pb-pill mb-pb-pill-buy" {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}style="cursor:pointer" onclick="mbPbOpenEdit()"{% endif %}>
@@ -1098,6 +1096,15 @@
                         if (e.key === 'Escape') mbClose();
                     });
                 });
+
+                // Clic/toque fuera del widget → cerrar sin guardar
+                function mbClickOutside(e) {
+                    if (iC.style.display === 'none') return; // no está en modo edición
+                    var bar = document.getElementById('mobilePbBar');
+                    if (bar && !bar.contains(e.target)) mbClose();
+                }
+                document.addEventListener('touchstart', mbClickOutside, { passive: true });
+                document.addEventListener('mousedown',  mbClickOutside);
             });
         }
 
