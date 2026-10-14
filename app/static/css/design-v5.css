@@ -1574,6 +1574,13 @@ body:not(.has-sidebar) {
 .mb-pb-inline-input::-webkit-inner-spin-button { -webkit-appearance: none !important; }
 .mb-pb-inline-input:focus { border-bottom-color: #fff !important; outline: none !important; }
 
+/* Input dentro del pill VENTA (fondo blanco) — texto siempre azul */
+.mb-pb-pill-sell .mb-pb-inline-input {
+  color: var(--q) !important;
+  border-bottom-color: var(--q) !important;
+}
+.mb-pb-pill-sell .mb-pb-inline-input:focus { border-bottom-color: var(--q) !important; }
+
 /* Botón Guardar móvil — azul institucional */
 /* Botón guardar móvil */
 .mb-pb-btn-save {
