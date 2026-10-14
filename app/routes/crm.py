@@ -2459,6 +2459,7 @@ def _ejecutar_campana_wa(job_id, compra, venta, dry_run, limite):
                         {
                             'type': 'body',
                             'parameters': [
+                                {'type': 'text', 'text': nombre},
                                 {'type': 'text', 'text': compra},
                                 {'type': 'text', 'text': venta},
                             ],
