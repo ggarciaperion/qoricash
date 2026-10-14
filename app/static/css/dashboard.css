@@ -66,52 +66,47 @@
    El corazón del dashboard
 ═══════════════════════════════════════════ */
 .cmd-hero {
-  background:
-    radial-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
-    radial-gradient(ellipse 65% 70% at 10% -5%,  rgba(99,102,241,.22) 0%, transparent 55%),
-    radial-gradient(ellipse 45% 65% at 90% 105%, rgba(0,200,150,.14) 0%, transparent 55%),
-    var(--hero-bg);
-  background-size: 22px 22px, 100% 100%, 100% 100%, 100% 100%;
+  background: linear-gradient(135deg, #08121e 0%, #0d1b2e 100%);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--hero-border);
+  border: 1px solid rgba(52,211,153,.22);
   box-shadow: var(--shadow-hero);
-  padding: 2rem 2.25rem 1.75rem;
-  margin-bottom: 1.25rem;
+  padding: 1.75rem 2rem 1.5rem;
+  margin-bottom: 0;
   position: relative;
   overflow: hidden;
   color: white;
 }
 
-/* subtle top accent line */
+/* accent line verde esmeralda (igual que borde del widget TC) */
 .cmd-hero::before {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 2px;
-  background: linear-gradient(90deg, #4f46e5 0%, #00c896 50%, transparent 100%);
+  background: linear-gradient(90deg, #34d399 0%, #0ea5e9 60%, transparent 100%);
 }
 
 /* ─── KPI label ─── */
 .cmd-kpi-label {
-  font-size: .62rem;
+  font-size: .68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .12em;
-  color: rgba(255,255,255,.45);
+  color: rgba(52,211,153,.75);
   display: flex;
   align-items: center;
   gap: .35rem;
-  margin-bottom: .4rem;
+  margin-bottom: .6rem;
 }
 
 /* ─── KPI primary value (BIG number) ─── */
 .cmd-kpi-value {
-  font-size: 3rem;
+  font-size: 3.25rem;
   font-weight: 900;
   line-height: 1;
   letter-spacing: -.04em;
   color: white;
-  margin-bottom: .5rem;
+  margin-bottom: .65rem;
   animation: kpiReveal .7s var(--ease);
   position: relative;
   z-index: 1;
@@ -143,11 +138,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: .7125rem;
+  font-size: .8rem;
 }
 
-.cmd-kpi-row .lbl { color: rgba(255,255,255,.45); }
-.cmd-kpi-row .val { color: rgba(255,255,255,.88); font-weight: 600; font-variant-numeric: tabular-nums; }
+.cmd-kpi-row .lbl { color: rgba(255,255,255,.5); }
+.cmd-kpi-row .val { color: #34d399; font-weight: 700; font-variant-numeric: tabular-nums; font-size: .875rem; }
 
 /* ─── Hero divider ─── */
 .cmd-hero-vdiv {
