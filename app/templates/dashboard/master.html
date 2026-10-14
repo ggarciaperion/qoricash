@@ -5,6 +5,30 @@
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}?v=9">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ── Cards KPI — azul corporativo ── */
+.cmd-hero {
+  background: linear-gradient(135deg, #0f3460 0%, #16213e 60%, #0a2342 100%) !important;
+  border: 1px solid rgba(59,130,246,.35) !important;
+  box-shadow: 0 4px 24px rgba(15,52,96,.5) !important;
+  margin-bottom: 0 !important;
+}
+.cmd-hero::before {
+  background: linear-gradient(90deg, #3b82f6 0%, #06b6d4 60%, transparent 100%) !important;
+}
+.cmd-kpi-label {
+  font-size: .75rem !important;
+  color: rgba(147,197,253,.85) !important;
+  margin-bottom: .75rem !important;
+}
+.cmd-kpi-value {
+  font-size: 3.5rem !important;
+  margin-bottom: .75rem !important;
+}
+.cmd-kpi-row { font-size: .9rem !important; }
+.cmd-kpi-row .lbl { color: rgba(255,255,255,.5) !important; }
+.cmd-kpi-row .val { color: #93c5fd !important; font-size: .95rem !important; font-weight: 700 !important; }
+</style>
 {% endblock %}
 
 {% block content %}
