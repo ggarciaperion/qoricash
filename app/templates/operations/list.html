@@ -192,7 +192,7 @@
                                         {%- set db = dest_bank|trim -%}
                                         <small>
                                         {%- macro ab2(s) -%}{{ s|upper|replace('INTERBANK','IBK')|replace('SCOTIABANK','SCT')|replace('PICHINCHA','PCH') }}{%- endmacro -%}
-                                        {%- if sb and sb != 'N/A' and db and db != 'N/A' -%}{{ ab2(sb) }}/{{ ab2(db) }}
+                                        {%- if sb and sb != 'N/A' and db and db != 'N/A' -%}{{ ab2(sb) }} → {{ ab2(db) }}
                                         {%- elif db and db != 'N/A' -%}{{ ab2(db) }}
                                         {%- elif sb and sb != 'N/A' -%}{{ ab2(sb) }}
                                         {%- else -%}—{%- endif -%}
@@ -1017,7 +1017,7 @@ function buildOperationRow(op) {
     }
 
     // Obtener nombres de bancos — derivado de pagos/depósitos reales (qc_bank)
-    const banksText = abbrevBank(op.banks_display || `${op.source_bank_name || 'N/A'} / ${op.destination_bank_name || 'N/A'}`);
+    const banksText = abbrevBank(op.banks_display || `${op.source_bank_name || 'N/A'} → ${op.destination_bank_name || 'N/A'}`);
 
     // Badge de canal (origen)
     // DEBUG: Log para verificar el valor de origen
