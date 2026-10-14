@@ -4,90 +4,54 @@
 
 {% block head %}
 <style>
-/* ── Modal "Ver Detalles" ────────────────────────────────────────────────── */
+/* ── Modal "Ver Detalles" ─────────────────────────────────────────────── */
 #viewOperationModal .modal-dialog {
-    max-width: min(860px, 96vw) !important;
+    max-width: min(820px, 96vw) !important;
 }
 
-/* Hero-header dentro del modal */
-.op-hero {
-    background: linear-gradient(135deg, #0D1B2A 0%, #1a2f3f 100%);
-    border-radius: 12px 12px 0 0;
-    padding: 18px 22px 16px;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-}
-
-.op-hero-id {
-    font-size: 1.25rem;
-    font-weight: 800;
-    color: #00DEA8;
-    letter-spacing: -.01em;
-    line-height: 1.2;
-}
-
-.op-hero-client {
-    font-size: 0.8125rem;
-    color: rgba(255,255,255,.75);
-    margin-top: 3px;
-}
-
-.op-hero-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
+/* Type badges */
 .op-type-badge {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    padding: 4px 10px;
+    padding: 3px 10px;
     border-radius: 20px;
     text-transform: uppercase;
     letter-spacing: .04em;
+    white-space: nowrap;
 }
+.op-type-compra { background: rgba(16,185,129,.18); color: #34d399; border: 1px solid rgba(16,185,129,.3); }
+.op-type-venta  { background: rgba(25,107,254,.18); color: #93c5fd; border: 1px solid rgba(25,107,254,.3); }
 
-.op-type-compra { background: rgba(16,185,129,.2); color: #34d399; border: 1px solid rgba(16,185,129,.3); }
-.op-type-venta  { background: rgba(0,222,168,.18); color: #00DEA8; border: 1px solid rgba(0,222,168,.3); }
-
+/* Status pills */
 .op-status-pill {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    padding: 4px 12px;
+    padding: 3px 10px;
     border-radius: 20px;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
+    white-space: nowrap;
 }
 .op-status-pill.completada  { background: rgba(16,185,129,.15); color: #10b981; border: 1px solid rgba(16,185,129,.3); }
-.op-status-pill.pendiente   { background: rgba(245,158,11,.15);  color: #d97706; border: 1px solid rgba(245,158,11,.3); }
-.op-status-pill.en-proceso  { background: rgba(59,130,246,.15);  color: #3b82f6; border: 1px solid rgba(59,130,246,.3); }
-.op-status-pill.cancelada   { background: rgba(239,68,68,.15);   color: #ef4444; border: 1px solid rgba(239,68,68,.3); }
+.op-status-pill.pendiente   { background: rgba(245,158,11,.15);  color: #fbbf24; border: 1px solid rgba(245,158,11,.3); }
+.op-status-pill.en-proceso  { background: rgba(59,130,246,.15);  color: #60a5fa; border: 1px solid rgba(59,130,246,.3); }
+.op-status-pill.cancelada   { background: rgba(239,68,68,.15);   color: #f87171; border: 1px solid rgba(239,68,68,.3); }
 
-/* Cifras financieras */
-.fin-grid {
+/* ── Financial strip ────────────────────────────────────────────────────── */
+.fin-strip {
     display: grid;
     grid-template-columns: 1fr auto 1fr auto 1fr;
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 16px 22px;
     gap: 0;
-    background: #f8fafc;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    overflow: hidden;
 }
-
 .fin-cell {
-    padding: 14px 16px;
+    padding: 10px 14px;
     text-align: center;
 }
-
-.fin-cell + .fin-cell {
-    border-left: 1px solid #e5e7eb;
-}
-
+.fin-cell + .fin-cell { border-left: 1px solid #e5e7eb; }
 .fin-label {
     font-size: 0.6875rem;
     font-weight: 700;
@@ -96,93 +60,94 @@
     color: #6b7280;
     margin-bottom: 4px;
 }
-
 .fin-value {
-    font-size: 1.125rem;
+    font-size: 1.1rem;
     font-weight: 800;
     color: #0D1B2A;
     line-height: 1.2;
 }
-
-.fin-cell.tc .fin-value {
-    font-size: 1rem;
-    color: #4b5563;
-}
-
+.fin-cell.tc .fin-value { font-size: .95rem; color: #374151; }
+.fin-cell.tc .fin-label { color: #9ca3af; }
 .fin-arrow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
     padding: 0 10px;
-    color: #00DEA8;
-    font-size: 1.25rem;
-    background: #f8fafc;
+    color: var(--q, #196bfe);
+    font-size: 1rem;
     border-left: 1px solid #e5e7eb;
 }
 
-/* Fechas */
+@media (max-width: 575px) {
+    .fin-strip {
+        grid-template-columns: 1fr 1fr;
+        padding: 12px 14px;
+        gap: 8px;
+        border-bottom: none;
+    }
+    .fin-cell { padding: 8px 10px; border-left: none !important; }
+    .fin-arrow { display: none; }
+    .fin-cell.tc { grid-column: 1 / -1; border-top: 1px solid #e5e7eb; padding-top: 10px; }
+}
+
+/* ── Dates row ──────────────────────────────────────────────────────────── */
 .dates-row {
-    display: flex;
-    gap: 0;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     overflow: hidden;
-    background: white;
+    background: #fff;
+    margin-bottom: 14px;
 }
-
 .date-cell {
-    flex: 1;
-    padding: 10px 14px;
-    font-size: 0.75rem;
-    color: #6b7280;
+    padding: 10px 12px;
     border-left: 1px solid #e5e7eb;
 }
-
 .date-cell:first-child { border-left: none; }
-
 .date-cell strong {
     display: block;
-    font-size: 0.6875rem;
+    font-size: 0.6rem;
     text-transform: uppercase;
-    letter-spacing: .04em;
+    letter-spacing: .05em;
     color: #9ca3af;
     margin-bottom: 2px;
+    font-weight: 700;
+}
+.date-val { font-size: .78rem; font-weight: 600; color: #374151; }
+
+@media (max-width: 575px) {
+    .dates-row { grid-template-columns: 1fr 1fr; }
+    .date-cell { border-left: none; border-top: 1px solid #e5e7eb; padding: 8px 10px; }
+    .date-cell:nth-child(1), .date-cell:nth-child(2) { border-top: none; }
+    .date-cell:nth-child(even) { border-left: 1px solid #e5e7eb; }
 }
 
-.date-val {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: #374151;
-}
-
-/* Sección heading */
+/* ── Section heading ────────────────────────────────────────────────────── */
 .sec-heading {
     display: flex;
     align-items: center;
     gap: 7px;
-    font-size: 0.8125rem;
+    font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: .05em;
+    letter-spacing: .06em;
     color: #374151;
-    margin: 18px 0 10px;
+    margin: 16px 0 10px;
     padding-bottom: 6px;
-    border-bottom: 2px solid #f3f4f6;
+    border-bottom: 1px solid #e5e7eb;
 }
+.sec-heading i { color: var(--q, #196bfe); font-size: .9rem; }
 
-.sec-heading i { color: #00DEA8; font-size: 1rem; }
-
-/* Cuenta bancaria */
+/* ── Account cards ──────────────────────────────────────────────────────── */
 .account-card {
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     overflow: hidden;
     height: 100%;
+    background: #fff;
 }
-
 .account-card-header {
     padding: 7px 12px;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .04em;
@@ -190,249 +155,156 @@
     align-items: center;
     gap: 6px;
 }
-
-.account-card-header.origen { background: rgba(16,185,129,.1); color: #059669; border-bottom: 1px solid rgba(16,185,129,.2); }
-.account-card-header.destino { background: rgba(245,158,11,.1); color: #d97706; border-bottom: 1px solid rgba(245,158,11,.2); }
-
-.account-card-body {
-    padding: 10px 12px;
-    font-size: 0.8125rem;
-}
-
+.account-card-header.origen  { background: rgba(16,185,129,.08); color: #059669; border-bottom: 1px solid rgba(16,185,129,.2); }
+.account-card-header.destino { background: rgba(245,158,11,.08); color: #d97706; border-bottom: 1px solid rgba(245,158,11,.2); }
+.account-card-body { padding: 10px 12px; font-size: 0.8125rem; }
 .account-row { display: flex; gap: 6px; margin-bottom: 4px; }
 .account-row:last-child { margin-bottom: 0; }
-.account-key { color: #6b7280; font-weight: 500; white-space: nowrap; min-width: 64px; }
-.account-val { color: #1f2937; font-weight: 600; }
+.account-key { color: #6b7280; font-weight: 500; white-space: nowrap; min-width: 60px; font-size: .78rem; }
+.account-val { color: #1f2937; font-weight: 600; font-size: .78rem; }
 
-/* Boucher / Voucher cards */
+/* ── Voucher / Boucher cards ────────────────────────────────────────────── */
 .voucher-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 10px;
+    margin-bottom: 12px;
 }
-
 .voucher-card {
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     overflow: hidden;
-    background: white;
+    background: #fff;
     transition: box-shadow .15s;
 }
-
 .voucher-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
-
 .voucher-thumb {
-    width: 100%;
-    height: 110px;
+    width: 100%; height: 100px;
     object-fit: cover;
-    background: #f3f4f6;
     display: block;
     cursor: zoom-in;
 }
-
 .voucher-thumb-pdf {
-    width: 100%;
-    height: 110px;
+    width: 100%; height: 100px;
     background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 6px;
-    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 5px; cursor: pointer;
 }
-
-.voucher-thumb-pdf i { font-size: 2rem; color: #ef4444; }
+.voucher-thumb-pdf i { font-size: 1.75rem; color: #ef4444; }
 .voucher-thumb-pdf span { font-size: 0.6875rem; color: #6b7280; }
-
 .voucher-footer {
-    padding: 8px 10px;
+    padding: 7px 10px;
     border-top: 1px solid #f3f4f6;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
 }
-
-.voucher-meta {
-    font-size: 0.6875rem;
-    color: #6b7280;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.voucher-meta strong { display: block; font-size: 0.75rem; color: #1f2937; white-space: nowrap; }
-
+.voucher-meta { font-size: 0.6875rem; color: #6b7280; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.voucher-meta strong { display: block; font-size: .72rem; color: #1f2937; }
 .btn-open-voucher {
-    font-size: 0.6875rem;
-    padding: 3px 8px;
-    border-radius: 5px;
-    background: #0D1B2A;
-    color: white;
-    border: none;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    white-space: nowrap;
-    transition: background .15s;
+    font-size: 0.6875rem; padding: 3px 8px; border-radius: 5px;
+    background: var(--black, #0D1117); color: white; border: none; cursor: pointer;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 3px;
+    white-space: nowrap; transition: background .15s;
 }
 .btn-open-voucher:hover { background: #1a2f3f; color: white; }
 
-/* No-document placeholder */
+/* ── No-document placeholder ────────────────────────────────────────────── */
 .no-doc {
     border: 2px dashed #e5e7eb;
     border-radius: 8px;
-    padding: 20px;
+    padding: 18px;
     text-align: center;
     color: #9ca3af;
     font-size: 0.8125rem;
+    margin-bottom: 12px;
+    background: #fafafa;
 }
 .no-doc i { font-size: 1.5rem; display: block; margin-bottom: 4px; }
 
-/* Invoice card */
+/* ── Invoice card ───────────────────────────────────────────────────────── */
 .invoice-card {
-    border: 1px solid #d1fae5;
+    border: 1px solid #bbf7d0;
     border-radius: 10px;
     background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
     padding: 14px 16px;
+    margin-bottom: 12px;
 }
-
-.invoice-card.error {
-    border-color: #fde68a;
-    background: linear-gradient(135deg, #fffbeb, #fef3c7);
-}
-
-.invoice-number {
-    font-size: 1rem;
-    font-weight: 800;
-    color: #065f46;
-    letter-spacing: -.01em;
-}
-
+.invoice-card.error { border-color: #fde68a; background: linear-gradient(135deg, #fffbeb, #fef3c7); }
+.invoice-number { font-size: .95rem; font-weight: 800; color: #065f46; letter-spacing: -.01em; }
 .invoice-meta { font-size: 0.75rem; color: #6b7280; margin-top: 2px; }
-
 .invoice-sunat-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: rgba(16,185,129,.15);
-    color: #059669;
-    border: 1px solid rgba(16,185,129,.3);
-    border-radius: 20px;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    padding: 3px 10px;
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(16,185,129,.15); color: #059669;
+    border: 1px solid rgba(16,185,129,.3); border-radius: 20px;
+    font-size: 0.6875rem; font-weight: 700; padding: 3px 10px;
 }
-
 .invoice-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-
 .btn-pdf {
-    background: #ef4444;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    padding: 7px 14px;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    cursor: pointer;
-    text-decoration: none;
-    transition: background .15s;
+    background: #ef4444; color: white; border: none; border-radius: 6px;
+    padding: 7px 14px; font-size: .8rem; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+    text-decoration: none; transition: background .15s;
 }
 .btn-pdf:hover { background: #dc2626; color: white; }
-
 .btn-xml {
-    background: white;
-    color: #374151;
-    border: 1.5px solid #d1d5db;
-    border-radius: 6px;
-    padding: 7px 14px;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    cursor: pointer;
-    text-decoration: none;
-    transition: all .15s;
+    background: white; color: #374151; border: 1.5px solid #d1d5db; border-radius: 6px;
+    padding: 7px 14px; font-size: .8rem; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+    text-decoration: none; transition: all .15s;
 }
 .btn-xml:hover { background: #f9fafb; border-color: #9ca3af; color: #1f2937; }
 
-/* Notas / operador info */
+/* ── Liquidation rows ───────────────────────────────────────────────────── */
+.liq-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 8px; background: #fff; border-radius: 5px;
+    margin-bottom: 4px; font-size: .78rem; gap: 6px;
+    flex-wrap: wrap;
+}
+.liq-amount { font-weight: 700; }
+.liq-bank   { color: #374151; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.liq-meta   { color: #9ca3af; font-size: .7rem; white-space: nowrap; }
+
+/* ── Info chip & notes ──────────────────────────────────────────────────── */
 .info-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: rgba(6,182,212,.08);
-    color: #0891b2;
-    border: 1px solid rgba(6,182,212,.2);
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 4px 12px;
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(6,182,212,.08); color: #0891b2;
+    border: 1px solid rgba(6,182,212,.2); border-radius: 20px;
+    font-size: .72rem; font-weight: 600; padding: 3px 10px;
 }
-
 .notes-box {
-    background: #fffbeb;
-    border: 1px solid #fde68a;
-    border-left: 3px solid #f59e0b;
-    border-radius: 6px;
-    padding: 10px 14px;
-    font-size: 0.8125rem;
-    color: #374151;
+    background: #fffbeb; border: 1px solid #fde68a;
+    border-left: 3px solid #f59e0b; border-radius: 6px;
+    padding: 10px 14px; font-size: .8rem; color: #374151; margin-bottom: 12px;
 }
 
-/* ── Tabla historial — sin wrapping ─────────────────────────────────────── */
-#historyTable th,
-#historyTable td {
-    white-space: nowrap;
-    vertical-align: middle;
-}
-#historyTable .col-cliente {
-    max-width: 160px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
+/* ── Historial table ────────────────────────────────────────────────────── */
+#historyTable th, #historyTable td { white-space: nowrap; vertical-align: middle; }
+#historyTable .col-cliente { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
 
-/* Lightbox overlay */
+/* ── Lightbox ───────────────────────────────────────────────────────────── */
 #voucherLightbox {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,.85);
-    z-index: 9999;
-    align-items: center;
-    justify-content: center;
-    cursor: zoom-out;
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.88); z-index: 9999;
+    align-items: center; justify-content: center; cursor: zoom-out;
 }
 #voucherLightbox.active { display: flex; }
 #voucherLightbox img {
-    max-width: 90vw;
-    max-height: 88vh;
-    border-radius: 8px;
-    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    max-width: 90vw; max-height: 88vh;
+    border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,.5);
 }
 #voucherLightboxClose {
-    position: absolute;
-    top: 16px;
-    right: 20px;
-    color: white;
-    font-size: 1.5rem;
-    cursor: pointer;
-    background: rgba(255,255,255,.1);
-    border: none;
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: absolute; top: 16px; right: 20px;
+    color: white; font-size: 1.5rem; cursor: pointer;
+    background: rgba(255,255,255,.1); border: none; border-radius: 50%;
+    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+}
+
+/* ── Mobile padding ─────────────────────────────────────────────────────── */
+@media (max-width: 575px) {
+    #viewOperationModal .modal-body { padding: 0 !important; }
+    #viewOperationModal .modal-footer { padding: 10px 14px !important; }
+    .sec-heading, .dates-row { margin-left: 0; margin-right: 0; }
+    #operationDetails .row { --bs-gutter-x: 0.5rem; }
 }
 </style>
 {% endblock %}
@@ -592,35 +464,41 @@
 
     <!-- ─── Modal: Ver Detalles de Operación ─────────────────────────── -->
     <div class="modal fade" id="viewOperationModal" tabindex="-1">
-        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content" style="border-radius:14px;overflow:hidden;">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg" style="border-radius:14px;overflow:hidden;">
 
-                <!-- Header dinámico del modal -->
-                <div id="opHeroSection" class="op-hero">
-                    <div>
-                        <div class="op-hero-id" id="opHeroId">Cargando...</div>
-                        <div class="op-hero-client" id="opHeroClient"></div>
+                <!-- Header dinámico -->
+                <div id="opHeroSection" class="modal-header px-4 py-3" style="background:var(--black,#0D1117);border-bottom:2px solid var(--q,#196bfe);">
+                    <div class="d-flex align-items-center gap-3 flex-fill min-width-0">
+                        <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                             style="width:36px;height:36px;background:rgba(25,107,254,.15);">
+                            <i class="bi bi-eye" style="color:var(--q,#196bfe);font-size:.9rem;"></i>
+                        </div>
+                        <div class="flex-fill min-width-0">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="fw-bold text-white" style="font-size:.95rem;" id="opHeroId">Cargando...</span>
+                                <span id="opHeroType" class="op-type-badge"></span>
+                                <span id="opHeroStatus" class="op-status-pill completada">
+                                    <i class="bi bi-check-circle-fill"></i> Completada
+                                </span>
+                            </div>
+                            <div id="opHeroClient" class="text-white-50" style="font-size:.73rem;margin-top:2px;"></div>
+                        </div>
                     </div>
-                    <div class="op-hero-right">
-                        <span id="opHeroType" class="op-type-badge"></span>
-                        <span id="opHeroStatus" class="op-status-pill completada">
-                            <i class="bi bi-check-circle-fill"></i> Completada
-                        </span>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
+                    <button type="button" class="btn-close btn-close-white ms-2 flex-shrink-0" data-bs-dismiss="modal"></button>
                 </div>
 
                 <!-- Cuerpo del modal -->
-                <div class="modal-body" style="background:#f9fafb;padding:18px 20px;" id="operationDetails">
-                    <div class="text-center py-4">
-                        <div class="spinner-border" style="color:#00DEA8;"></div>
+                <div class="modal-body p-0" id="operationDetails" style="background:#f8fafc;max-height:72vh;overflow-y:auto;">
+                    <div class="text-center py-5">
+                        <div class="spinner-border" style="color:var(--q,#196bfe);"></div>
                         <p class="mt-2 text-muted small">Cargando detalles...</p>
                     </div>
                 </div>
 
-                <div class="modal-footer" style="background:white;border-top:1px solid #e5e7eb;padding:10px 20px;">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-lg"></i> Cerrar
+                <div class="modal-footer" style="background:#fff;border-top:1px solid #e5e7eb;padding:10px 20px;gap:.5rem;">
+                    <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg me-1"></i>Cerrar
                     </button>
                 </div>
 
@@ -853,10 +731,11 @@ function buildDetailsHTML(op) {
 
     // ── 1. Cifras financieras ──────────────────────────────────────────
     html += `
-    <div class="fin-grid mb-3">
+    <div class="fin-strip">
         <div class="fin-cell">
-            <div class="fin-label">${isCompra ? 'Envía (USD)' : 'Envía (PEN)'}</div>
+            <div class="fin-label">${isCompra ? 'Envía' : 'Envía'}</div>
             <div class="fin-value">${isCompra ? '$ ' + usd : 'S/ ' + pen}</div>
+            <div style="font-size:.68rem;color:#9ca3af;margin-top:2px;">${isCompra ? 'USD' : 'PEN'}</div>
         </div>
         <div class="fin-arrow"><i class="bi bi-arrow-right-circle-fill"></i></div>
         <div class="fin-cell tc">
@@ -866,8 +745,9 @@ function buildDetailsHTML(op) {
         </div>
         <div class="fin-arrow"><i class="bi bi-arrow-right-circle-fill"></i></div>
         <div class="fin-cell">
-            <div class="fin-label">${isCompra ? 'Recibe (PEN)' : 'Recibe (USD)'}</div>
-            <div class="fin-value">${isCompra ? 'S/ ' + pen : '$ ' + usd}</div>
+            <div class="fin-label">Recibe</div>
+            <div class="fin-value" style="color:var(--q,#196bfe);">${isCompra ? 'S/ ' + pen : '$ ' + usd}</div>
+            <div style="font-size:.68rem;color:#9ca3af;margin-top:2px;">${isCompra ? 'PEN' : 'USD'}</div>
         </div>
     </div>`;
 
@@ -958,11 +838,10 @@ function buildDetailsHTML(op) {
                 const bank = d.qc_bank || '—';
                 const cta  = d.cuenta_cargo || '—';
                 const cod  = d.codigo_operacion || '';
-                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:.3rem .4rem;
-                          background:#fff;border-radius:5px;margin-bottom:.3rem;font-size:.78rem;">
-                    <span style="font-weight:600;color:#166534;">${imp}</span>
-                    <span style="color:#374151;">${bank}</span>
-                    <span style="color:#6b7280;font-size:.7rem;">${cta}${cod ? ' · ' + cod : ''}</span>
+                html += `<div class="liq-row">
+                    <span class="liq-amount" style="color:#166534;">${imp}</span>
+                    <span class="liq-bank">${bank}</span>
+                    <span class="liq-meta">${cta}${cod ? ' · ' + cod : ''}</span>
                 </div>`;
             });
         } else {
@@ -981,11 +860,10 @@ function buildDetailsHTML(op) {
                 const imp  = p.importe ? `${paysSym} ${parseFloat(p.importe).toFixed(2)}` : '—';
                 const bank = p.qc_bank || '—';
                 const cta  = p.cuenta_destino || '—';
-                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:.3rem .4rem;
-                          background:#fff;border-radius:5px;margin-bottom:.3rem;font-size:.78rem;">
-                    <span style="font-weight:600;color:#9a3412;">${imp}</span>
-                    <span style="color:#374151;">${bank}</span>
-                    <span style="color:#6b7280;font-size:.7rem;">${cta}</span>
+                html += `<div class="liq-row">
+                    <span class="liq-amount" style="color:#9a3412;">${imp}</span>
+                    <span class="liq-bank">${bank}</span>
+                    <span class="liq-meta">${cta}</span>
                 </div>`;
             });
         } else {
@@ -1159,7 +1037,7 @@ function buildDetailsHTML(op) {
         <div class="notes-box mb-3">${op.notes}</div>`;
     }
 
-    return html;
+    return `<div style="padding:16px 20px 6px;">${html}</div>`;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
