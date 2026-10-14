@@ -1560,20 +1560,19 @@ body:not(.has-sidebar) {
 .mb-pb-inline-input {
   background: transparent !important;
   border: none !important;
-  border-bottom: 1.5px solid rgba(255,255,255,.5) !important;
+  border-bottom: 1.5px solid #196BFE !important;
   outline: none !important;
   font-size: 16px !important;
   font-weight: 800 !important;
-  color: #fff !important;
+  color: #0f172a !important;
   width: 72px !important;
   padding: 0 !important;
   text-align: center !important;
   -moz-appearance: textfield !important;
-  transform-origin: center;
 }
 .mb-pb-inline-input::-webkit-outer-spin-button,
 .mb-pb-inline-input::-webkit-inner-spin-button { -webkit-appearance: none !important; }
-.mb-pb-inline-input:focus { border-bottom-color: #fff !important; outline: none !important; }
+.mb-pb-inline-input:focus { border-bottom-color: #196BFE !important; outline: none !important; }
 
 /* Botón Guardar móvil — azul institucional */
 .mb-pb-btn-save {
@@ -1591,13 +1590,18 @@ body:not(.has-sidebar) {
 .mb-pb-dot        { /* mantiene animación */ }
 
 .mb-pb-pill {
-  background: rgba(25,107,254,.12) !important;
-  border: 1px solid rgba(25,107,254,.3) !important;
+  background: #fff !important;
+  border: 1px solid #e2e8f0 !important;
   border-radius: var(--r) !important;
 }
-.mb-pb-pill-buy  { background: var(--q) !important; border-color: var(--q) !important; }
-.mb-pb-pill-label { color: rgba(255,255,255,.6) !important; }
-.mb-pb-pill-value { color: #fff !important; font-weight: 800 !important; }
+.mb-pb-pill-buy  { background: #fff !important; border-color: #e2e8f0 !important; }
+.mb-pb-pill-sell { background: #fff !important; border-color: #e2e8f0 !important; }
+.mb-pb-pill-label { color: #64748b !important; }
+.mb-pb-pill-buy  .mb-pb-pill-label { color: #16a34a !important; }
+.mb-pb-pill-sell .mb-pb-pill-label { color: #196BFE !important; }
+.mb-pb-pill-value { color: #0f172a !important; font-weight: 800 !important; }
+.mb-pb-pill-buy  .mb-pb-pill-value { color: #16a34a !important; }
+.mb-pb-pill-sell .mb-pb-pill-value { color: #196BFE !important; }
 
 /* ══════════════════════════════════════════════
    CARD HEADERS CON CLASES BS (bg-dark, bg-primary…)

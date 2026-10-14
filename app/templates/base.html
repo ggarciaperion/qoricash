@@ -307,13 +307,11 @@
 
     <!-- Mobile topbar -->
     <header class="mobile-topbar">
-        <button class="mobile-menu-btn" id="mobileMenuBtn">
-            <i class="bi bi-list"></i>
+        <button class="mobile-menu-btn" id="mobileMenuBtn"
+                style="display:flex;align-items:center;gap:6px;font-size:.85rem;font-weight:700;letter-spacing:.02em;color:#fff;">
+            <i class="bi bi-list" style="font-size:1.25rem;"></i>
+            Menú
         </button>
-        <a href="{{ url_for('dashboard.index') }}" class="mobile-brand">
-            <img src="{{ url_for('static', filename='images/finalfinal.png') }}" alt="QoriCash">
-            <span>QoriCash</span>
-        </a>
         <div class="mobile-user">
             <span class="badge-role">{{ current_user.role }}</span>
         </div>
