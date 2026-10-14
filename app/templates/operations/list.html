@@ -41,9 +41,9 @@
 #operationsTable th:nth-child(3),  #operationsTable td:nth-child(3)  { width: 62px; }  /* Tipo */
 #operationsTable th:nth-child(4),  #operationsTable td:nth-child(4)  { width: 88px; }  /* USD */
 #operationsTable th:nth-child(5),  #operationsTable td:nth-child(5)  { width: 62px; }  /* T.C. */
-#operationsTable th:nth-child(6),  #operationsTable td:nth-child(6)  { width: 62px; }  /* Base */
-#operationsTable th:nth-child(7),  #operationsTable td:nth-child(7)  { width: 52px; }  /* Pips */
-#operationsTable th:nth-child(8),  #operationsTable td:nth-child(8)  { width: 88px; }  /* PEN */
+#operationsTable th:nth-child(6),  #operationsTable td:nth-child(6)  { width: 88px; }  /* PEN */
+#operationsTable th:nth-child(7),  #operationsTable td:nth-child(7)  { width: 62px; }  /* Base */
+#operationsTable th:nth-child(8),  #operationsTable td:nth-child(8)  { width: 52px; }  /* Pips */
 #operationsTable th:nth-child(9),  #operationsTable td:nth-child(9)  { width: 72px; }  /* Bancos */
 #operationsTable th:nth-child(10), #operationsTable td:nth-child(10) { width: 56px; }  /* Canal */
 #operationsTable th:nth-child(11), #operationsTable td:nth-child(11) { width: 88px; }  /* Estado */
@@ -116,9 +116,9 @@
                                 <th>Tipo</th>
                                 <th>USD</th>
                                 <th class="d-none d-lg-table-cell">T.C.</th>
+                                <th>PEN</th>
                                 <th class="d-none d-xl-table-cell">Base</th>
                                 <th class="d-none d-xl-table-cell">Pips</th>
-                                <th>PEN</th>
                                 <th class="d-none d-lg-table-cell">Bancos</th>
                                 <th class="d-none d-md-table-cell">Canal</th>
                                 <th>Estado</th>
@@ -142,6 +142,7 @@
                                 </td>
                                 <td class="text-end">$ {{ op.amount_usd|format_currency(2) }}</td>
                                 <td class="text-center d-none d-lg-table-cell">{{ "%.4f"|format(op.exchange_rate) }}</td>
+                                <td class="text-end">S/ {{ op.amount_pen|format_currency(2) }}</td>
                                 <td class="text-center d-none d-xl-table-cell">
                                     {% if current_user.role == 'Master' %}
                                     <input type="number" class="base-rate-input"
@@ -162,7 +163,6 @@
                                     <span style="color:{{ '#198754' if op.pips >= 0 else '#dc3545' }};font-weight:600;">{{ '%+.1f'|format(op.pips) }}</span>
                                     {% else %}—{% endif %}
                                 </td>
-                                <td class="text-end">S/ {{ op.amount_pen|format_currency(2) }}</td>
                                 <td class="text-center d-none d-lg-table-cell">
                                     {%- set pay_banks = [] -%}
                                     {%- set dep_banks = [] -%}
@@ -1046,6 +1046,7 @@ function buildOperationRow(op) {
                 <td>${typeBadge}</td>
                 <td class="text-end">$ ${formattedUSD}</td>
                 <td class="text-center">${parseFloat(op.exchange_rate).toFixed(4)}</td>
+                <td class="text-end">S/ ${formattedPEN}</td>
                 <td class="text-center">${currentUserRole === 'Master'
                     ? `<input type="number" class="base-rate-input"
                               data-op-id="${op.id}"
@@ -1062,7 +1063,6 @@ function buildOperationRow(op) {
                     ? `<span style="color:${op.pips >= 0 ? '#198754' : '#dc3545'};font-weight:600;">${op.pips >= 0 ? '+' : ''}${parseFloat(op.pips).toFixed(1)}</span>`
                     : '—'
                 }</td>
-                <td class="text-end">S/ ${formattedPEN}</td>
                 <td class="text-center"><small>${banksText}</small></td>
                 <td class="text-center">${canalBadge}</td>
                 <td>${statusBadge}</td>
