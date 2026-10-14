@@ -4012,9 +4012,10 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         button='🏢 Elegir empresa'
                     )
                 else:
-                    send_text(numero,
+                    send_buttons(numero,
                         '🏢 Para mostrarte la *tasa corporativa* necesito verificar tu empresa.\n\n'
-                        'Ingresa el *RUC* de tu empresa (11 dígitos):'
+                        'Ingresa el *RUC* de tu empresa (11 dígitos):',
+                        [{'id': 'btn_como_persona', 'title': '👤 Soy persona natural'}]
                     )
                     session.estado = 'esperando_ruc_cotizar'
 
@@ -4176,9 +4177,10 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     )
                     session.estado = 'eligiendo_operacion'
                 else:
-                    send_text(numero,
+                    send_buttons(numero,
                         '🏢 Para mostrarte la *tasa corporativa* necesito verificar tu empresa.\n\n'
-                        'Ingresa el *RUC* de tu empresa (11 dígitos):'
+                        'Ingresa el *RUC* de tu empresa (11 dígitos):',
+                        [{'id': 'btn_como_persona', 'title': '👤 Soy persona natural'}]
                     )
                     session.estado = 'esperando_ruc_cotizar'
 

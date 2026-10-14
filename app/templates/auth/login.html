@@ -11,17 +11,58 @@ body::before { display:none; }
 .main-wrapper { margin-left:0!important; min-height:0!important; display:contents!important; }
 .main-content  { padding:0!important; display:contents!important; }
 
-/* ── CANVAS ───────────────────────────────────────────────────────────── */
-#lnCanvas { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:0; }
+/* ── SPLASH SCREEN ───────────────────────────────────────────────────── */
+#lnSplash {
+  position:fixed; inset:0; z-index:100;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:#0D1117;
+  transition:opacity .55s ease, transform .55s ease;
+}
+#lnSplash.hide {
+  opacity:0;
+  pointer-events:none;
+}
+#lnSplashCanvas {
+  position:absolute; inset:0; width:100%; height:100%; pointer-events:none;
+}
+.ln-splash-logo {
+  position:relative; z-index:1;
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+  animation: splashIn .8s cubic-bezier(.22,.68,0,1.2) both;
+}
+.ln-splash-wordmark {
+  font-family:'Inter','SF Pro Display','Segoe UI',system-ui,sans-serif;
+  font-size:2.6rem; font-weight:900; color:#fff; letter-spacing:-.05em; line-height:1;
+}
+.ln-splash-wordmark span { color:#196BFE; }
+.ln-splash-sub {
+  font-family:'Inter','SF Pro Display','Segoe UI',system-ui,sans-serif;
+  font-size:.75rem; color:rgba(255,255,255,.35); letter-spacing:.14em; text-transform:uppercase; font-weight:500;
+}
+.ln-splash-bar {
+  position:relative; z-index:1;
+  margin-top:40px; width:120px; height:2px; background:rgba(255,255,255,.08); border-radius:2px; overflow:hidden;
+}
+.ln-splash-bar-fill {
+  height:100%; width:0%; background:#196BFE;
+  border-radius:2px;
+  box-shadow:0 0 8px rgba(25,107,254,.7);
+  animation: splashBarFill 1.8s cubic-bezier(.4,0,.2,1) forwards;
+}
+@keyframes splashBarFill { 0%{width:0%} 60%{width:75%} 100%{width:100%} }
+@keyframes splashIn { from{opacity:0;transform:scale(.88)} to{opacity:1;transform:none} }
 
 /* ── CENTERED WRAPPER ─────────────────────────────────────────────────── */
 .ln {
   position:fixed; inset:0; z-index:10;
   display:flex; align-items:center; justify-content:center;
-  padding:1rem 1rem 3rem;
+  padding:1rem 1rem 1rem;
   font-family:'Inter','SF Pro Display','Segoe UI',system-ui,sans-serif;
   overflow-y:auto;
+  opacity:0; pointer-events:none;
+  transition:opacity .45s ease;
 }
+.ln.visible { opacity:1; pointer-events:auto; }
 
 /* ── CARD ─────────────────────────────────────────────────────────────── */
 .ln-card {
@@ -30,7 +71,9 @@ body::before { display:none; }
   box-shadow:0 32px 80px rgba(0,0,0,.45), 0 8px 24px rgba(0,0,0,.25);
   overflow:hidden;
   animation:lnUp .65s cubic-bezier(.22,.68,0,1.2) both;
+  animation-play-state:paused;
 }
+.ln.visible .ln-card { animation-play-state:running; }
 
 /* ── CARD HEADER ──────────────────────────────────────────────────────── */
 .ln-card-top {
@@ -132,38 +175,12 @@ body::before { display:none; }
 .ln-flash .alert-info    { background:#eff6ff; color:#196BFE; border:1px solid #bfdbfe; }
 .ln-flash .btn-close     { font-size:.7rem; }
 
-/* ── TICKER ───────────────────────────────────────────────────────────── */
-#forexTicker {
-  position:fixed; bottom:0; left:0; right:0; height:36px;
-  background:#0D1117; border-top:1px solid rgba(25,107,254,.18);
-  z-index:100; display:flex; align-items:center; overflow:hidden;
-}
-.ticker-label {
-  background:#196BFE; color:#fff;
-  font-size:.52rem; font-weight:900; letter-spacing:.12em;
-  padding:0 14px; height:100%;
-  display:flex; align-items:center; gap:5px;
-  white-space:nowrap; flex-shrink:0; text-transform:uppercase;
-}
-.ticker-pulse { width:6px; height:6px; background:rgba(255,255,255,.6); border-radius:50%; animation:lnPulse 1.2s ease-in-out infinite; }
-@keyframes lnPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.3;transform:scale(.65)} }
-.ticker-scroll { flex:1; overflow:hidden; }
-#tickerTrack { display:inline-flex; align-items:center; animation:tickMove 50s linear infinite; white-space:nowrap; }
-@keyframes tickMove { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-.t-item { display:inline-flex; align-items:center; gap:7px; padding:0 18px; border-right:1px solid rgba(255,255,255,.05); }
-.t-pair { font-size:.65rem; font-weight:700; color:rgba(255,255,255,.45); font-family:'Courier New',monospace; letter-spacing:.04em; }
-.t-price{ font-size:.7rem;  font-weight:700; color:rgba(255,255,255,.65); font-family:'Courier New',monospace; }
-.t-chg  { font-size:.58rem; font-weight:600; font-family:'Courier New',monospace; }
-.t-chg.up   { color:#196BFE; }
-.t-chg.dn   { color:rgba(255,255,255,.3); }
-.t-chg.flat { color:rgba(255,255,255,.2); }
-
 /* ── ANIMATIONS ───────────────────────────────────────────────────────── */
 @keyframes lnUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:none} }
 
 /* ── RESPONSIVE ───────────────────────────────────────────────────────── */
 @media (max-width:480px) {
-  .ln { padding:.75rem .75rem 3rem; align-items:flex-start; padding-top:1.5rem; }
+  .ln { padding:.75rem .75rem 1rem; align-items:flex-start; padding-top:1.5rem; }
   .ln-card { border-radius:14px; }
   .ln-card-top { padding:1.5rem 1.5rem 1.25rem; }
   .ln-wordmark { font-size:1.5rem; }
@@ -180,16 +197,18 @@ body::before { display:none; }
 
 {% block content %}
 
-<canvas id="lnCanvas"></canvas>
-
-<!-- ── TICKER ── -->
-<div id="forexTicker">
-  <div class="ticker-label"><span class="ticker-pulse"></span>LIVE FX</div>
-  <div class="ticker-scroll"><div id="tickerTrack"></div></div>
+<!-- ── SPLASH ── -->
+<div id="lnSplash">
+  <canvas id="lnSplashCanvas"></canvas>
+  <div class="ln-splash-logo">
+    <div class="ln-splash-wordmark">Qori<span>cash</span></div>
+    <div class="ln-splash-sub">Sistema de cambio de divisas</div>
+    <div class="ln-splash-bar"><div class="ln-splash-bar-fill"></div></div>
+  </div>
 </div>
 
 <!-- ── CENTERED CARD ── -->
-<div class="ln">
+<div class="ln" id="lnForm">
   <div class="ln-card">
 
     <!-- Header -->
@@ -318,12 +337,12 @@ $(document).ready(function () {
   });
 });
 
-/* ── CANVAS ANIMATION — blue only ──────────────────────────────────────── */
+/* ── SPLASH CANVAS ANIMATION ───────────────────────────────────────────── */
 (function () {
-  const canvas = document.getElementById('lnCanvas');
+  const canvas = document.getElementById('lnSplashCanvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  let W, H;
+  let W, H, raf;
 
   function resize() {
     W = canvas.width  = window.innerWidth;
@@ -332,7 +351,6 @@ $(document).ready(function () {
   window.addEventListener('resize', resize);
   resize();
 
-  /* stars */
   const STARS = Array.from({ length:55 }, () => ({
     x: Math.random(), y: Math.random(),
     r: Math.random() * 1.0 + 0.15,
@@ -341,11 +359,10 @@ $(document).ready(function () {
     ph: Math.random() * Math.PI * 2,
   }));
 
-  /* blue price lines */
   const LINES = [
-    { a:0.20, yF:0.35, amp:65, fr:0.18, ph:0    },
-    { a:0.09, yF:0.52, amp:42, fr:0.12, ph:1.9  },
-    { a:0.05, yF:0.67, amp:26, fr:0.23, ph:3.3  },
+    { a:0.20, yF:0.35, amp:65, fr:0.18, ph:0   },
+    { a:0.09, yF:0.52, amp:42, fr:0.12, ph:1.9 },
+    { a:0.05, yF:0.67, amp:26, fr:0.23, ph:3.3 },
   ];
   const HIST = 190;
   const lhist = LINES.map(() => []);
@@ -354,13 +371,9 @@ $(document).ready(function () {
   function drawGrid() {
     ctx.lineWidth = 0.4;
     ctx.strokeStyle = 'rgba(25,107,254,0.055)';
-    for (let y = 0; y < H; y += 62) {
-      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
-    }
+    for (let y = 0; y < H; y += 62) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
     ctx.strokeStyle = 'rgba(25,107,254,0.035)';
-    for (let x = 0; x < W; x += 80) {
-      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
-    }
+    for (let x = 0; x < W; x += 80) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
   }
 
   function drawStars(t) {
@@ -368,104 +381,58 @@ $(document).ready(function () {
       const a = s.a * (0.4 + 0.6 * Math.sin(t * s.spd + s.ph));
       ctx.beginPath();
       ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,255,255,${a})`;
-      ctx.fill();
+      ctx.fillStyle = `rgba(255,255,255,${a})`; ctx.fill();
     });
   }
 
   function drawLines() {
     LINES.forEach((ln, i) => {
       const noise = (Math.random() - 0.5) * 15;
-      const v = Math.sin(T * ln.fr + ln.ph) * ln.amp
-              + Math.sin(T * ln.fr * 2.6 + ln.ph) * (ln.amp * 0.26)
-              + noise;
+      const v = Math.sin(T * ln.fr + ln.ph) * ln.amp + Math.sin(T * ln.fr * 2.6 + ln.ph) * (ln.amp * 0.26) + noise;
       lhist[i].push(v);
       if (lhist[i].length > HIST) lhist[i].shift();
       const h = lhist[i];
       if (h.length < 2) return;
       const yB = H * ln.yF, dx = W / (HIST - 1);
-
-      /* line */
-      ctx.strokeStyle = '#196BFE';
-      ctx.lineWidth = 1.4;
-      ctx.globalAlpha = ln.a;
+      ctx.strokeStyle = '#196BFE'; ctx.lineWidth = 1.4; ctx.globalAlpha = ln.a;
       ctx.beginPath();
       h.forEach((v, j) => j === 0 ? ctx.moveTo(0, yB + v) : ctx.lineTo(j * dx, yB + v));
       ctx.stroke();
-
-      /* gradient fill */
       const gr = ctx.createLinearGradient(0, yB - ln.amp, 0, yB + ln.amp + 60);
-      gr.addColorStop(0, 'rgba(25,107,254,0.07)');
-      gr.addColorStop(1, 'rgba(25,107,254,0)');
+      gr.addColorStop(0, 'rgba(25,107,254,0.07)'); gr.addColorStop(1, 'rgba(25,107,254,0)');
       ctx.beginPath();
       h.forEach((v, j) => j === 0 ? ctx.moveTo(0, yB + v) : ctx.lineTo(j * dx, yB + v));
       ctx.lineTo(W, yB + 90); ctx.lineTo(0, yB + 90); ctx.closePath();
       ctx.fillStyle = gr; ctx.fill();
-
-      /* live dot */
       const lv = h[h.length - 1];
       ctx.globalAlpha = Math.min(ln.a * 3, 0.5);
-      ctx.beginPath();
-      ctx.arc(W - dx * 2, yB + lv, 2.8, 0, Math.PI * 2);
-      ctx.fillStyle = '#196BFE'; ctx.fill();
-      ctx.globalAlpha = 1;
+      ctx.beginPath(); ctx.arc(W - dx * 2, yB + lv, 2.8, 0, Math.PI * 2);
+      ctx.fillStyle = '#196BFE'; ctx.fill(); ctx.globalAlpha = 1;
     });
   }
 
-  /* initial fill */
-  ctx.fillStyle = '#0D1117';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#0D1117'; ctx.fillRect(0, 0, W, H);
 
   function animate() {
     ctx.globalAlpha = 1;
-    ctx.fillStyle = 'rgba(13,17,23,0.14)';
-    ctx.fillRect(0, 0, W, H);
-    drawGrid();
-    drawStars(T);
-    drawLines();
+    ctx.fillStyle = 'rgba(13,17,23,0.14)'; ctx.fillRect(0, 0, W, H);
+    drawGrid(); drawStars(T); drawLines();
     T += 0.016;
-    requestAnimationFrame(animate);
+    raf = requestAnimationFrame(animate);
   }
   animate();
-})();
 
-/* ── TICKER ────────────────────────────────────────────────────────────── */
-(function () {
-  const PAIRS = [
-    { n:'USD/PEN', p:3.7234, d:4 }, { n:'EUR/USD', p:1.0856, d:4 },
-    { n:'GBP/USD', p:1.2743, d:4 }, { n:'USD/JPY', p:149.32,  d:2 },
-    { n:'EUR/PEN', p:4.0421, d:4 }, { n:'USD/BRL', p:4.9812,  d:4 },
-    { n:'AUD/USD', p:0.6521, d:4 }, { n:'CHF/USD', p:1.1234,  d:4 },
-    { n:'USD/MXN', p:17.234, d:3 }, { n:'EUR/GBP', p:0.8521,  d:4 },
-    { n:'GBP/PEN', p:4.7891, d:4 }, { n:'EUR/JPY', p:162.15,  d:2 },
-  ];
-  const live = PAIRS.map(p => ({ ...p, cur: p.p }));
-
-  function build() {
-    const html = live.map(p => {
-      const diff = p.cur - p.p;
-      const pct  = ((diff / p.p) * 100).toFixed(2);
-      const cls  = Math.abs(diff) < 0.00005 ? 'flat' : (diff > 0 ? 'up' : 'dn');
-      const arr  = cls === 'flat' ? '●' : (cls === 'up' ? '▲' : '▼');
-      return `<span class="t-item">
-        <span class="t-pair">${p.n}</span>
-        <span class="t-price">${p.cur.toFixed(p.d)}</span>
-        <span class="t-chg ${cls}">${arr} ${Math.abs(parseFloat(pct))}%</span>
-      </span>`;
-    }).join('');
-    const track = document.getElementById('tickerTrack');
-    if (track) track.innerHTML = html + html;
-  }
-
-  function tick() {
-    live.forEach(p => {
-      p.cur = parseFloat((p.cur + (Math.random() - 0.499) * 0.003).toFixed(p.d));
-    });
-    build();
-  }
-
-  build();
-  setInterval(tick, 2400);
+  /* ── Transición splash → formulario tras 2.2s ── */
+  setTimeout(function () {
+    const splash = document.getElementById('lnSplash');
+    const form   = document.getElementById('lnForm');
+    if (splash) splash.classList.add('hide');
+    if (form)   form.classList.add('visible');
+    setTimeout(function () {
+      if (splash) splash.style.display = 'none';
+      cancelAnimationFrame(raf);
+    }, 600);
+  }, 2200);
 })();
 </script>
 {% endblock %}

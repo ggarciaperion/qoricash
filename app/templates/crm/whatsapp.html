@@ -335,6 +335,9 @@ body.has-pb-bar.has-sidebar .main-wrapper {
   padding: 2px 6px !important; border-radius: 4px !important; cursor: pointer !important;
 }
 #btnResetSesion:hover { color: #fff !important; background: rgba(255,255,255,.1) !important; }
+#btnBloquear { background: rgba(239,68,68,.15); color: #f87171; box-shadow: 0 0 0 1px rgba(239,68,68,.3); }
+#btnBloquear:hover { background: rgba(239,68,68,.3); }
+#btnBloquear.bloqueado { background: rgba(239,68,68,.35); color: #fca5a5; box-shadow: 0 0 0 1px rgba(239,68,68,.6); }
 
 /* Messages area */
 .crm-messages {
@@ -804,6 +807,10 @@ body.has-pb-bar.has-sidebar .main-wrapper {
           <button id="btnGuardarContacto" onclick="abrirModalContacto()" title="Guardar nombre y empresa de este contacto">
             ✏️ Contacto
           </button>
+          <!-- Bloquear número (opt-out campañas) -->
+          <button id="btnBloquear" onclick="toggleBloquear()" title="Bloquear / desbloquear número de campañas">
+            🚫 <span id="btnBloquearLabel">Bloquear</span>
+          </button>
           <!-- Reset sesión — menos prominente -->
           <button id="btnResetSesion" onclick="resetSesion()" title="Resetear sesión del bot">
             <i class="bi bi-arrow-counterclockwise"></i>
@@ -1063,6 +1070,7 @@ async function selectConv(numero, nombre, empresa) {
     const msgs = Array.isArray(msgsResp) ? msgsResp : (msgsResp.mensajes || []);
     renderMensajes(msgs, true);
     renderBotToggle(botStatus.bot_pausado || false, botStatus.estado_atencion);
+    renderBloquearBtn((msgsResp.sesion_info || {}).opt_out_wa || false);
     renderClientPanel(msgsResp.cliente_info || null, msgsResp.sesion_info || null);
   }
   // Actualizar badge del sidebar tras marcar como leídos
@@ -1080,6 +1088,7 @@ function reloadChat() {
       const msgs = Array.isArray(msgsResp) ? msgsResp : (msgsResp.mensajes || []);
       renderMensajes(msgs);
       renderBotToggle(botStatus.bot_pausado || false, botStatus.estado_atencion);
+      renderBloquearBtn((msgsResp.sesion_info || {}).opt_out_wa || false);
       renderClientPanel(msgsResp.cliente_info || null, msgsResp.sesion_info || null);
     }
   });
@@ -1262,6 +1271,39 @@ async function resetSesion() {
       showToast('Sesión reseteada — próximo mensaje mostrará bienvenida', 'ok');
     } else {
       showToast('Error al resetear sesión', 'error');
+    }
+  } catch(e) {
+    showToast('Error de conexión', 'error');
+  }
+  btn.disabled = false;
+}
+
+function renderBloquearBtn(bloqueado) {
+  const btn   = document.getElementById('btnBloquear');
+  const label = document.getElementById('btnBloquearLabel');
+  if (!btn) return;
+  btn.classList.toggle('bloqueado', bloqueado);
+  label.textContent = bloqueado ? 'Bloqueado' : 'Bloquear';
+  btn.title = bloqueado ? 'Número bloqueado de campañas — clic para desbloquear' : 'Bloquear número de campañas';
+}
+
+async function toggleBloquear() {
+  if (!activeNum) return;
+  const btn = document.getElementById('btnBloquear');
+  btn.disabled = true;
+  try {
+    const csrf = document.querySelector('meta[name="csrf-token"]');
+    const r = await fetch('/crm/api/wa-bloquear', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, csrf ? { 'X-CSRFToken': csrf.content } : {}),
+      body: JSON.stringify({ numero: activeNum }),
+    });
+    const j = await r.json();
+    if (j.ok) {
+      renderBloquearBtn(j.opt_out_wa);
+      showToast(j.opt_out_wa ? 'Número bloqueado de campañas' : 'Número desbloqueado', j.opt_out_wa ? 'warning' : 'success');
+    } else {
+      showToast(j.error || 'Error al cambiar estado', 'error');
     }
   } catch(e) {
     showToast('Error de conexión', 'error');

@@ -167,6 +167,7 @@ def api_conversaciones():
             WaBotSession.bot_pausado,
             WaBotSession.nombre_guardado,
             WaBotSession.empresa_guardada,
+            WaBotSession.opt_out_wa,
         ).all()
         sesion_map = {s.numero: s for s in sesiones}
 
@@ -212,6 +213,7 @@ def api_conversaciones():
                 'assigned_name':   assigned_name,
                 'last_id':         m.id,
                 'respondio_hoy':   num in respondio_hoy_set,
+                'opt_out_wa':      bool(getattr(ses, 'opt_out_wa', False)) if ses else False,
             })
 
         # Ordenar: esperando > no leídos > resto; secundario: last_id desc (determinista)
@@ -313,6 +315,7 @@ def api_mensajes(numero):
                 'estado':          ses.estado or '',
                 'estado_atencion': getattr(ses, 'estado_atencion', 'bot') or 'bot',
                 'bot_pausado':     ses.bot_pausado,
+                'opt_out_wa':      bool(ses.opt_out_wa),
                 'cotiz_op':        ses.cotiz_op or '',
                 'cotiz_importe':   ses.cotiz_importe or 0,
                 'cotiz_tc':        ses.cotiz_tc or 0,
@@ -2145,6 +2148,35 @@ def api_wa_campana_clientes_opt_out():
     return jsonify({'ok': True})
 
 
+@crm_bp.route('/api/wa-bloquear', methods=['POST'])
+@csrf.exempt
+@login_required
+def api_wa_bloquear():
+    """Toggle opt_out_wa para un número desde el CRM. Bloquea/desbloquea campañas."""
+    from app.models.wa_bot_session import WaBotSession
+
+    data   = request.get_json(silent=True) or {}
+    numero = (data.get('numero') or '').strip()
+    if not numero:
+        return jsonify({'ok': False, 'error': 'Falta numero'}), 400
+
+    digits = ''.join(c for c in numero if c.isdigit())
+    if not digits.startswith('51'):
+        digits = f'51{digits}'
+    numero_e164 = f'+{digits}'
+
+    sesion = WaBotSession.query.filter_by(numero=numero_e164).first()
+    if not sesion:
+        return jsonify({'ok': False, 'error': 'Sesión no encontrada'}), 404
+
+    nuevo_estado      = not bool(sesion.opt_out_wa)
+    sesion.opt_out_wa = nuevo_estado
+    db.session.commit()
+    accion = 'bloqueado' if nuevo_estado else 'desbloqueado'
+    log.info(f'[CRM] Número {accion} → {numero_e164} por {current_user.username}')
+    return jsonify({'ok': True, 'opt_out_wa': nuevo_estado})
+
+
 # ── Panel de monitoreo — Campaña WA ──────────────────────────────
 
 @crm_bp.route('/campana-wa')
@@ -2427,7 +2459,6 @@ def _ejecutar_campana_wa(job_id, compra, venta, dry_run, limite):
                         {
                             'type': 'body',
                             'parameters': [
-                                {'type': 'text', 'text': nombre},
                                 {'type': 'text', 'text': compra},
                                 {'type': 'text', 'text': venta},
                             ],
