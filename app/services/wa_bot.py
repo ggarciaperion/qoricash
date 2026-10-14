@@ -3873,6 +3873,12 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
             return
 
         session = WaBotSession.get_or_create(numero)
+
+        # ── Número bloqueado: ignorar cualquier mensaje entrante ───────────
+        if session.opt_out_wa:
+            log.info(f'[WaBot] {numero} bloqueado (opt_out_wa=True), mensaje ignorado.')
+            return
+
         # Nombre: proviene exclusivamente de la BD de clientes (nunca del perfil WA).
         # Se siembra una sola vez por sesión; las asignaciones posteriores (RENIEC,
         # SUNAT, registro) sobrescriben con el nombre verificado correspondiente.
