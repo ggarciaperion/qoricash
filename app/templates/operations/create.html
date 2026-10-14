@@ -75,9 +75,12 @@
                                 <label class="form-label">Buscar cliente por DNI/RUC, Nombre o Email</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="bi bi-search"></i></span>
-                                    <input type="text" class="form-control" id="searchClientInput"
+                                    <input type="search" class="form-control" id="searchClientInput"
                                            placeholder="Buscar por nombre, DNI o email..."
-                                           autocomplete="off" autocorrect="off" spellcheck="false">
+                                           autocomplete="off" autocorrect="off" autocapitalize="off"
+                                           spellcheck="false" readonly
+                                           onfocus="this.removeAttribute('readonly')"
+                                           style="-webkit-appearance:none;">
                                     <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn" style="display: none;">
                                         <i class="bi bi-x-lg"></i>
                                     </button>
