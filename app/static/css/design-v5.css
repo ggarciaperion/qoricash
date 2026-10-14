@@ -1811,6 +1811,13 @@ input[disabled], select[disabled], textarea[disabled] {
   .modal .input-group .input-group-text { border-radius: var(--r) 0 0 var(--r) !important; width: auto !important; }
   .modal .input-group .btn { border-radius: 0 var(--r) var(--r) 0 !important; }
 
+  /* Prevenir zoom iOS en inputs del modal (font-size debe ser >= 16px) */
+  .modal .form-control,
+  .modal .form-control-sm,
+  .modal .form-select,
+  .modal .form-select-sm,
+  .modal textarea { font-size: 16px !important; }
+
   .modal-header { padding: .75rem 1rem !important; }
   .modal-body   { padding: .75rem 1rem !important; }
   .modal-footer { padding: .625rem 1rem !important; }
