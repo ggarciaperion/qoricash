@@ -1820,25 +1820,10 @@ input[disabled], select[disabled], textarea[disabled] {
   h4, .page-header-info h4 { font-size: .95rem !important; }
   h5.card-title { font-size: .85rem !important; }
 
-  /* Formularios apilados en páginas — NO en modales */
-  .input-group { flex-direction: column !important; }
-  .input-group .form-control,
-  .input-group .form-select { border-radius: var(--r) !important; }
-  .input-group .input-group-text { border-radius: var(--r) !important; width: 100% !important; }
-
-  /* Restaurar layout horizontal dentro de cualquier modal */
-  .modal .input-group { flex-direction: row !important; }
-  .modal .input-group .form-control,
-  .modal .input-group .form-select { border-radius: 0 var(--r) var(--r) 0 !important; }
-  .modal .input-group .input-group-text { border-radius: var(--r) 0 0 var(--r) !important; width: auto !important; }
-  .modal .input-group .btn { border-radius: 0 var(--r) var(--r) 0 !important; }
-
-  /* Prevenir zoom iOS en inputs del modal (font-size debe ser >= 16px) */
-  .modal .form-control,
-  .modal .form-control-sm,
-  .modal .form-select,
-  .modal .form-select-sm,
-  .modal textarea { font-size: 16px !important; }
+  /* Prevenir zoom iOS en TODOS los inputs (font-size debe ser >= 16px) */
+  input, select, textarea,
+  .form-control, .form-control-sm,
+  .form-select, .form-select-sm { font-size: 16px !important; }
 
   .modal-header { padding: .75rem 1rem !important; }
   .modal-body   { padding: .75rem 1rem !important; }
