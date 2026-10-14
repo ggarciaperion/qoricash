@@ -1052,12 +1052,20 @@
                 if (!iC) return;
 
                 function mbClose() {
+                    iC.blur(); iV.blur();
                     iC.style.display = 'none';
                     iV.style.display = 'none';
                     document.getElementById('mbPbBuy').style.display  = '';
                     document.getElementById('mbPbSell').style.display = '';
                     document.getElementById('mbPbEditBtn').style.display = '';
                     document.getElementById('mbPbBtnSave').style.display = 'none';
+                    // Restaurar zoom del viewport (iOS hace zoom en inputs < 16px)
+                    var vp = document.querySelector('meta[name="viewport"]');
+                    if (vp) {
+                        var orig = vp.getAttribute('content');
+                        vp.setAttribute('content', orig + ', maximum-scale=1');
+                        setTimeout(function() { vp.setAttribute('content', orig); }, 100);
+                    }
                 }
 
                 document.getElementById('mbPbBtnSave').addEventListener('click', function() {

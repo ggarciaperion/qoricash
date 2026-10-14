@@ -1561,13 +1561,14 @@ body:not(.has-sidebar) {
   border: none !important;
   border-bottom: 1.5px solid rgba(255,255,255,.5) !important;
   outline: none !important;
-  font-size: .9rem !important;
+  font-size: 16px !important;
   font-weight: 800 !important;
   color: #fff !important;
   width: 72px !important;
   padding: 0 !important;
   text-align: center !important;
   -moz-appearance: textfield !important;
+  transform-origin: center;
 }
 .mb-pb-inline-input::-webkit-outer-spin-button,
 .mb-pb-inline-input::-webkit-inner-spin-button { -webkit-appearance: none !important; }
