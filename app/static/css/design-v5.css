@@ -1575,11 +1575,28 @@ body:not(.has-sidebar) {
 .mb-pb-inline-input:focus { border-bottom-color: #fff !important; outline: none !important; }
 
 /* Botón Guardar móvil — azul institucional */
+/* Botón guardar móvil */
 .mb-pb-btn-save {
   background: var(--q) !important;
   border-color: var(--q) !important;
   color: #fff !important;
+  width: auto !important;
+  height: auto !important;
+  padding: 5px 12px !important;
+  border-radius: 8px !important;
+  font-size: .78rem !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
 }
+
+/* Botón lápiz — visible sobre fondo blanco */
+.mb-pb-edit-btn {
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #475569 !important;
+}
+.mb-pb-edit-btn:active { background: #e2e8f0 !important; }
 
 .mobile-pb-bar {
   background: #fff !important;
@@ -1590,13 +1607,18 @@ body:not(.has-sidebar) {
 .mb-pb-dot        { /* mantiene animación */ }
 
 .mb-pb-pill {
-  background: rgba(25,107,254,.12) !important;
-  border: 1px solid rgba(25,107,254,.3) !important;
+  background: rgba(25,107,254,.08) !important;
+  border: 1px solid rgba(25,107,254,.2) !important;
   border-radius: var(--r) !important;
 }
+/* Compra — azul */
 .mb-pb-pill-buy  { background: var(--q) !important; border-color: var(--q) !important; }
-.mb-pb-pill-label { color: rgba(255,255,255,.6) !important; }
-.mb-pb-pill-value { color: #fff !important; font-weight: 800 !important; }
+.mb-pb-pill-buy .mb-pb-pill-label { color: rgba(255,255,255,.7) !important; }
+.mb-pb-pill-buy .mb-pb-pill-value { color: #fff !important; font-weight: 800 !important; }
+/* Venta — texto azul sobre fondo claro */
+.mb-pb-pill-sell { background: #fff !important; border: 1.5px solid var(--q) !important; }
+.mb-pb-pill-sell .mb-pb-pill-label { color: var(--q) !important; }
+.mb-pb-pill-sell .mb-pb-pill-value { color: var(--q) !important; font-weight: 800 !important; }
 
 /* ══════════════════════════════════════════════
    CARD HEADERS CON CLASES BS (bg-dark, bg-primary…)
