@@ -1565,6 +1565,7 @@ function loadEditModal() {
     $('#btnAddDeposit').toggle(canEdit && isPending);
     $('#btnAddPayment').toggle((canEdit && isPending) || isOperatorProcessing || isMasterProcessing);
     $('#btnSendToProcess').toggle(canEdit && isPending);
+    if (canEdit && isPending) { $('#btnSendToProcess').prop('disabled', true).removeClass('btn-success').addClass('btn-secondary'); setTimeout(checkSendToProcessReady, 100); }
     $('#btnReturnToPending').toggle((isOperatorProcessing || isMasterProcessing));
     $('#btnComplete').toggle((isOperatorProcessing || isMasterProcessing));
     $('#btnRevertCompleted').toggle(currentUserRole === 'Master' && isCompleted && !isCanceled);
@@ -1618,11 +1619,11 @@ function addDepositRow(data, index, editable) {
             <div class="col-md-2">
                 <label class="form-label small">Importe</label>
                 <input type="number" class="form-control form-control-sm deposit-importe" value="${data.importe || ''}"
-                    step="0.01" min="0" ${editable ? '' : 'readonly'} onchange="updateTotals()">
+                    step="0.01" min="0" ${editable ? '' : 'readonly'} onchange="updateTotals();checkSendToProcessReady();" oninput="checkSendToProcessReady();">
             </div>
             <div class="col-md-2">
                 <label class="form-label small">Código Op.</label>
-                <input type="text" class="form-control form-control-sm deposit-codigo" value="${data.codigo_operacion || ''}" ${editable ? '' : 'readonly'}>
+                <input type="text" class="form-control form-control-sm deposit-codigo" value="${data.codigo_operacion || ''}" ${editable ? '' : 'readonly'} oninput="checkSendToProcessReady();">
             </div>
             <div class="col-md-3">
                 <label class="form-label small">Cuenta Cargo</label>
@@ -2068,9 +2069,31 @@ function saveAmountUSD() {
         updateCurrencyInfo(currentOperation.operation_type, newAmount, newPen);
         // Actualizar última modificación
         showLastModification(currentOperation.modification_logs || []);
+        // Actualizar importe en Pago al Cliente (primera fila)
+        const expectedPayment = currentOperation.operation_type === 'Venta'
+            ? parseFloat(currentOperation.amount_usd)
+            : parseFloat(currentOperation.amount_pen);
+        const $firstPayment = $('.payment-importe').first();
+        if ($firstPayment.length && !$firstPayment.prop('readonly')) {
+            $firstPayment.val(expectedPayment.toFixed(2));
+        }
         updateTotals();
         showNotification('Monto actualizado correctamente', 'success');
     });
+}
+
+function checkSendToProcessReady() {
+    const $btn = $('#btnSendToProcess');
+    if (!$btn.length || $btn.css('display') === 'none') return;
+    const $row = $('.deposit-row').first();
+    if (!$row.length) { $btn.prop('disabled', true); return; }
+    const importe   = parseFloat($row.find('.deposit-importe').val()) || 0;
+    const codigo    = ($row.find('.deposit-codigo').val() || '').trim();
+    const compUrl   = $row.attr('data-comprobante-url') || '';
+    const hasFile   = $row.find('.deposit-file').get(0)?.files?.length > 0;
+    const ready = importe > 0 && codigo !== '' && (compUrl !== '' || hasFile);
+    $btn.prop('disabled', !ready);
+    $btn.toggleClass('btn-success', ready).toggleClass('btn-secondary', !ready);
 }
 
 function collectDeposits() {
@@ -2133,6 +2156,7 @@ function uploadDepositProof(input, depositIndex) {
                             <button type="button" class="btn btn-outline-danger" onclick="removeDepositProof(${depositIndex})" title="Quitar"><i class="bi bi-trash"></i></button>
                            </div>`);
                 showNotification('Comprobante subido correctamente', 'success');
+                checkSendToProcessReady();
             } else {
                 $container.html(`<input type="file" class="form-control form-control-sm deposit-file" accept="image/*,.pdf" onchange="uploadDepositProof(this, ${depositIndex})">`);
                 showNotification(response.message || 'Error al subir', 'danger');
