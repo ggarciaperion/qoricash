@@ -157,13 +157,7 @@
             {% endif %}
 
 
-            {% if current_user.role in ('Master', 'Presidente de Negocios') %}
-            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('alertas_tc') %}active{% endif %}"
-               href="{{ url_for('alertas_tc.index') }}">
-                <i class="bi bi-bell-fill"></i>
-                <span class="sidebar-link-text">Alertas TC</span>
-            </a>
-            {% endif %}
+            {# Alertas TC oculto #}
 
 
 
