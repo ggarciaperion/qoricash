@@ -157,6 +157,20 @@ def api_conversaciones():
             .all()
         }
 
+        # Última marca de tiempo por dirección — para "quién escribió último"
+        _ult_ent = {
+            r[0]: r[1] for r in
+            db.session.query(WaMessage.numero, func.max(WaMessage.created_at))
+            .filter(WaMessage.direccion == 'entrante')
+            .group_by(WaMessage.numero).all()
+        }
+        _ult_sal = {
+            r[0]: r[1] for r in
+            db.session.query(WaMessage.numero, func.max(WaMessage.created_at))
+            .filter(WaMessage.direccion == 'saliente')
+            .group_by(WaMessage.numero).all()
+        }
+
         # Cargar estados de atención + contacto guardado por número
         from app.models.wa_bot_session import WaBotSession
         from app.models.user import User
@@ -212,8 +226,11 @@ def api_conversaciones():
                 'assigned_to':     assigned_to,
                 'assigned_name':   assigned_name,
                 'last_id':         m.id,
-                'respondio_hoy':   num in respondio_hoy_set,
-                'opt_out_wa':      bool(getattr(ses, 'opt_out_wa', False)) if ses else False,
+                'respondio_hoy':       num in respondio_hoy_set,
+                'opt_out_wa':          bool(getattr(ses, 'opt_out_wa', False)) if ses else False,
+                'ultima_entrante':     _ult_ent[num].isoformat() if num in _ult_ent and _ult_ent[num] else None,
+                'ultima_saliente':     _ult_sal[num].isoformat() if num in _ult_sal and _ult_sal[num] else None,
+                'pendiente_respuesta': m.direccion == 'entrante' and estado_atencion not in ('resuelto',),
             })
 
         # Ordenar: esperando > no leídos > resto; secundario: last_id desc (determinista)
@@ -324,10 +341,38 @@ def api_mensajes(numero):
     except Exception:
         pass
 
+    # Operaciones recientes del cliente identificado por teléfono
+    _operaciones = []
+    try:
+        from app.models.operation import Operation as _Op
+        from app.models.client import Client as _Cl2
+        from sqlalchemy import or_ as _or3
+        import re as _re3
+        _d3 = _re3.sub(r'\D', '', numero)
+        if _d3.startswith('51') and len(_d3) == 11:
+            _d3 = _d3[2:]
+        if _d3:
+            _cl2 = _Cl2.query.filter(
+                _or3(_Cl2.phone.contains(_d3), _Cl2.dni == _d3)
+            ).first()
+            if _cl2:
+                for _op in (_Op.query.filter_by(client_id=_cl2.id)
+                            .order_by(_Op.created_at.desc()).limit(5).all()):
+                    _operaciones.append({
+                        'id':     _op.operation_id,
+                        'tipo':   _op.operation_type,
+                        'monto':  float(_op.amount_usd or 0),
+                        'estado': _op.status,
+                        'fecha':  _op.created_at.strftime('%d/%m/%Y') if _op.created_at else '',
+                    })
+    except Exception as _e4:
+        log.warning(f'[CRM] ops: {_e4}')
+
     return jsonify({
         'mensajes':     [m.to_dict() for m in mensajes],
         'cliente_info': cliente_info,
         'sesion_info':  sesion_info,
+        'operaciones':  _operaciones,
     })
 
 

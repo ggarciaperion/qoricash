@@ -711,6 +711,93 @@ body.has-pb-bar.has-sidebar .main-wrapper {
   .crm-filter-tabs { gap: 4px; padding: 6px 8px; }
   .crm-ftab { padding: 4px 10px; font-size: .7rem; }
 }
+
+/* ══ HEADER DROPDOWN MENU ═════════════════════════════════ */
+.crm-hdr-menu-wrap { position: relative; }
+.crm-hdr-menu {
+  position: absolute; top: calc(100% + 6px); right: 0;
+  background: #1a2535; border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px; padding: 5px;
+  min-width: 210px; z-index: 300;
+  box-shadow: 0 8px 28px rgba(0,0,0,.45);
+  display: none;
+}
+.crm-hdr-menu.open { display: block; }
+.crm-hdr-menu-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; color: #cbd5e1;
+  border: none; background: none; width: 100%;
+  border-radius: 7px; text-align: left;
+  font-size: .82rem; font-weight: 500;
+  cursor: pointer; transition: background .12s; white-space: nowrap;
+}
+.crm-hdr-menu-item:hover { background: rgba(255,255,255,.09); color: #f1f5f9; }
+.crm-hdr-menu-item.danger { color: #f87171; }
+.crm-hdr-menu-item.danger:hover { background: rgba(239,68,68,.15); }
+.crm-hdr-menu-sep { border: none; border-top: 1px solid rgba(255,255,255,.08); margin: 4px 0; }
+
+/* Nota: redefinir #btnNota como icono simple */
+#btnNota {
+  width: 32px !important; height: 32px !important;
+  border-radius: 8px !important; padding: 0 !important;
+  background: rgba(255,255,255,.1) !important;
+  color: #cbd5e1 !important; box-shadow: none !important;
+  font-size: .9rem !important; font-weight: normal !important;
+  letter-spacing: 0 !important;
+}
+#btnNota:hover { background: rgba(255,255,255,.2) !important; color: #fff !important; }
+
+/* ══ CONV ITEM — indicadores de dirección ════════════════ */
+.crm-conv-item.pendiente-resp {
+  border-left: 3px solid #f59e0b;
+  background: #fffdf5;
+}
+.crm-conv-item.pendiente-resp:hover { background: #fef3c7; }
+.crm-conv-item.pendiente-resp .crm-conv-avatar { box-shadow: 0 0 0 2.5px #f59e0b; }
+.crm-conv-company {
+  font-size: .7rem; color: #94a3b8;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  line-height: 1.2;
+}
+.crm-dir-label {
+  font-size: .63rem; font-weight: 600;
+  padding: 1px 5px; border-radius: 4px;
+  white-space: nowrap; flex-shrink: 0;
+}
+.crm-dir-label.ellos   { color: #d97706; background: rgba(245,158,11,.1); }
+.crm-dir-label.nosotros { color: #94a3b8; background: rgba(148,163,184,.08); }
+
+/* ══ PANEL CLIENTE — operaciones ═════════════════════════ */
+.crm-cp-row {
+  display: flex; flex-wrap: wrap; gap: 4px 14px;
+  font-size: .78rem; color: #475569;
+  margin-bottom: 2px;
+}
+.crm-cp-field { display: flex; gap: 4px; align-items: baseline; }
+.crm-cp-lbl {
+  font-size: .67rem; color: #94a3b8; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .03em; flex-shrink: 0;
+}
+.crm-cp-ops {
+  margin-top: 7px; padding-top: 7px; border-top: 1px solid #e2e8f0;
+}
+.crm-cp-ops-title {
+  font-size: .67rem; font-weight: 700; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px;
+}
+.crm-cp-op {
+  display: flex; align-items: center; gap: 6px;
+  font-size: .76rem; padding: 2px 0; color: #334155;
+}
+.crm-cp-op-id { color: #196BFE; font-weight: 700; font-size: .71rem; }
+.crm-op-badge {
+  font-size: .63rem; font-weight: 700; padding: 1px 5px; border-radius: 4px;
+}
+.crm-op-badge.Completada { background: #eff6ff; color: #196BFE; }
+.crm-op-badge.Pendiente  { background: #fffbeb; color: #d97706; }
+.crm-op-badge.Cancelado  { background: #fef2f2; color: #ef4444; }
+.crm-op-badge.other      { background: #f1f5f9; color: #64748b; }
+.crm-cp-op-fecha { color: #94a3b8; font-size: .7rem; margin-left: auto; }
 </style>
 {% endblock %}
 
@@ -740,8 +827,8 @@ body.has-pb-bar.has-sidebar .main-wrapper {
 
     <div class="crm-filter-tabs">
       <button class="crm-ftab active" onclick="setFilter('todos',this)">Todos</button>
-      <button class="crm-ftab" onclick="setFilter('no_leidos',this)">No leídos</button>
-      <button class="crm-ftab" onclick="setFilter('respondio',this)">Respondieron</button>
+      <button class="crm-ftab" onclick="setFilter('no_leidos',this)">Sin leer</button>
+      <button class="crm-ftab" onclick="setFilter('para_responder',this)">Para responder</button>
       <button class="crm-ftab" id="tabEsperando" onclick="setFilter('esperando',this)">⚡ Esperando<span class="crm-ftab-dot" id="esperandoDot" style="display:none"></span></button>
     </div>
 
@@ -790,35 +877,44 @@ body.has-pb-bar.has-sidebar .main-wrapper {
           <div class="crm-chat-num"  id="chatNum">—</div>
         </div>
         <div class="crm-hdr-actions">
-          <!-- Toggle bot -->
+          <!-- Toggle bot (estado principal) -->
           <button id="btnBotToggle" onclick="toggleBot()" title="Pausar / Reactivar bot automático" class="bot-on">
             <span class="bot-dot"></span>
             <span id="botToggleLabel">Bot activo</span>
           </button>
-          <!-- Marcar como resuelto (solo visible cuando hay atención humana activa) -->
+          <!-- Resuelto — solo cuando hay atención humana activa -->
           <button id="btnResolver" onclick="marcarResuelto()" title="Marcar conversación como resuelta" style="display:none">
             ✓ Resuelto
           </button>
-          <!-- Nota interna -->
-          <button id="btnNota" onclick="abrirModalNota()" title="Agregar nota interna (no se envía al cliente)">
-            📝 Nota
+          <!-- Nota interna (acción frecuente, visible) -->
+          <button id="btnNota" onclick="abrirModalNota()" title="Agregar nota interna">
+            <i class="bi bi-pencil-square"></i>
           </button>
-          <!-- Guardar contacto -->
-          <button id="btnGuardarContacto" onclick="abrirModalContacto()" title="Guardar nombre y empresa de este contacto">
-            ✏️ Contacto
-          </button>
-          <!-- Bloquear número (opt-out campañas) -->
-          <button id="btnBloquear" onclick="toggleBloquear()" title="Bloquear / desbloquear número de campañas">
-            🚫 <span id="btnBloquearLabel">Bloquear</span>
-          </button>
-          <!-- Reset sesión — menos prominente -->
-          <button id="btnResetSesion" onclick="resetSesion()" title="Resetear sesión del bot">
-            <i class="bi bi-arrow-counterclockwise"></i>
-          </button>
+          <!-- Más opciones -->
+          <div class="crm-hdr-menu-wrap">
+            <button id="btnMenuTrigger" onclick="toggleHdrMenu(event)" title="Más opciones">
+              <i class="bi bi-three-dots-vertical"></i>
+            </button>
+            <div class="crm-hdr-menu" id="hdrMenu">
+              <button class="crm-hdr-menu-item" onclick="abrirModalContacto();closeHdrMenu()">
+                <i class="bi bi-person-fill-add"></i> Guardar contacto
+              </button>
+              <button class="crm-hdr-menu-item" id="menuBloquear" onclick="toggleBloquear();closeHdrMenu()">
+                <i class="bi bi-slash-circle"></i> <span id="menuBloquearLabel">Excluir de campañas</span>
+              </button>
+              <hr class="crm-hdr-menu-sep">
+              <button class="crm-hdr-menu-item" id="btnResetSesion" onclick="resetSesion();closeHdrMenu()">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset sesión bot
+              </button>
+              <button class="crm-hdr-menu-item" onclick="reloadChat();closeHdrMenu()">
+                <i class="bi bi-arrow-clockwise"></i> Recargar chat
+              </button>
+            </div>
+          </div>
+          <!-- Volver (solo móvil) -->
           <button class="crm-back-btn" onclick="goBack()" title="Volver">
             <i class="bi bi-arrow-left"></i>
           </button>
-          <button title="Refrescar" onclick="reloadChat()"><i class="bi bi-arrow-clockwise"></i></button>
         </div>
       </div>
 
@@ -903,8 +999,8 @@ body.has-pb-bar.has-sidebar .main-wrapper {
 <div class="crm-modal-overlay" id="contactoModal">
   <div class="crm-modal">
     <h6>✏️ Guardar contacto</h6>
-    <input  id="contactoNombre"  type="text" placeholder="Nombre del contacto" style="width:100%;margin-bottom:8px;padding:8px 10px;border-radius:8px;border:1px solid   #1a2535;background:#1e2a31;color:#e9edef;font-size:.9rem;">
-    <input  id="contactoEmpresa" type="text" placeholder="Empresa (opcional)"  style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid   #1a2535;background:#1e2a31;color:#e9edef;font-size:.9rem;">
+    <input  id="contactoNombre"  type="text" placeholder="Nombre del contacto" style="width:100%;margin-bottom:8px;padding:8px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;color:#0f172a;font-size:.875rem;outline:none;font-family:inherit;">
+    <input  id="contactoEmpresa" type="text" placeholder="Empresa (opcional)"  style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;color:#0f172a;font-size:.875rem;outline:none;font-family:inherit;">
     <div class="crm-modal-actions" style="margin-top:12px;">
       <button class="crm-modal-cancel" onclick="cerrarModalContacto()">Cancelar</button>
       <button class="crm-modal-save"   onclick="guardarContacto()">Guardar</button>
@@ -990,9 +1086,9 @@ function renderConvs() {
     c.numero.includes(q) ||
     (c.empresa || '').toLowerCase().includes(q)
   );
-  if (activeFilter === 'no_leidos')  list = list.filter(c => c.no_leidos > 0);
-  if (activeFilter === 'respondio')  list = list.filter(c => c.respondio_hoy === true);
-  if (activeFilter === 'esperando')  list = list.filter(c => c.estado_atencion === 'esperando');
+  if (activeFilter === 'no_leidos')     list = list.filter(c => c.no_leidos > 0);
+  if (activeFilter === 'para_responder') list = list.filter(c => c.pendiente_respuesta === true);
+  if (activeFilter === 'esperando')     list = list.filter(c => c.estado_atencion === 'esperando');
 
   // Actualizar punto en tab Esperando
   const esperandoCount = allConvs.filter(c => c.estado_atencion === 'esperando').length;
@@ -1009,24 +1105,34 @@ function renderConvs() {
   el.innerHTML = list.map(c => {
     const init    = (c.nombre || c.numero).charAt(0).toUpperCase();
     const isAct   = c.numero === activeNum;
-    const arrow   = c.direccion === 'saliente'
-      ? `<i class="bi bi-check2" style="color:#8696a0;font-size:.75rem;"></i> ` : '';
+    const isPend  = c.pendiente_respuesta && !isAct;
     const atBadge = atencionBadge(c.estado_atencion);
     const badge   = c.no_leidos > 0
       ? `<span class="crm-conv-badge">${c.no_leidos}</span>`
       : (atBadge || `<span class="crm-estado ${c.estado}">${estadoLabel(c.estado)}</span>`);
-    return `<div class="crm-conv-item${isAct ? ' active' : ''}"
+    // Indicador de dirección: quién escribió último
+    const dirLabel = c.direccion === 'entrante' && c.estado_atencion !== 'resuelto'
+      ? `<span class="crm-dir-label ellos">← nos escribieron</span>`
+      : c.direccion === 'saliente'
+      ? `<span class="crm-dir-label nosotros">→ enviamos</span>`
+      : '';
+    const savedPin = c.nombre_guardado
+      ? ` <span style="font-size:.6rem;color:#196bfe;vertical-align:middle;" title="Contacto guardado">✏️</span>` : '';
+    const companyLine = c.empresa
+      ? `<div class="crm-conv-company">${esc(c.empresa)}</div>` : '';
+    return `<div class="crm-conv-item${isAct ? ' active' : ''}${isPend ? ' pendiente-resp' : ''}"
         data-estado-atencion="${c.estado_atencion || 'bot'}"
         onclick="selectConv('${c.numero}','${esc(c.nombre)}','${esc(c.empresa)}')">
       <div class="crm-conv-avatar">${init}</div>
       <div class="crm-conv-body">
         <div class="crm-conv-top">
-          <span class="crm-conv-name">${esc(c.nombre || c.numero)}${c.nombre_guardado ? ' <span style=\"font-size:.6rem;color:#196bfe;vertical-align:middle;\" title=\"Contacto guardado\">✏️</span>' : ''}</span>
+          <span class="crm-conv-name">${esc(c.nombre || c.numero)}${savedPin}</span>
           <span class="crm-conv-time">${c.hora}</span>
         </div>
+        ${companyLine}
         <div class="crm-conv-bottom">
-          <span class="crm-conv-preview">${arrow}${esc(c.ultimo)}</span>
-          ${badge}
+          <span class="crm-conv-preview">${esc(c.ultimo)}</span>
+          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">${dirLabel}${badge}</div>
         </div>
       </div>
     </div>`;
@@ -1071,7 +1177,7 @@ async function selectConv(numero, nombre, empresa) {
     renderMensajes(msgs, true);
     renderBotToggle(botStatus.bot_pausado || false, botStatus.estado_atencion);
     renderBloquearBtn((msgsResp.sesion_info || {}).opt_out_wa || false);
-    renderClientPanel(msgsResp.cliente_info || null, msgsResp.sesion_info || null);
+    renderClientPanel(msgsResp.cliente_info || null, msgsResp.sesion_info || null, msgsResp.operaciones || []);
   }
   // Actualizar badge del sidebar tras marcar como leídos
   if (typeof updateWaBadge === 'function') updateWaBadge();
@@ -1089,7 +1195,7 @@ function reloadChat() {
       renderMensajes(msgs);
       renderBotToggle(botStatus.bot_pausado || false, botStatus.estado_atencion);
       renderBloquearBtn((msgsResp.sesion_info || {}).opt_out_wa || false);
-      renderClientPanel(msgsResp.cliente_info || null, msgsResp.sesion_info || null);
+      renderClientPanel(msgsResp.cliente_info || null, msgsResp.sesion_info || null, msgsResp.operaciones || []);
     }
   });
 }
@@ -1113,37 +1219,32 @@ function renderBotToggle(pausado, estadoAtencion) {
 }
 
 // ── Panel cliente info ────────────────────────────────────────────
-// sesionInfo se pasa como segundo argumento desde selectConv/reloadChat
-function renderClientPanel(info, sesInfo) {
+function renderClientPanel(info, sesInfo, ops) {
+  ops = ops || [];
   const panel = document.getElementById('clientPanel');
-  if (!info && !sesInfo) { panel.classList.remove('visible'); return; }
+  if (!info && !sesInfo && !ops.length) { panel.classList.remove('visible'); return; }
   panel.classList.add('visible');
   const tag  = document.getElementById('clientTag');
   const name = document.getElementById('clientName');
   const det  = document.getElementById('clientDetails');
 
-  // Construir extra de sesión (cotización + tiempo esperando)
-  let sesExtra = [];
+  // Sesión: cotización activa + tiempo esperando
+  let sesFields = [];
   if (sesInfo) {
     if (sesInfo.cotiz_importe > 0 && sesInfo.cotiz_tc > 0) {
-      const op = sesInfo.cotiz_op === 'compra' ? 'Compra' : sesInfo.cotiz_op === 'venta' ? 'Venta' : '';
-      sesExtra.push(`<strong>Cotización:</strong> ${op ? op + ' ' : ''}$${sesInfo.cotiz_importe.toLocaleString('es-PE')} · TC ${sesInfo.cotiz_tc.toFixed(3)}`);
+      const opLabel = sesInfo.cotiz_op === 'compra' ? 'Compra' : 'Venta';
+      sesFields.push(`<span class="crm-cp-field"><span class="crm-cp-lbl">Cotiz.</span> ${opLabel} $${sesInfo.cotiz_importe.toLocaleString('es-PE')} · TC ${sesInfo.cotiz_tc.toFixed(3)}</span>`);
     }
     if (sesInfo.estado_atencion === 'esperando' && sesInfo.updated_at) {
       const diffMin = Math.round((Date.now() - new Date(sesInfo.updated_at).getTime()) / 60000);
-      if (diffMin > 0) sesExtra.push(`<strong style="color:#fbbf24;">⚡ Esperando:</strong> hace ${diffMin} min`);
-    }
-    if (sesInfo.estado && !['inicio', 'bot'].includes(sesInfo.estado)) {
-      sesExtra.push(`<strong>Estado bot:</strong> ${esc(sesInfo.estado)}`);
+      if (diffMin > 0) sesFields.push(`<span class="crm-cp-field" style="color:#d97706;"><span class="crm-cp-lbl" style="color:#d97706;">⚡ Espera</span> hace ${diffMin} min</span>`);
     }
   }
 
   if (!info) {
-    // Solo hay info de sesión, sin cliente/prospecto
-    tag.className = 'crm-client-tag';
-    tag.style.display = 'none';
+    tag.className = 'crm-client-tag'; tag.style.display = 'none';
     name.textContent = '';
-    det.innerHTML = sesExtra.join(' &nbsp;·&nbsp; ');
+    det.innerHTML = sesFields.length ? `<div class="crm-cp-row">${sesFields.join('')}</div>` : '';
     return;
   }
 
@@ -1152,20 +1253,40 @@ function renderClientPanel(info, sesInfo) {
   tag.textContent = info.tipo === 'cliente' ? 'Cliente' : 'Prospecto';
   name.textContent = info.razon_social || info.nombre || '—';
 
-  let detalles = [];
+  let fields = [];
   if (info.tipo === 'cliente') {
-    if (info.nombre)  detalles.push(`<strong>Contacto:</strong> ${esc(info.nombre)}`);
-    if (info.doc)     detalles.push(`<strong>${info.doc_tipo}:</strong> ${esc(info.doc)}`);
-    if (info.email)   detalles.push(`<strong>Email:</strong> ${esc(info.email)}`);
-    if (info.kyc)     detalles.push(`<strong>KYC:</strong> ${esc(info.kyc)}`);
+    if (info.nombre)   fields.push(`<span class="crm-cp-field"><span class="crm-cp-lbl">Contacto</span> ${esc(info.nombre)}</span>`);
+    if (info.doc)      fields.push(`<span class="crm-cp-field"><span class="crm-cp-lbl">${esc(info.doc_tipo)}</span> ${esc(info.doc)}</span>`);
+    if (info.email)    fields.push(`<span class="crm-cp-field"><span class="crm-cp-lbl">Email</span> ${esc(info.email)}</span>`);
+    if (info.kyc)      fields.push(`<span class="crm-cp-field"><span class="crm-cp-lbl">KYC</span> ${esc(info.kyc)}</span>`);
   } else {
-    if (info.nombre)  detalles.push(`<strong>Contacto:</strong> ${esc(info.nombre)}`);
-    if (info.ruc)     detalles.push(`<strong>RUC:</strong> ${esc(info.ruc)}`);
-    if (info.email)   detalles.push(`<strong>Email:</strong> ${esc(info.email)}`);
-    if (info.rubro)   detalles.push(`<strong>Rubro:</strong> ${esc(info.rubro)}`);
-    if (info.estado)  detalles.push(`<strong>Estado:</strong> ${esc(info.estado)}`);
+    if (info.nombre)   fields.push(`<span class="crm-cp-field"><span class="crm-cp-lbl">Contacto</span> ${esc(info.nombre)}</span>`);
+    if (info.ruc)      fields.push(`<span class="crm-cp-field"><span class="crm-cp-lbl">RUC</span> ${esc(info.ruc)}</span>`);
+    if (info.email)    fields.push(`<span class="crm-cp-field"><span class="crm-cp-lbl">Email</span> ${esc(info.email)}</span>`);
+    if (info.rubro)    fields.push(`<span class="crm-cp-field"><span class="crm-cp-lbl">Rubro</span> ${esc(info.rubro)}</span>`);
+    if (info.estado)   fields.push(`<span class="crm-cp-field"><span class="crm-cp-lbl">Estado</span> ${esc(info.estado)}</span>`);
   }
-  det.innerHTML = [...detalles, ...sesExtra].filter(Boolean).join(' &nbsp;·&nbsp; ');
+
+  let html = `<div class="crm-cp-row">${[...fields, ...sesFields].join('')}</div>`;
+
+  // Operaciones recientes
+  if (ops.length) {
+    const opBadge = e => {
+      const cls = ['Completada','Pendiente','Cancelado'].includes(e) ? e : 'other';
+      return `<span class="crm-op-badge ${cls}">${e}</span>`;
+    };
+    const opsRows = ops.map(o =>
+      `<div class="crm-cp-op">
+        <span class="crm-cp-op-id">${esc(o.id)}</span>
+        ${opBadge(o.estado)}
+        <span style="font-size:.75rem;">${esc(o.tipo)} · $${o.monto.toLocaleString('es-PE',{minimumFractionDigits:0})}</span>
+        <span class="crm-cp-op-fecha">${esc(o.fecha)}</span>
+      </div>`
+    ).join('');
+    html += `<div class="crm-cp-ops"><div class="crm-cp-ops-title">Operaciones recientes</div>${opsRows}</div>`;
+  }
+
+  det.innerHTML = html;
 }
 
 async function marcarResuelto() {
@@ -1279,18 +1400,16 @@ async function resetSesion() {
 }
 
 function renderBloquearBtn(bloqueado) {
-  const btn   = document.getElementById('btnBloquear');
-  const label = document.getElementById('btnBloquearLabel');
-  if (!btn) return;
-  btn.classList.toggle('bloqueado', bloqueado);
-  label.textContent = bloqueado ? 'Bloqueado' : 'Bloquear';
-  btn.title = bloqueado ? 'Número bloqueado de campañas — clic para desbloquear' : 'Bloquear número de campañas';
+  const label = document.getElementById('menuBloquearLabel');
+  const item  = document.getElementById('menuBloquear');
+  if (label) label.textContent = bloqueado ? 'Desbloquear campañas' : 'Excluir de campañas';
+  if (item)  item.classList.toggle('danger', bloqueado);
 }
 
 async function toggleBloquear() {
   if (!activeNum) return;
-  const btn = document.getElementById('btnBloquear');
-  btn.disabled = true;
+  const btn = document.getElementById('menuBloquear');
+  if (btn) btn.disabled = true;
   try {
     const csrf = document.querySelector('meta[name="csrf-token"]');
     const r = await fetch('/crm/api/wa-bloquear', {
@@ -1301,14 +1420,14 @@ async function toggleBloquear() {
     const j = await r.json();
     if (j.ok) {
       renderBloquearBtn(j.opt_out_wa);
-      showToast(j.opt_out_wa ? 'Número bloqueado de campañas' : 'Número desbloqueado', j.opt_out_wa ? 'warning' : 'success');
+      showToast(j.opt_out_wa ? 'Excluido de campañas' : 'Incluido en campañas nuevamente', j.opt_out_wa ? 'warning' : 'success');
     } else {
       showToast(j.error || 'Error al cambiar estado', 'error');
     }
   } catch(e) {
     showToast('Error de conexión', 'error');
   }
-  btn.disabled = false;
+  if (btn) btn.disabled = false;
 }
 
 async function toggleBot() {
@@ -1677,8 +1796,8 @@ function closeLightbox() {
 //  Toast
 // ══════════════════════════════════════════════════════
 function showToast(msg, type = 'info') {
-  const colors = { ok: '#196BFE', success: '#196BFE', error: '#f31260', warning: '#d97706', info: '  #1a2535' };
-  const textC  = (type === 'ok' || type === 'success') ? '#111b21' : '#e9edef';
+  const colors = { ok: '#196BFE', success: '#196BFE', error: '#f31260', warning: '#d97706', info: '#334155' };
+  const textC  = '#fff';
   const t = document.createElement('div');
   t.className  = 'crm-toast';
   t.style.cssText = `background:${colors[type]||colors.info};color:${textC};`;
@@ -1839,11 +1958,25 @@ function esc(str) {
 function getCsrf() {
   return document.querySelector('meta[name="csrf-token"]')?.content || '';
 }
-// Cerrar modal nota con Escape
+// ══════════════════════════════════════════════════════
+//  Dropdown header menu
+// ══════════════════════════════════════════════════════
+function toggleHdrMenu(ev) {
+  ev.stopPropagation();
+  document.getElementById('hdrMenu').classList.toggle('open');
+}
+function closeHdrMenu() {
+  const m = document.getElementById('hdrMenu');
+  if (m) m.classList.remove('open');
+}
+document.addEventListener('click', () => closeHdrMenu());
+
+// Cerrar modales con Escape
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     cerrarModalNota();
     closeLightbox();
+    closeHdrMenu();
   }
 });
 
