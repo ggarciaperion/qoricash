@@ -32,10 +32,16 @@
     white-space: nowrap;
     vertical-align: middle;
 }
+#operationsTable {
+    table-layout: fixed;
+    width: 100%;
+}
 #operationsTable .col-cliente {
-    max-width: 160px;
+    max-width: 140px;
+    width: 140px;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
 }
 </style>
 {% endblock %}
@@ -1023,7 +1029,7 @@ function buildOperationRow(op) {
 
     return `<tr data-operation-id="${op.id}" data-status="${op.status}">
                 <td><strong>${op.operation_id}</strong></td>
-                <td>${op.client_name || '-'}</td>
+                <td class="col-cliente" title="${op.client_name || '-'}">${op.client_name || '-'}</td>
                 <td>${typeBadge}</td>
                 <td class="text-end">$ ${formattedUSD}</td>
                 <td class="text-center">${parseFloat(op.exchange_rate).toFixed(4)}</td>
