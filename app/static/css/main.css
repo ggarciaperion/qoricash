@@ -2457,3 +2457,49 @@ body.has-sidebar.sidebar-collapsed .desk-pb-bar {
   0%, 100% { box-shadow: 0 0 0 0 rgba(74,222,128,.7); opacity: 1; }
   50%       { box-shadow: 0 0 0 4px rgba(74,222,128,0); opacity: .6; }
 }
+
+/* ── Edit modal mobile responsive ───────────────────────────────────────── */
+@media (max-width: 575px) {
+    /* KPI strip: stack items 2-per-row on mobile */
+    #editOperationModal .d-flex.flex-wrap.gap-3 {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: .75rem !important;
+    }
+    /* Amount USD input group: full width */
+    #edit_amount_usd_group {
+        width: 100% !important;
+    }
+    /* Fecha: don't push to right on mobile */
+    #editOperationModal .ms-auto.text-end {
+        margin-left: 0 !important;
+        text-align: left !important;
+    }
+    /* Modal body padding on mobile */
+    #editOperationModal .modal-body {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        max-height: 60vh !important;
+    }
+    #editOperationModal .modal-header,
+    #editOperationModal .px-4 {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+    /* Footer buttons full width stack on very small */
+    #editOperationModal .modal-footer {
+        flex-wrap: wrap;
+        padding: .75rem 1rem !important;
+    }
+    #editOperationModal .modal-footer .btn {
+        flex: 1 1 auto;
+        min-width: 100px;
+    }
+    /* Reassign select: full width */
+    #new_operator_select { width: 100% !important; }
+    #reassign_section .d-flex {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+    #reassign_section .ms-auto { margin-left: 0 !important; }
+}

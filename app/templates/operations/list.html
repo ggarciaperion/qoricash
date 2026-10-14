@@ -61,7 +61,7 @@
     </div>
 
     <!-- Filtros Rápidos -->
-    <div class="filter-bar">
+    <div class="filter-bar d-none d-md-block">
         <div class="d-flex align-items-center gap-2 flex-wrap">
             <span class="filter-bar-label">Estado</span>
             <div class="btn-group" role="group">
@@ -293,7 +293,7 @@
 
 <!-- Modal: Ver Operación (Solo lectura) -->
 <div class="modal fade" id="viewOperationModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
             <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
                 <div class="d-flex align-items-center gap-2">
@@ -307,7 +307,7 @@
             <div class="modal-body px-4" id="operationDetails">
                 <!-- Cargado dinámicamente -->
             </div>
-            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
+            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;gap:.5rem;">
                 <button type="button" class="btn btn-sm btn-warning px-3 me-auto" id="btnRevertFromView" style="display:none;" onclick="revertCompletedOperation()">
                     <i class="bi bi-arrow-counterclockwise me-1"></i>Revertir operación
                 </button>
@@ -322,26 +322,31 @@
 
 <!-- Modal: Editar Operación (4 secciones) -->
 <div class="modal fade" id="editOperationModal" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius:14px;overflow:hidden;">
 
             <!-- Header: ID + badges + KPIs -->
-            <div class="modal-header border-0 pb-0 px-4 pt-4" style="background:#f8fafc;">
-                <div class="w-100">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <div class="d-flex align-items-center gap-2 flex-wrap">
-                                <span class="fw-bold" style="font-size:15px;" id="editModalTitle">Operación</span>
-                                <span class="text-muted fw-normal small" id="edit_op_id"></span>
-                                <span id="edit_op_type"></span>
-                                <span id="edit_op_status"></span>
-                            </div>
-                            <div class="fw-semibold mt-1" style="font-size:14px;" id="edit_client_name"></div>
-                        </div>
-                        <button type="button" class="btn-close ms-3 flex-shrink-0" data-bs-dismiss="modal"></button>
+            <div class="modal-header px-4 py-3" style="background:var(--black);border-bottom:2px solid var(--q);">
+                <div class="d-flex align-items-center gap-3 flex-fill">
+                    <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                         style="width:34px;height:34px;background:rgba(25,107,254,.2);">
+                        <i class="bi bi-pencil-square" style="color:var(--q);font-size:.85rem;"></i>
                     </div>
-                    <!-- KPI strip -->
-                    <div class="d-flex flex-wrap gap-4 mt-3 pb-3 border-bottom">
+                    <div class="flex-fill min-width-0">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="fw-bold text-white" style="font-size:.95rem;" id="editModalTitle">Operación</span>
+                            <span class="text-white-50 fw-normal" style="font-size:.8rem;" id="edit_op_id"></span>
+                            <span id="edit_op_type"></span>
+                            <span id="edit_op_status"></span>
+                        </div>
+                        <div class="text-white-50 fw-normal" style="font-size:.78rem;" id="edit_client_name"></div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white ms-3 flex-shrink-0" data-bs-dismiss="modal"></button>
+            </div>
+            <!-- KPI strip -->
+            <div class="px-4 py-3" style="background:#f8fafc;border-bottom:1px solid var(--g100);">
+                <div class="d-flex flex-wrap gap-3">
                         <div>
                             <div class="text-uppercase text-muted mb-1" style="font-size:10px;letter-spacing:.6px;">Monto USD</div>
                             <div class="input-group input-group-sm" id="edit_amount_usd_group" style="width:160px;">
@@ -366,11 +371,10 @@
                             <div class="text-uppercase text-muted mb-1" style="font-size:10px;letter-spacing:.6px;">Fecha</div>
                             <div class="small text-muted" id="edit_created_at">—</div>
                         </div>
-                    </div>
                 </div>
             </div>
 
-            <div class="modal-body px-4 py-0" style="max-height:62vh;overflow-y:auto;background:#f8fafc;">
+            <div class="modal-body px-4 py-0" style="max-height:65vh;overflow-y:auto;background:#fff;">
                 <input type="hidden" id="edit_operation_id">
 
                 <!-- Reasignación (solo Master) -->
