@@ -447,6 +447,9 @@ body.has-pb-bar.has-sidebar .main-wrapper {
 .mobile-brand img { height: 28px; width: auto; }
 .mobile-brand span { color: white; font-size: 0.9375rem; font-weight: 700; }
 
+.mobile-user {
+    margin-left: auto;
+}
 .mobile-user .badge-role {
     font-size: 0.6875rem;
     background: var(--qori-primary);
