@@ -159,9 +159,9 @@
                                     {% endif %}
                                 </td>
                                 <td class="text-center d-none d-xl-table-cell" data-field="pips" data-op-id="{{ op.id }}">
-                                    {% if op.pips %}
-                                    <span style="color:{{ '#198754' if op.pips >= 0 else '#dc3545' }};font-weight:600;">{{ '%+.1f'|format(op.pips) }}</span>
-                                    {% else %}—{% endif %}
+                                    {% if op.pips is not none %}
+                                    <span style="color:{{ '#198754' if op.pips >= 0 else '#dc3545' }};font-weight:600;">{{ '%+d'|format(op.pips|int) }}</span>
+                                    {% else %}<span style="color:#198754;font-weight:600;">+00</span>{% endif %}
                                 </td>
                                 <td class="text-center d-none d-lg-table-cell">
                                     {%- set pay_banks = [] -%}
@@ -1060,8 +1060,8 @@ function buildOperationRow(op) {
                     : (op.base_rate ? parseFloat(op.base_rate).toFixed(4) : '—')
                 }</td>
                 <td class="text-center" data-field="pips" data-op-id="${op.id}">${op.pips != null
-                    ? `<span style="color:${op.pips >= 0 ? '#198754' : '#dc3545'};font-weight:600;">${op.pips >= 0 ? '+' : ''}${parseFloat(op.pips).toFixed(1)}</span>`
-                    : '—'
+                    ? `<span style="color:${op.pips >= 0 ? '#198754' : '#dc3545'};font-weight:600;">${op.pips >= 0 ? '+' : ''}${Math.round(parseFloat(op.pips))}</span>`
+                    : '<span style="color:#198754;font-weight:600;">+00</span>'
                 }</td>
                 <td class="text-center"><small>${banksText}</small></td>
                 <td class="text-center">${canalBadge}</td>
@@ -2490,9 +2490,9 @@ function updateBaseRateInline(inputEl) {
                     if (pips != null) {
                         const sign  = pips >= 0 ? '+' : '';
                         const color = pips >= 0 ? '#198754' : '#dc3545';
-                        pipsCell.innerHTML = `<span style="color:${color};font-weight:600;">${sign}${parseFloat(pips).toFixed(1)}</span>`;
+                        pipsCell.innerHTML = `<span style="color:${color};font-weight:600;">${sign}${Math.round(parseFloat(pips))}</span>`;
                     } else {
-                        pipsCell.textContent = '—';
+                        pipsCell.innerHTML = '<span style="color:#198754;font-weight:600;">+00</span>';
                     }
                 }
             } else {
@@ -2538,7 +2538,7 @@ function calcularPipsModal() {
         : Math.round((tc - base) * 10000 * 10) / 10;
     const sign = pips >= 0 ? '+' : '';
     const color = pips >= 0 ? '#198754' : '#dc3545';
-    preview.html(`<span style="color:${color};font-weight:600;">${sign}${pips.toFixed(1)} pips</span>`);
+    preview.html(`<span style="color:${color};font-weight:600;">${sign}${Math.round(pips)} pips</span>`);
 }
 
 // ── Highlight selected op-type card ──────────────────────────────────────
