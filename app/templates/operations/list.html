@@ -36,13 +36,26 @@
     table-layout: fixed;
     width: 100%;
 }
+/* Anchos fijos columnas pequeñas — Cliente toma el espacio restante */
+#operationsTable th:nth-child(1),  #operationsTable td:nth-child(1)  { width: 88px; }  /* ID Op */
+#operationsTable th:nth-child(3),  #operationsTable td:nth-child(3)  { width: 62px; }  /* Tipo */
+#operationsTable th:nth-child(4),  #operationsTable td:nth-child(4)  { width: 88px; }  /* USD */
+#operationsTable th:nth-child(5),  #operationsTable td:nth-child(5)  { width: 62px; }  /* T.C. */
+#operationsTable th:nth-child(6),  #operationsTable td:nth-child(6)  { width: 62px; }  /* Base */
+#operationsTable th:nth-child(7),  #operationsTable td:nth-child(7)  { width: 52px; }  /* Pips */
+#operationsTable th:nth-child(8),  #operationsTable td:nth-child(8)  { width: 88px; }  /* PEN */
+#operationsTable th:nth-child(9),  #operationsTable td:nth-child(9)  { width: 72px; }  /* Bancos */
+#operationsTable th:nth-child(10), #operationsTable td:nth-child(10) { width: 56px; }  /* Canal */
+#operationsTable th:nth-child(11), #operationsTable td:nth-child(11) { width: 88px; }  /* Estado */
+#operationsTable th:nth-child(12), #operationsTable td:nth-child(12) { width: 62px; }  /* Fecha */
+#operationsTable th:nth-child(13), #operationsTable td:nth-child(13) { width: 78px; }  /* Acciones */
 #operationsTable .col-cliente {
-    max-width: 140px;
-    width: 140px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+/* Badges tipo: peso normal (Bootstrap los pone en bold por defecto) */
+#operationsTable .badge { font-weight: 500; }
 </style>
 {% endblock %}
 
@@ -167,9 +180,10 @@
                                         {%- set out_str = pay_banks | join(' + ') -%}
                                         {%- set in_str = dep_banks | join(' + ') -%}
                                         <small>
-                                        {%- if out_str and in_str -%}{{ out_str }} → {{ in_str }}
-                                        {%- elif out_str -%}{{ out_str }}
-                                        {%- else -%}{{ in_str }}{%- endif -%}
+                                        {%- macro ab(s) -%}{{ s|upper|replace('INTERBANK','IBK')|replace('SCOTIABANK','SCT')|replace('PICHINCHA','PCH') }}{%- endmacro -%}
+                                        {%- if out_str and in_str -%}{{ ab(out_str) }} → {{ ab(in_str) }}
+                                        {%- elif out_str -%}{{ ab(out_str) }}
+                                        {%- else -%}{{ ab(in_str) }}{%- endif -%}
                                         </small>
                                     {%- else -%}
                                         {% set source_bank = get_bank_name(op, op.source_account) %}
@@ -177,9 +191,10 @@
                                         {%- set sb = source_bank|trim -%}
                                         {%- set db = dest_bank|trim -%}
                                         <small>
-                                        {%- if sb and sb != 'N/A' and db and db != 'N/A' -%}{{ sb }} / {{ db }}
-                                        {%- elif db and db != 'N/A' -%}{{ db }}
-                                        {%- elif sb and sb != 'N/A' -%}{{ sb }}
+                                        {%- macro ab2(s) -%}{{ s|upper|replace('INTERBANK','IBK')|replace('SCOTIABANK','SCT')|replace('PICHINCHA','PCH') }}{%- endmacro -%}
+                                        {%- if sb and sb != 'N/A' and db and db != 'N/A' -%}{{ ab2(sb) }}/{{ ab2(db) }}
+                                        {%- elif db and db != 'N/A' -%}{{ ab2(db) }}
+                                        {%- elif sb and sb != 'N/A' -%}{{ ab2(sb) }}
                                         {%- else -%}—{%- endif -%}
                                         </small>
                                     {%- endif -%}
@@ -215,7 +230,7 @@
                                         <span class="badge bg-danger">Cancelado</span>
                                     {% endif %}
                                 </td>
-                                <td class="d-none d-md-table-cell">{{ op.created_at.strftime('%H:%M') if op.created_at else '-' }}</td>
+                                <td class="d-none d-md-table-cell">{% if op.created_at %}{{ op.created_at.strftime('%I:%M') }}{{ 'AM' if op.created_at.hour < 12 else 'PM' }}{% else %}-{% endif %}</td>
                                 {% if current_user.role != 'Middle Office' %}
                                 <td>
                                     <div class="btn-group btn-group-sm">
@@ -924,10 +939,11 @@ function buildOperationRow(op) {
     }
 
     // Fecha formateada
-    const fecha = op.created_at ? (parseSafeDate(op.created_at) || new Date()).toLocaleTimeString('es-PE', {
+    const fecha = op.created_at ? (parseSafeDate(op.created_at) || new Date()).toLocaleTimeString('en-US', {
         hour: '2-digit',
-        minute: '2-digit'
-    }) : '-';
+        minute: '2-digit',
+        hour12: true
+    }).replace(' ', '') : '-';
 
     // Botones según rol y estado (comparaciones case-insensitive)
     let buttons = '';
@@ -1001,7 +1017,7 @@ function buildOperationRow(op) {
     }
 
     // Obtener nombres de bancos — derivado de pagos/depósitos reales (qc_bank)
-    const banksText = op.banks_display || `${op.source_bank_name || 'N/A'} / ${op.destination_bank_name || 'N/A'}`;
+    const banksText = abbrevBank(op.banks_display || `${op.source_bank_name || 'N/A'} / ${op.destination_bank_name || 'N/A'}`);
 
     // Badge de canal (origen)
     // DEBUG: Log para verificar el valor de origen
@@ -1939,6 +1955,14 @@ function getAccountInfoDisplay(accountNumber, withCopyBtn) {
         </div>`;
     }
     return `<span class="text-muted small">${accountNumber}</span>`;
+}
+
+function abbrevBank(name) {
+    if (!name) return name;
+    return name.toUpperCase()
+        .replace(/INTERBANK/g, 'IBK')
+        .replace(/SCOTIABANK/g, 'SCT')
+        .replace(/PICHINCHA/g, 'PCH');
 }
 
 function copyAccountNumber(accountNumber) {
