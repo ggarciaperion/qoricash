@@ -1780,7 +1780,7 @@ def _flujo_seleccionar_titular(numero, session):
             if cuentas_emp:
                 _seleccionar_cuenta_y_continuar(numero, session, client_emp, cuentas_emp, moneda_emp)
             else:
-                _flujo_pedir_cuenta_destino(numero, moneda_emp)
+                _flujo_pedir_cuenta_destino(numero, moneda_emp, session)
                 session.estado = 'esperando_cuenta_destino'
         else:
             # Empresa nueva verificada en SUNAT pero aún no registrada → pedir email
@@ -2542,12 +2542,26 @@ def _flujo_elegir_cuenta(numero, cuentas, moneda):
     send_buttons(numero, cuerpo, botones)
 
 
-def _flujo_pedir_cuenta_destino(numero, moneda):
+def _flujo_pedir_cuenta_destino(numero, moneda, session=None):
     """Pide al cliente banco + número de cuenta cuando no tiene ninguna registrada en esa moneda."""
     simbolo = 'dólares (USD)' if moneda == 'USD' else 'soles (S/)'
     moneda_label = 'dólares' if moneda == 'USD' else 'soles'
+
+    # Construir contexto de operación si hay sesión con datos de cotización
+    _ctx = ''
+    if session and (session.cotiz_importe or 0) > 0 and (session.cotiz_tc or 0) > 0:
+        _imp  = float(session.cotiz_importe)
+        _tc   = float(session.cotiz_tc)
+        _op   = session.cotiz_op or ''
+        if _op == 'compra':
+            _envia = _imp * _tc
+            _ctx = f'Para completar tu cambio:\n› Compras *USD {_imp:,.0f}* enviando *S/ {_envia:,.2f}*\n\n'
+        elif _op == 'venta':
+            _recibe = _imp * _tc
+            _ctx = f'Para completar tu cambio:\n› Vendes *USD {_imp:,.0f}* y recibes *S/ {_recibe:,.2f}*\n\n'
+
     send_list(numero,
-        f'¿A qué cuenta quieres recibir tus *{simbolo}*?\n\nSelecciona tu banco 👇',
+        f'{_ctx}¿A qué cuenta te enviamos tus *{simbolo}*?\n> 👇 Selecciona tu banco',
         [{
             'title': 'Selecciona tu banco',
             'rows': [
@@ -4419,7 +4433,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         if cuentas_ac:
                             _seleccionar_cuenta_y_continuar(numero, session, client_ac, cuentas_ac, moneda_recibe_ac)
                         else:
-                            _flujo_pedir_cuenta_destino(numero, moneda_recibe_ac)
+                            _flujo_pedir_cuenta_destino(numero, moneda_recibe_ac, session)
                             session.estado = 'esperando_cuenta_destino'
                     elif not client_ac and session.tipo == 'empresa' and session.nombre:
                         # Empresa nueva identificada vía SUNAT pero no registrada:
@@ -4465,7 +4479,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         if cuentas_ac:
                             _seleccionar_cuenta_y_continuar(numero, session, _c, cuentas_ac, moneda_recibe_ac)
                         else:
-                            _flujo_pedir_cuenta_destino(numero, moneda_recibe_ac)
+                            _flujo_pedir_cuenta_destino(numero, moneda_recibe_ac, session)
                             session.estado = 'esperando_cuenta_destino'
                     elif len(_clientes_tel) > 1:
                         _flujo_elegir_cliente_telefono(numero, _clientes_tel)
@@ -4512,7 +4526,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     if cuentas_sel:
                         _seleccionar_cuenta_y_continuar(numero, session, client_sel, cuentas_sel, moneda_sel)
                     else:
-                        _flujo_pedir_cuenta_destino(numero, moneda_sel)
+                        _flujo_pedir_cuenta_destino(numero, moneda_sel, session)
                         session.estado = 'esperando_cuenta_destino'
                 else:
                     send_text(numero, '⚠️ No encontramos esa cuenta activa. Ingresa tu documento manualmente.')
@@ -4532,7 +4546,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     if cuentas_sel:
                         _seleccionar_cuenta_y_continuar(numero, session, client_sel, cuentas_sel, moneda_sel)
                     else:
-                        _flujo_pedir_cuenta_destino(numero, moneda_sel)
+                        _flujo_pedir_cuenta_destino(numero, moneda_sel, session)
                         session.estado = 'esperando_cuenta_destino'
                 else:
                     send_buttons(numero,
@@ -4617,7 +4631,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
 
             elif btn_id == 'btn_otra_cuenta':
                 moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
-                _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                _flujo_pedir_cuenta_destino(numero, moneda_recibe, session)
                 session.estado = 'esperando_cuenta_nueva'
 
             elif btn_id == 'btn_ya_transferi':
@@ -5240,7 +5254,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
             elif btn_id == 'btn_cambiar_cuenta':
                 moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
                 session.cotiz_cuenta = ''
-                _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                _flujo_pedir_cuenta_destino(numero, moneda_recibe, session)
                 session.estado = 'esperando_cuenta_nueva'
 
             elif btn_id.startswith('btn_confirmar_operacion'):
@@ -5289,7 +5303,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     _flujo_elegir_cuenta(numero, _cuentas_ccr, moneda_recibe)
                     session.estado = 'eligiendo_cuenta_destino'
                 else:
-                    _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                    _flujo_pedir_cuenta_destino(numero, moneda_recibe, session)
                     session.estado = 'esperando_banco_destino'
 
             elif btn_id == 'btn_modificar_importe_resumen':
@@ -5665,7 +5679,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                 if cuentas:
                                     _seleccionar_cuenta_y_continuar(numero, session, client, cuentas, moneda_recibe)
                                 else:
-                                    _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                                    _flujo_pedir_cuenta_destino(numero, moneda_recibe, session)
                                     session.estado = 'esperando_cuenta_destino'
                         else:
                             send_buttons(numero,
@@ -5860,7 +5874,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                     if cuentas:
                                         _seleccionar_cuenta_y_continuar(numero, session, client, cuentas, moneda_recibe)
                                     else:
-                                        _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                                        _flujo_pedir_cuenta_destino(numero, moneda_recibe, session)
                                         session.estado = 'esperando_cuenta_destino'
                             else:
                                 send_buttons(numero,
@@ -6234,7 +6248,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                     _seleccionar_cuenta_y_continuar(numero, session, client, cuentas, moneda_recibe)
                                 else:
                                     session.cotiz_cuenta = ''
-                                    _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                                    _flujo_pedir_cuenta_destino(numero, moneda_recibe, session)
                                     session.estado = 'esperando_cuenta_destino'
                         else:
                             _flujo_sin_kyc(numero, (client.kyc_status or '').lower())
@@ -6253,7 +6267,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                     f'✅ ¡Bienvenido, {saludo}! Hemos verificado y creado tu perfil en Qoricash.'
                                 )
                                 moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
-                                _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                                _flujo_pedir_cuenta_destino(numero, moneda_recibe, session)
                                 session.estado = 'esperando_cuenta_destino'
                             except Exception as _e:
                                 log.error(f'[WaBot] Error auto-creando cliente {doc}: {_e}')
@@ -6941,15 +6955,15 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         if _cuentas_re:
                             _flujo_elegir_cuenta(numero, _cuentas_re, _moneda_re)
                         else:
-                            _flujo_pedir_cuenta_destino(numero, _moneda_re)
+                            _flujo_pedir_cuenta_destino(numero, _moneda_re, session)
                             session.estado = 'esperando_cuenta_destino'
                     else:
-                        _flujo_pedir_cuenta_destino(numero, _moneda_re)
+                        _flujo_pedir_cuenta_destino(numero, _moneda_re, session)
                         session.estado = 'esperando_cuenta_destino'
 
                 elif estado in ('esperando_cuenta_destino', 'esperando_cuenta_nueva'):
                     moneda = 'USD' if session.cotiz_op == 'compra' else 'PEN'
-                    _flujo_pedir_cuenta_destino(numero, moneda)
+                    _flujo_pedir_cuenta_destino(numero, moneda, session)
                     session.estado = 'esperando_cuenta_destino'
 
                 elif estado == 'viendo_cotizacion':
@@ -7211,7 +7225,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         _banco_c, _num_c = session.cotiz_cuenta.split('|', 1)
                         _flujo_confirmar_cuenta(numero, _banco_c, _num_c)
                     else:
-                        _flujo_pedir_cuenta_destino(numero, 'USD' if session.cotiz_op == 'compra' else 'PEN')
+                        _flujo_pedir_cuenta_destino(numero, 'USD' if session.cotiz_op == 'compra' else 'PEN', session)
                         session.estado = 'esperando_cuenta_destino'
 
                 elif estado == 'eligiendo_cliente_telefono':
