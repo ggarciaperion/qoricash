@@ -1328,7 +1328,9 @@ def _bienvenida(numero, session):
         )
         return
 
-    BANNER_URL = 'https://qoricash.pe/213.jpg'
+    # Si vino de campaña → sin banner en ningún escenario
+    _de_campana = bool((session.campana_secuencia or 0) > 0 or session.campana_ultimo_envio)
+    BANNER_URL = None if _de_campana else 'https://app.qoricash.pe/static/images/banner_bienvenida.jpg'
     todos = _buscar_clientes_por_telefono_saludo(numero)
     personas = [c for c in todos if (c.document_type or '').upper() in ('DNI', 'CE')]
     empresas = [c for c in todos if (c.document_type or '').upper() == 'RUC']
@@ -1341,7 +1343,9 @@ def _bienvenida(numero, session):
         session.cotiz_doc = p.dni
         session.nombre    = primer or (p.full_name or '').strip() or session.nombre or ''
         saludo = f'¡Hola, {primer}! 👋 Bienvenido a Qoricash.' if primer else '¡Hola! 👋 Bienvenido a Qoricash.'
-        send_buttons_image(numero, 'https://app.qoricash.pe/static/images/banner_bienvenida.jpg',
+        _fn = send_buttons_image if BANNER_URL else send_buttons
+        _args = [numero, BANNER_URL] if BANNER_URL else [numero]
+        _fn(*_args,
             f'{saludo}\n'
             '📲 Cambia soles y dólares sin salir de tu WhatsApp.\n\n'
             '¿Qué operación cotizamos hoy?\n'
@@ -1361,7 +1365,9 @@ def _bienvenida(numero, session):
         session.cotiz_doc = emp.dni
         session.nombre    = razon or emp.dni or ''
         saludo = f'¡Hola, equipo de {razon}! 👋 Bienvenidos a Qoricash.' if razon else '¡Hola! 👋 Bienvenidos a Qoricash.'
-        send_buttons_image(numero, 'https://app.qoricash.pe/static/images/banner_bienvenida.jpg',
+        _fn = send_buttons_image if BANNER_URL else send_buttons
+        _args = [numero, BANNER_URL] if BANNER_URL else [numero]
+        _fn(*_args,
             f'{saludo}\n'
             '📲 Cambia soles y dólares sin salir de tu WhatsApp.\n\n'
             '¿Qué desean cotizar?\n'
@@ -1378,7 +1384,9 @@ def _bienvenida(numero, session):
         p = personas[0]
         primer = (p.nombres or '').strip().split()[0].title() if (p.nombres or '').strip() else ''
         saludo = f'¡Hola, {primer}! 👋 Bienvenido a Qoricash.' if primer else '¡Hola! 👋 Bienvenido a Qoricash.'
-        send_buttons_image(numero, 'https://app.qoricash.pe/static/images/banner_bienvenida.jpg',
+        _fn = send_buttons_image if BANNER_URL else send_buttons
+        _args = [numero, BANNER_URL] if BANNER_URL else [numero]
+        _fn(*_args,
             f'{saludo}\n'
             '📲 Cambia soles y dólares sin salir de tu WhatsApp.\n\n'
             '¿Deseas cotizar como persona o como empresa?',
@@ -1394,11 +1402,9 @@ def _bienvenida(numero, session):
         for emp in empresas[:3]:
             razon_e = (emp.razon_social or emp.dni or '')[:16]
             opciones.append({'id': f'btn_operar_empresa_{emp.dni}', 'title': f'🏢 {razon_e}'[:20]})
-        send_buttons_image(numero, 'https://app.qoricash.pe/static/images/banner_bienvenida.jpg',
-            '¡Bienvenido a Qoricash! 👋\n\n'
-            '¿A nombre de qué empresa deseas operar?',
-            opciones
-        )
+        _fn = send_buttons_image if BANNER_URL else send_buttons
+        _args = [numero, BANNER_URL] if BANNER_URL else [numero]
+        _fn(*_args, '¡Bienvenido a Qoricash! 👋\n\n¿A nombre de qué empresa deseas operar?', opciones)
 
     else:
         # Sin perfil registrado: nuevo usuario
