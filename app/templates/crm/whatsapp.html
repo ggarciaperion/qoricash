@@ -1963,12 +1963,15 @@ function getCsrf() {
 // ══════════════════════════════════════════════════════
 function toggleHdrMenu(ev) {
   ev.stopPropagation();
-  const menu = document.getElementById('hdrMenu');
-  const btn  = document.getElementById('btnMenuTrigger');
-  const rect = btn.getBoundingClientRect();
-  // Posicionar justo debajo del botón, alineado a la derecha
+  const menu  = document.getElementById('hdrMenu');
+  const btn   = document.getElementById('btnMenuTrigger');
+  const panel = document.getElementById('chatPanel');
+  const rect  = btn.getBoundingClientRect();
+  const pRect = panel.getBoundingClientRect();
+  const menuW = 210;
+  // Anclar al borde derecho del chatPanel con 12px de margen
   menu.style.top  = (rect.bottom + 6) + 'px';
-  menu.style.left = Math.max(8, rect.right - 210) + 'px';
+  menu.style.left = Math.max(pRect.left + 8, pRect.right - menuW - 12) + 'px';
   menu.classList.toggle('open');
 }
 function closeHdrMenu() {
