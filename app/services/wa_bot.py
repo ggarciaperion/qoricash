@@ -4374,9 +4374,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                         _tipo_ac = (session.tipo or '').strip()
                         if _tipo_ac == 'persona':
                             send_buttons(numero,
-                                'Para registrar tu solicitud, ingresa tu *DNI* de 8 dígitos.
-
-'
+                                'Para registrar tu solicitud, ingresa tu *DNI* de 8 dígitos.\n\n'
                                 'Si tienes Carné de Extranjería, selecciona CE 👇',
                                 [
                                     {'id': 'btn_tengo_ce',      'title': '🌍 Tengo CE'},
@@ -4390,9 +4388,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             )
                         else:
                             send_buttons(numero,
-                                'Para registrar tu solicitud, ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).
-
-'
+                                'Para registrar tu solicitud, ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).\n\n'
                                 'Si tienes Carné de Extranjería, elige CE 👇',
                                 [
                                     {'id': 'btn_tengo_ce',      'title': '🌍 Tengo CE'},
