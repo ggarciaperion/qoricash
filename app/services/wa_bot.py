@@ -4364,8 +4364,42 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 _token_ses = getattr(session, 'cotiz_token', None) or ''
                 _cotiz_stale = not _token_btn or not _token_ses or _token_btn != _token_ses
                 if not _is_horario_atencion() and not _cotiz_stale and session.estado == 'viendo_cotizacion':
-                    # Fuera de horario: no crear op, dejar solicitud referencial
-                    _flujo_solicitud_fuera_horario(numero, session)
+                    if session.cotiz_doc:
+                        # Ya identificado: registrar solicitud directamente
+                        _flujo_solicitud_fuera_horario(numero, session)
+                    else:
+                        # Sin identificación: pedir doc primero.
+                        # btn_confirmar_operacion interceptará fuera de horario al final
+                        # con los datos completos (doc, email, cuenta).
+                        _tipo_ac = (session.tipo or '').strip()
+                        if _tipo_ac == 'persona':
+                            send_buttons(numero,
+                                'Para registrar tu solicitud, ingresa tu *DNI* de 8 dígitos.
+
+'
+                                'Si tienes Carné de Extranjería, selecciona CE 👇',
+                                [
+                                    {'id': 'btn_tengo_ce',      'title': '🌍 Tengo CE'},
+                                    {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
+                                ]
+                            )
+                        elif _tipo_ac == 'empresa':
+                            send_buttons(numero,
+                                'Para registrar tu solicitud, ingresa el *RUC* de 11 dígitos de tu empresa.',
+                                [{'id': 'btn_volver_cotizar', 'title': '🔙 Volver'}]
+                            )
+                        else:
+                            send_buttons(numero,
+                                'Para registrar tu solicitud, ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).
+
+'
+                                'Si tienes Carné de Extranjería, elige CE 👇',
+                                [
+                                    {'id': 'btn_tengo_ce',      'title': '🌍 Tengo CE'},
+                                    {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
+                                ]
+                            )
+                        session.estado = 'esperando_id_cotizar'
                 elif _cotiz_stale:
                     # Wrong token, no token, or superseded quote — reject silently
                     send_text(numero,
