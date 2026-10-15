@@ -278,6 +278,7 @@ body.has-pb-bar.has-sidebar .main-wrapper {
   flex-shrink: 0;
   border-bottom: 2px solid #196BFE;
   box-shadow: 0 2px 8px rgba(0,0,0,.1);
+  overflow: visible;
 }
 .crm-chat-avatar {
   width: 38px; height: 38px;
@@ -713,9 +714,10 @@ body.has-pb-bar.has-sidebar .main-wrapper {
 }
 
 /* ══ HEADER DROPDOWN MENU ═════════════════════════════════ */
-.crm-hdr-menu-wrap { position: static; }
+.crm-hdr-menu-wrap { position: relative; }
 .crm-hdr-menu {
-  position: fixed;
+  position: absolute;
+  right: 0; top: calc(100% + 6px);
   background: #1a2535; border: 1px solid rgba(255,255,255,.12);
   border-radius: 10px; padding: 5px;
   min-width: 210px; z-index: 9999;
@@ -1963,15 +1965,7 @@ function getCsrf() {
 // ══════════════════════════════════════════════════════
 function toggleHdrMenu(ev) {
   ev.stopPropagation();
-  const menu  = document.getElementById('hdrMenu');
-  const btn   = document.getElementById('btnMenuTrigger');
-  const panel = document.getElementById('chatPanel');
-  const rect  = btn.getBoundingClientRect();
-  const pRect = panel.getBoundingClientRect();
-  const menuW = 210;
-  // Anclar al borde derecho del chatPanel con 12px de margen
-  menu.style.top  = (rect.bottom + 6) + 'px';
-  menu.style.left = Math.max(pRect.left + 8, pRect.right - menuW - 12) + 'px';
+  const menu = document.getElementById('hdrMenu');
   menu.classList.toggle('open');
 }
 function closeHdrMenu() {
