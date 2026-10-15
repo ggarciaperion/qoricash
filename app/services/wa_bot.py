@@ -1622,7 +1622,7 @@ def _flujo_como_funciona(numero):
         '2️⃣ *Transfiere* — Envías el dinero a la cuenta bancaria de Qoricash y nos mandas el *código de operación* '
         'de tu constancia bancaria (N° op, referencia o código de transacción).\n\n'
         '3️⃣ *¡Listo!* — En minutos transferimos a tu cuenta y te avisamos aquí por WhatsApp.\n\n'
-        '🔒 Inscritos en SBS\n'
+        '🔒 Inscritos en SBS  Res. N° 00313-2026\n'
         '🕐 Lun-Dom 9am-6pm'
     )
     send_buttons(numero, msg, [
