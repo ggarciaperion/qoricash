@@ -5238,7 +5238,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     _proximo_dia = _proxima_apertura()
                     send_buttons(numero,
                         f'⏰ *Fuera de horario*\n\n'
-                        f'Las operaciones se procesan de *lunes a viernes de 9:00 AM a 6:00 PM*.\n\n'
+                        f'Las operaciones se procesan de *lunes a sábado de 9:00 AM a 6:00 PM*.\n\n'
                         f'Tu cotización queda guardada. Vuelve {_proximo_dia} y confirmamos tu cambio en minutos 😊',
                         [
                             {'id': 'btn_cotizar',  'title': '💱 Ver cotización'},
