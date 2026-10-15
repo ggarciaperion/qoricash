@@ -282,11 +282,11 @@ def change_status(client_id):
                     phone_digits = '51' + phone_digits
                 creator_dni = (getattr(getattr(client, 'creator', None), 'dni', None) or '')
                 tiene_sesion = WaBotSession.query.filter_by(numero=phone_digits).first()
-                if creator_dni == BOT_TRADER_DNI or tiene_sesion:
+                if getattr(client, 'registration_canal', None) in ('app', 'web') or creator_dni == BOT_TRADER_DNI or tiene_sesion:
                     wa_notify_cuenta_activa(client)
                     logger.info(f'📲 WA de activación enviado a cliente {client.dni} ({phone_digits})')
                 else:
-                    logger.info(f'ℹ️ Cliente {client.dni} no es de canal bot — sin WA de activación')
+                    logger.info(f'ℹ️ Cliente {client.dni} registrado por ejecutivo — sin WA de activación')
             except Exception as e:
                 logger.warning(f'Error enviando WA de activación: {str(e)}')
         return jsonify({'success': True, 'message': message, 'client': client.to_dict()})
@@ -534,11 +534,11 @@ def approve_documents(client_id):
                     phone_digits = '51' + phone_digits
                 creator_dni = (getattr(getattr(client, 'creator', None), 'dni', None) or '')
                 tiene_sesion = WaBotSession.query.filter_by(numero=phone_digits).first()
-                if creator_dni == BOT_TRADER_DNI or tiene_sesion:
+                if getattr(client, 'registration_canal', None) in ('app', 'web') or creator_dni == BOT_TRADER_DNI or tiene_sesion:
                     wa_notify_cuenta_activa(client)
                     logger.info(f'📲 WA de activación enviado a cliente {client.dni} ({phone_digits})')
                 else:
-                    logger.info(f'ℹ️ Cliente {client.dni} sin sesión bot WA — no se envía WA de activación')
+                    logger.info(f'ℹ️ Cliente {client.dni} registrado por ejecutivo — sin WA de activación')
             except Exception as e:
                 logger.warning(f'Error enviando WA de activación (approve_documents): {str(e)}')
 

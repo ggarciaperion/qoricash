@@ -749,11 +749,11 @@ def approve_kyc(client_id):
                 phone_digits = '51' + phone_digits
             creator_dni = (getattr(getattr(client, 'creator', None), 'dni', None) or '')
             tiene_sesion = WaBotSession.query.filter_by(numero=phone_digits).first()
-            if creator_dni == '99999999' or tiene_sesion:
+            if getattr(client, 'registration_canal', None) in ('app', 'web') or creator_dni == '99999999' or tiene_sesion:
                 wa_notify_cuenta_activa(client)
                 logger.info(f'📲 [KYC APPROVE] WA de activación enviado a cliente {client.dni} ({phone_digits})')
             else:
-                logger.info(f'ℹ️ [KYC APPROVE] Cliente {client.dni} no es de canal bot — sin WA de activación')
+                logger.info(f'ℹ️ [KYC APPROVE] Cliente {client.dni} registrado por ejecutivo — sin WA de activación')
         except Exception as e:
             logger.warning(f'Error enviando WA de activación desde KYC: {str(e)}')
 
