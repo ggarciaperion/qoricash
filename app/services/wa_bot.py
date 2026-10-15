@@ -1318,8 +1318,8 @@ def _bienvenida(numero, session):
     # Si el número respondió a una campaña → menú limpio sin banner ni "¡Bienvenido!"
     if (session.campana_secuencia or 0) > 0:
         send_buttons(numero,
-            'Cambia dólares al mejor tipo de cambio, sin salir de tu WhatsApp. 👇\n\n'
-            '> Cotiza sin compromiso en vivo',
+            'Hola! \nBienvenido a Qoricash, 💱 cambia dólares al mejor tipo de cambio, sin salir de tu WhatsApp. \n\n'
+            '> Cotiza sin compromiso en vivo 👇',
             [
                 {'id': 'btn_comprar',     'title': 'Soles a dólares'},
                 {'id': 'btn_vender',      'title': 'Dólares a soles'},
@@ -1412,8 +1412,8 @@ def _bienvenida(numero, session):
         if _viene_de_campana:
             # Cliente que respondió un mensaje de campaña — omitir banner y "¡Bienvenido!"
             send_buttons(numero,
-                'Cambia dólares al mejor tipo de cambio, sin salir de tu WhatsApp. 👇\n\n'
-                '> Cotiza sin compromiso en vivo',
+                'Hola! \nBienvenido a Qoricash, 💱 cambia dólares al mejor tipo de cambio, sin salir de tu WhatsApp. \n\n'
+                '> Cotiza sin compromiso en vivo 👇',
                 [
                     {'id': 'btn_comprar',     'title': 'Soles a dólares'},
                     {'id': 'btn_vender',      'title': 'Dólares a soles'},
@@ -1422,9 +1422,8 @@ def _bienvenida(numero, session):
             )
         else:
             send_buttons_image(numero, 'https://app.qoricash.pe/static/images/banner_bienvenida.jpg',
-                '¡Bienvenido a Qoricash! 👋\n'
-                'Cambia dólares al mejor tipo de cambio, sin salir de tu WhatsApp. 👇\n\n'
-                '> Cotiza sin compromiso en vivo',
+                'Hola! \nBienvenido a Qoricash, 💱 cambia dólares al mejor tipo de cambio, sin salir de tu WhatsApp. \n\n'
+                '> Cotiza sin compromiso en vivo 👇',
                 [
                     {'id': 'btn_comprar',     'title': 'Soles a dólares'},
                     {'id': 'btn_vender',      'title': 'Dólares a soles'},
