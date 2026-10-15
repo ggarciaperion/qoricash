@@ -1415,7 +1415,7 @@ def _bienvenida(numero, session):
                 ]
             )
         else:
-            send_buttons(numero,
+            send_buttons_image(numero, 'https://app.qoricash.pe/static/images/banner_bienvenida.jpg',
                 '¡Bienvenido a Qoricash! 👋\n'
                 'Cambia dólares al mejor tipo de cambio, sin salir de tu WhatsApp.\n\n'
                 '¿Qué operación te interesa?',
