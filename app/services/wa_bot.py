@@ -3763,7 +3763,7 @@ def _proxima_apertura():
     candidate = hoy + timedelta(days=1)
     for _ in range(14):  # máximo 2 semanas hacia adelante
         es_feriado = (candidate.day, candidate.month) in _FERIADOS_PE
-        es_fin_semana = candidate.weekday() >= 5  # Sábado=5, Domingo=6
+        es_fin_semana = candidate.weekday() == 6  # Solo domingo es no laborable
         if not es_feriado and not es_fin_semana:
             if candidate == hoy + timedelta(days=1):
                 return 'mañana a las 9:00 AM'
