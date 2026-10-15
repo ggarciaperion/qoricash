@@ -3763,13 +3763,14 @@ def _proxima_apertura():
     candidate = hoy + timedelta(days=1)
     for _ in range(14):  # máximo 2 semanas hacia adelante
         es_feriado = (candidate.day, candidate.month) in _FERIADOS_PE
-        if not es_feriado:
+        es_fin_semana = candidate.weekday() >= 5  # Sábado=5, Domingo=6
+        if not es_feriado and not es_fin_semana:
             if candidate == hoy + timedelta(days=1):
                 return 'mañana a las 9:00 AM'
             nombre_dia = DIAS[candidate.weekday()]
             return f'el {nombre_dia} {candidate.day} de {MESES[candidate.month]} a las 9:00 AM'
         candidate += timedelta(days=1)
-    return 'el próximo día a las 9:00 AM'
+    return 'el próximo lunes a las 9:00 AM'
 
 
 def _flujo_fuera_horario(numero):
@@ -4377,40 +4378,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 _token_btn = btn_id[len(_prefix):] if len(btn_id) > len(_prefix) else ''
                 _token_ses = getattr(session, 'cotiz_token', None) or ''
                 _cotiz_stale = not _token_btn or not _token_ses or _token_btn != _token_ses
-                if not _is_horario_atencion() and not _cotiz_stale and session.estado == 'viendo_cotizacion':
-                    if session.cotiz_doc:
-                        # Ya identificado: registrar solicitud directamente
-                        _flujo_solicitud_fuera_horario(numero, session)
-                    else:
-                        # Sin identificación: pedir doc primero.
-                        # btn_confirmar_operacion interceptará fuera de horario al final
-                        # con los datos completos (doc, email, cuenta).
-                        _tipo_ac = (session.tipo or '').strip()
-                        if _tipo_ac == 'persona':
-                            send_buttons(numero,
-                                'Para registrar tu solicitud, ingresa tu *DNI* de 8 dígitos.\n\n'
-                                'Si tienes Carné de Extranjería, selecciona CE 👇',
-                                [
-                                    {'id': 'btn_tengo_ce',      'title': '🌍 Tengo CE'},
-                                    {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
-                                ]
-                            )
-                        elif _tipo_ac == 'empresa':
-                            send_buttons(numero,
-                                'Para registrar tu solicitud, ingresa el *RUC* de 11 dígitos de tu empresa.',
-                                [{'id': 'btn_volver_cotizar', 'title': '🔙 Volver'}]
-                            )
-                        else:
-                            send_buttons(numero,
-                                'Para registrar tu solicitud, ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos).\n\n'
-                                'Si tienes Carné de Extranjería, elige CE 👇',
-                                [
-                                    {'id': 'btn_tengo_ce',      'title': '🌍 Tengo CE'},
-                                    {'id': 'btn_volver_cotizar', 'title': '🔙 Volver'},
-                                ]
-                            )
-                        session.estado = 'esperando_id_cotizar'
-                elif _cotiz_stale:
+                if _cotiz_stale:
                     # Wrong token, no token, or superseded quote — reject silently
                     send_text(numero,
                         'Esta cotización ya fue reemplazada. Acepta la más reciente para continuar.'
@@ -5266,8 +5234,17 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 _co_token = _sfx_co.lstrip('_')            # '' si botón antiguo sin token
                 _sesion_token = getattr(session, 'cotiz_token', None) or ''
                 if not _is_horario_atencion() and estado == 'confirmando_operacion':
-                    # Fuera de horario: no crear op, dejar solicitud referencial
-                    _flujo_solicitud_fuera_horario(numero, session)
+                    # Fuera de horario: bloquear confirmación con mensaje claro
+                    _proximo_dia = _proxima_apertura()
+                    send_buttons(numero,
+                        f'⏰ *Fuera de horario*\n\n'
+                        f'Las operaciones se procesan de *lunes a viernes de 9:00 AM a 6:00 PM*.\n\n'
+                        f'Tu cotización queda guardada. Vuelve {_proximo_dia} y confirmamos tu cambio en minutos 😊',
+                        [
+                            {'id': 'btn_cotizar',  'title': '💱 Ver cotización'},
+                            {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
+                        ]
+                    )
                 elif estado != 'confirmando_operacion':
                     send_buttons(numero,
                         '⚠️ El resumen ya no está activo. ¿Quieres cotizar de nuevo?',
