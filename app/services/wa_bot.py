@@ -1323,7 +1323,7 @@ def _bienvenida(numero, session):
             [
                 {'id': 'btn_comprar',     'title': 'Soles a dólares'},
                 {'id': 'btn_vender',      'title': 'Dólares a soles'},
-                {'id': 'btn_soy_empresa', 'title': '🏢 Soy empresa'},
+                {'id': 'btn_soy_empresa', 'title': '🏢 Tasa corporativa'},
             ]
         )
         return
@@ -1417,7 +1417,7 @@ def _bienvenida(numero, session):
                 [
                     {'id': 'btn_comprar',     'title': 'Soles a dólares'},
                     {'id': 'btn_vender',      'title': 'Dólares a soles'},
-                    {'id': 'btn_soy_empresa', 'title': '🏢 Soy empresa'},
+                    {'id': 'btn_soy_empresa', 'title': '🏢 Tasa corporativa'},
                 ]
             )
         else:
@@ -1427,7 +1427,7 @@ def _bienvenida(numero, session):
                 [
                     {'id': 'btn_comprar',     'title': 'Soles a dólares'},
                     {'id': 'btn_vender',      'title': 'Dólares a soles'},
-                    {'id': 'btn_soy_empresa', 'title': '🏢 Soy empresa'},
+                    {'id': 'btn_soy_empresa', 'title': '🏢 Tasa corporativa'},
                 ]
             )
 
@@ -1463,7 +1463,7 @@ def _flujo_cotizar_inicio(numero):
         [
             {'id': 'btn_comprar',     'title': 'Soles a dólares'},
             {'id': 'btn_vender',      'title': 'Dólares a soles'},
-            {'id': 'btn_soy_empresa', 'title': '🏢 Soy empresa'},
+            {'id': 'btn_soy_empresa', 'title': '🏢 Tasa corporativa'},
         ]
     )
 
@@ -3974,7 +3974,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     [
                         {'id': 'btn_comprar',     'title': 'Soles a dólares'},
                         {'id': 'btn_vender',      'title': 'Dólares a soles'},
-                        {'id': 'btn_soy_empresa', 'title': '🏢 Soy empresa'},
+                        {'id': 'btn_soy_empresa', 'title': '🏢 Tasa corporativa'},
                     ]
                 )
                 session.estado = 'eligiendo_operacion'
@@ -5069,7 +5069,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     [
                         {'id': 'btn_comprar',     'title': 'Soles a dólares'},
                         {'id': 'btn_vender',      'title': 'Dólares a soles'},
-                        {'id': 'btn_soy_empresa', 'title': '🏢 Soy empresa'},
+                        {'id': 'btn_soy_empresa', 'title': '🏢 Tasa corporativa'},
                     ]
                 )
                 session.estado = 'eligiendo_operacion'
