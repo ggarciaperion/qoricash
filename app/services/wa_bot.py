@@ -1341,7 +1341,7 @@ def _bienvenida(numero, session):
         session.cotiz_doc = p.dni
         session.nombre    = primer or (p.full_name or '').strip() or session.nombre or ''
         saludo = f'¡Hola, {primer}! 👋 Bienvenido a Qoricash.' if primer else '¡Hola! 👋 Bienvenido a Qoricash.'
-        send_buttons_image(numero, BANNER_URL,
+        send_buttons(numero,
             f'{saludo}\n'
             '📲 Cambia soles y dólares sin salir de tu WhatsApp.\n\n'
             '¿Qué operación cotizamos hoy?\n'
@@ -1361,7 +1361,7 @@ def _bienvenida(numero, session):
         session.cotiz_doc = emp.dni
         session.nombre    = razon or emp.dni or ''
         saludo = f'¡Hola, equipo de {razon}! 👋 Bienvenidos a Qoricash.' if razon else '¡Hola! 👋 Bienvenidos a Qoricash.'
-        send_buttons_image(numero, BANNER_URL,
+        send_buttons(numero,
             f'{saludo}\n'
             '📲 Cambia soles y dólares sin salir de tu WhatsApp.\n\n'
             '¿Qué desean cotizar?\n'
@@ -1378,7 +1378,7 @@ def _bienvenida(numero, session):
         p = personas[0]
         primer = (p.nombres or '').strip().split()[0].title() if (p.nombres or '').strip() else ''
         saludo = f'¡Hola, {primer}! 👋 Bienvenido a Qoricash.' if primer else '¡Hola! 👋 Bienvenido a Qoricash.'
-        send_buttons_image(numero, BANNER_URL,
+        send_buttons(numero,
             f'{saludo}\n'
             '📲 Cambia soles y dólares sin salir de tu WhatsApp.\n\n'
             '¿Deseas cotizar como persona o como empresa?',
@@ -1394,7 +1394,7 @@ def _bienvenida(numero, session):
         for emp in empresas[:3]:
             razon_e = (emp.razon_social or emp.dni or '')[:16]
             opciones.append({'id': f'btn_operar_empresa_{emp.dni}', 'title': f'🏢 {razon_e}'[:20]})
-        send_buttons_image(numero, BANNER_URL,
+        send_buttons(numero,
             '¡Bienvenido a Qoricash! 👋\n\n'
             '¿A nombre de qué empresa deseas operar?',
             opciones
@@ -1415,7 +1415,7 @@ def _bienvenida(numero, session):
                 ]
             )
         else:
-            send_buttons_image(numero, BANNER_URL,
+            send_buttons(numero,
                 '¡Bienvenido a Qoricash! 👋\n'
                 'Cambia dólares al mejor tipo de cambio, sin salir de tu WhatsApp.\n\n'
                 '¿Qué operación te interesa?',
@@ -1612,7 +1612,6 @@ def _menu_rapido(numero):
 
 def _flujo_como_funciona(numero):
     """Explica el proceso de cambio y destaca seguridad / regulación SBS."""
-    BANNER_URL = 'https://qoricash.pe/334.jpg'
     msg = (
         '1️⃣ *Cotiza* — Dinos cuánto quieres cambiar y te damos el precio al instante. Sin compromisos.\n\n'
         '2️⃣ *Transfiere* — Envías el dinero a la cuenta bancaria de Qoricash y nos mandas el *código de operación* '
@@ -1621,7 +1620,7 @@ def _flujo_como_funciona(numero):
         '🔒 Inscritos en SBS\n'
         '🕐 Lun–Dom 8am–10pm'
     )
-    send_buttons_image(numero, BANNER_URL, msg, [
+    send_buttons(numero, msg, [
         {'id': 'btn_elegir_operacion', 'title': '💱 Cotizar'},
         {'id': 'btn_asesor',           'title': '💬 Hablar con asesor'},
     ])
