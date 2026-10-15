@@ -1567,7 +1567,7 @@ def _flujo_mostrar_cotizacion(numero, session):
     # Aviso si estamos fuera del horario de atención
     if not _is_horario_atencion():
         _proximo_h = _proxima_apertura()
-        resumen += f'\n\n⏰ _Fuera de horario. Podrás confirmar tu operación el {_proximo_h}._'
+        resumen += f'\n\n⏰ _Fuera de horario. Podrás confirmar tu operación {_proximo_h}._'
 
     session.cotiz_tc = tc_final
     try:
