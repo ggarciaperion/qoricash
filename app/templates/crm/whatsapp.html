@@ -713,12 +713,12 @@ body.has-pb-bar.has-sidebar .main-wrapper {
 }
 
 /* ══ HEADER DROPDOWN MENU ═════════════════════════════════ */
-.crm-hdr-menu-wrap { position: relative; }
+.crm-hdr-menu-wrap { position: static; }
 .crm-hdr-menu {
-  position: absolute; top: calc(100% + 6px); right: 0;
+  position: fixed;
   background: #1a2535; border: 1px solid rgba(255,255,255,.12);
   border-radius: 10px; padding: 5px;
-  min-width: 210px; z-index: 300;
+  min-width: 210px; z-index: 9999;
   box-shadow: 0 8px 28px rgba(0,0,0,.45);
   display: none;
 }
@@ -1963,7 +1963,13 @@ function getCsrf() {
 // ══════════════════════════════════════════════════════
 function toggleHdrMenu(ev) {
   ev.stopPropagation();
-  document.getElementById('hdrMenu').classList.toggle('open');
+  const menu = document.getElementById('hdrMenu');
+  const btn  = document.getElementById('btnMenuTrigger');
+  const rect = btn.getBoundingClientRect();
+  // Posicionar justo debajo del botón, alineado a la derecha
+  menu.style.top  = (rect.bottom + 6) + 'px';
+  menu.style.left = Math.max(8, rect.right - 210) + 'px';
+  menu.classList.toggle('open');
 }
 function closeHdrMenu() {
   const m = document.getElementById('hdrMenu');
