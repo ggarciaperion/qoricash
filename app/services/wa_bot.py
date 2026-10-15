@@ -4021,7 +4021,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     send_buttons(numero,
                         '🏢 Para mostrarte la *tasa corporativa* necesito verificar tu empresa.\n\n'
                         'Ingresa el *RUC* de tu empresa (11 dígitos):',
-                        [{'id': 'btn_como_persona', 'title': '👤 Soy persona natural'}]
+                        [{'id': 'btn_como_persona', 'title': '👤 Soy persona'}]
                     )
                     session.estado = 'esperando_ruc_cotizar'
 
@@ -4075,7 +4075,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     session.estado = 'esperando_ruc_cotizar'
                 elif _empresas_cp and not _personas_cp:
                     # Solo empresas → ofrecer registrar persona natural + selector de empresa
-                    _opciones_cp = [{'id': 'btn_como_persona', 'title': '👤 Soy persona natural'}]
+                    _opciones_cp = [{'id': 'btn_como_persona', 'title': '👤 Soy persona'}]
                     for _emp_cp in _empresas_cp[:2]:
                         _razon_cp = (_emp_cp.razon_social or _emp_cp.dni or '')[:16]
                         _opciones_cp.append({'id': f'btn_operar_empresa_{_emp_cp.dni}', 'title': f'🏢 {_razon_cp}'[:20]})
@@ -4186,7 +4186,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                     send_buttons(numero,
                         '🏢 Para mostrarte la *tasa corporativa* necesito verificar tu empresa.\n\n'
                         'Ingresa el *RUC* de tu empresa (11 dígitos):',
-                        [{'id': 'btn_como_persona', 'title': '👤 Soy persona natural'}]
+                        [{'id': 'btn_como_persona', 'title': '👤 Soy persona'}]
                     )
                     session.estado = 'esperando_ruc_cotizar'
 
