@@ -1623,7 +1623,7 @@ def _flujo_como_funciona(numero):
         'de tu constancia bancaria (N° op, referencia o código de transacción).\n\n'
         '3️⃣ *¡Listo!* — En minutos transferimos a tu cuenta y te avisamos aquí por WhatsApp.\n\n'
         '🔒 Inscritos en SBS\n'
-        '🕐 Lun–Dom 8am–10pm'
+        '🕐 Lun-Dom 9am-6pm'
     )
     send_buttons(numero, msg, [
         {'id': 'btn_elegir_operacion', 'title': '💱 Cotizar'},
@@ -3716,11 +3716,11 @@ def _respuesta_ia(texto_usuario, numero, session, wa_id=''):
 def _is_horario_atencion():
     """
     Retorna True si estamos dentro del horario de atención:
-      Lun–Dom  08:00 – 22:00  (incluye feriados nacionales)
+      Lun-Dom  09:00 – 18:00  (incluye feriados nacionales)
     """
     from app.utils.formatters import now_peru
     now = now_peru()
-    return 8 <= now.hour < 22
+    return 9 <= now.hour < 18
 
 
 # Feriados nacionales Perú 2026 (fecha, mes)
