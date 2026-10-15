@@ -5690,7 +5690,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                             send_buttons(numero,
                                 f'Documento verificado con éxito ✅\n\n'
                                 f'Para finalizar, coloca tu *correo electrónico*:\n\n'
-                                f'> Revísalo bien tu correo antes de enviarlo.',
+                                f'> Revisa bien tu correo antes de enviarlo.',
                                 [
                                     {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'},
                                 ]
@@ -5902,7 +5902,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                                     send_buttons(numero,
                                         f'Documento verificado con éxito ✅\n\n'
                                         f'Para finalizar, coloca tu *correo electrónico*:\n\n'
-                                        f'> Revísalo bien tu correo antes de enviarlo.',
+                                        f'> Revisa bien tu correo antes de enviarlo.',
                                         [
                                             {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'},
                                         ]
