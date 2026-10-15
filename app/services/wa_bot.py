@@ -1635,7 +1635,7 @@ def _flujo_horario(numero):
     """Responde directamente con el horario de atención."""
     send_buttons(numero,
         '🕐 *Horario de atención Qoricash*\n\n'
-        '• Todos los días (incluye feriados): *8:00 AM – 10:00 PM*\n\n'
+        '• Todos los días (incluye feriados): *9:00 AM – 6:00 PM*\n\n'
         'Puedes cotizar el tipo de cambio en cualquier momento 😊',
         [
             {'id': 'btn_cotizar', 'title': '💱 Cotizar ahora'},
@@ -3547,11 +3547,11 @@ def _respuesta_ia(texto_usuario, numero, session, wa_id=''):
         nombre_cliente = session.nombre or 'cliente'
         registrado     = bool(session.cotiz_doc)
         en_horario     = _is_horario_atencion()
-        horario_txt    = 'Todos los días, incluyendo feriados: 8:00 am – 10:00 pm'
+        horario_txt    = 'Todos los días, incluyendo feriados: 9:00 AM – 6:00 PM'
         disponibilidad = (
             'en horario de atención'
             if en_horario else
-            'fuera de horario (la operación se registra y se procesa cuando abramos, a las 8:00 AM)'
+            'fuera de horario (la operación se registra y se procesa cuando abramos, a las 9:00 AM)'
         )
 
         # Contexto estructurado de la sesión actual (estado, cotización, op, cuenta)
@@ -3738,7 +3738,7 @@ def _next_business_day():
 def _proxima_apertura():
     """
     Retorna un string con el próximo día de atención (cualquier día no feriado)
-    a las 8:00 AM. Ejemplo: 'mañana a las 8:00 AM' o 'el lunes 11 de agosto a las 8:00 AM'.
+    a las 9:00 AM. Ejemplo: 'mañana a las 9:00 AM' o 'el lunes 11 de agosto a las 9:00 AM'.
     """
     from app.utils.formatters import now_peru
     from datetime import timedelta
@@ -3751,11 +3751,11 @@ def _proxima_apertura():
         es_feriado = (candidate.day, candidate.month) in _FERIADOS_PE
         if not es_feriado:
             if candidate == hoy + timedelta(days=1):
-                return 'mañana a las 8:00 AM'
+                return 'mañana a las 9:00 AM'
             nombre_dia = DIAS[candidate.weekday()]
-            return f'el {nombre_dia} {candidate.day} de {MESES[candidate.month]} a las 8:00 AM'
+            return f'el {nombre_dia} {candidate.day} de {MESES[candidate.month]} a las 9:00 AM'
         candidate += timedelta(days=1)
-    return 'el próximo día a las 8:00 AM'
+    return 'el próximo día a las 9:00 AM'
 
 
 def _flujo_fuera_horario(numero):
@@ -3763,7 +3763,7 @@ def _flujo_fuera_horario(numero):
     _proximo = _proxima_apertura()
     send_buttons(numero,
         '🕐 *Fuera de horario*\n\n'
-        'Nuestro horario de atención es de *8:00 AM a 10:00 PM*, todos los días (incluye feriados).\n\n'
+        'Nuestro horario de atención es de *9:00 AM a 6:00 PM*, todos los días (incluye feriados).\n\n'
         f'Retomamos {_proximo} 😊\n\n'
         'Mientras tanto puedes cotizar el tipo de cambio o dejarnos tu solicitud.',
         [
