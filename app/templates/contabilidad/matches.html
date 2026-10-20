@@ -329,6 +329,11 @@ const TIPO_BADGE = {
 function fmt2(v) { return v != null ? parseFloat(v).toFixed(2) : '—'; }
 function fmt4(v) { return v != null ? parseFloat(v).toFixed(4) : '—'; }
 function fmtPen(v) { return v != null ? 'S/ ' + parseFloat(v).toFixed(2) : '—'; }
+function fmtFecha(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.getDate() + ' ' + d.toLocaleString('es', { month: 'short' });
+}
 function fmtPenColor(v) {
   if (v == null) return '—';
   const n = parseFloat(v);
@@ -544,6 +549,7 @@ function _opCard(op, side) {
         <div class="progress-bar bg-${color}" style="width:${pct}%"></div>
       </div>
       <span class="text-muted" style="font-size:.7rem;">${pct}% libre</span>
+      ${op.completed_at ? `<span class="text-muted" style="font-size:.68rem; opacity:.7;">· ${fmtFecha(op.completed_at)}</span>` : ''}
     </div>
     ${op.available_usd < op.amount_usd
       ? `<div style="font-size:.68rem;" class="text-muted">Total: USD ${fmt2(op.amount_usd)} · Amarrado: USD ${fmt2(op.amount_usd - op.available_usd)}</div>`
