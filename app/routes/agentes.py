@@ -269,7 +269,145 @@ def configuracion():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# APIs JSON
+# APIs JSON v2 — Mission Control (lectura, sin fallbacks silenciosos)
+# Cada endpoint es independiente: un error en uno no afecta a los demás.
+# Todos requieren autenticación y rol Master/Presidente de Negocios.
+# ─────────────────────────────────────────────────────────────────────────────
+
+@agentes_bp.route('/api/v2/resumen')
+@login_required
+@_require_agent_access
+def api_v2_resumen():
+    """
+    Resumen ejecutivo: worker online, TC, bandejas, outreach hoy, dry_run, sync.
+    Fuente: worker tables (agent_heartbeat, runtime_config, bandeja_estado,
+            outreach_log, sync_state).
+    Cache 120 s. Errores independientes por bloque.
+    """
+    import time as _time
+    t0 = _time.perf_counter()
+    from app.services.mc_repo import get_resumen
+    data = get_resumen()
+    data['_server_ms'] = round((_time.perf_counter() - t0) * 1000, 1)
+    return jsonify(data)
+
+
+@agentes_bp.route('/api/v2/agentes')
+@login_required
+@_require_agent_access
+def api_v2_agentes():
+    """
+    Estado de agentes.
+    worker_agents: agent_heartbeat JOIN agent_runs (worker).
+    flask_agents:  agent_status ORM (Flask).
+    Cache 30 s. Errores independientes por bloque.
+    """
+    import time as _time
+    t0 = _time.perf_counter()
+    from app.services.mc_repo import get_agentes
+    data = get_agentes()
+    data['_server_ms'] = round((_time.perf_counter() - t0) * 1000, 1)
+    return jsonify(data)
+
+
+@agentes_bp.route('/api/v2/prospectos')
+@login_required
+@_require_agent_access
+def api_v2_prospectos():
+    """
+    Búsqueda paginada en ec_prospectos (worker).
+    Parámetros: q, estado_email, estado_com, page (default 1), per_page (default 50, max 100).
+    NUNCA descarga la tabla completa.
+    Fuente exclusiva: ec_prospectos. No mezcla con Flask 'prospectos'.
+    """
+    import time as _time
+    t0 = _time.perf_counter()
+    from app.services.mc_repo import get_prospectos
+    try:
+        page     = max(1, int(request.args.get('page', 1)))
+        per_page = max(1, min(100, int(request.args.get('per_page', 50))))
+    except (ValueError, TypeError):
+        page, per_page = 1, 50
+    data = get_prospectos(
+        q            = request.args.get('q', '').strip(),
+        estado_email = request.args.get('estado_email', '').strip(),
+        estado_com   = request.args.get('estado_com', '').strip(),
+        page         = page,
+        per_page     = per_page,
+    )
+    data['_server_ms'] = round((_time.perf_counter() - t0) * 1000, 1)
+    return jsonify(data)
+
+
+@agentes_bp.route('/api/v2/prospectos/estados')
+@login_required
+@_require_agent_access
+def api_v2_prospectos_estados():
+    """Distribución de estados para filtros. Cache 5 min."""
+    from app.services.mc_repo import get_prospectos_estados
+    return jsonify(get_prospectos_estados())
+
+
+@agentes_bp.route('/api/v2/historial')
+@login_required
+@_require_agent_access
+def api_v2_historial():
+    """
+    Últimas ejecuciones del worker.
+    Parámetros: agent (opcional), limit (default 20, max 200).
+    Fuente: agent_runs. Cache 60 s (sin filtro de agente).
+    """
+    import time as _time
+    t0 = _time.perf_counter()
+    from app.services.mc_repo import get_historial_runs
+    try:
+        limit = max(1, min(200, int(request.args.get('limit', 20))))
+    except (ValueError, TypeError):
+        limit = 20
+    data = get_historial_runs(
+        agent = request.args.get('agent', '').strip(),
+        limit = limit,
+    )
+    data['_server_ms'] = round((_time.perf_counter() - t0) * 1000, 1)
+    return jsonify(data)
+
+
+@agentes_bp.route('/api/v2/prospecto/<int:prospecto_id>/historial')
+@login_required
+@_require_agent_access
+def api_v2_prospecto_historial(prospecto_id: int):
+    """
+    Historial completo de un prospecto: envíos, transiciones de estado, leads.
+    Fuente: ec_prospectos + outreach_log + prospect_state_log + lead_pipeline.
+    Sin cache (consulta específica).
+    """
+    import time as _time
+    t0 = _time.perf_counter()
+    from app.services.mc_repo import get_prospecto_historial
+    data = get_prospecto_historial(prospecto_id)
+    data['_server_ms'] = round((_time.perf_counter() - t0) * 1000, 1)
+    return jsonify(data)
+
+
+@agentes_bp.route('/api/v2/alertas')
+@login_required
+@_require_agent_access
+def api_v2_alertas():
+    """
+    Alertas recientes del worker.
+    Fuente: alerts_log. Sin cache.
+    Parámetro: limit (default 30, max 200).
+    """
+    from app.services.mc_repo import get_alertas_worker
+    try:
+        limit = max(1, min(200, int(request.args.get('limit', 30))))
+    except (ValueError, TypeError):
+        limit = 30
+    return jsonify(get_alertas_worker(limit))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# APIs JSON (legacy — sin cambios)
 # ─────────────────────────────────────────────────────────────────────────────
 
 @agentes_bp.route('/api/prospeccion/kpis')
