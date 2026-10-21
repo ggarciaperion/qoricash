@@ -363,6 +363,11 @@
     <!-- ─────────────────── TAB: RESUMEN ─────────────────── -->
     <div class="mc-pane active" id="pane-resumen">
 
+      <!-- FIX 1: env_note banner — visible only when SQLite local -->
+      <div id="envNote" style="display:none;background:#fef3c7;border:1px solid #d97706;border-radius:8px;
+           padding:6px 14px;font-size:.72rem;color:#92400e;margin-bottom:12px;font-weight:600;">
+      </div>
+
       <!-- KPI strip -->
       <div class="kpi-row" id="kpiRow">
         <div class="skel skel-kpi"></div>
@@ -714,14 +719,33 @@ function renderResumen(d) {
       document.getElementById('bandejasRow').innerHTML = items.map(b => `
         <div class="bandeja-card">
           <div class="bandeja-name">${b.bandeja}</div>
-          <div class="bandeja-sent">${b.enviados_hoy ?? '—'}</div>
-          <div class="bandeja-sub">enviados hoy · ${b.bounce_24h ?? 0} rebotes 24h</div>
+          <div class="bandeja-sent" style="${b.data_stale ? 'color:var(--amber);' : ''}">
+            ${b.enviados_hoy ?? '—'}
+          </div>
+          <div class="bandeja-sub">
+            ${b.data_stale
+              ? `<span title="${esc(b.enviados_hoy_nota||'')}">⚠ dato de ${esc(b.data_date||'?')} · ${b.bounce_24h ?? 0} rebotes</span>`
+              : `enviados hoy · ${b.bounce_24h ?? 0} rebotes 24h`}
+          </div>
           ${b.pausada ? `<div style="margin-top:6px;"><span class="stag stag-warn"><i class="bi bi-pause-fill"></i> pausada</span></div>` : ''}
         </div>
       `).join('');
     }
-    const age = bnd.ultimo_update ? ` · actualizado ${fmtDatetime(bnd.ultimo_update)}` : '';
-    document.getElementById('bandejasAge').textContent = `fuente: bandeja_estado${age}`;
+    const bndAge      = bnd.ultimo_update ? `datos: ${fmtDatetime(bnd.ultimo_update)}` : '';
+    const bndQDate    = bnd.query_date    ? ` · consulta: ${bnd.query_date}` : '';
+    document.getElementById('bandejasAge').textContent = `fuente: bandeja_estado · ${bndAge}${bndQDate}`;
+  }
+
+  /* FIX 1: env_note — entorno identificado */
+  if (d.env_note && d.env_note.toLowerCase().includes('sqlite')) {
+    const note = document.getElementById('envNote');
+    if (note) {
+      note.textContent = `⚠ ${d.env_note}`;
+      note.style.display = 'block';
+    }
+  } else {
+    const note = document.getElementById('envNote');
+    if (note) note.style.display = 'none';
   }
 
   /* Query time */
@@ -840,7 +864,7 @@ async function loadAgentes(force = false) {
     const meta = `consulta: ${fmtDatetime(data.query_at)}${data.cached ? ' · caché' : ''} · ${data._server_ms != null ? data._server_ms + ' ms' : ''}`;
     document.getElementById('agentesMeta').textContent = meta;
 
-    /* Worker agents */
+    /* Worker agents — FIX 2: heartbeat_available puede ser false */
     const wa = data.worker_agents || {};
     if (wa.error) {
       document.getElementById('workerAgentsGrid').innerHTML =
@@ -848,10 +872,20 @@ async function loadAgentes(force = false) {
     } else {
       const items = wa.items || [];
       document.getElementById('tabBadgeAgentes').textContent = items.length;
+      /* FIX 2: mostrar nota cuando agent_heartbeat no está disponible */
+      const hbBanner = wa.heartbeat_available === false
+        ? `<div style="grid-column:1/-1;background:#fef3c7;border:1px solid #d97706;border-radius:8px;
+               padding:6px 14px;font-size:.71rem;color:#92400e;margin-bottom:8px;">
+             <i class="bi bi-exclamation-triangle"></i>
+             Señal de vida: No disponible — ${esc(wa.heartbeat_nota||'tabla agent_heartbeat ausente')}
+           </div>`
+        : '';
       document.getElementById('workerAgentsGrid').innerHTML =
-        items.length === 0
-          ? `<div class="mc-empty" style="grid-column:1/-1;"><i class="bi bi-cpu"></i>Sin agentes worker registrados</div>`
-          : items.map(a => renderWorkerAgentCard(a)).join('');
+        hbBanner + (
+          items.length === 0
+            ? `<div class="mc-empty" style="grid-column:1/-1;"><i class="bi bi-cpu"></i>Sin ejecuciones en agent_runs</div>`
+            : items.map(a => renderWorkerAgentCard(a)).join('')
+        );
     }
 
     /* Flask agents */
@@ -912,11 +946,14 @@ function renderWorkerAgentCard(a) {
         ${durStr ? `<span><i class="bi bi-stopwatch"></i> ${durStr}</span>` : ''}
         ${a.actions_taken != null ? `<span><i class="bi bi-check2-all"></i> ${a.actions_taken} acciones</span>` : ''}
         ${a.records_out != null ? `<span><i class="bi bi-box-arrow-up"></i> ${a.records_out} out</span>` : ''}
-        ${lastRunStatus ? `<span class="${lastRunStatus === 'ok' || lastRunStatus === 'success' ? 'run-ok' : lastRunStatus === 'error' || lastRunStatus === 'failed' ? 'run-err' : ''}">
-          <i class="bi bi-flag"></i> ${lastRunStatus}</span>` : ''}
+        ${/* FIX 6: sin cierre registrado si no hay finished_at */
+          a.cierre_registrado === false
+            ? `<span style="color:var(--amber);font-size:.68rem;font-weight:600;"><i class="bi bi-hourglass"></i> sin cierre registrado</span>`
+            : (lastRunStatus ? `<span class="${lastRunStatus === 'ok' || lastRunStatus === 'success' ? 'run-ok' : lastRunStatus === 'error' || lastRunStatus === 'failed' ? 'run-err' : ''}">
+                <i class="bi bi-flag"></i> ${lastRunStatus}</span>` : '')}
       </div>
       ${a.last_error ? `<div class="agent-err"><i class="bi bi-exclamation-circle"></i> ${esc(a.last_error)}</div>` : ''}
-      <div class="data-age" style="margin-top:6px;">fuente: agent_heartbeat + agent_runs</div>
+      <div class="data-age" style="margin-top:6px;">fuente: ${a.last_seen ? 'agent_heartbeat + agent_runs' : 'agent_runs (sin heartbeat)'}</div>
     </div>
   `;
 }
@@ -1021,19 +1058,27 @@ async function loadHistorial() {
     }
 
     document.getElementById('historialTbody').innerHTML = items.map(r => {
-      const stClass = r.status === 'ok' || r.status === 'success' ? 'run-ok'
-                    : r.status === 'error' || r.status === 'failed' ? 'run-err'
-                    : 'run-warn';
+      /* FIX 6: usar display_status cuando no hay cierre registrado */
+      const displaySt = !r.cierre_registrado
+        ? 'sin cierre registrado'
+        : (r.status || '—');
+      const stClass = !r.cierre_registrado
+        ? 'run-warn'
+        : (r.status === 'ok' || r.status === 'success' ? 'run-ok'
+           : r.status === 'error' || r.status === 'failed' ? 'run-err'
+           : 'run-warn');
       const dur = r.duration_s != null ? fmtDuration(r.duration_s) : '—';
+      /* FIX 7: origin de triggered_by; nulo = 'origen no identificado' */
+      const originText = esc(r.origin || r.triggered_by || 'origen no identificado');
       return `
         <tr>
           <td style="font-weight:600;">${esc(r.agent)}</td>
           <td class="data-age">${r.started_at ? fmtDatetime(r.started_at) : '—'}</td>
           <td style="font-family:monospace;">${dur}</td>
-          <td><span class="${stClass}" style="font-weight:600;">${esc(r.status || '—')}</span></td>
+          <td><span class="${stClass}" style="font-weight:600;">${esc(displaySt)}</span></td>
           <td style="font-family:monospace;">${r.actions_taken ?? '—'}</td>
           <td style="font-family:monospace;">${r.records_out ?? '—'}</td>
-          <td style="font-size:.68rem;color:var(--muted);">${esc(r.triggered_by || '—')}</td>
+          <td style="font-size:.68rem;color:var(--muted);">${originText}</td>
           <td style="font-size:.68rem;color:var(--red);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.error_msg||'')}">
             ${r.error_msg ? esc(r.error_msg.substring(0, 60)) + (r.error_msg.length > 60 ? '…' : '') : ''}
           </td>
@@ -1094,8 +1139,40 @@ async function loadProspectoDrawer(id) {
           <div><span style="color:var(--muted);">Est. email:</span> ${statusEmailTag(p.estado_email)}</div>
           <div><span style="color:var(--muted);">Est. com.:</span> ${statusComTag(p.estado_com)}</div>
         </div>
+        <div class="data-age" style="margin-top:8px;font-size:.6rem;color:#94a3b8;">
+          ${data.env_note || ''}
+        </div>
       </div>
     `;
+
+    /* FIX 8: Suppression — independiente del estado_com */
+    const sup = data.suppression || {};
+    if (!sup.error) {
+      if (sup.suprimido) {
+        const conflictoHtml = sup.conflicto
+          ? \`<div style="margin-top:6px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:6px 10px;font-size:.71rem;color:#991b1b;font-weight:600;">
+              ⚠ \${esc(sup.nota || 'Email en suppression — NO enviar')}
+            </div>\`
+          : '';
+        html += \`<div class="mc-card" style="margin-bottom:16px;border-color:#fca5a5;">
+          <div class="mc-card-title" style="color:var(--red);">
+            <i class="bi bi-slash-circle"></i> Suppression
+            <span class="src">fuente: suppression</span>
+          </div>
+          <div style="font-size:.76rem;">
+            <strong>Email suprimido</strong>
+            \${sup.razon ? ' · ' + esc(sup.razon) : ''}
+            \${sup.desde ? ' · desde ' + fmtDatetime(sup.desde) : ''}
+          </div>
+          \${conflictoHtml}
+        </div>\`;
+      }
+      if (sup.aviso_fuente_clientes) {
+        html += \`<div class="data-age" style="margin-bottom:12px;padding:5px 10px;background:#f8fafc;border-radius:6px;font-size:.62rem;color:#64748b;">
+          ℹ \${esc(sup.aviso_fuente_clientes)}
+        </div>\`;
+      }
+    }
 
     /* Envíos */
     html += `<div class="mc-card-title" style="margin-bottom:8px;">
@@ -1106,7 +1183,7 @@ async function loadProspectoDrawer(id) {
     } else {
       html += `<div class="mc-card" style="padding:0;overflow:hidden;margin-bottom:16px;">
         <table class="mc-table">
-          <thead><tr><th>Fecha</th><th>Bandeja</th><th>Etapa</th><th>Estado</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Bandeja</th><th>Etapa</th><th>Estado</th><th>Origen</th></tr></thead>
           <tbody>
             ${outreach.map(o => `
               <tr>
@@ -1116,6 +1193,7 @@ async function loadProspectoDrawer(id) {
                 <td>${o.status === 'enviado'
                   ? `<span class="stag stag-ok">enviado</span>`
                   : `<span class="stag stag-warn">${esc(o.status||'—')}</span>`}</td>
+                <td style="font-size:.65rem;color:var(--muted);">${esc(o.origin||'—')}</td>
               </tr>
             `).join('')}
           </tbody>
