@@ -1,16 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Mission Control — Qoricash{% endblock %}
+{% block title %}Centro de prospección — Qoricash{% endblock %}
 
 {% block head %}
 <style>
 /* ═══════════════════════════════════════════════════════════
-   MISSION CONTROL v2 — #196BFE · blanco · negro
-   Bootstrap 5.1 ya cargado. Sin SVG pipeline.
+   CENTRO DE PROSPECCIÓN v3
+   #196BFE · blanco · negro — Bootstrap 5.1 ya cargado.
 ═══════════════════════════════════════════════════════════ */
 :root {
-  --qb:   #196BFE;          /* Qoricash blue */
-  --qbd:  #0f55d4;          /* blue dark (hover) */
-  --qbl:  #e8f0fe;          /* blue light (bg tint) */
+  --qb:   #196BFE;
+  --qbd:  #0f55d4;
+  --qbl:  #e8f0fe;
   --txt:  #0f172a;
   --muted:#64748b;
   --bdr:  #e2e8f0;
@@ -22,102 +22,113 @@
   --tag-h: 22px;
 }
 
-/* ── Shell ──────────────────────────────────────────────── */
 .mc { background: var(--bg); min-height: calc(100vh - 56px); }
 
 /* ── Topbar ─────────────────────────────────────────────── */
 .mc-top {
-  background: var(--card);
-  border-bottom: 1px solid var(--bdr);
-  padding: 0 24px;
-  display: flex; align-items: stretch;
-  position: sticky; top: 56px; z-index: 100;
-  gap: 0;
+  background: var(--card); border-bottom: 1px solid var(--bdr);
+  padding: 0 24px; display: flex; align-items: stretch;
+  position: sticky; top: 56px; z-index: 100; gap: 0;
 }
 .mc-brand {
-  display: flex; align-items: center; gap: 10px;
-  font-weight: 800; font-size: .8rem;
-  letter-spacing: .1em; text-transform: uppercase;
-  padding-right: 28px; border-right: 1px solid var(--bdr);
-  color: var(--txt);
+  display: flex; flex-direction: column; justify-content: center;
+  padding-right: 24px; border-right: 1px solid var(--bdr); min-width: 0;
+}
+.mc-brand-name {
+  font-weight: 800; font-size: .82rem; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--txt);
+  display: flex; align-items: center; gap: 8px; line-height: 1.2;
 }
 .mc-brand-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 0 3px rgba(22,163,74,.2);
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green); box-shadow: 0 0 0 3px rgba(22,163,74,.2);
   flex-shrink: 0;
 }
 .mc-brand-dot.offline { background: var(--red); box-shadow: 0 0 0 3px rgba(220,38,38,.2); }
 .mc-brand-dot.unknown { background: var(--amber); box-shadow: 0 0 0 3px rgba(215,119,6,.2); }
+.mc-brand-sub {
+  font-size: .62rem; color: var(--muted); line-height: 1.3;
+  max-width: 280px; margin-top: 2px; font-weight: 400;
+}
+
+/* ── Demo banner ─────────────────────────────────────────── */
+.demo-banner {
+  background: #fef3c7; border-bottom: 1px solid #fbbf24;
+  padding: 5px 24px; font-size: .72rem; color: #92400e; font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
+  position: sticky; top: calc(56px + 44px); z-index: 99;
+}
 
 /* ── Tabs ───────────────────────────────────────────────── */
-.mc-tabs {
-  display: flex; align-items: stretch;
-  padding: 0 16px; flex: 1; gap: 2px;
-}
+.mc-tabs { display: flex; align-items: stretch; padding: 0 16px; flex: 1; gap: 2px; }
 .mc-tab {
   display: flex; align-items: center; gap: 6px;
   padding: 0 14px; height: 44px; border: none; background: none;
   font-size: .78rem; font-weight: 600; color: var(--muted);
   cursor: pointer; border-bottom: 2px solid transparent;
-  transition: color .15s, border-color .15s;
-  white-space: nowrap;
+  transition: color .15s, border-color .15s; white-space: nowrap;
 }
 .mc-tab:hover { color: var(--txt); }
 .mc-tab.active { color: var(--qb); border-bottom-color: var(--qb); }
 .mc-tab .badge {
   background: var(--qbl); color: var(--qb);
   border-radius: 10px; padding: 1px 6px;
-  font-size: .65rem; font-weight: 700;
-  line-height: 16px;
+  font-size: .65rem; font-weight: 700; line-height: 16px;
 }
 .mc-tab .badge.red { background: #fee2e2; color: var(--red); }
 
-/* ── Right corner ───────────────────────────────────────── */
-.mc-corner {
-  display: flex; align-items: center; gap: 10px;
-  padding-left: 20px; border-left: 1px solid var(--bdr);
-}
-.mc-clock {
-  font-size: .7rem; color: var(--muted);
-  font-family: 'Courier New', monospace; letter-spacing: .04em;
-}
+/* ── Corner ──────────────────────────────────────────────── */
+.mc-corner { display: flex; align-items: center; gap: 10px; padding-left: 20px; border-left: 1px solid var(--bdr); }
+.mc-clock { font-size: .7rem; color: var(--muted); font-family: 'Courier New', monospace; letter-spacing: .04em; }
 .mc-refresh-btn {
   border: 1px solid var(--bdr); background: none; border-radius: 6px;
   padding: 4px 10px; font-size: .72rem; font-weight: 600; color: var(--muted);
-  cursor: pointer; display: flex; align-items: center; gap: 5px;
-  transition: all .15s;
+  cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all .15s;
 }
 .mc-refresh-btn:hover { border-color: var(--qb); color: var(--qb); }
 .mc-refresh-btn.spinning i { animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Content ────────────────────────────────────────────── */
-.mc-content { padding: 24px; max-width: 1400px; margin: 0 auto; }
+/* ── Content ─────────────────────────────────────────────── */
+.mc-content { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
 .mc-pane { display: none; }
 .mc-pane.active { display: block; }
 
-/* ── Cards ──────────────────────────────────────────────── */
-.mc-card {
-  background: var(--card); border: 1px solid var(--bdr);
-  border-radius: 10px; padding: 16px 20px;
-}
+/* ── Cards ───────────────────────────────────────────────── */
+.mc-card { background: var(--card); border: 1px solid var(--bdr); border-radius: 10px; padding: 16px 20px; }
 .mc-card-title {
   font-size: .65rem; font-weight: 700; color: var(--muted);
-  text-transform: uppercase; letter-spacing: .1em;
-  margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+  text-transform: uppercase; letter-spacing: .1em; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
 }
-.mc-card-title .src {
-  font-weight: 400; font-size: .6rem; color: #94a3b8;
-  margin-left: auto; letter-spacing: .02em; text-transform: none;
-}
+.mc-card-title .src { font-weight: 400; font-size: .6rem; color: #94a3b8; margin-left: auto; letter-spacing: .02em; text-transform: none; }
 
-/* ── Status tags ────────────────────────────────────────── */
+/* ── Commercial KPIs ─────────────────────────────────────── */
+.ckpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.ckpi {
+  background: var(--card); border: 1px solid var(--bdr);
+  border-radius: 10px; padding: 16px 18px; border-left: 3px solid var(--bdr);
+}
+.ckpi.blue  { border-left-color: var(--qb); }
+.ckpi.green { border-left-color: var(--green); }
+.ckpi.amber { border-left-color: var(--amber); }
+.ckpi.red   { border-left-color: var(--red); }
+.ckpi.gray  { border-left-color: #cbd5e1; }
+.ckpi-val { font-size: 1.8rem; font-weight: 800; line-height: 1; font-family: 'Courier New', monospace; color: var(--txt); }
+.ckpi-val.blue  { color: var(--qb); }
+.ckpi-val.green { color: var(--green); }
+.ckpi-val.amber { color: var(--amber); }
+.ckpi-val.red   { color: var(--red); }
+.ckpi-val.muted { color: #94a3b8; font-size: 1rem; margin-top: 6px; }
+.ckpi-lbl { font-size: .68rem; font-weight: 700; color: var(--txt); margin-top: 5px; }
+.ckpi-sub { font-size: .62rem; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+.ckpi-src { font-size: .58rem; color: #94a3b8; margin-top: 5px; }
+
+/* ── Status tags ─────────────────────────────────────────── */
 .stag {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 2px 8px; border-radius: 20px;
-  font-size: .65rem; font-weight: 700; height: var(--tag-h);
-  white-space: nowrap;
+  font-size: .65rem; font-weight: 700; height: var(--tag-h); white-space: nowrap;
 }
 .stag-running  { background: #dcfce7; color: #15803d; }
 .stag-ok       { background: #dbeafe; color: #1d4ed8; }
@@ -127,32 +138,11 @@
 .stag-stale    { background: #fef9c3; color: #854d0e; }
 .stag-nodata   { background: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; }
 .stag-disabled { background: #f1f5f9; color: #94a3b8; }
-.stag-dry      { background: #fef3c7; color: #92400e; }
 
-/* ── KPI strip ──────────────────────────────────────────── */
-.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
-.kpi {
-  background: var(--card); border: 1px solid var(--bdr);
-  border-radius: 10px; padding: 14px 16px;
-}
-.kpi-val { font-size: 1.6rem; font-weight: 800; color: var(--txt); line-height: 1.1; font-family: 'Courier New', monospace; }
-.kpi-lbl { font-size: .62rem; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: .08em; }
-.kpi-sub { font-size: .7rem; color: var(--muted); margin-top: 2px; }
-.kpi.accent { border-left: 3px solid var(--qb); }
-.kpi.green  { border-left: 3px solid var(--green); }
-.kpi.red    { border-left: 3px solid var(--red); }
-.kpi.amber  { border-left: 3px solid var(--amber); }
-.kpi-val.blue  { color: var(--qb); }
-.kpi-val.green { color: var(--green); }
-.kpi-val.red   { color: var(--red); }
-.kpi-val.amber { color: var(--amber); }
-.kpi-val.muted { color: var(--muted); }
-
-/* ── Section header ─────────────────────────────────────── */
+/* ── Section header ──────────────────────────────────────── */
 .sec-hdr {
   font-size: .72rem; font-weight: 700; color: var(--muted);
-  text-transform: uppercase; letter-spacing: .1em;
-  margin: 24px 0 10px;
+  text-transform: uppercase; letter-spacing: .1em; margin: 22px 0 10px;
   display: flex; align-items: center; gap: 8px;
 }
 .sec-hdr::after { content: ''; flex: 1; height: 1px; background: var(--bdr); }
@@ -162,155 +152,174 @@
   text-transform: none; letter-spacing: .02em; font-weight: 600;
 }
 
-/* ── Tables ─────────────────────────────────────────────── */
-.mc-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
-.mc-table th {
-  text-align: left; font-size: .63rem; font-weight: 700;
-  color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
-  padding: 7px 10px; border-bottom: 2px solid var(--bdr);
-  white-space: nowrap; background: var(--bg);
+/* ── Activity timeline ───────────────────────────────────── */
+.activity-list { display: flex; flex-direction: column; gap: 2px; }
+.activity-item {
+  display: grid; grid-template-columns: 52px 1fr auto;
+  gap: 0 12px; padding: 9px 12px; border-radius: 7px;
+  align-items: start; transition: background .12s;
 }
-.mc-table td {
-  padding: 9px 10px; border-bottom: 1px solid var(--bdr);
-  vertical-align: middle; color: var(--txt);
-}
-.mc-table tbody tr:last-child td { border-bottom: none; }
-.mc-table tbody tr:hover { background: var(--bg); }
-.mc-table tbody tr.clickable { cursor: pointer; }
-.mc-table tbody tr.clickable:hover td:first-child { color: var(--qb); }
+.activity-item:hover { background: var(--bg); }
+.activity-time { font-size: .66rem; color: var(--muted); font-family: 'Courier New', monospace; padding-top: 1px; }
+.activity-main { min-width: 0; }
+.activity-fn { font-size: .76rem; font-weight: 600; color: var(--txt); }
+.activity-detail { font-size: .68rem; color: var(--muted); margin-top: 1px; line-height: 1.4; }
+.activity-result { text-align: right; font-size: .68rem; white-space: nowrap; }
+.run-ok   { color: var(--green); font-weight: 600; }
+.run-err  { color: var(--red);   font-weight: 600; }
+.run-open { color: var(--amber); font-weight: 600; }
 
-/* ── Agent grid ─────────────────────────────────────────── */
-.agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+/* ── Attention items ─────────────────────────────────────── */
+.attn-list { display: flex; flex-direction: column; gap: 6px; }
+.attn-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: #fffbeb; border: 1px solid #fde68a;
+  border-radius: 8px; padding: 10px 14px;
+}
+.attn-item.critical { background: #fff1f2; border-color: #fecdd3; }
+.attn-item i { font-size: .9rem; margin-top: 1px; flex-shrink: 0; }
+.attn-item.critical i { color: var(--red); }
+.attn-item i { color: var(--amber); }
+.attn-body { flex: 1; min-width: 0; }
+.attn-title { font-size: .76rem; font-weight: 700; color: var(--txt); }
+.attn-sub   { font-size: .68rem; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+
+/* ── Technical details collapsible ──────────────────────── */
+.tech-toggle {
+  display: flex; align-items: center; gap: 7px;
+  font-size: .68rem; font-weight: 600; color: var(--muted);
+  cursor: pointer; padding: 6px 0; border: none; background: none;
+  text-decoration: none; transition: color .15s;
+}
+.tech-toggle:hover { color: var(--txt); }
+.tech-toggle i { transition: transform .2s; }
+.tech-toggle.open i.bi-chevron-right { transform: rotate(90deg); }
+.tech-body { display: none; margin-top: 8px; }
+.tech-body.open { display: block; }
+.tech-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.tech-cell {
+  background: var(--bg); border: 1px solid var(--bdr);
+  border-radius: 7px; padding: 8px 12px;
+}
+.tech-cell-lbl { font-size: .6rem; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; font-weight: 700; }
+.tech-cell-val { font-size: .74rem; color: var(--txt); margin-top: 3px; word-break: break-all; }
+
+/* ── Bandejas ────────────────────────────────────────────── */
+.bandeja-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.bandeja-card {
+  background: var(--card); border: 1px solid var(--bdr);
+  border-radius: 10px; padding: 12px 16px; flex: 1; min-width: 150px;
+}
+.bandeja-card.stale { border-color: #fde68a; background: #fffbeb; }
+.bandeja-name { font-size: .7rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.bandeja-sent { font-size: 1.4rem; font-weight: 800; color: var(--txt); font-family: 'Courier New', monospace; }
+.bandeja-sub  { font-size: .64rem; color: var(--muted); margin-top: 2px; }
+
+/* ── Agent cards ─────────────────────────────────────────── */
+.agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
 .agent-card {
   background: var(--card); border: 1px solid var(--bdr);
-  border-radius: 10px; padding: 14px 16px;
-  border-left: 3px solid var(--bdr);
+  border-radius: 10px; padding: 16px 18px; border-left: 3px solid var(--bdr);
   transition: border-color .15s;
 }
 .agent-card.running { border-left-color: var(--green); }
 .agent-card.error   { border-left-color: var(--red); }
 .agent-card.stale   { border-left-color: var(--amber); }
 .agent-card.nodata  { border-left-color: #cbd5e1; }
-.agent-card-name { font-size: .82rem; font-weight: 700; color: var(--txt); margin-bottom: 6px; }
-.agent-meta { font-size: .68rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; }
-.agent-meta span { display: flex; align-items: center; gap: 3px; }
-.agent-err { font-size: .67rem; color: var(--red); margin-top: 6px; background: #fff1f2; border-radius: 5px; padding: 4px 8px; word-break: break-word; }
+.agent-fn    { font-size: .88rem; font-weight: 700; color: var(--txt); margin-bottom: 4px; }
+.agent-desc  { font-size: .7rem; color: var(--muted); margin-bottom: 10px; line-height: 1.4; }
+.agent-stat  { display: flex; flex-direction: column; gap: 4px; font-size: .72rem; margin-bottom: 10px; }
+.agent-stat-row { display: flex; gap: 8px; align-items: flex-start; }
+.agent-stat-lbl { color: var(--muted); white-space: nowrap; min-width: 90px; }
+.agent-stat-val { color: var(--txt); font-weight: 500; }
+.agent-err { font-size: .67rem; color: var(--red); background: #fff1f2; border-radius: 5px; padding: 4px 8px; word-break: break-word; margin-top: 4px; }
+.data-age { font-size: .62rem; color: #94a3b8; }
+.data-age.stale { color: var(--amber); }
 
-/* ── Bandejas ───────────────────────────────────────────── */
-.bandeja-row { display: flex; flex-wrap: wrap; gap: 10px; }
-.bandeja-card {
-  background: var(--card); border: 1px solid var(--bdr);
-  border-radius: 10px; padding: 12px 16px; flex: 1; min-width: 160px;
+/* ── Tables ──────────────────────────────────────────────── */
+.mc-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+.mc-table th {
+  text-align: left; font-size: .63rem; font-weight: 700;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
+  padding: 7px 10px; border-bottom: 2px solid var(--bdr); white-space: nowrap; background: var(--bg);
 }
-.bandeja-name { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-.bandeja-sent { font-size: 1.4rem; font-weight: 800; color: var(--txt); font-family: 'Courier New', monospace; }
-.bandeja-sub  { font-size: .67rem; color: var(--muted); margin-top: 2px; }
+.mc-table td { padding: 9px 10px; border-bottom: 1px solid var(--bdr); vertical-align: middle; color: var(--txt); }
+.mc-table tbody tr:last-child td { border-bottom: none; }
+.mc-table tbody tr:hover { background: var(--bg); }
+.mc-table tbody tr.clickable { cursor: pointer; }
+.mc-table tbody tr.clickable:hover td:first-child { color: var(--qb); }
 
-/* ── Filter bar ─────────────────────────────────────────── */
-.filter-bar {
-  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-  margin-bottom: 14px;
-}
+/* ── Filter bar ──────────────────────────────────────────── */
+.filter-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
 .filter-bar input, .filter-bar select {
-  border: 1px solid var(--bdr); border-radius: 7px;
-  padding: 6px 10px; font-size: .76rem; color: var(--txt);
-  background: var(--card); outline: none;
-  transition: border-color .15s;
+  border: 1px solid var(--bdr); border-radius: 7px; padding: 6px 10px;
+  font-size: .76rem; color: var(--txt); background: var(--card); outline: none; transition: border-color .15s;
 }
 .filter-bar input:focus, .filter-bar select:focus { border-color: var(--qb); }
 .filter-bar input { min-width: 220px; }
 .filter-btn {
-  background: var(--qb); color: #fff; border: none;
-  border-radius: 7px; padding: 6px 14px;
-  font-size: .76rem; font-weight: 600; cursor: pointer;
-  transition: background .15s;
+  background: var(--qb); color: #fff; border: none; border-radius: 7px;
+  padding: 6px 14px; font-size: .76rem; font-weight: 600; cursor: pointer; transition: background .15s;
 }
 .filter-btn:hover { background: var(--qbd); }
-.filter-btn.secondary {
-  background: none; color: var(--muted); border: 1px solid var(--bdr);
-}
+.filter-btn.secondary { background: none; color: var(--muted); border: 1px solid var(--bdr); }
 .filter-btn.secondary:hover { border-color: var(--qb); color: var(--qb); background: none; }
 
-/* ── Pagination ─────────────────────────────────────────── */
+/* ── Pagination ──────────────────────────────────────────── */
 .pager { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: .76rem; color: var(--muted); }
 .pager button {
   border: 1px solid var(--bdr); background: var(--card); border-radius: 6px;
-  padding: 5px 12px; cursor: pointer; font-size: .76rem; color: var(--txt);
-  transition: all .15s;
+  padding: 5px 12px; cursor: pointer; font-size: .76rem; color: var(--txt); transition: all .15s;
 }
 .pager button:hover:not(:disabled) { border-color: var(--qb); color: var(--qb); }
 .pager button:disabled { opacity: .4; cursor: not-allowed; }
 
-/* ── Drawer ─────────────────────────────────────────────── */
+/* ── Drawer ──────────────────────────────────────────────── */
 .mc-drawer-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,.35);
-  z-index: 900; opacity: 0; pointer-events: none;
-  transition: opacity .2s;
+  z-index: 900; opacity: 0; pointer-events: none; transition: opacity .2s;
 }
 .mc-drawer-overlay.open { opacity: 1; pointer-events: all; }
 .mc-drawer {
   position: fixed; right: 0; top: 0; bottom: 0; width: 480px; max-width: 92vw;
-  background: var(--card); z-index: 901;
-  box-shadow: -4px 0 24px rgba(0,0,0,.12);
+  background: var(--card); z-index: 901; box-shadow: -4px 0 24px rgba(0,0,0,.12);
   display: flex; flex-direction: column;
   transform: translateX(100%); transition: transform .25s cubic-bezier(.4,0,.2,1);
 }
 .mc-drawer.open { transform: translateX(0); }
-.mc-drawer-header {
-  padding: 16px 20px; border-bottom: 1px solid var(--bdr);
-  display: flex; align-items: center; gap: 10px;
-}
+.mc-drawer-header { padding: 16px 20px; border-bottom: 1px solid var(--bdr); display: flex; align-items: center; gap: 10px; }
 .mc-drawer-title { font-size: .9rem; font-weight: 700; color: var(--txt); flex: 1; }
-.mc-drawer-close {
-  border: none; background: none; cursor: pointer; color: var(--muted);
-  font-size: 1.1rem; padding: 4px; border-radius: 5px;
-  transition: color .15s;
-}
+.mc-drawer-close { border: none; background: none; cursor: pointer; color: var(--muted); font-size: 1.1rem; padding: 4px; border-radius: 5px; transition: color .15s; }
 .mc-drawer-close:hover { color: var(--txt); }
 .mc-drawer-body { flex: 1; overflow-y: auto; padding: 20px; }
 
-/* ── Skeleton loaders ───────────────────────────────────── */
-.skel {
-  background: linear-gradient(90deg, #e2e8f0 25%, #f8fafc 50%, #e2e8f0 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s ease-in-out infinite;
-  border-radius: 5px;
-}
+/* ── Skeletons ───────────────────────────────────────────── */
+.skel { background: linear-gradient(90deg, #e2e8f0 25%, #f8fafc 50%, #e2e8f0 75%); background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite; border-radius: 5px; }
 @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
 .skel-row { height: 42px; margin-bottom: 6px; }
-.skel-kpi { height: 72px; border-radius: 10px; }
+.skel-kpi { height: 88px; border-radius: 10px; }
 
-/* ── Error / empty states ───────────────────────────────── */
-.mc-err {
-  background: #fff1f2; border: 1px solid #fecdd3;
-  border-radius: 8px; padding: 10px 14px;
-  font-size: .76rem; color: var(--red);
-  display: flex; align-items: center; gap: 8px;
-}
-.mc-empty {
-  text-align: center; padding: 40px; color: var(--muted); font-size: .82rem;
-}
+/* ── Error / empty ───────────────────────────────────────── */
+.mc-err { background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 10px 14px; font-size: .76rem; color: var(--red); display: flex; align-items: center; gap: 8px; }
+.mc-empty { text-align: center; padding: 40px; color: var(--muted); font-size: .82rem; }
 .mc-empty i { font-size: 1.8rem; display: block; margin-bottom: 8px; opacity: .4; }
 
-/* ── Data age ────────────────────────────────────────────── */
-.data-age { font-size: .62rem; color: #94a3b8; }
-.data-age.stale { color: var(--amber); }
-.data-age.old   { color: var(--red); }
+/* ── Score / status pills ────────────────────────────────── */
+.score-pill { display: inline-block; min-width: 26px; text-align: center; padding: 1px 6px; border-radius: 10px; font-size: .68rem; font-weight: 700; }
+.score-high { background: #dcfce7; color: #15803d; }
+.score-mid  { background: #fef9c3; color: #854d0e; }
+.score-low  { background: #f1f5f9; color: #64748b; }
 
-/* ── Historial timeline ─────────────────────────────────── */
-.run-ok   { color: var(--green); }
-.run-err  { color: var(--red); }
-.run-warn { color: var(--amber); }
-
-/* ── Prospecto score pill ───────────────────────────────── */
-.score-pill {
-  display: inline-block; min-width: 26px; text-align: center;
-  padding: 1px 6px; border-radius: 10px;
-  font-size: .68rem; font-weight: 700;
+/* ── Mobile ──────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .mc-brand-sub { display: none; }
+  .mc-content { padding: 12px 14px; }
+  .ckpi-row { grid-template-columns: 1fr 1fr; }
+  .agent-grid { grid-template-columns: 1fr; }
+  .mc-table th:nth-child(n+4), .mc-table td:nth-child(n+4) { display: none; }
+  .activity-item { grid-template-columns: 46px 1fr; }
+  .activity-result { display: none; }
 }
-.score-high  { background: #dcfce7; color: #15803d; }
-.score-mid   { background: #fef9c3; color: #854d0e; }
-.score-low   { background: #f1f5f9; color: #64748b; }
 </style>
 {% endblock %}
 
@@ -320,13 +329,16 @@
   <!-- ══════════════════════ TOP BAR ══════════════════════ -->
   <div class="mc-top">
     <div class="mc-brand">
-      <span class="mc-brand-dot" id="workerDot"></span>
-      Mission Control
+      <div class="mc-brand-name">
+        <span class="mc-brand-dot" id="workerDot"></span>
+        Centro de prospección
+      </div>
+      <div class="mc-brand-sub">Consulta qué hacen tus agentes, a quién contactan y qué necesita atención</div>
     </div>
 
     <nav class="mc-tabs">
       <button class="mc-tab active" data-tab="resumen">
-        <i class="bi bi-speedometer2"></i> Resumen
+        <i class="bi bi-grid-1x2"></i> Resumen
       </button>
       <button class="mc-tab" data-tab="prospectos">
         <i class="bi bi-people"></i> Prospectos
@@ -336,8 +348,8 @@
         <i class="bi bi-cpu"></i> Agentes
         <span class="badge" id="tabBadgeAgentes">—</span>
       </button>
-      <button class="mc-tab" data-tab="historial">
-        <i class="bi bi-clock-history"></i> Historial
+      <button class="mc-tab" data-tab="actividad">
+        <i class="bi bi-clock-history"></i> Actividad
       </button>
     </nav>
 
@@ -347,14 +359,17 @@
         <i class="bi bi-exclamation-triangle-fill"></i> {{ alerts|length }} alerta{{ 's' if alerts|length != 1 }}
       </a>
       {% endif %}
-      {% if kpis and kpis.get('dry_run') %}
-      <span class="stag stag-dry"><i class="bi bi-pause-fill"></i> DRY RUN</span>
-      {% endif %}
       <button class="mc-refresh-btn" id="refreshBtn" onclick="refreshActive()">
         <i class="bi bi-arrow-clockwise"></i> Actualizar
       </button>
       <span class="mc-clock" id="clock">--:--:--</span>
     </div>
+  </div>
+
+  <!-- Demo banner — shown when env_note indicates SQLite -->
+  <div class="demo-banner" id="demoBanner" style="display:none;">
+    <i class="bi bi-cone-striped"></i>
+    <span id="demoBannerText">Demostración local · Los datos no representan el estado de producción</span>
   </div>
 
   <!-- ══════════════════════ CONTENT ═════════════════════ -->
@@ -363,62 +378,70 @@
     <!-- ─────────────────── TAB: RESUMEN ─────────────────── -->
     <div class="mc-pane active" id="pane-resumen">
 
-      <!-- FIX 1: env_note banner — visible only when SQLite local -->
-      <div id="envNote" style="display:none;background:#fef3c7;border:1px solid #d97706;border-radius:8px;
-           padding:6px 14px;font-size:.72rem;color:#92400e;margin-bottom:12px;font-weight:600;">
-      </div>
-
-      <!-- KPI strip -->
-      <div class="kpi-row" id="kpiRow">
-        <div class="skel skel-kpi"></div>
+      <!-- Commercial KPIs -->
+      <div class="ckpi-row" id="ckpiRow">
         <div class="skel skel-kpi"></div>
         <div class="skel skel-kpi"></div>
         <div class="skel skel-kpi"></div>
         <div class="skel skel-kpi"></div>
       </div>
 
-      <!-- Bandejas -->
+      <!-- Últimas acciones -->
       <div class="sec-hdr">
-        Bandejas de correo
-        <span class="src" id="bandejasAge" style="margin-left:auto;font-size:.6rem;color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:.02em;"></span>
+        Últimas acciones <span class="type-badge">agent_runs</span>
       </div>
-      <div class="bandeja-row" id="bandejasRow">
-        <div class="skel" style="height:76px;flex:1;border-radius:10px;"></div>
-        <div class="skel" style="height:76px;flex:1;border-radius:10px;"></div>
-        <div class="skel" style="height:76px;flex:1;border-radius:10px;"></div>
+      <div class="mc-card" id="actividadCard">
+        <div class="activity-list" id="actividadList">
+          <div class="skel skel-row"></div>
+          <div class="skel skel-row"></div>
+          <div class="skel skel-row"></div>
+        </div>
       </div>
 
-      <!-- Alertas Flask (del contexto Jinja) -->
+      <!-- Necesita atención -->
+      <div id="attnSection" style="display:none;">
+        <div class="sec-hdr">Necesita atención</div>
+        <div class="attn-list" id="attnList"></div>
+      </div>
+
+      <!-- Flask alerts (Jinja) -->
       {% if alerts %}
-      <div class="sec-hdr">Alertas activas <span class="type-badge">Flask ORM</span></div>
-      <div class="mc-card" style="padding:0;overflow:hidden;">
-        <table class="mc-table">
-          <thead>
-            <tr>
-              <th>Severidad</th>
-              <th>Título</th>
-              <th>Mensaje</th>
-              <th>Creada</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for a in alerts %}
-            <tr>
-              <td>
-                {% if a.severity == 'critical' %}<span class="stag stag-error">crítica</span>
-                {% elif a.severity == 'error' %}<span class="stag stag-error">error</span>
-                {% elif a.severity == 'warning' %}<span class="stag stag-warn">aviso</span>
-                {% else %}<span class="stag stag-idle">info</span>{% endif %}
-              </td>
-              <td style="font-weight:600;">{{ a.title }}</td>
-              <td style="color:var(--muted);font-size:.74rem;">{{ a.message }}</td>
-              <td class="data-age">{{ a.created_at.strftime('%d/%m %H:%M') if a.created_at else '—' }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      <div class="sec-hdr">Alertas del sistema <span class="type-badge">Flask ORM</span></div>
+      <div class="attn-list">
+        {% for a in alerts %}
+        <div class="attn-item {{ 'critical' if a.severity in ('critical','error') else '' }}">
+          <i class="bi {{ 'bi-x-circle-fill' if a.severity in ('critical','error') else 'bi-exclamation-triangle-fill' }}"></i>
+          <div class="attn-body">
+            <div class="attn-title">{{ a.title }}</div>
+            <div class="attn-sub">{{ a.message }} · {{ a.created_at.strftime('%d/%m %H:%M') if a.created_at else '' }}</div>
+          </div>
+        </div>
+        {% endfor %}
       </div>
       {% endif %}
+
+      <!-- Bandejas + detalles técnicos (collapsible) -->
+      <div style="margin-top:20px;">
+        <button class="tech-toggle" id="techToggle" onclick="toggleTech()">
+          <i class="bi bi-chevron-right"></i>
+          Detalles técnicos — bandejas, tipo de cambio, worker, sincronización
+        </button>
+        <div class="tech-body" id="techBody">
+
+          <!-- Bandejas -->
+          <div class="sec-hdr" style="margin-top:12px;">
+            Contadores de bandeja
+            <span class="src" id="bandejasAge" style="margin-left:auto;font-size:.6rem;color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:.02em;"></span>
+          </div>
+          <div class="bandeja-row" id="bandejasRow">
+            <div class="skel" style="height:76px;flex:1;border-radius:10px;"></div>
+            <div class="skel" style="height:76px;flex:1;border-radius:10px;"></div>
+            <div class="skel" style="height:76px;flex:1;border-radius:10px;"></div>
+          </div>
+          <div class="tech-grid" id="techInfraGrid" style="margin-top:12px;"></div>
+
+        </div>
+      </div>
 
     </div><!-- /pane-resumen -->
 
@@ -472,73 +495,71 @@
     <!-- ─────────────────── TAB: AGENTES ─────────────────── -->
     <div class="mc-pane" id="pane-agentes">
 
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;" id="agentesMetaRow">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;" id="agentesMetaRow">
         <span class="data-age" id="agentesMeta"></span>
       </div>
 
-      <!-- Worker agents (Render / cloud) -->
       <div class="sec-hdr">
-        Agentes Worker
-        <span class="type-badge">Render · ecosistema.db · agent_heartbeat</span>
+        Agentes en Render (nube)
+        <span class="type-badge">agent_heartbeat + agent_runs</span>
       </div>
       <div class="agent-grid" id="workerAgentsGrid">
-        <div class="skel" style="height:100px;border-radius:10px;"></div>
-        <div class="skel" style="height:100px;border-radius:10px;"></div>
-        <div class="skel" style="height:100px;border-radius:10px;"></div>
+        <div class="skel" style="height:130px;border-radius:10px;"></div>
+        <div class="skel" style="height:130px;border-radius:10px;"></div>
+        <div class="skel" style="height:130px;border-radius:10px;"></div>
       </div>
 
-      <!-- Flask agents (local Flask ORM) -->
       <div class="sec-hdr">
-        Agentes Flask
-        <span class="type-badge">Flask ORM · agent_status</span>
+        Agentes del sistema Flask
+        <span class="type-badge">agent_status</span>
       </div>
       <div class="agent-grid" id="flaskAgentsGrid">
-        <div class="skel" style="height:100px;border-radius:10px;"></div>
-        <div class="skel" style="height:100px;border-radius:10px;"></div>
+        <div class="skel" style="height:130px;border-radius:10px;"></div>
+        <div class="skel" style="height:130px;border-radius:10px;"></div>
       </div>
 
     </div><!-- /pane-agentes -->
 
 
-    <!-- ─────────────────── TAB: HISTORIAL ──────────────── -->
-    <div class="mc-pane" id="pane-historial">
+    <!-- ─────────────────── TAB: ACTIVIDAD ──────────────── -->
+    <div class="mc-pane" id="pane-actividad">
 
       <div class="filter-bar">
-        <select id="historialAgente" onchange="loadHistorial()">
+        <select id="actAgente" onchange="loadActividad()">
           <option value="">Todos los agentes</option>
         </select>
-        <select id="historialLimit" onchange="loadHistorial()">
+        <select id="actLimit" onchange="loadActividad()">
           <option value="20">Últimas 20</option>
           <option value="50">Últimas 50</option>
           <option value="100">Últimas 100</option>
           <option value="200">Últimas 200</option>
         </select>
-        <button class="filter-btn" onclick="loadHistorial()"><i class="bi bi-arrow-clockwise"></i> Cargar</button>
-        <span class="data-age" id="historialMeta" style="margin-left:auto;"></span>
+        <button class="filter-btn" onclick="loadActividad()"><i class="bi bi-arrow-clockwise"></i> Cargar</button>
+        <span class="data-age" id="actMeta" style="margin-left:auto;"></span>
       </div>
 
       <div class="mc-card" style="padding:0;overflow:hidden;">
-        <div id="historialSkel" style="padding:16px;">
-          <div class="mc-empty"><i class="bi bi-clock-history"></i>Abre esta pestaña para cargar el historial.</div>
+        <div id="actSkel" style="padding:16px;">
+          <div class="mc-empty"><i class="bi bi-clock-history"></i>Abre esta pestaña para ver la actividad de los agentes.</div>
         </div>
-        <table class="mc-table" id="historialTbl" style="display:none;">
+        <table class="mc-table" id="actTbl" style="display:none;">
           <thead>
             <tr>
               <th>Agente</th>
+              <th>Función</th>
               <th>Inicio</th>
               <th>Duración</th>
-              <th>Estado</th>
-              <th>Acc.</th>
-              <th>Out</th>
-              <th>Trigger</th>
+              <th>Resultado</th>
+              <th>Acciones</th>
+              <th>Cierre</th>
               <th>Error</th>
             </tr>
           </thead>
-          <tbody id="historialTbody"></tbody>
+          <tbody id="actTbody"></tbody>
         </table>
       </div>
 
-    </div><!-- /pane-historial -->
+    </div><!-- /pane-actividad -->
 
   </div><!-- /mc-content -->
 </div><!-- /mc -->
@@ -562,33 +583,45 @@
 
 <!-- ══════════════════════ SCRIPTS ══════════════════════════ -->
 <script>
-/* ── State ──────────────────────────────────────────────── */
-let activeTab       = 'resumen';
-let prospectoPage   = 1;
-let prospectoTotal  = 0;
-let prospectoPages  = 0;
-let agentesLoaded   = false;
-let prospectosFiltrosLoaded = false;
-let historialLoaded = false;
-let autoRefreshTimer = null;
-const AUTO_REFRESH_MS = 90_000;  /* 90 s */
-
-/* ── Clock ──────────────────────────────────────────────── */
-function tickClock() {
-  const now = new Date();
-  document.getElementById('clock').textContent =
-    now.toLocaleTimeString('es-PE', {hour12: false});
+/* ── Agent descriptions ──────────────────────────────────── */
+const AGENTE = {
+  scout:        { fn: 'Busca empresas nuevas',      ico: 'bi-search',           desc: 'Escanea fuentes externas para incorporar nuevos prospectos a la base.' },
+  research:     { fn: 'Valida contactos',            ico: 'bi-check2-circle',    desc: 'Verifica que los correos y datos de las empresas sean válidos.' },
+  scoring:      { fn: 'Puntúa prospectos',           ico: 'bi-bar-chart-line',   desc: 'Calcula la prioridad de contacto para cada empresa según su perfil.' },
+  outreach:     { fn: 'Envía presentaciones',        ico: 'bi-envelope-check',   desc: 'Distribuye correos de prospección a las empresas elegibles del día.' },
+  followup:     { fn: 'Realiza seguimiento',         ico: 'bi-arrow-repeat',     desc: 'Envía correos de seguimiento a empresas que aún no han respondido.' },
+  response:     { fn: 'Gestiona respuestas',         ico: 'bi-reply-fill',       desc: 'Lee y clasifica las respuestas recibidas para detectar interesados.' },
+  crm_bridge:   { fn: 'Sincroniza datos',            ico: 'bi-arrow-left-right', desc: 'Mantiene la base de datos actualizada con los cambios del sistema.' },
+  intelligence: { fn: 'Analiza oportunidades',       ico: 'bi-graph-up-arrow',   desc: 'Identifica prospectos de alta probabilidad de conversión.' },
+  orchestrator: { fn: 'Coordinador principal',       ico: 'bi-cpu',              desc: 'Supervisa y agenda todos los agentes del ecosistema.' },
+  default:      { fn: null, ico: 'bi-gear',          desc: null },
+};
+function agInfo(name) {
+  const key = (name || '').toLowerCase().replace(/[^a-z_]/g, '');
+  return AGENTE[key] || { ...AGENTE.default, fn: name };
 }
-tickClock();
-setInterval(tickClock, 1000);
 
-/* ── Tabs ───────────────────────────────────────────────── */
-document.querySelectorAll('.mc-tab').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const tab = btn.dataset.tab;
-    switchTab(tab);
-  });
-});
+/* ── State ───────────────────────────────────────────────── */
+let activeTab             = 'resumen';
+let prospectoPage         = 1;
+let prospectoTotal        = 0;
+let prospectoPages        = 0;
+let agentesLoaded         = false;
+let prospectosFiltrosLoaded = false;
+let actividadAgentOpts    = false;
+const AUTO_REFRESH_MS     = 90_000;
+let autoRefreshTimer      = null;
+
+/* ── Clock ───────────────────────────────────────────────── */
+function tickClock() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('es-PE', {hour12: false});
+}
+tickClock(); setInterval(tickClock, 1000);
+
+/* ── Tabs ────────────────────────────────────────────────── */
+document.querySelectorAll('.mc-tab').forEach(btn =>
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
 
 function switchTab(tab) {
   activeTab = tab;
@@ -596,22 +629,19 @@ function switchTab(tab) {
     b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.mc-pane').forEach(p =>
     p.classList.toggle('active', p.id === 'pane-' + tab));
-  refreshActive(false);  /* don't force — lazy first load */
+  refreshActive(false);
 }
 
-/* ── Refresh active tab ──────────────────────────────────── */
 function refreshActive(force = true) {
   const btn = document.getElementById('refreshBtn');
   btn.classList.add('spinning');
   setTimeout(() => btn.classList.remove('spinning'), 600);
-
-  if (activeTab === 'resumen')     loadResumen();
-  if (activeTab === 'agentes')     loadAgentes(force);
-  if (activeTab === 'prospectos')  { if (force || !prospectosFiltrosLoaded) initProspectos(); }
-  if (activeTab === 'historial')   loadHistorial();
+  if (activeTab === 'resumen')    loadResumen();
+  if (activeTab === 'agentes')    loadAgentes(force);
+  if (activeTab === 'prospectos') { if (force || !prospectosFiltrosLoaded) initProspectos(); }
+  if (activeTab === 'actividad')  loadActividad();
 }
 
-/* Auto-refresh */
 function startAutoRefresh() {
   clearInterval(autoRefreshTimer);
   autoRefreshTimer = setInterval(() => {
@@ -620,138 +650,297 @@ function startAutoRefresh() {
 }
 startAutoRefresh();
 
+/* ── Tech details toggle ─────────────────────────────────── */
+function toggleTech() {
+  const btn  = document.getElementById('techToggle');
+  const body = document.getElementById('techBody');
+  btn.classList.toggle('open');
+  body.classList.toggle('open');
+}
+
 /* ══════════════════════════════════════════════════════════
    TAB 1 — RESUMEN
 ══════════════════════════════════════════════════════════ */
 async function loadResumen() {
   try {
-    const data = await apiFetch('/agentes/api/v2/resumen');
-    renderResumen(data);
+    const [res, hist] = await Promise.all([
+      apiFetch('/agentes/api/v2/resumen'),
+      apiFetch('/agentes/api/v2/historial?limit=8'),
+    ]);
+    renderResumen(res, hist);
   } catch(e) {
-    document.getElementById('kpiRow').innerHTML =
-      `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> Error al cargar resumen: ${e.message}</div>`;
+    document.getElementById('ckpiRow').innerHTML =
+      `<div class="mc-err" style="grid-column:1/-1"><i class="bi bi-exclamation-circle"></i> Error al cargar: ${esc(e.message)}</div>`;
   }
 }
 
-function renderResumen(d) {
-  /* Worker dot */
-  const dot = document.getElementById('workerDot');
-  const w = d.worker || {};
-  if (w.error) { dot.className = 'mc-brand-dot unknown'; }
-  else if (w.online) { dot.className = 'mc-brand-dot'; }
-  else { dot.className = 'mc-brand-dot offline'; }
+function renderResumen(d, hist) {
+  /* ── Demo banner ─────────────────────────────────────── */
+  const envNote = d.env_note || '';
+  const isLocal = envNote.toLowerCase().includes('sqlite');
+  const banner  = document.getElementById('demoBanner');
+  const dot     = document.getElementById('workerDot');
+  if (isLocal) {
+    banner.style.display = 'flex';
+    document.getElementById('demoBannerText').textContent =
+      'Demostración local · Datos ficticios — ' + envNote;
+    dot.className = 'mc-brand-dot unknown';
+  } else {
+    const w = d.worker || {};
+    dot.className = 'mc-brand-dot' + (w.online === false ? ' offline' : w.online === null ? ' unknown' : '');
+  }
 
-  /* DRY RUN indicator in topbar */
-  const dr = d.dry_run || {};
+  /* ── Commercial KPIs ─────────────────────────────────── */
+  const oh    = d.outreach_hoy || {};
+  const w     = d.worker || {};
+  const dr    = d.dry_run || {};
+  const bnd   = d.bandejas || {};
 
-  /* KPI strip */
-  const oh = d.outreach_hoy || {};
-  const tc = d.tc || {};
-  const sy = d.sync || {};
+  // KPI 1: Correos aceptados hoy (authoritative: outreach_log)
+  let kpi1Val = '—', kpi1Sub = '', kpi1Color = 'gray', kpi1Src = '';
+  if (oh.error) {
+    kpi1Val = '—'; kpi1Sub = 'Aún no se registra en este entorno'; kpi1Color = 'gray';
+    kpi1Src = 'fuente: outreach_log — ' + oh.error;
+  } else {
+    kpi1Val = oh.enviados != null ? String(oh.enviados) : '—';
+    kpi1Color = oh.enviados > 0 ? 'blue' : 'gray';
+    kpi1Sub  = oh.enviados != null
+      ? (oh.fallidos > 0 ? `${oh.fallidos} fallidos · ${oh.total} intentos registrados` : `${oh.total} intentos registrados hoy`)
+      : 'Sin datos';
+    kpi1Src  = `fuente: outreach_log · ${oh.query_date || '—'} · ${oh.label || ''}`;
+  }
 
-  const workerStatus = (() => {
-    if (w.error) return `<span class="stag stag-nodata"><i class="bi bi-question-circle"></i> sin información — ${w.error}</span>`;
-    if (w.online === null) return `<span class="stag stag-nodata">sin información</span>`;
-    if (w.online) return `<span class="stag stag-running"><i class="bi bi-circle-fill"></i> en línea</span>`;
-    const ageStr = w.age_s != null ? ` · hace ${fmtAge(w.age_s)}` : '';
-    return `<span class="stag stag-stale"><i class="bi bi-clock"></i> sin señal${ageStr}</span>`;
-  })();
+  // KPI 2: Acciones registradas (from historial — runs completadas hoy)
+  let kpi2Val = '—', kpi2Sub = '', kpi2Color = 'gray';
+  const histItems  = (hist && hist.items) || [];
+  const today      = new Date().toLocaleDateString('es-PE', {timeZone:'America/Lima', year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
+  const todayRuns  = histItems.filter(r => r.started_at && r.started_at.startsWith(today.slice(0,10)));
+  const totalAcc   = todayRuns.reduce((s, r) => s + (r.actions_taken || 0), 0);
+  if (hist && hist.error) {
+    kpi2Sub = 'Aún no se registra'; kpi2Color = 'gray';
+  } else {
+    kpi2Val   = String(totalAcc);
+    kpi2Color = totalAcc > 0 ? 'green' : 'gray';
+    kpi2Sub   = todayRuns.length > 0
+      ? `en ${todayRuns.length} ejecuciones de hoy`
+      : 'Sin ejecuciones registradas hoy';
+  }
 
-  const tcStatus = (() => {
-    if (tc.error) return `<span class="stag stag-nodata">sin información</span>`;
-    if (!tc.compra) return `<span class="stag stag-nodata">sin datos TC</span>`;
-    const freshTag = tc.fresco === false
-      ? `<span class="stag stag-stale">desactualizado · ${tc.age_min} min</span>`
-      : tc.fresco === true
-        ? `<span class="stag stag-ok">fresco · ${tc.age_min} min</span>`
-        : '';
-    return `${tc.compra} / ${tc.venta} ${freshTag}`;
-  })();
+  // KPI 3: Situaciones que necesitan atención (derived)
+  const attnItems = buildAttnItems(d, hist);
+  const kpi3Val   = String(attnItems.length);
+  const kpi3Color = attnItems.length === 0 ? 'gray' : attnItems.some(a => a.critical) ? 'red' : 'amber';
+  const kpi3Sub   = attnItems.length === 0 ? 'Sin situaciones detectadas' : attnItems.map(a => a.title).slice(0,2).join(' · ') + (attnItems.length > 2 ? ` y ${attnItems.length - 2} más` : '');
 
-  const drTag = dr.activo
-    ? `<span class="stag stag-dry"><i class="bi bi-pause-fill"></i> DRY RUN activo</span>`
-    : dr.error ? `<span class="stag stag-nodata">—</span>`
-    : `<span class="stag stag-ok"><i class="bi bi-send-fill"></i> envíos activos</span>`;
+  // KPI 4: Seguimientos pendientes
+  const kpi4Val = '—';
+  const kpi4Sub = 'Aún no se registra en este entorno';
 
-  document.getElementById('kpiRow').innerHTML = `
-    <div class="kpi ${w.online ? 'green' : w.online === false ? 'red' : 'amber'}">
-      <div class="kpi-lbl">Worker Render</div>
-      <div style="margin-top:6px;">${workerStatus}</div>
-      ${w.hostname ? `<div class="kpi-sub">${w.hostname}${w.age_s != null ? ' · hace ' + fmtAge(w.age_s) : ''}</div>` : ''}
-      <div class="data-age" style="margin-top:4px;">fuente: agent_heartbeat</div>
+  // Modo de envío — no presenta como "Sistema OK", explica que es solo configuración
+  const drLabel = dr.error
+    ? 'Sin información'
+    : dr.activo
+      ? 'Envíos deshabilitados (modo prueba)'
+      : 'Envíos habilitados (configuración) · No confirma actividad reciente';
+  const drColor = dr.error ? 'gray' : dr.activo ? 'amber' : 'blue';
+
+  document.getElementById('ckpiRow').innerHTML = `
+    <div class="ckpi ${kpi1Color}">
+      <div class="ckpi-val ${kpi1Color}">${kpi1Val}</div>
+      <div class="ckpi-lbl">Correos aceptados hoy</div>
+      <div class="ckpi-sub">${esc(kpi1Sub)}</div>
+      <div class="ckpi-src">${esc(kpi1Src)}</div>
     </div>
-    <div class="kpi ${dr.activo ? 'amber' : 'accent'}">
-      <div class="kpi-lbl">Modo envío</div>
-      <div style="margin-top:6px;">${drTag}</div>
-      <div class="data-age" style="margin-top:4px;">fuente: runtime_config</div>
+    <div class="ckpi ${kpi2Color}">
+      <div class="ckpi-val ${kpi2Color}">${kpi2Val}</div>
+      <div class="ckpi-lbl">Acciones registradas hoy</div>
+      <div class="ckpi-sub">${esc(kpi2Sub)}</div>
+      <div class="ckpi-src">fuente: agent_runs${hist && hist.env_note ? ' · ' + hist.env_note : ''}</div>
     </div>
-    <div class="kpi accent">
-      <div class="kpi-lbl">Emails hoy</div>
-      <div class="kpi-val ${oh.enviados > 0 ? 'blue' : 'muted'}">${oh.error ? '—' : (oh.enviados ?? '—')}</div>
-      <div class="kpi-sub">${oh.error ? oh.error : `de ${oh.total ?? 0} intentos · ${oh.fallidos ?? 0} fallidos`}</div>
-      <div class="data-age" style="margin-top:4px;">fuente: outreach_log · ${oh.query_date || '—'}</div>
+    <div class="ckpi ${kpi3Color}">
+      <div class="ckpi-val ${kpi3Color}">${kpi3Val}</div>
+      <div class="ckpi-lbl">Situaciones a revisar</div>
+      <div class="ckpi-sub">${esc(kpi3Sub)}</div>
+      <div class="ckpi-src">derivado de múltiples fuentes</div>
     </div>
-    <div class="kpi">
-      <div class="kpi-lbl">TC Qoricash</div>
-      <div style="margin-top:6px;font-size:.78rem;">${tcStatus}</div>
-      <div class="data-age" style="margin-top:4px;">fuente: runtime_config</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-lbl">Último sync Sheets</div>
-      <div style="margin-top:6px;font-size:.78rem;color:var(--txt);">
-        ${sy.error ? `<span class="stag stag-nodata">sin información</span>` : (sy.last_full_sync ? fmtDatetime(sy.last_full_sync) : `<span class="stag stag-nodata">sin datos</span>`)}
-      </div>
-      <div class="data-age" style="margin-top:4px;">fuente: sync_state</div>
+    <div class="ckpi gray">
+      <div class="ckpi-val muted">${kpi4Val}</div>
+      <div class="ckpi-lbl">Seguimientos pendientes</div>
+      <div class="ckpi-sub">${esc(kpi4Sub)}</div>
+      <div class="ckpi-src" style="color:var(--muted);font-style:italic;">pendiente de implementación</div>
     </div>
   `;
 
-  /* Bandejas */
-  const bnd = d.bandejas || {};
+  /* ── Últimas acciones ────────────────────────────────── */
+  const al = document.getElementById('actividadList');
+  if (hist && hist.error) {
+    al.innerHTML = `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(hist.error)}</div>`;
+  } else if (!histItems.length) {
+    al.innerHTML = `<div class="mc-empty" style="padding:20px;"><i class="bi bi-inbox"></i>Sin ejecuciones registradas.</div>`;
+  } else {
+    al.innerHTML = histItems.map(r => {
+      const ag     = agInfo(r.agent);
+      const fn     = ag.fn || r.agent;
+      const ico    = ag.ico;
+      const closed = r.cierre_registrado;
+      const status = r.display_status || r.status || '—';
+      const resultCls = (status === 'ok' || status === 'success') ? 'run-ok'
+                      : (!closed) ? 'run-open'
+                      : (status === 'error' || status === 'failed') ? 'run-err' : '';
+      const resultLabel = !closed
+        ? 'sin cierre registrado'
+        : (r.actions_taken != null ? `${r.actions_taken} acciones` : status);
+      const detail = [
+        r.records_out != null ? `${r.records_out} registros` : null,
+        r.duration_s != null ? fmtDuration(r.duration_s) : null,
+      ].filter(Boolean).join(' · ');
+      return `
+        <div class="activity-item">
+          <div class="activity-time">${r.started_at ? fmtHora(r.started_at) : '—'}</div>
+          <div class="activity-main">
+            <div class="activity-fn"><i class="bi ${ico}"></i> ${esc(fn)}</div>
+            <div class="activity-detail">${detail || ''}</div>
+          </div>
+          <div class="activity-result">
+            <span class="${resultCls}">${esc(resultLabel)}</span>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  /* ── Necesita atención ───────────────────────────────── */
+  if (attnItems.length > 0) {
+    document.getElementById('attnSection').style.display = 'block';
+    document.getElementById('attnList').innerHTML = attnItems.map(a => `
+      <div class="attn-item ${a.critical ? 'critical' : ''}">
+        <i class="bi ${a.critical ? 'bi-x-circle-fill' : 'bi-exclamation-triangle-fill'}"></i>
+        <div class="attn-body">
+          <div class="attn-title">${esc(a.title)}</div>
+          <div class="attn-sub">${esc(a.sub)}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  /* ── Bandejas (collapsible) ──────────────────────────── */
   if (bnd.error) {
     document.getElementById('bandejasRow').innerHTML =
-      `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${bnd.error} (fuente: bandeja_estado)</div>`;
+      `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(bnd.error)}</div>`;
   } else {
     const items = bnd.items || [];
-    if (items.length === 0) {
-      document.getElementById('bandejasRow').innerHTML =
-        `<div class="mc-empty" style="padding:20px;"><i class="bi bi-inbox"></i> Sin datos de bandejas</div>`;
-    } else {
-      document.getElementById('bandejasRow').innerHTML = items.map(b => `
-        <div class="bandeja-card">
-          <div class="bandeja-name">${b.bandeja}</div>
-          <div class="bandeja-sent" style="${b.data_stale ? 'color:var(--amber);' : ''}">
-            ${b.enviados_hoy ?? '—'}
-          </div>
-          <div class="bandeja-sub">
-            ${b.data_stale
-              ? `<span title="${esc(b.enviados_hoy_nota||'')}">⚠ dato de ${esc(b.data_date||'?')} · ${b.bounce_24h ?? 0} rebotes</span>`
-              : `enviados hoy · ${b.bounce_24h ?? 0} rebotes 24h`}
-          </div>
-          ${b.pausada ? `<div style="margin-top:6px;"><span class="stag stag-warn"><i class="bi bi-pause-fill"></i> pausada</span></div>` : ''}
-        </div>
-      `).join('');
+    document.getElementById('bandejasRow').innerHTML = items.length === 0
+      ? `<div class="mc-empty" style="padding:16px;"><i class="bi bi-inbox"></i>Sin datos de bandejas</div>`
+      : items.map(b => {
+          const stale = b.data_stale;
+          const nota  = b.enviados_hoy_nota || '';
+          return `
+            <div class="bandeja-card ${stale ? 'stale' : ''}">
+              <div class="bandeja-name">${esc(b.bandeja)}</div>
+              <div class="bandeja-sent">${b.enviados_hoy ?? '—'}</div>
+              <div class="bandeja-sub">contador de bandeja${stale ? ` · <span style="color:var(--amber);">${esc(nota)}</span>` : ''}</div>
+              ${b.bounce_24h > 0 ? `<div class="bandeja-sub">${b.bounce_24h} rebotes 24 h</div>` : ''}
+              ${b.pausada ? `<div style="margin-top:5px;"><span class="stag stag-warn"><i class="bi bi-pause-fill"></i> pausada</span></div>` : ''}
+            </div>`;
+        }).join('');
+    // Explicación de diferencia bandeja vs outreach_log
+    if (!oh.error && oh.enviados != null && items.length > 0) {
+      const bndTotal = items.reduce((s, b) => s + (b.enviados_hoy || 0), 0);
+      if (Math.abs(bndTotal - oh.enviados) > 0) {
+        document.getElementById('bandejasRow').innerHTML += `
+          <div style="flex-basis:100%;font-size:.68rem;color:var(--muted);padding:6px 4px;line-height:1.5;">
+            <strong>Nota sobre cifras:</strong>
+            Los contadores de bandeja (total ${bndTotal}) y los correos de outreach_log (${oh.enviados} aceptados)
+            miden cosas distintas: bandeja_estado registra envíos por cuenta de correo,
+            outreach_log registra el resultado confirmado por el proveedor.
+            No deben sumarse; la diferencia es esperada.
+          </div>`;
+      }
     }
-    const bndAge      = bnd.ultimo_update ? `datos: ${fmtDatetime(bnd.ultimo_update)}` : '';
-    const bndQDate    = bnd.query_date    ? ` · consulta: ${bnd.query_date}` : '';
-    document.getElementById('bandejasAge').textContent = `fuente: bandeja_estado · ${bndAge}${bndQDate}`;
+    const age = bnd.ultimo_update ? ` · actualizado ${fmtDatetime(bnd.ultimo_update)}` : '';
+    const qd  = bnd.query_date ? ` · fecha consulta: ${bnd.query_date}` : '';
+    document.getElementById('bandejasAge').textContent = `fuente: bandeja_estado${age}${qd}`;
   }
 
-  /* FIX 1: env_note — entorno identificado */
-  if (d.env_note && d.env_note.toLowerCase().includes('sqlite')) {
-    const note = document.getElementById('envNote');
-    if (note) {
-      note.textContent = `⚠ ${d.env_note}`;
-      note.style.display = 'block';
-    }
-  } else {
-    const note = document.getElementById('envNote');
-    if (note) note.style.display = 'none';
+  /* ── Infra grid (modo envío, worker, TC, sync) ───────── */
+  const tc  = d.tc  || {};
+  const sy  = d.sync || {};
+  document.getElementById('techInfraGrid').innerHTML = `
+    <div class="tech-cell">
+      <div class="tech-cell-lbl">Modo de envío</div>
+      <div class="tech-cell-val">${esc(drLabel)}</div>
+    </div>
+    <div class="tech-cell">
+      <div class="tech-cell-lbl">Worker Render</div>
+      <div class="tech-cell-val">${w.error ? w.error : (w.online ? 'en línea' : w.online === false ? `sin señal · hace ${fmtAge(w.age_s)}` : 'sin información')}</div>
+    </div>
+    <div class="tech-cell">
+      <div class="tech-cell-lbl">Tipo de cambio</div>
+      <div class="tech-cell-val">${tc.error ? tc.error : (tc.compra ? `Compra ${tc.compra} / Venta ${tc.venta}${tc.age_min != null ? ' · hace ' + tc.age_min + ' min' : ''}` : 'sin datos')}</div>
+    </div>
+    <div class="tech-cell">
+      <div class="tech-cell-lbl">Última sincronización</div>
+      <div class="tech-cell-val">${sy.error ? sy.error : (sy.last_full_sync ? fmtDatetime(sy.last_full_sync) : 'sin datos')}</div>
+    </div>
+    <div class="tech-cell" style="grid-column:1/-1;">
+      <div class="tech-cell-lbl">Entorno</div>
+      <div class="tech-cell-val" style="color:var(--muted);">${esc(envNote || 'no identificado')}</div>
+    </div>
+  `;
+}
+
+/* Build attention items from all available data */
+function buildAttnItems(d, hist) {
+  const items = [];
+  const w   = d.worker || {};
+  const bnd = d.bandejas || {};
+  const oh  = d.outreach_hoy || {};
+
+  // Worker offline
+  if (!w.error && w.online === false) {
+    items.push({ critical: true, title: 'Worker Render sin señal', sub: `Última señal hace ${fmtAge(w.age_s)}. Los agentes de nube pueden no estar ejecutándose.` });
+  }
+  if (w.error) {
+    items.push({ critical: false, title: 'No se pudo consultar el worker', sub: w.error + ' · fuente: agent_heartbeat' });
   }
 
-  /* Query time */
-  const ms = d._server_ms != null ? ` · ${d._server_ms} ms` : '';
-  const cached = d.cached ? ' · caché' : '';
-  // show in meta
+  // Bandejas stale
+  const staleB = (bnd.items || []).filter(b => b.data_stale);
+  if (staleB.length > 0) {
+    items.push({ critical: false, title: `${staleB.length === 1 ? 'Una bandeja' : staleB.length + ' bandejas'} con datos de otro día`, sub: staleB.map(b => b.enviados_hoy_nota || b.bandeja).join(' · ') });
+  }
+  const pausedB = (bnd.items || []).filter(b => b.pausada);
+  if (pausedB.length > 0) {
+    items.push({ critical: false, title: `${pausedB.map(b => b.bandeja).join(', ')} pausada${pausedB.length > 1 ? 's' : ''}`, sub: 'Los envíos desde estas cuentas están temporalmente suspendidos.' });
+  }
+
+  // Runs sin cierre registrado (abiertos por más de 2h)
+  const histItems = (hist && hist.items) || [];
+  const openRuns  = histItems.filter(r => !r.cierre_registrado && r.started_at);
+  const stuckRuns = openRuns.filter(r => {
+    const age = Date.now() - new Date(r.started_at).getTime();
+    return age > 7_200_000; // 2h
+  });
+  if (stuckRuns.length > 0) {
+    const names = [...new Set(stuckRuns.map(r => agInfo(r.agent).fn || r.agent))];
+    items.push({ critical: false, title: `${stuckRuns.length} ejecución${stuckRuns.length > 1 ? 'es' : ''} sin cierre registrado`, sub: `${names.join(', ')} — comenzaron hace más de 2 horas sin registro de finalización.` });
+  }
+
+  // Failed runs today
+  const todayFailed = histItems.filter(r => {
+    const isToday = r.started_at && new Date(r.started_at).toDateString() === new Date().toDateString();
+    return isToday && (r.status === 'error' || r.status === 'failed');
+  });
+  if (todayFailed.length > 0) {
+    const names = [...new Set(todayFailed.map(r => agInfo(r.agent).fn || r.agent))];
+    items.push({ critical: true, title: `${todayFailed.length} ejecución${todayFailed.length > 1 ? 'es' : ''} con error hoy`, sub: names.join(', ') });
+  }
+
+  // Outreach fallidos
+  if (!oh.error && oh.fallidos > 0) {
+    items.push({ critical: false, title: `${oh.fallidos} correo${oh.fallidos > 1 ? 's' : ''} con fallo en el envío`, sub: `Registrado en outreach_log · fecha ${oh.query_date}` });
+  }
+
+  return items;
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -774,17 +963,16 @@ async function initProspectos() {
         o.value = e.value || ''; o.textContent = `${e.value || '(vacío)'} (${e.count})`;
         selCom.appendChild(o);
       });
-    } catch(e) { /* filtros no críticos */ }
+    } catch(e) { /* non-critical */ }
   }
   loadProspectos(1);
 }
 
 async function loadProspectos(page) {
   prospectoPage = page;
-  const q   = document.getElementById('prospectoQ').value.trim();
-  const ee  = document.getElementById('prospectoEstadoEmail').value;
-  const ec  = document.getElementById('prospectoEstadoCom').value;
-
+  const q  = document.getElementById('prospectoQ').value.trim();
+  const ee = document.getElementById('prospectoEstadoEmail').value;
+  const ec = document.getElementById('prospectoEstadoCom').value;
   const skel = document.getElementById('prospectosSkel');
   const tbl  = document.getElementById('prospectosTbl');
   const pgr  = document.getElementById('prospectosPager');
@@ -800,22 +988,17 @@ async function loadProspectos(page) {
   try {
     const data = await apiFetch(`/agentes/api/v2/prospectos?${params}`);
     if (data.error) throw new Error(data.error);
-
     prospectoTotal = data.total || 0;
     prospectoPages = data.pages || 0;
-
     const items = data.items || [];
     document.getElementById('tabBadgeProspectos').textContent = prospectoTotal.toLocaleString('es-PE');
     document.getElementById('prospectosMeta').textContent =
-      `${prospectoTotal.toLocaleString('es-PE')} resultados · fuente: ${data.source || 'ec_prospectos'} · ${fmtDatetime(data.query_at)}`;
-
+      `${prospectoTotal.toLocaleString('es-PE')} resultados · fuente: ${data.source || 'ec_prospectos'}${data.source_note ? ' (' + data.source_note.split('—')[0].trim() + ')' : ''}`;
     skel.style.display = 'none';
-
     if (items.length === 0) {
-      skel.innerHTML = `<div class="mc-empty"><i class="bi bi-search"></i>Sin resultados para los filtros aplicados.</div>`;
+      skel.innerHTML = `<div class="mc-empty"><i class="bi bi-search"></i>Sin resultados.</div>`;
       skel.style.display = 'block'; return;
     }
-
     document.getElementById('prospectosTbody').innerHTML = items.map(p => `
       <tr class="clickable" onclick="openProspecto(${p.id}, ${JSON.stringify(p.razon_social).replace(/"/g,'&quot;')}, ${JSON.stringify(p.email||'').replace(/"/g,'&quot;')})">
         <td style="font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.razon_social)}</td>
@@ -825,19 +1008,12 @@ async function loadProspectos(page) {
         <td>${statusComTag(p.estado_com)}</td>
         <td>${scoreTag(p.score)}</td>
         <td class="data-age">${p.fecha_ult_contacto ? fmtDate(p.fecha_ult_contacto) : '—'}</td>
-      </tr>
-    `).join('');
-
-    tbl.style.display = 'table';
-    pgr.style.display = 'flex';
-
-    document.getElementById('pgInfo').textContent =
-      `Pág. ${page} / ${prospectoPages} (${prospectoTotal.toLocaleString('es-PE')} total)`;
+      </tr>`).join('');
+    tbl.style.display = 'table'; pgr.style.display = 'flex';
+    document.getElementById('pgInfo').textContent = `Pág. ${page} / ${prospectoPages} (${prospectoTotal.toLocaleString('es-PE')} total)`;
     document.getElementById('pgPrev').disabled = page <= 1;
     document.getElementById('pgNext').disabled = page >= prospectoPages;
-    document.getElementById('prospectosSrc').textContent =
-      `fuente: ${data.source || 'ec_prospectos'} · ${data._server_ms != null ? data._server_ms + ' ms' : ''}`;
-
+    document.getElementById('prospectosSrc').textContent = `fuente: ${data.source || 'ec_prospectos'}${data._server_ms != null ? ' · ' + data._server_ms + ' ms' : ''}`;
   } catch(e) {
     skel.innerHTML = `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(e.message)}</div>`;
     skel.style.display = 'block';
@@ -857,42 +1033,29 @@ function clearProspectoFilters() {
 async function loadAgentes(force = false) {
   if (agentesLoaded && !force) return;
   agentesLoaded = true;
-
   try {
     const data = await apiFetch('/agentes/api/v2/agentes');
+    document.getElementById('agentesMeta').textContent =
+      `Consulta: ${fmtDatetime(data.query_at)}${data.cached ? ' · caché' : ''}${data.env_note ? ' · ' + data.env_note : ''}`;
 
-    const meta = `consulta: ${fmtDatetime(data.query_at)}${data.cached ? ' · caché' : ''} · ${data._server_ms != null ? data._server_ms + ' ms' : ''}`;
-    document.getElementById('agentesMeta').textContent = meta;
-
-    /* Worker agents — FIX 2: heartbeat_available puede ser false */
     const wa = data.worker_agents || {};
     if (wa.error) {
       document.getElementById('workerAgentsGrid').innerHTML =
-        `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${wa.error}</div>`;
+        `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(wa.error)}</div>`;
     } else {
       const items = wa.items || [];
       document.getElementById('tabBadgeAgentes').textContent = items.length;
-      /* FIX 2: mostrar nota cuando agent_heartbeat no está disponible */
-      const hbBanner = wa.heartbeat_available === false
-        ? `<div style="grid-column:1/-1;background:#fef3c7;border:1px solid #d97706;border-radius:8px;
-               padding:6px 14px;font-size:.71rem;color:#92400e;margin-bottom:8px;">
-             <i class="bi bi-exclamation-triangle"></i>
-             Señal de vida: No disponible — ${esc(wa.heartbeat_nota||'tabla agent_heartbeat ausente')}
-           </div>`
-        : '';
+      const hbAvail = wa.heartbeat_available !== false;
       document.getElementById('workerAgentsGrid').innerHTML =
-        hbBanner + (
-          items.length === 0
-            ? `<div class="mc-empty" style="grid-column:1/-1;"><i class="bi bi-cpu"></i>Sin ejecuciones en agent_runs</div>`
-            : items.map(a => renderWorkerAgentCard(a)).join('')
-        );
+        items.length === 0
+          ? `<div class="mc-empty" style="grid-column:1/-1;"><i class="bi bi-cpu"></i>Sin agentes worker registrados</div>`
+          : items.map(a => renderWorkerAgentCard(a, hbAvail)).join('');
     }
 
-    /* Flask agents */
     const fa = data.flask_agents || {};
     if (fa.error) {
       document.getElementById('flaskAgentsGrid').innerHTML =
-        `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${fa.error}</div>`;
+        `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(fa.error)}</div>`;
     } else {
       const items = fa.items || [];
       document.getElementById('flaskAgentsGrid').innerHTML =
@@ -900,141 +1063,210 @@ async function loadAgentes(force = false) {
           ? `<div class="mc-empty" style="grid-column:1/-1;"><i class="bi bi-cpu"></i>Sin agentes Flask registrados</div>`
           : items.map(a => renderFlaskAgentCard(a)).join('');
     }
-
   } catch(e) {
     document.getElementById('workerAgentsGrid').innerHTML =
       `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(e.message)}</div>`;
   }
 }
 
-function renderWorkerAgentCard(a) {
-  /* Status: basado en age_s e is_offline — sin umbral universal */
-  let statusClass = 'nodata', statusHtml = '';
+function renderWorkerAgentCard(a, heartbeatAvailable) {
+  const ag  = agInfo(a.agent);
+  const fn  = ag.fn || a.agent;
+  const ico = ag.ico;
+  const desc = ag.desc;
 
-  if (a.is_offline && a.age_s == null) {
-    statusHtml = `<span class="stag stag-nodata">sin información</span>`;
+  // Status
+  let cardClass = '', statusHtml = '', estadoTexto = '', trabajoTexto = '';
+
+  if (!heartbeatAvailable || a.is_offline === null) {
+    cardClass  = 'nodata';
+    statusHtml = `<span class="stag stag-nodata">Sin señal de actividad</span>`;
+    estadoTexto = 'No podemos confirmar si está activo o inactivo en este entorno.';
   } else if (a.is_offline) {
-    statusClass = 'stale';
-    statusHtml = `<span class="stag stag-stale"><i class="bi bi-clock"></i> sin señal · hace ${fmtAge(a.age_s)}</span>`;
+    cardClass   = 'stale';
+    const age   = a.age_s != null ? ` (hace ${fmtAge(a.age_s)})` : '';
+    statusHtml  = `<span class="stag stag-stale"><i class="bi bi-clock"></i> Sin señal reciente</span>`;
+    estadoTexto = `Última señal registrada${age}. No hay confirmación de actividad reciente.`;
   } else if (a.status === 'running') {
-    statusClass = 'running';
-    statusHtml = `<span class="stag stag-running"><i class="bi bi-circle-fill"></i> ejecutándose</span>`;
+    cardClass   = 'running';
+    statusHtml  = `<span class="stag stag-running"><i class="bi bi-circle-fill"></i> Ejecutándose</span>`;
+    estadoTexto = `Activo · señal hace ${fmtAge(a.age_s)}`;
   } else {
-    statusClass = '';
-    statusHtml = `<span class="stag stag-idle"><i class="bi bi-check-circle"></i> en espera</span>`;
+    statusHtml  = `<span class="stag stag-idle"><i class="bi bi-check-circle"></i> En espera</span>`;
+    estadoTexto = `Disponible · señal hace ${fmtAge(a.age_s)}`;
   }
 
-  const lastRunStatus = a.last_run_status;
-  if (lastRunStatus === 'error' || lastRunStatus === 'failed') statusClass = 'error';
+  // Override if last run failed
+  if (a.last_run_status === 'error' || a.last_run_status === 'failed') {
+    cardClass = 'error';
+  }
 
-  const durStr = a.last_run_started && a.last_run_finished
-    ? (() => {
-        const s = new Date(a.last_run_started), e = new Date(a.last_run_finished);
-        return fmtDuration(Math.round((e - s) / 1000));
-      })()
-    : null;
+  // Last work
+  if (a.last_run_started) {
+    const dur    = a.last_run_started && a.last_run_finished
+      ? fmtDuration(Math.round((new Date(a.last_run_finished) - new Date(a.last_run_started)) / 1000))
+      : null;
+    const closed = a.cierre_registrado;
+    const acc    = a.actions_taken != null ? `${a.actions_taken} acciones` : null;
+    const out    = a.records_out   != null ? `${a.records_out} registros` : null;
+    const parts  = [acc, out, dur].filter(Boolean);
+    trabajoTexto = `Última ejecución: ${fmtDatetime(a.last_run_started)}${parts.length ? ' · ' + parts.join(' · ') : ''}${!closed ? ' · sin cierre registrado' : ''}`;
+  } else {
+    trabajoTexto = 'Sin ejecuciones registradas en esta fuente.';
+  }
 
+  const techId = `tech_w_${a.agent.replace(/[^a-z0-9]/g,'')}`;
   return `
-    <div class="agent-card ${statusClass}">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
-        <div class="agent-card-name">${esc(a.agent)}</div>
-        ${statusHtml}
-      </div>
-      <div class="agent-meta">
-        ${a.last_seen ? `<span><i class="bi bi-heartbeat"></i> heartbeat: ${fmtDatetime(a.last_seen)}</span>` : ''}
-        ${a.last_run_started ? `<span><i class="bi bi-play-fill"></i> último run: ${fmtDatetime(a.last_run_started)}</span>` : ''}
-        ${durStr ? `<span><i class="bi bi-stopwatch"></i> ${durStr}</span>` : ''}
-        ${a.actions_taken != null ? `<span><i class="bi bi-check2-all"></i> ${a.actions_taken} acciones</span>` : ''}
-        ${a.records_out != null ? `<span><i class="bi bi-box-arrow-up"></i> ${a.records_out} out</span>` : ''}
-        ${/* FIX 6: sin cierre registrado si no hay finished_at */
-          a.cierre_registrado === false
-            ? `<span style="color:var(--amber);font-size:.68rem;font-weight:600;"><i class="bi bi-hourglass"></i> sin cierre registrado</span>`
-            : (lastRunStatus ? `<span class="${lastRunStatus === 'ok' || lastRunStatus === 'success' ? 'run-ok' : lastRunStatus === 'error' || lastRunStatus === 'failed' ? 'run-err' : ''}">
-                <i class="bi bi-flag"></i> ${lastRunStatus}</span>` : '')}
+    <div class="agent-card ${cardClass}">
+      <div class="agent-fn"><i class="bi ${ico}"></i> ${esc(fn)}</div>
+      ${desc ? `<div class="agent-desc">${esc(desc)}</div>` : ''}
+      <div class="agent-stat">
+        <div class="agent-stat-row">
+          <span class="agent-stat-lbl">Estado:</span>
+          <span class="agent-stat-val">${statusHtml} <span style="font-size:.68rem;color:var(--muted);">${esc(estadoTexto)}</span></span>
+        </div>
+        <div class="agent-stat-row">
+          <span class="agent-stat-lbl">Último trabajo:</span>
+          <span class="agent-stat-val" style="font-size:.72rem;">${esc(trabajoTexto)}</span>
+        </div>
+        ${a.last_run_status && (a.last_run_status === 'ok' || a.last_run_status === 'success') ? `
+        <div class="agent-stat-row">
+          <span class="agent-stat-lbl">Resultado:</span>
+          <span class="agent-stat-val run-ok">completado</span>
+        </div>` : ''}
       </div>
       ${a.last_error ? `<div class="agent-err"><i class="bi bi-exclamation-circle"></i> ${esc(a.last_error)}</div>` : ''}
-      <div class="data-age" style="margin-top:6px;">fuente: ${a.last_seen ? 'agent_heartbeat + agent_runs' : 'agent_runs (sin heartbeat)'}</div>
-    </div>
-  `;
+      <button class="tech-toggle" onclick="toggleTechBlock('${techId}')">
+        <i class="bi bi-chevron-right"></i> Detalles técnicos
+      </button>
+      <div class="tech-body" id="${techId}">
+        <div class="tech-grid" style="margin-top:6px;">
+          <div class="tech-cell"><div class="tech-cell-lbl">Nombre técnico</div><div class="tech-cell-val">${esc(a.agent)}</div></div>
+          ${a.last_seen ? `<div class="tech-cell"><div class="tech-cell-lbl">Último heartbeat</div><div class="tech-cell-val">${fmtDatetime(a.last_seen)}</div></div>` : ''}
+          ${a.last_run_started ? `<div class="tech-cell"><div class="tech-cell-lbl">Inicio de run</div><div class="tech-cell-val">${fmtDatetime(a.last_run_started)}</div></div>` : ''}
+          <div class="tech-cell"><div class="tech-cell-lbl">Cierre registrado</div><div class="tech-cell-val">${a.cierre_registrado ? 'Sí' : 'No'}</div></div>
+          <div class="tech-cell"><div class="tech-cell-lbl">Fuente</div><div class="tech-cell-val">${!heartbeatAvailable ? 'agent_runs (sin heartbeat)' : 'agent_heartbeat + agent_runs'}</div></div>
+        </div>
+      </div>
+    </div>`;
 }
 
 function renderFlaskAgentCard(a) {
-  /* Status: basado en status + enabled + last_run vs run_interval */
-  let statusClass = '', statusHtml = '';
-  const now = Date.now();
-  const lastRun = a.last_run ? new Date(a.last_run).getTime() : null;
-  const interval = a.run_interval;  /* segundos — puede ser null */
+  const ag   = agInfo(a.agent_id);
+  const fn   = ag.fn || a.name || a.agent_id;
+  const ico  = ag.ico;
+  const desc = ag.desc;
+
+  const now      = Date.now();
+  const lastRun  = a.last_run ? new Date(a.last_run).getTime() : null;
+  const interval = a.run_interval;
+
+  let cardClass = '', statusHtml = '', estadoTexto = '', trabajoTexto = '';
 
   if (!a.enabled) {
-    statusClass = 'nodata';
-    statusHtml = `<span class="stag stag-disabled">deshabilitado</span>`;
+    cardClass   = 'nodata';
+    statusHtml  = `<span class="stag stag-disabled">Deshabilitado</span>`;
+    estadoTexto = 'Este agente está apagado y no ejecuta tareas.';
   } else if (a.status === 'running') {
-    statusClass = 'running';
-    statusHtml = `<span class="stag stag-running"><i class="bi bi-circle-fill"></i> ejecutándose</span>`;
+    cardClass   = 'running';
+    statusHtml  = `<span class="stag stag-running"><i class="bi bi-circle-fill"></i> Ejecutándose</span>`;
+    estadoTexto = 'Está procesando en este momento.';
   } else if (a.status === 'error') {
-    statusClass = 'error';
-    statusHtml = `<span class="stag stag-error"><i class="bi bi-x-circle"></i> error</span>`;
-  } else if (lastRun == null) {
-    statusClass = 'nodata';
-    statusHtml = `<span class="stag stag-nodata">sin información</span>`;
+    cardClass   = 'error';
+    statusHtml  = `<span class="stag stag-error"><i class="bi bi-x-circle"></i> Error</span>`;
+    estadoTexto = 'La última ejecución terminó con error.';
+  } else if (!lastRun) {
+    cardClass   = 'nodata';
+    statusHtml  = `<span class="stag stag-nodata">Sin información</span>`;
+    estadoTexto = 'No hay registro de ejecuciones anteriores.';
   } else if (interval && (now - lastRun) > interval * 1500) {
-    /* Más de 1.5× el intervalo configurado sin ejecutar → señal perdida */
-    statusClass = 'stale';
-    const ageS = Math.round((now - lastRun) / 1000);
-    statusHtml = `<span class="stag stag-stale"><i class="bi bi-clock"></i> sin señal reciente · hace ${fmtAge(ageS)}</span>`;
+    cardClass   = 'stale';
+    const ageS  = Math.round((now - lastRun) / 1000);
+    statusHtml  = `<span class="stag stag-stale"><i class="bi bi-clock"></i> Sin señal reciente</span>`;
+    estadoTexto = `Debería haberse ejecutado hace ${fmtAge(ageS)} (intervalo: ${fmtDuration(interval)}).`;
   } else {
-    statusHtml = `<span class="stag stag-ok"><i class="bi bi-check-circle"></i> habilitado</span>`;
+    statusHtml  = `<span class="stag stag-ok"><i class="bi bi-check-circle"></i> Habilitado</span>`;
+    estadoTexto = `En espera · se ejecuta cada ${interval ? fmtDuration(interval) : '—'}`;
   }
 
-  const nextRunStr = a.next_run ? `<span><i class="bi bi-calendar-event"></i> próximo: ${fmtDatetime(a.next_run)}</span>` : '';
-  const intervalStr = interval ? `<span><i class="bi bi-repeat"></i> cada ${fmtDuration(interval)}</span>` : '';
+  if (a.last_run) {
+    const parts = [];
+    if (a.tasks_today > 0)  parts.push(`${a.tasks_today} tareas hoy`);
+    if (a.errors_today > 0) parts.push(`${a.errors_today} errores`);
+    if (a.last_result) parts.push(a.last_result.substring(0, 60));
+    trabajoTexto = `Última ejecución: ${fmtDatetime(a.last_run)}${parts.length ? ' · ' + parts.join(' · ') : ''}`;
+  } else {
+    trabajoTexto = 'Sin ejecuciones registradas.';
+  }
 
+  const proximo = a.next_run ? `Próxima programada: ${fmtDatetime(a.next_run)} (evidencia registrada)` : 'Próxima ejecución: sin registro';
+
+  const techId = `tech_f_${(a.agent_id||'').replace(/[^a-z0-9]/g,'')}`;
   return `
-    <div class="agent-card ${statusClass}">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
-        <div class="agent-card-name">${esc(a.name || a.agent_id)}</div>
-        ${statusHtml}
-      </div>
-      <div class="agent-meta">
-        ${a.last_run ? `<span><i class="bi bi-play-fill"></i> último run: ${fmtDatetime(a.last_run)}</span>` : ''}
-        ${nextRunStr}
-        ${intervalStr}
-        ${a.tasks_today != null ? `<span><i class="bi bi-check2-all"></i> ${a.tasks_today} tareas hoy</span>` : ''}
-        ${a.errors_today != null && a.errors_today > 0 ? `<span class="run-err"><i class="bi bi-bug"></i> ${a.errors_today} errores hoy</span>` : ''}
+    <div class="agent-card ${cardClass}">
+      <div class="agent-fn"><i class="bi ${ico}"></i> ${esc(fn)}</div>
+      ${desc ? `<div class="agent-desc">${esc(desc)}</div>` : ''}
+      <div class="agent-stat">
+        <div class="agent-stat-row">
+          <span class="agent-stat-lbl">Estado:</span>
+          <span class="agent-stat-val">${statusHtml} <span style="font-size:.68rem;color:var(--muted);">${esc(estadoTexto)}</span></span>
+        </div>
+        <div class="agent-stat-row">
+          <span class="agent-stat-lbl">Último trabajo:</span>
+          <span class="agent-stat-val" style="font-size:.72rem;">${esc(trabajoTexto)}</span>
+        </div>
+        <div class="agent-stat-row">
+          <span class="agent-stat-lbl">Próximo:</span>
+          <span class="agent-stat-val" style="font-size:.68rem;color:var(--muted);">${esc(proximo)}</span>
+        </div>
       </div>
       ${a.last_error ? `<div class="agent-err"><i class="bi bi-exclamation-circle"></i> ${esc(a.last_error)}</div>` : ''}
-      ${a.last_result ? `<div style="font-size:.67rem;color:var(--muted);margin-top:5px;">${esc(a.last_result.substring(0, 120))}${a.last_result.length > 120 ? '…' : ''}</div>` : ''}
-      <div class="data-age" style="margin-top:6px;">fuente: agent_status</div>
-    </div>
-  `;
+      <button class="tech-toggle" onclick="toggleTechBlock('${techId}')">
+        <i class="bi bi-chevron-right"></i> Detalles técnicos
+      </button>
+      <div class="tech-body" id="${techId}">
+        <div class="tech-grid" style="margin-top:6px;">
+          <div class="tech-cell"><div class="tech-cell-lbl">ID técnico</div><div class="tech-cell-val">${esc(a.agent_id)}</div></div>
+          <div class="tech-cell"><div class="tech-cell-lbl">Intervalo configurado</div><div class="tech-cell-val">${interval ? fmtDuration(interval) : 'sin configurar'}</div></div>
+          ${a.next_run ? `<div class="tech-cell"><div class="tech-cell-lbl">next_run (DB)</div><div class="tech-cell-val">${fmtDatetime(a.next_run)}</div></div>` : ''}
+          <div class="tech-cell"><div class="tech-cell-lbl">Fuente</div><div class="tech-cell-val">agent_status (Flask ORM)</div></div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function toggleTechBlock(id) {
+  const body = document.getElementById(id);
+  if (!body) return;
+  const btn = body.previousElementSibling;
+  body.classList.toggle('open');
+  if (btn) btn.classList.toggle('open');
 }
 
 /* ══════════════════════════════════════════════════════════
-   TAB 4 — HISTORIAL
+   TAB 4 — ACTIVIDAD (ex Historial)
 ══════════════════════════════════════════════════════════ */
-let historialAgentOptions = false;
-
-async function loadHistorial() {
-  /* Populate agent filter lazily */
-  if (!historialAgentOptions) {
-    historialAgentOptions = true;
+async function loadActividad() {
+  if (!actividadAgentOpts) {
+    actividadAgentOpts = true;
     try {
       const d = await apiFetch('/agentes/api/v2/agentes');
-      const sel = document.getElementById('historialAgente');
+      const sel = document.getElementById('actAgente');
       const items = (d.worker_agents && d.worker_agents.items) || [];
       items.forEach(a => {
         const o = document.createElement('option');
-        o.value = a.agent; o.textContent = a.agent;
+        o.value = a.agent;
+        o.textContent = agInfo(a.agent).fn || a.agent;
         sel.appendChild(o);
       });
     } catch(e) { /* non-critical */ }
   }
 
-  const agent = document.getElementById('historialAgente').value;
-  const limit = document.getElementById('historialLimit').value;
+  const agent = document.getElementById('actAgente').value;
+  const limit = document.getElementById('actLimit').value;
+  const skel  = document.getElementById('actSkel');
+  const tbl   = document.getElementById('actTbl');
 
-  const skel = document.getElementById('historialSkel');
-  const tbl  = document.getElementById('historialTbl');
   skel.innerHTML = [1,2,3,4,5].map(() => `<div class="skel skel-row"></div>`).join('');
   skel.style.display = 'block'; tbl.style.display = 'none';
 
@@ -1045,49 +1277,42 @@ async function loadHistorial() {
     const data = await apiFetch(`/agentes/api/v2/historial?${params}`);
     if (data.error) throw new Error(data.error);
 
+    document.getElementById('actMeta').textContent =
+      `${(data.items||[]).length} ejecuciones · fuente: ${data.source || 'agent_runs'}` +
+      (data.env_note ? ' · ' + data.env_note : '') +
+      (data._server_ms != null ? ` · ${data._server_ms} ms` : '');
+
     const items = data.items || [];
-    historialLoaded = true;
-
-    document.getElementById('historialMeta').textContent =
-      `${items.length} ejecuciones · fuente: ${data.source || 'agent_runs'} · ${fmtDatetime(data.query_at)}${data.cached ? ' · caché' : ''}${data._server_ms != null ? ' · ' + data._server_ms + ' ms' : ''}`;
-
     skel.style.display = 'none';
     if (items.length === 0) {
       skel.innerHTML = `<div class="mc-empty"><i class="bi bi-clock-history"></i>Sin ejecuciones registradas.</div>`;
       skel.style.display = 'block'; return;
     }
 
-    document.getElementById('historialTbody').innerHTML = items.map(r => {
-      /* FIX 6: usar display_status cuando no hay cierre registrado */
-      const displaySt = !r.cierre_registrado
-        ? 'sin cierre registrado'
-        : (r.status || '—');
-      const stClass = !r.cierre_registrado
-        ? 'run-warn'
-        : (r.status === 'ok' || r.status === 'success' ? 'run-ok'
-           : r.status === 'error' || r.status === 'failed' ? 'run-err'
-           : 'run-warn');
-      const dur = r.duration_s != null ? fmtDuration(r.duration_s) : '—';
-      /* FIX 7: origin de triggered_by; nulo = 'origen no identificado' */
-      const originText = esc(r.origin || r.triggered_by || 'origen no identificado');
-      return `
-        <tr>
-          <td style="font-weight:600;">${esc(r.agent)}</td>
-          <td class="data-age">${r.started_at ? fmtDatetime(r.started_at) : '—'}</td>
-          <td style="font-family:monospace;">${dur}</td>
-          <td><span class="${stClass}" style="font-weight:600;">${esc(displaySt)}</span></td>
-          <td style="font-family:monospace;">${r.actions_taken ?? '—'}</td>
-          <td style="font-family:monospace;">${r.records_out ?? '—'}</td>
-          <td style="font-size:.68rem;color:var(--muted);">${originText}</td>
-          <td style="font-size:.68rem;color:var(--red);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.error_msg||'')}">
-            ${r.error_msg ? esc(r.error_msg.substring(0, 60)) + (r.error_msg.length > 60 ? '…' : '') : ''}
-          </td>
-        </tr>
-      `;
+    document.getElementById('actTbody').innerHTML = items.map(r => {
+      const ag   = agInfo(r.agent);
+      const fn   = ag.fn || r.agent;
+      const ds   = r.display_status || r.status || '—';
+      const resCls = ds === 'ok' || ds === 'success' ? 'run-ok'
+                   : !r.cierre_registrado ? 'run-open'
+                   : ds === 'error' || ds === 'failed' ? 'run-err' : '';
+      const cierreLbl = r.cierre_registrado
+        ? `<span class="stag stag-ok" style="font-size:.6rem;">sí</span>`
+        : `<span class="stag stag-warn" style="font-size:.6rem;">no</span>`;
+      return `<tr>
+        <td style="font-size:.72rem;color:var(--muted);">${esc(r.agent)}</td>
+        <td style="font-weight:600;font-size:.74rem;">${esc(fn)}</td>
+        <td class="data-age">${r.started_at ? fmtDatetime(r.started_at) : '—'}</td>
+        <td style="font-family:monospace;">${r.duration_s != null ? fmtDuration(r.duration_s) : '—'}</td>
+        <td><span class="${resCls}" style="font-weight:600;">${esc(ds)}</span></td>
+        <td style="font-family:monospace;">${r.actions_taken ?? '—'}</td>
+        <td>${cierreLbl}</td>
+        <td style="font-size:.67rem;color:var(--red);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.error_msg||'')}">
+          ${r.error_msg ? esc(r.error_msg.substring(0, 55)) + (r.error_msg.length > 55 ? '…' : '') : ''}
+        </td>
+      </tr>`;
     }).join('');
-
     tbl.style.display = 'table';
-
   } catch(e) {
     skel.innerHTML = `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(e.message)}</div>`;
     skel.style.display = 'block';
@@ -1095,7 +1320,7 @@ async function loadHistorial() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   DRAWER — Detalle de prospecto
+   DRAWER — Prospecto detail
 ══════════════════════════════════════════════════════════ */
 function openProspecto(id, razonSocial, email) {
   document.getElementById('drawerTitle').textContent = razonSocial || `Prospecto #${id}`;
@@ -1115,139 +1340,90 @@ function closeDrawer() {
 async function loadProspectoDrawer(id) {
   try {
     const data = await apiFetch(`/agentes/api/v2/prospecto/${id}/historial`);
-
     if (data.error) {
       document.getElementById('drawerBody').innerHTML =
         `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(data.error)}</div>`;
       return;
     }
 
-    const p = data.prospecto || {};
+    const p       = data.prospecto || {};
     const outreach = (data.outreach && data.outreach.items) || [];
     const stateLog = (data.state_log && data.state_log.items) || [];
-    const leads    = (data.leads && data.leads.items) || [];
+    const leads    = (data.leads    && data.leads.items)    || [];
+    const sup      = data.suppression || {};
 
     let html = '';
-
-    /* Ficha */
-    html += `
-      <div class="mc-card" style="margin-bottom:16px;">
-        <div class="mc-card-title">Ficha <span class="src">fuente: ec_prospectos</span></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:.76rem;">
-          <div><span style="color:var(--muted);">RUC:</span> <strong>${esc(p.ruc||'—')}</strong></div>
-          <div><span style="color:var(--muted);">Score:</span> ${scoreTag(p.score)}</div>
-          <div><span style="color:var(--muted);">Est. email:</span> ${statusEmailTag(p.estado_email)}</div>
-          <div><span style="color:var(--muted);">Est. com.:</span> ${statusComTag(p.estado_com)}</div>
-        </div>
-        <div class="data-age" style="margin-top:8px;font-size:.6rem;color:#94a3b8;">
-          ${data.env_note || ''}
-        </div>
+    html += `<div class="mc-card" style="margin-bottom:14px;">
+      <div class="mc-card-title">Ficha <span class="src">ec_prospectos</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 16px;font-size:.76rem;">
+        <div><span style="color:var(--muted);">RUC:</span> <strong>${esc(p.ruc||'—')}</strong></div>
+        <div><span style="color:var(--muted);">Score:</span> ${scoreTag(p.score)}</div>
+        <div><span style="color:var(--muted);">Est. email:</span> ${statusEmailTag(p.estado_email)}</div>
+        <div><span style="color:var(--muted);">Est. com.:</span> ${statusComTag(p.estado_com)}</div>
       </div>
-    `;
+    </div>`;
 
-    /* FIX 8: Suppression — independiente del estado_com */
-    const sup = data.suppression || {};
-    if (!sup.error) {
-      if (sup.suprimido) {
-        const conflictoHtml = sup.conflicto
-          ? \`<div style="margin-top:6px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:6px 10px;font-size:.71rem;color:#991b1b;font-weight:600;">
-              ⚠ \${esc(sup.nota || 'Email en suppression — NO enviar')}
-            </div>\`
-          : '';
-        html += \`<div class="mc-card" style="margin-bottom:16px;border-color:#fca5a5;">
-          <div class="mc-card-title" style="color:var(--red);">
-            <i class="bi bi-slash-circle"></i> Suppression
-            <span class="src">fuente: suppression</span>
-          </div>
-          <div style="font-size:.76rem;">
-            <strong>Email suprimido</strong>
-            \${sup.razon ? ' · ' + esc(sup.razon) : ''}
-            \${sup.desde ? ' · desde ' + fmtDatetime(sup.desde) : ''}
-          </div>
-          \${conflictoHtml}
-        </div>\`;
-      }
-      if (sup.aviso_fuente_clientes) {
-        html += \`<div class="data-age" style="margin-bottom:12px;padding:5px 10px;background:#f8fafc;border-radius:6px;font-size:.62rem;color:#64748b;">
-          ℹ \${esc(sup.aviso_fuente_clientes)}
-        </div>\`;
-      }
+    // Suppression alert
+    if (!sup.error && sup.suprimido) {
+      html += `<div class="attn-item critical" style="margin-bottom:12px;">
+        <i class="bi bi-shield-x"></i>
+        <div class="attn-body">
+          <div class="attn-title">Email en lista de supresión — NO enviar</div>
+          <div class="attn-sub">${sup.razon ? 'Motivo: ' + esc(sup.razon) : ''} ${sup.desde ? '· desde ' + fmtDate(sup.desde) : ''}</div>
+          ${sup.nota ? `<div class="attn-sub" style="color:var(--red);">${esc(sup.nota)}</div>` : ''}
+        </div>
+      </div>`;
     }
 
-    /* Envíos */
-    html += `<div class="mc-card-title" style="margin-bottom:8px;">
-      Envíos (${outreach.length}) <span class="src">fuente: outreach_log</span>
-    </div>`;
+    // Envíos
+    html += `<div class="mc-card-title" style="margin-bottom:8px;">Envíos (${outreach.length}) <span class="src">outreach_log</span></div>`;
     if (outreach.length === 0) {
-      html += `<div class="mc-empty" style="padding:16px 0;"><i class="bi bi-envelope"></i> Sin envíos registrados</div>`;
+      html += `<div class="mc-empty" style="padding:12px 0;"><i class="bi bi-envelope"></i>Sin envíos registrados</div>`;
     } else {
-      html += `<div class="mc-card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+      html += `<div class="mc-card" style="padding:0;overflow:hidden;margin-bottom:14px;">
         <table class="mc-table">
-          <thead><tr><th>Fecha</th><th>Bandeja</th><th>Etapa</th><th>Estado</th><th>Origen</th></tr></thead>
-          <tbody>
-            ${outreach.map(o => `
-              <tr>
-                <td class="data-age">${fmtDatetime(o.sent_at)}</td>
-                <td style="font-size:.74rem;">${esc(o.bandeja||'—')}</td>
-                <td style="font-size:.72rem;color:var(--muted);">${esc(o.stage||'—')}</td>
-                <td>${o.status === 'enviado'
-                  ? `<span class="stag stag-ok">enviado</span>`
-                  : `<span class="stag stag-warn">${esc(o.status||'—')}</span>`}</td>
-                <td style="font-size:.65rem;color:var(--muted);">${esc(o.origin||'—')}</td>
-              </tr>
-            `).join('')}
-          </tbody>
+          <thead><tr><th>Fecha</th><th>Bandeja</th><th>Etapa</th><th>Estado</th></tr></thead>
+          <tbody>${outreach.map(o => `<tr>
+            <td class="data-age">${fmtDatetime(o.sent_at)}</td>
+            <td style="font-size:.72rem;">${esc(o.bandeja||'—')}</td>
+            <td style="font-size:.7rem;color:var(--muted);">${esc(o.stage||'—')}</td>
+            <td>${o.status === 'enviado' ? `<span class="stag stag-ok">enviado</span>` : `<span class="stag stag-warn">${esc(o.status||'—')}</span>`}</td>
+          </tr>`).join('')}</tbody>
         </table>
       </div>`;
     }
 
-    /* Cambios de estado */
     if (stateLog.length > 0) {
-      html += `<div class="mc-card-title" style="margin-bottom:8px;">
-        Cambios de estado (${stateLog.length}) <span class="src">fuente: prospect_state_log</span>
-      </div>
-      <div class="mc-card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+      html += `<div class="mc-card-title" style="margin-bottom:8px;">Cambios de estado (${stateLog.length}) <span class="src">prospect_state_log</span></div>
+      <div class="mc-card" style="padding:0;overflow:hidden;margin-bottom:14px;">
         <table class="mc-table">
           <thead><tr><th>Fecha</th><th>Anterior</th><th>Nuevo</th><th>Motivo</th></tr></thead>
-          <tbody>
-            ${stateLog.map(s => `
-              <tr>
-                <td class="data-age">${fmtDatetime(s.created_at)}</td>
-                <td style="font-size:.72rem;">${esc(s.estado_anterior||'—')}</td>
-                <td style="font-size:.72rem;font-weight:600;">${esc(s.estado_nuevo||'—')}</td>
-                <td style="font-size:.7rem;color:var(--muted);">${esc(s.motivo||'—')}</td>
-              </tr>
-            `).join('')}
-          </tbody>
+          <tbody>${stateLog.map(s => `<tr>
+            <td class="data-age">${fmtDatetime(s.created_at)}</td>
+            <td style="font-size:.7rem;">${esc(s.estado_anterior||'—')}</td>
+            <td style="font-weight:600;font-size:.72rem;">${esc(s.estado_nuevo||'—')}</td>
+            <td style="font-size:.68rem;color:var(--muted);">${esc(s.motivo||'—')}</td>
+          </tr>`).join('')}</tbody>
         </table>
       </div>`;
     }
 
-    /* Leads */
     if (leads.length > 0) {
-      html += `<div class="mc-card-title" style="margin-bottom:8px;">
-        Leads generados (${leads.length}) <span class="src">fuente: lead_pipeline</span>
-      </div>
-      <div class="mc-card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+      html += `<div class="mc-card-title" style="margin-bottom:8px;">Leads (${leads.length}) <span class="src">lead_pipeline</span></div>
+      <div class="mc-card" style="padding:0;overflow:hidden;margin-bottom:14px;">
         <table class="mc-table">
           <thead><tr><th>Fecha</th><th>Tipo</th><th>WH</th></tr></thead>
-          <tbody>
-            ${leads.map(l => `
-              <tr>
-                <td class="data-age">${fmtDatetime(l.created_at)}</td>
-                <td style="font-size:.74rem;">${esc(l.tipo||'—')}</td>
-                <td>${l.webhook_ok ? `<span class="stag stag-ok">OK</span>` : `<span class="stag stag-warn">—</span>`}</td>
-              </tr>
-            `).join('')}
-          </tbody>
+          <tbody>${leads.map(l => `<tr>
+            <td class="data-age">${fmtDatetime(l.created_at)}</td>
+            <td style="font-size:.74rem;">${esc(l.tipo||'—')}</td>
+            <td>${l.webhook_ok ? `<span class="stag stag-ok">OK</span>` : `<span class="stag stag-warn">—</span>`}</td>
+          </tr>`).join('')}</tbody>
         </table>
       </div>`;
     }
 
-    html += `<div class="data-age" style="margin-top:12px;">consulta: ${fmtDatetime(data.query_at)}${data._server_ms != null ? ' · ' + data._server_ms + ' ms' : ''}</div>`;
-
+    html += `<div class="data-age" style="margin-top:8px;">consulta: ${fmtDatetime(data.query_at)}${data._server_ms != null ? ' · ' + data._server_ms + ' ms' : ''}</div>`;
     document.getElementById('drawerBody').innerHTML = html;
-
   } catch(e) {
     document.getElementById('drawerBody').innerHTML =
       `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(e.message)}</div>`;
@@ -1273,18 +1449,24 @@ function esc(s) {
 function fmtDatetime(iso) {
   if (!iso) return '—';
   try {
-    const d = new Date(iso);
-    const now = new Date();
-    const diffMs = now - d;
-    if (diffMs < 60_000)    return 'hace ' + Math.round(diffMs/1000) + ' s';
-    if (diffMs < 3_600_000) return 'hace ' + Math.round(diffMs/60_000) + ' min';
-    if (diffMs < 86_400_000 * 2) {
-      const h = d.getHours().toString().padStart(2,'0');
-      const m = d.getMinutes().toString().padStart(2,'0');
-      return (diffMs < 86_400_000 ? 'hoy ' : 'ayer ') + h + ':' + m;
-    }
-    return d.toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric'})
-      + ' ' + d.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'});
+    const d = new Date(iso), now = new Date();
+    const ms = now - d;
+    if (ms < 60_000)      return 'hace ' + Math.round(ms/1000) + ' s';
+    if (ms < 3_600_000)   return 'hace ' + Math.round(ms/60_000) + ' min';
+    if (ms < 86_400_000)  return 'hoy ' + d.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'});
+    if (ms < 172_800_000) return 'ayer ' + d.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'});
+    return d.toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric'}) + ' ' + d.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'});
+  } catch(e) { return iso; }
+}
+
+function fmtHora(iso) {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso), now = new Date();
+    const ms = now - d;
+    if (ms < 3_600_000)  return Math.round(ms/60_000) + 'm';
+    if (ms < 86_400_000) return d.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'});
+    return d.toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit'});
   } catch(e) { return iso; }
 }
 
@@ -1294,18 +1476,18 @@ function fmtDate(s) {
   catch(e) { return s; }
 }
 
-function fmtAge(seconds) {
-  if (seconds == null) return '—';
-  if (seconds < 60)   return seconds + ' s';
-  if (seconds < 3600) return Math.round(seconds/60) + ' min';
-  return Math.round(seconds/3600) + ' h';
+function fmtAge(s) {
+  if (s == null) return '—';
+  if (s < 60)   return s + ' s';
+  if (s < 3600) return Math.round(s/60) + ' min';
+  return Math.round(s/3600) + ' h';
 }
 
-function fmtDuration(seconds) {
-  if (seconds == null) return '—';
-  if (seconds < 60)   return seconds + 's';
-  if (seconds < 3600) return Math.floor(seconds/60) + 'm ' + (seconds%60) + 's';
-  return Math.floor(seconds/3600) + 'h ' + Math.floor((seconds%3600)/60) + 'm';
+function fmtDuration(s) {
+  if (s == null) return '—';
+  if (s < 60)   return s + 's';
+  if (s < 3600) return Math.floor(s/60) + 'm ' + (s%60) + 's';
+  return Math.floor(s/3600) + 'h ' + Math.floor((s%3600)/60) + 'm';
 }
 
 function scoreTag(score) {
@@ -1319,24 +1501,22 @@ function statusEmailTag(v) {
   const s = String(v).toLowerCase();
   if (s.includes('rebote') || s.includes('bounce')) return `<span class="stag stag-error">${esc(v)}</span>`;
   if (s.includes('valid')) return `<span class="stag stag-ok">${esc(v)}</span>`;
-  if (s.includes('invalid') || s.includes('inválid')) return `<span class="stag stag-warn">${esc(v)}</span>`;
+  if (s.includes('invalid')) return `<span class="stag stag-warn">${esc(v)}</span>`;
   return `<span class="stag stag-idle">${esc(v)}</span>`;
 }
 
 function statusComTag(v) {
   if (!v) return '<span class="stag stag-nodata">—</span>';
   const s = String(v).toLowerCase();
-  if (s.includes('cliente') || s.includes('p4')) return `<span class="stag stag-running">${esc(v)}</span>`;
-  if (s.includes('negocian') || s.includes('p3')) return `<span class="stag stag-ok">${esc(v)}</span>`;
+  if (s.includes('cliente') || s === 'p4') return `<span class="stag stag-running">${esc(v)}</span>`;
+  if (s.includes('negocian') || s === 'p3') return `<span class="stag stag-ok">${esc(v)}</span>`;
   if (s.includes('interesad')) return `<span class="stag stag-ok">${esc(v)}</span>`;
-  if (s.includes('no_contactar') || s.includes('no contactar')) return `<span class="stag stag-error">${esc(v)}</span>`;
+  if (s.includes('no_contactar') || s === 'no contactar') return `<span class="stag stag-error">${esc(v)}</span>`;
   if (s.includes('rebotado')) return `<span class="stag stag-error">${esc(v)}</span>`;
   return `<span class="stag stag-idle">${esc(v)}</span>`;
 }
 
-/* ══════════════════════════════════════════════════════════
-   INIT
-══════════════════════════════════════════════════════════ */
+/* ── Init ──────────────────────────────────────────────── */
 loadResumen();
 </script>
 {% endblock %}
