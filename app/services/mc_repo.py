@@ -21,7 +21,7 @@ Fuentes:
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from app.extensions import db
 
@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 
 # ── Cache simple en memoria ───────────────────────────────────────────────────
 # Cada entrada: (timestamp_float, payload_dict)
-_cache: dict[str, tuple[float, Any]] = {}
+_cache: Dict[str, tuple] = {}
 _RESUMEN_TTL   = 120   # segundos
 _AGENTES_TTL   = 30
 _HISTORIAL_TTL = 60
@@ -50,19 +50,19 @@ def _cache_set(key: str, value: Any):
     _cache[key] = (time.monotonic(), value)
 
 
-def _sql(query: str, params: dict | None = None) -> list[dict]:
+def _sql(query: str, params: Optional[Dict] = None) -> List[Dict]:
     """SELECT parametrizado → lista de dicts. Lanza excepción si falla."""
     result = db.session.execute(db.text(query), params or {})
     return [dict(r._mapping) for r in result.fetchall()]
 
 
-def _sql_one(query: str, params: dict | None = None) -> dict | None:
+def _sql_one(query: str, params: Optional[Dict] = None) -> Optional[Dict]:
     result = db.session.execute(db.text(query), params or {})
     row = result.fetchone()
     return dict(row._mapping) if row else None
 
 
-def _scalar(query: str, params: dict | None = None, default=None):
+def _scalar(query: str, params: Optional[Dict] = None, default=None):
     result = db.session.execute(db.text(query), params or {})
     row = result.fetchone()
     return row[0] if row else default

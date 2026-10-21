@@ -72,20 +72,20 @@ def index():
 @login_required
 @_require_agent_access
 def mission_control():
-    from app.models.agent import AgentStatus, AgentLog, AgentAlert
-    from app.services.agents.executive import ExecutiveAgent
-    from app.services.prospeccion_repo import get_prospeccion_kpis
+    # UI v2: all data is fetched client-side via /api/v2/* endpoints.
+    # Only active alerts are passed via Jinja (lightweight, capped at 10 rows).
+    # agents / recent_logs / kpis / prospeccion_kpis are no longer needed here.
+    alerts = []
+    try:
+        from app.models.agent import AgentAlert
+        alerts = (AgentAlert.query
+                  .filter_by(resolved=False)
+                  .order_by(AgentAlert.created_at.desc())
+                  .limit(10).all())
+    except Exception:
+        pass  # table may not exist in dev — UI degrades gracefully
 
-    agents = AgentStatus.query.order_by(AgentStatus.id).all()
-    recent_logs = (AgentLog.query.order_by(AgentLog.created_at.desc()).limit(50).all())
-    alerts = AgentAlert.query.filter_by(resolved=False).order_by(AgentAlert.created_at.desc()).limit(10).all()
-    kpis = ExecutiveAgent.get_kpis()
-    prospeccion_kpis = get_prospeccion_kpis()
-
-    return render_template('agentes/mission_control.html',
-                           agents=agents, recent_logs=recent_logs,
-                           alerts=alerts, kpis=kpis,
-                           prospeccion=prospeccion_kpis)
+    return render_template('agentes/mission_control.html', alerts=alerts)
 
 
 @agentes_bp.route('/dashboard')
