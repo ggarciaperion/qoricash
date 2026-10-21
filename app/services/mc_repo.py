@@ -58,18 +58,18 @@ def _cache_set(key: str, value: Any):
     _cache[key] = (time.monotonic(), value)
 
 
-def _sql(query: str, params: dict | None = None) -> list[dict]:
+def _sql(query: str, params=None) -> list[dict]:
     result = db.session.execute(db.text(query), params or {})
     return [dict(r._mapping) for r in result.fetchall()]
 
 
-def _sql_one(query: str, params: dict | None = None) -> dict | None:
+def _sql_one(query: str, params=None) -> dict:
     result = db.session.execute(db.text(query), params or {})
     row = result.fetchone()
     return dict(row._mapping) if row else None
 
 
-def _scalar(query: str, params: dict | None = None, default=None):
+def _scalar(query: str, params=None, default=None):
     result = db.session.execute(db.text(query), params or {})
     row = result.fetchone()
     return row[0] if row else default
@@ -601,8 +601,11 @@ def get_prospecto_historial(prospecto_id: int) -> dict:
 
     # FIX 8: suppression es independiente del estado_com
     try:
-        sup          = _sql_one("SELECT id, reason, created_at FROM suppression WHERE email = :email",
-                                {'email': meta.get('email', '')})
+        # Schema real: suppression usa tipo/valor/motivo/agregado_at (no email/reason/created_at)
+        sup          = _sql_one(
+            "SELECT id, motivo, fuente, agregado_at FROM suppression "
+            "WHERE tipo = 'email' AND valor = :email",
+            {'email': meta.get('email', '')})
         is_sup       = sup is not None
         estado_com   = (meta.get('estado_com') or '').lower()
         ya_excluido  = estado_com in ('no_contactar', 'correo_rebotado', 'no_enviar', 'rebotado')
@@ -610,8 +613,9 @@ def get_prospecto_historial(prospecto_id: int) -> dict:
         result['suppression'] = {
             'source':    'suppression',
             'suprimido': is_sup,
-            'razon':     sup.get('reason') if sup else None,
-            'desde':     sup['created_at'].isoformat() if sup and hasattr(sup.get('created_at'), 'isoformat') else None,
+            'razon':     sup.get('motivo') if sup else None,
+            'fuente':    sup.get('fuente') if sup else None,
+            'desde':     sup['agregado_at'].isoformat() if sup and hasattr(sup.get('agregado_at'), 'isoformat') else None,
             'conflicto': conflicto,
             'nota': (
                 'El estado comercial permitiría contacto, pero el email está en suppression — NO enviar'
