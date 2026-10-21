@@ -1,845 +1,1264 @@
 {% extends "base.html" %}
-{% block title %}Mission Control — Agentes IA{% endblock %}
+{% block title %}Mission Control — Qoricash{% endblock %}
 
 {% block head %}
 <style>
-/* ═══════════════════════════════════════════════════════════════════
-   MISSION CONTROL — Light Theme
-═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   MISSION CONTROL v2 — #196BFE · blanco · negro
+   Bootstrap 5.1 ya cargado. Sin SVG pipeline.
+═══════════════════════════════════════════════════════════ */
 :root {
-  --mc-bg:      #f1f5f9;
-  --mc-surface: #ffffff;
-  --mc-card:    #ffffff;
-  --mc-border:  rgba(0,0,0,.08);
-  --mc-border2: rgba(0,0,0,.12);
-  --mc-text:    #1e293b;
-  --mc-muted:   #64748b;
-  --mc-green:   #16a34a;
-  --mc-blue:    #2563eb;
-  --mc-teal:    #0d9488;
-  --mc-purple:  #7c3aed;
-  --mc-amber:   #d97706;
-  --mc-red:     #dc2626;
-  --mc-navy:    #1e40af;
+  --qb:   #196BFE;          /* Qoricash blue */
+  --qbd:  #0f55d4;          /* blue dark (hover) */
+  --qbl:  #e8f0fe;          /* blue light (bg tint) */
+  --txt:  #0f172a;
+  --muted:#64748b;
+  --bdr:  #e2e8f0;
+  --bg:   #f8fafc;
+  --card: #ffffff;
+  --green:#16a34a;
+  --red:  #dc2626;
+  --amber:#d97706;
+  --tag-h: 22px;
 }
 
-@keyframes mc-pulse   { 0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.6)} 50%{box-shadow:0 0 0 7px rgba(34,197,94,0)} }
-@keyframes sdpulse    { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.6);opacity:.4} }
-@keyframes cflow      { from{stroke-dashoffset:160} to{stroke-dashoffset:0} }
-@keyframes glow-run   { 0%,100%{box-shadow:0 2px 8px rgba(22,163,74,.12),0 0 0 1px rgba(22,163,74,.25)} 50%{box-shadow:0 4px 16px rgba(22,163,74,.22),0 0 0 1px rgba(22,163,74,.45)} }
-@keyframes glow-err   { 0%,100%{box-shadow:0 2px 8px rgba(220,38,38,.12),0 0 0 1px rgba(220,38,38,.25)} 50%{box-shadow:0 4px 16px rgba(220,38,38,.22),0 0 0 1px rgba(220,38,38,.45)} }
-@keyframes node-in    { from{opacity:0;transform:translateY(14px) scale(.96)} to{opacity:1;transform:none} }
-@keyframes log-in     { from{opacity:0;transform:translateX(10px)} to{opacity:1;transform:none} }
-@keyframes shimmer    { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+/* ── Shell ──────────────────────────────────────────────── */
+.mc { background: var(--bg); min-height: calc(100vh - 56px); }
 
-.mc-root {
-  background: var(--mc-bg);
-  min-height: calc(100vh - 56px);
-  display: flex; flex-direction: column;
-  color: var(--mc-text); overflow: hidden;
-}
-
-/* ── Header ─────────────────────────────────────────────────────── */
-.mc-header {
-  background: var(--mc-surface);
-  border-bottom: 1px solid var(--mc-border);
-  padding: 10px 20px;
-  display: flex; align-items: center;
-  justify-content: space-between; flex-shrink: 0; gap: 16px;
-  backdrop-filter: blur(12px);
+/* ── Topbar ─────────────────────────────────────────────── */
+.mc-top {
+  background: var(--card);
+  border-bottom: 1px solid var(--bdr);
+  padding: 0 24px;
+  display: flex; align-items: stretch;
+  position: sticky; top: 56px; z-index: 100;
+  gap: 0;
 }
 .mc-brand {
   display: flex; align-items: center; gap: 10px;
-  font-size: .82rem; font-weight: 800;
-  color: var(--mc-text); letter-spacing: .08em; text-transform: uppercase;
-  font-family: system-ui;
+  font-weight: 800; font-size: .8rem;
+  letter-spacing: .1em; text-transform: uppercase;
+  padding-right: 28px; border-right: 1px solid var(--bdr);
+  color: var(--txt);
 }
 .mc-brand-dot {
-  width: 8px; height: 8px; border-radius: 50%; background: var(--mc-green);
-  animation: mc-pulse 2s ease-in-out infinite;
-  box-shadow: 0 0 8px rgba(34,197,94,.5);
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 3px rgba(22,163,74,.2);
+  flex-shrink: 0;
 }
-.mc-header-stats { display: flex; gap: 28px; align-items: center; }
-.mc-hstat { display: flex; flex-direction: column; align-items: center; }
-.mc-hstat-val {
-  font-size: 1rem; font-weight: 800; color: var(--mc-green);
-  line-height: 1; font-family: 'Courier New', monospace;
+.mc-brand-dot.offline { background: var(--red); box-shadow: 0 0 0 3px rgba(220,38,38,.2); }
+.mc-brand-dot.unknown { background: var(--amber); box-shadow: 0 0 0 3px rgba(215,119,6,.2); }
+
+/* ── Tabs ───────────────────────────────────────────────── */
+.mc-tabs {
+  display: flex; align-items: stretch;
+  padding: 0 16px; flex: 1; gap: 2px;
 }
-.mc-hstat-lbl {
-  font-size: .55rem; color: var(--mc-muted);
+.mc-tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 14px; height: 44px; border: none; background: none;
+  font-size: .78rem; font-weight: 600; color: var(--muted);
+  cursor: pointer; border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.mc-tab:hover { color: var(--txt); }
+.mc-tab.active { color: var(--qb); border-bottom-color: var(--qb); }
+.mc-tab .badge {
+  background: var(--qbl); color: var(--qb);
+  border-radius: 10px; padding: 1px 6px;
+  font-size: .65rem; font-weight: 700;
+  line-height: 16px;
+}
+.mc-tab .badge.red { background: #fee2e2; color: var(--red); }
+
+/* ── Right corner ───────────────────────────────────────── */
+.mc-corner {
+  display: flex; align-items: center; gap: 10px;
+  padding-left: 20px; border-left: 1px solid var(--bdr);
+}
+.mc-clock {
+  font-size: .7rem; color: var(--muted);
+  font-family: 'Courier New', monospace; letter-spacing: .04em;
+}
+.mc-refresh-btn {
+  border: 1px solid var(--bdr); background: none; border-radius: 6px;
+  padding: 4px 10px; font-size: .72rem; font-weight: 600; color: var(--muted);
+  cursor: pointer; display: flex; align-items: center; gap: 5px;
+  transition: all .15s;
+}
+.mc-refresh-btn:hover { border-color: var(--qb); color: var(--qb); }
+.mc-refresh-btn.spinning i { animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Content ────────────────────────────────────────────── */
+.mc-content { padding: 24px; max-width: 1400px; margin: 0 auto; }
+.mc-pane { display: none; }
+.mc-pane.active { display: block; }
+
+/* ── Cards ──────────────────────────────────────────────── */
+.mc-card {
+  background: var(--card); border: 1px solid var(--bdr);
+  border-radius: 10px; padding: 16px 20px;
+}
+.mc-card-title {
+  font-size: .65rem; font-weight: 700; color: var(--muted);
   text-transform: uppercase; letter-spacing: .1em;
-  font-family: system-ui; margin-top: 3px;
+  margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
 }
-.mc-header-actions { display: flex; gap: 7px; align-items: center; }
-.mc-btn {
-  background: rgba(0,0,0,.04); border: 1px solid var(--mc-border2);
-  color: var(--mc-muted); border-radius: 7px; padding: 5px 12px;
-  font-size: .72rem; font-weight: 600; cursor: pointer; text-decoration: none;
-  display: flex; align-items: center; gap: 5px; transition: all .18s;
-  font-family: system-ui;
-}
-.mc-btn:hover { background: rgba(0,0,0,.07); color: var(--mc-text); border-color: rgba(0,0,0,.2); text-decoration: none; }
-.mc-clock { font-size: .7rem; color: var(--mc-muted); font-family: 'Courier New', monospace; letter-spacing: .05em; }
-
-/* ── Body ────────────────────────────────────────────────────────── */
-.mc-body { flex: 1; display: flex; overflow: hidden; min-height: 0; }
-
-/* ── Canvas ──────────────────────────────────────────────────────── */
-.n8n-canvas-wrapper {
-  flex: 1; overflow: auto; background: var(--mc-bg); position: relative;
-  background-image:
-    radial-gradient(rgba(0,0,0,.08) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
-.n8n-canvas-wrapper::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
-  background-image:
-    linear-gradient(rgba(0,0,0,.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,0,0,.04) 1px, transparent 1px);
-  background-size: 96px 96px;
-}
-.n8n-canvas-wrapper::after {
-  content: ''; position: absolute; pointer-events: none; z-index: 0;
-  width: 500px; height: 300px; top: 20%; left: 30%;
-  background: radial-gradient(ellipse at center, rgba(22,163,74,.05) 0%, transparent 70%);
-}
-.n8n-canvas {
-  position: relative; width: 1100px; height: 480px;
-  margin: 36px; z-index: 1;
+.mc-card-title .src {
+  font-weight: 400; font-size: .6rem; color: #94a3b8;
+  margin-left: auto; letter-spacing: .02em; text-transform: none;
 }
 
-/* ── SVG connections ─────────────────────────────────────────────── */
-.n8n-svg {
-  position: absolute; top: 0; left: 0;
-  width: 1100px; height: 480px;
-  pointer-events: none; overflow: visible; z-index: 2;
+/* ── Status tags ────────────────────────────────────────── */
+.stag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 20px;
+  font-size: .65rem; font-weight: 700; height: var(--tag-h);
+  white-space: nowrap;
 }
-.conn-base { fill: none; stroke: rgba(0,0,0,.1); stroke-width: 1.5; }
-.conn-glow { fill: none; stroke-width: 4; filter: blur(3px); opacity: .35; }
-.conn-flow {
-  fill: none; stroke-width: 2;
-  stroke-dasharray: 7 16; stroke-linecap: round;
-}
-.conn-flow.c-blue   { stroke: rgba(96,165,250,.7);  animation: cflow 2.2s linear infinite; }
-.conn-flow.c-green  { stroke: rgba(34,197,94,.7);   animation: cflow 2.2s linear infinite .4s; }
-.conn-flow.c-teal   { stroke: rgba(45,212,191,.7);  animation: cflow 2.2s linear infinite .8s; }
-.conn-flow.c-purple { stroke: rgba(167,139,250,.7); animation: cflow 2.2s linear infinite 1.2s; }
-.conn-flow.c-amber  { stroke: rgba(251,191,36,.7);  animation: cflow 2.2s linear infinite 1.6s; }
-.conn-flow.c-navy   { stroke: rgba(147,197,253,.7); animation: cflow 2.2s linear infinite 2.0s; }
-.conn-glow.c-blue   { stroke: #60a5fa; }
-.conn-glow.c-green  { stroke: #22c55e; }
-.conn-glow.c-teal   { stroke: #2dd4bf; }
-.conn-glow.c-purple { stroke: #a78bfa; }
-.conn-glow.c-amber  { stroke: #fbbf24; }
-.conn-glow.c-navy   { stroke: #93c5fd; }
-.conn-tip { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.stag-running  { background: #dcfce7; color: #15803d; }
+.stag-ok       { background: #dbeafe; color: #1d4ed8; }
+.stag-idle     { background: #f1f5f9; color: #475569; }
+.stag-warn     { background: #fef3c7; color: #92400e; }
+.stag-error    { background: #fee2e2; color: #b91c1c; }
+.stag-stale    { background: #fef9c3; color: #854d0e; }
+.stag-nodata   { background: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; }
+.stag-disabled { background: #f1f5f9; color: #94a3b8; }
+.stag-dry      { background: #fef3c7; color: #92400e; }
 
-/* ── Node ────────────────────────────────────────────────────────── */
-.n8n-node {
-  position: absolute; width: 200px;
-  background: var(--mc-card);
-  border: 1px solid var(--mc-border2);
-  border-radius: 12px; overflow: visible;
-  box-shadow: 0 2px 8px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
-  transition: transform .22s cubic-bezier(.34,1.56,.64,1), border-color .2s, box-shadow .2s;
-  z-index: 10;
-  animation: node-in .45s cubic-bezier(.34,1.56,.64,1) both;
+/* ── KPI strip ──────────────────────────────────────────── */
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.kpi {
+  background: var(--card); border: 1px solid var(--bdr);
+  border-radius: 10px; padding: 14px 16px;
 }
-{% for i in range(7) %}.n8n-node:nth-child({{ i+1 }}){animation-delay:{{ i * 0.07 }}s}{% endfor %}
-.n8n-node:hover {
-  transform: translateY(-3px) scale(1.015);
-  border-color: rgba(0,0,0,.2);
-  box-shadow: 0 8px 24px rgba(0,0,0,.12);
-  z-index: 20;
-}
-.n8n-node.status-idle {
-  border-color: rgba(34,197,94,.25);
-}
-.n8n-node.status-running {
-  border-color: rgba(34,197,94,.55);
-  animation: node-in .45s cubic-bezier(.34,1.56,.64,1) both, glow-run 2.5s ease-in-out infinite;
-}
-.n8n-node.status-error {
-  border-color: rgba(248,113,113,.45);
-  animation: node-in .45s cubic-bezier(.34,1.56,.64,1) both, glow-err 2s ease-in-out infinite;
-}
-.n8n-node.status-warning { border-color: rgba(251,191,36,.35); }
-.n8n-node.status-stopped { border-color: rgba(100,116,139,.2); opacity: .7; }
+.kpi-val { font-size: 1.6rem; font-weight: 800; color: var(--txt); line-height: 1.1; font-family: 'Courier New', monospace; }
+.kpi-lbl { font-size: .62rem; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: .08em; }
+.kpi-sub { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+.kpi.accent { border-left: 3px solid var(--qb); }
+.kpi.green  { border-left: 3px solid var(--green); }
+.kpi.red    { border-left: 3px solid var(--red); }
+.kpi.amber  { border-left: 3px solid var(--amber); }
+.kpi-val.blue  { color: var(--qb); }
+.kpi-val.green { color: var(--green); }
+.kpi-val.red   { color: var(--red); }
+.kpi-val.amber { color: var(--amber); }
+.kpi-val.muted { color: var(--muted); }
 
-/* Node head */
-.n8n-head {
-  display: flex; align-items: center; gap: 9px;
-  padding: 11px 12px 9px;
-  border-bottom: 1px solid var(--mc-border);
+/* ── Section header ─────────────────────────────────────── */
+.sec-hdr {
+  font-size: .72rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .1em;
+  margin: 24px 0 10px;
+  display: flex; align-items: center; gap: 8px;
 }
-.n8n-icon {
-  width: 30px; height: 30px; border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: .88rem; flex-shrink: 0;
-}
-.ic-blue   { background: rgba(96,165,250,.15);  color: var(--mc-blue);   box-shadow: 0 0 12px rgba(96,165,250,.15); }
-.ic-green  { background: rgba(34,197,94,.15);   color: var(--mc-green);  box-shadow: 0 0 12px rgba(34,197,94,.15); }
-.ic-teal   { background: rgba(45,212,191,.15);  color: var(--mc-teal);   box-shadow: 0 0 12px rgba(45,212,191,.15); }
-.ic-purple { background: rgba(167,139,250,.15); color: var(--mc-purple); box-shadow: 0 0 12px rgba(167,139,250,.15); }
-.ic-amber  { background: rgba(251,191,36,.15);  color: var(--mc-amber);  box-shadow: 0 0 12px rgba(251,191,36,.15); }
-.ic-red    { background: rgba(248,113,113,.15); color: var(--mc-red);    box-shadow: 0 0 12px rgba(248,113,113,.15); }
-.ic-navy   { background: rgba(147,197,253,.15); color: var(--mc-navy);   box-shadow: 0 0 12px rgba(147,197,253,.15); }
-
-.n8n-name {
-  font-size: .74rem; font-weight: 700; color: var(--mc-text);
-  font-family: system-ui; flex: 1;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.n8n-sdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.sdot-idle    { background: var(--mc-green); box-shadow: 0 0 5px rgba(22,163,74,.4); }
-.sdot-running { background: var(--mc-green); box-shadow: 0 0 7px rgba(22,163,74,.7); animation: sdpulse 1.2s ease-in-out infinite; }
-.sdot-error   { background: var(--mc-red);   box-shadow: 0 0 6px rgba(220,38,38,.6); animation: sdpulse .8s ease-in-out infinite; }
-.sdot-warning { background: var(--mc-amber); box-shadow: 0 0 6px rgba(217,119,6,.6); animation: sdpulse 1s ease-in-out infinite; }
-.sdot-stopped { background: #94a3b8; }
-.sdot-paused  { background: #94a3b8; }
-
-/* Node metrics */
-.n8n-metrics {
-  display: flex; padding: 8px 12px;
-  border-bottom: 1px solid var(--mc-border);
-  background: rgba(0,0,0,.02);
-}
-.n8n-metric { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.n8n-metric + .n8n-metric { border-left: 1px solid var(--mc-border); }
-.n8n-mval {
-  font-size: .82rem; font-weight: 700; color: var(--mc-text);
-  font-family: 'Courier New', monospace; line-height: 1;
-}
-.n8n-mlbl {
-  font-size: .54rem; color: var(--mc-muted);
-  text-transform: uppercase; letter-spacing: .07em; font-family: system-ui;
+.sec-hdr::after { content: ''; flex: 1; height: 1px; background: var(--bdr); }
+.sec-hdr .type-badge {
+  font-size: .58rem; padding: 2px 7px; border-radius: 10px;
+  background: var(--qbl); color: var(--qb);
+  text-transform: none; letter-spacing: .02em; font-weight: 600;
 }
 
-/* Node actions */
-.n8n-actions { display: flex; gap: 4px; padding: 7px 8px; }
-.n8n-btn {
-  flex: 1; background: rgba(0,0,0,.04); border: 1px solid var(--mc-border2);
-  color: var(--mc-muted); border-radius: 6px; padding: 4px 3px;
-  font-size: .61rem; font-weight: 600; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; gap: 3px;
-  transition: all .15s; font-family: system-ui; white-space: nowrap;
+/* ── Tables ─────────────────────────────────────────────── */
+.mc-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+.mc-table th {
+  text-align: left; font-size: .63rem; font-weight: 700;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
+  padding: 7px 10px; border-bottom: 2px solid var(--bdr);
+  white-space: nowrap; background: var(--bg);
 }
-.n8n-btn:hover { background: rgba(0,0,0,.08); color: var(--mc-text); border-color: rgba(0,0,0,.2); }
-.n8n-btn:disabled { opacity: .35; cursor: not-allowed; }
-.n8n-btn.run   { background: rgba(34,197,94,.1); border-color: rgba(34,197,94,.3); color: var(--mc-green); }
-.n8n-btn.run:hover { background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.5); }
-.n8n-btn.pause { background: rgba(251,191,36,.1); border-color: rgba(251,191,36,.3); color: var(--mc-amber); }
-.n8n-btn.pause:hover { background: rgba(251,191,36,.18); }
+.mc-table td {
+  padding: 9px 10px; border-bottom: 1px solid var(--bdr);
+  vertical-align: middle; color: var(--txt);
+}
+.mc-table tbody tr:last-child td { border-bottom: none; }
+.mc-table tbody tr:hover { background: var(--bg); }
+.mc-table tbody tr.clickable { cursor: pointer; }
+.mc-table tbody tr.clickable:hover td:first-child { color: var(--qb); }
 
-/* Ports */
-.n8n-port {
-  position: absolute; width: 10px; height: 10px; border-radius: 50%;
-  background: #e2e8f0; border: 2px solid rgba(0,0,0,.15); z-index: 15;
-  box-shadow: 0 0 4px rgba(37,99,235,.15);
+/* ── Agent grid ─────────────────────────────────────────── */
+.agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.agent-card {
+  background: var(--card); border: 1px solid var(--bdr);
+  border-radius: 10px; padding: 14px 16px;
+  border-left: 3px solid var(--bdr);
+  transition: border-color .15s;
 }
-.port-left   { left: -6px;  top: 50%; transform: translateY(-50%); }
-.port-right  { right: -6px; top: 50%; transform: translateY(-50%); }
-.port-bottom { bottom: -6px; left: 50%; transform: translateX(-50%); }
-.port-top    { top: -6px;   left: 50%; transform: translateX(-50%); }
+.agent-card.running { border-left-color: var(--green); }
+.agent-card.error   { border-left-color: var(--red); }
+.agent-card.stale   { border-left-color: var(--amber); }
+.agent-card.nodata  { border-left-color: #cbd5e1; }
+.agent-card-name { font-size: .82rem; font-weight: 700; color: var(--txt); margin-bottom: 6px; }
+.agent-meta { font-size: .68rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; }
+.agent-meta span { display: flex; align-items: center; gap: 3px; }
+.agent-err { font-size: .67rem; color: var(--red); margin-top: 6px; background: #fff1f2; border-radius: 5px; padding: 4px 8px; word-break: break-word; }
 
-/* ── Sidebar ─────────────────────────────────────────────────────── */
-.mc-sidebar {
-  width: 288px; flex-shrink: 0;
-  background: var(--mc-surface);
-  border-left: 1px solid var(--mc-border);
-  display: flex; flex-direction: column; overflow: hidden;
+/* ── Bandejas ───────────────────────────────────────────── */
+.bandeja-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.bandeja-card {
+  background: var(--card); border: 1px solid var(--bdr);
+  border-radius: 10px; padding: 12px 16px; flex: 1; min-width: 160px;
 }
+.bandeja-name { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.bandeja-sent { font-size: 1.4rem; font-weight: 800; color: var(--txt); font-family: 'Courier New', monospace; }
+.bandeja-sub  { font-size: .67rem; color: var(--muted); margin-top: 2px; }
 
-/* KPIs */
-.mc-kpis {
-  padding: 12px 12px 10px;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 7px;
-  border-bottom: 1px solid var(--mc-border); flex-shrink: 0;
+/* ── Filter bar ─────────────────────────────────────────── */
+.filter-bar {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 14px;
 }
-.kpi-tile {
-  background: var(--mc-card); border: 1px solid var(--mc-border2);
-  border-radius: 9px; padding: 9px 11px;
-  transition: border-color .2s;
+.filter-bar input, .filter-bar select {
+  border: 1px solid var(--bdr); border-radius: 7px;
+  padding: 6px 10px; font-size: .76rem; color: var(--txt);
+  background: var(--card); outline: none;
+  transition: border-color .15s;
 }
-.kpi-tile:hover { border-color: rgba(255,255,255,.2); }
-.kpi-v {
-  font-size: 1.2rem; font-weight: 800; color: var(--mc-green);
-  line-height: 1; font-family: 'Courier New', monospace;
+.filter-bar input:focus, .filter-bar select:focus { border-color: var(--qb); }
+.filter-bar input { min-width: 220px; }
+.filter-btn {
+  background: var(--qb); color: #fff; border: none;
+  border-radius: 7px; padding: 6px 14px;
+  font-size: .76rem; font-weight: 600; cursor: pointer;
+  transition: background .15s;
 }
-.kpi-l {
-  font-size: .56rem; color: var(--mc-muted);
-  text-transform: uppercase; letter-spacing: .08em;
-  font-family: system-ui; margin-top: 4px;
+.filter-btn:hover { background: var(--qbd); }
+.filter-btn.secondary {
+  background: none; color: var(--muted); border: 1px solid var(--bdr);
 }
+.filter-btn.secondary:hover { border-color: var(--qb); color: var(--qb); background: none; }
 
-/* Alerts */
-.mc-alerts-sec {
-  padding: 9px 12px; border-bottom: 1px solid var(--mc-border); flex-shrink: 0;
+/* ── Pagination ─────────────────────────────────────────── */
+.pager { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: .76rem; color: var(--muted); }
+.pager button {
+  border: 1px solid var(--bdr); background: var(--card); border-radius: 6px;
+  padding: 5px 12px; cursor: pointer; font-size: .76rem; color: var(--txt);
+  transition: all .15s;
 }
-.mc-sec-title {
-  font-size: .57rem; font-weight: 700; color: var(--mc-muted);
-  text-transform: uppercase; letter-spacing: .12em; font-family: system-ui;
-  margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;
-}
-.mc-sec-title a { color: var(--mc-muted); text-decoration: none; font-size: .57rem; transition: color .15s; }
-.mc-sec-title a:hover { color: var(--mc-text); }
-.al-row {
-  background: rgba(248,113,113,.06); border: 1px solid rgba(248,113,113,.18);
-  border-radius: 7px; padding: 7px 9px; margin-bottom: 5px; font-family: system-ui;
-  border-left: 3px solid rgba(248,113,113,.5);
-}
-.al-row.warn { background: rgba(251,191,36,.06); border-color: rgba(251,191,36,.18); border-left-color: rgba(251,191,36,.5); }
-.al-title { font-size: .68rem; font-weight: 700; color: var(--mc-red); }
-.al-row.warn .al-title { color: var(--mc-amber); }
-.al-msg { font-size: .62rem; color: var(--mc-muted); margin-top: 3px; line-height: 1.4; }
-.ok-badge {
-  font-size: .68rem; color: var(--mc-green); display: flex; align-items: center; gap: 6px;
-  font-family: system-ui; padding: 4px 0;
-}
+.pager button:hover:not(:disabled) { border-color: var(--qb); color: var(--qb); }
+.pager button:disabled { opacity: .4; cursor: not-allowed; }
 
-/* Console */
-.mc-console { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.mc-console-head {
-  padding: 8px 12px 5px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: space-between;
-  border-bottom: 1px solid var(--mc-border);
+/* ── Drawer ─────────────────────────────────────────────── */
+.mc-drawer-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.35);
+  z-index: 900; opacity: 0; pointer-events: none;
+  transition: opacity .2s;
 }
-.live-badge {
-  display: flex; align-items: center; gap: 5px;
-  font-size: .58rem; color: var(--mc-green); font-family: system-ui; font-weight: 600;
+.mc-drawer-overlay.open { opacity: 1; pointer-events: all; }
+.mc-drawer {
+  position: fixed; right: 0; top: 0; bottom: 0; width: 480px; max-width: 92vw;
+  background: var(--card); z-index: 901;
+  box-shadow: -4px 0 24px rgba(0,0,0,.12);
+  display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform .25s cubic-bezier(.4,0,.2,1);
 }
-.live-dot {
-  width: 6px; height: 6px; border-radius: 50%; background: var(--mc-green);
-  animation: mc-pulse 1.2s ease-in-out infinite;
-  box-shadow: 0 0 5px rgba(34,197,94,.6);
+.mc-drawer.open { transform: translateX(0); }
+.mc-drawer-header {
+  padding: 16px 20px; border-bottom: 1px solid var(--bdr);
+  display: flex; align-items: center; gap: 10px;
 }
-.console-body {
-  flex: 1; overflow-y: auto; padding: 6px 12px 10px;
-  scrollbar-width: thin; scrollbar-color: rgba(0,0,0,.12) transparent;
+.mc-drawer-title { font-size: .9rem; font-weight: 700; color: var(--txt); flex: 1; }
+.mc-drawer-close {
+  border: none; background: none; cursor: pointer; color: var(--muted);
+  font-size: 1.1rem; padding: 4px; border-radius: 5px;
+  transition: color .15s;
 }
-.console-body::-webkit-scrollbar { width: 3px; }
-.console-body::-webkit-scrollbar-thumb { background: rgba(0,0,0,.12); border-radius: 2px; }
-.log-row {
-  display: flex; gap: 7px; padding: 4px 0;
-  font-size: .62rem; font-family: 'Courier New', monospace;
-  border-bottom: 1px solid rgba(0,0,0,.05); line-height: 1.5;
-  animation: log-in .2s ease both;
-}
-.log-t  { color: var(--mc-muted); flex-shrink: 0; width: 50px; }
-.log-a  { color: #475569; flex-shrink: 0; width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: system-ui; font-size: .6rem; }
-.log-m  { color: #64748b; flex: 1; word-break: break-all; }
-.log-m.SUCCESS { color: var(--mc-green); }
-.log-m.ERROR   { color: var(--mc-red); }
-.log-m.WARNING { color: var(--mc-amber); }
+.mc-drawer-close:hover { color: var(--txt); }
+.mc-drawer-body { flex: 1; overflow-y: auto; padding: 20px; }
 
-@media (max-width: 1080px) {
-  .mc-body { flex-direction: column; }
-  .mc-sidebar { width: 100%; height: 280px; border-left: none; border-top: 1px solid var(--mc-border); }
+/* ── Skeleton loaders ───────────────────────────────────── */
+.skel {
+  background: linear-gradient(90deg, #e2e8f0 25%, #f8fafc 50%, #e2e8f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 5px;
 }
+@keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+.skel-row { height: 42px; margin-bottom: 6px; }
+.skel-kpi { height: 72px; border-radius: 10px; }
 
-/* Overrides de base.html que interfieren con el fondo claro del Mission Control */
-.mc-root, .mc-root * { box-sizing: border-box; }
+/* ── Error / empty states ───────────────────────────────── */
+.mc-err {
+  background: #fff1f2; border: 1px solid #fecdd3;
+  border-radius: 8px; padding: 10px 14px;
+  font-size: .76rem; color: var(--red);
+  display: flex; align-items: center; gap: 8px;
+}
+.mc-empty {
+  text-align: center; padding: 40px; color: var(--muted); font-size: .82rem;
+}
+.mc-empty i { font-size: 1.8rem; display: block; margin-bottom: 8px; opacity: .4; }
 
+/* ── Data age ────────────────────────────────────────────── */
+.data-age { font-size: .62rem; color: #94a3b8; }
+.data-age.stale { color: var(--amber); }
+.data-age.old   { color: var(--red); }
+
+/* ── Historial timeline ─────────────────────────────────── */
+.run-ok   { color: var(--green); }
+.run-err  { color: var(--red); }
+.run-warn { color: var(--amber); }
+
+/* ── Prospecto score pill ───────────────────────────────── */
+.score-pill {
+  display: inline-block; min-width: 26px; text-align: center;
+  padding: 1px 6px; border-radius: 10px;
+  font-size: .68rem; font-weight: 700;
+}
+.score-high  { background: #dcfce7; color: #15803d; }
+.score-mid   { background: #fef9c3; color: #854d0e; }
+.score-low   { background: #f1f5f9; color: #64748b; }
 </style>
 {% endblock %}
 
 {% block content %}
-{# ── Node configuration ────────────────────────────────────────── #}
-{% set NODE_ORDER = ['data_quality','mail_agent','email_intelligence','outreach','supervisor','executive'] %}
-{% set NODE_POS = {
-  'lead_discovery':    {'x': 40,  'y': 50},
-  'data_quality':      {'x': 300, 'y': 50},
-  'mail_agent':        {'x': 560, 'y': 50},
-  'email_intelligence':{'x': 820, 'y': 50},
-  'outreach':          {'x': 820, 'y': 280},
-  'supervisor':        {'x': 560, 'y': 280},
-  'executive':         {'x': 300, 'y': 280}
-} %}
-{% set NODE_COLOR = {
-  'lead_discovery':'blue','data_quality':'green','mail_agent':'teal',
-  'email_intelligence':'purple','outreach':'amber','supervisor':'red','executive':'navy'
-} %}
-{% set NODE_ICON = {
-  'lead_discovery':'bi-search-heart','data_quality':'bi-database-check',
-  'mail_agent':'bi-envelope-arrow-up','email_intelligence':'bi-envelope-open-heart',
-  'outreach':'bi-calendar-check','supervisor':'bi-shield-check','executive':'bi-graph-up-arrow'
-} %}
+<div class="mc">
 
-{% set agent_map = {} %}
-{% for a in agents %}{% set _ = agent_map.update({a.agent_id: a}) %}{% endfor %}
-
-<div class="mc-root">
-
-  <!-- HEADER ────────────────────────────────────────────────────── -->
-  <div class="mc-header">
+  <!-- ══════════════════════ TOP BAR ══════════════════════ -->
+  <div class="mc-top">
     <div class="mc-brand">
-      <div class="mc-brand-dot"></div>
-      <i class="bi bi-cpu-fill"></i>
+      <span class="mc-brand-dot" id="workerDot"></span>
       Mission Control
-      <span style="color:#94a3b8;font-size:.68rem;font-weight:400;letter-spacing:0;text-transform:none;">— Pipeline IA</span>
     </div>
-    <div class="mc-header-stats">
-      <div class="mc-hstat">
-        <div class="mc-hstat-val" id="hdr-prospectos">{{ (prospeccion.master.total if prospeccion and prospeccion.db_disponible else kpis.total_prospectos) or 0 }}</div>
-        <div class="mc-hstat-lbl">Master</div>
-      </div>
-      <div class="mc-hstat">
-        <div class="mc-hstat-val" id="hdr-emails">{{ kpis.emails_sent_hoy or 0 }}</div>
-        <div class="mc-hstat-lbl">Emails hoy</div>
-      </div>
-      <div class="mc-hstat">
-        <div class="mc-hstat-val" id="hdr-opps">{{ kpis.oportunidades_semana or 0 }}</div>
-        <div class="mc-hstat-lbl">Oportunidades</div>
-      </div>
-      {% set active_count = agents|selectattr('status','in',['running','idle'])|selectattr('enabled')|list|length %}
-      <div class="mc-hstat">
-        <div class="mc-hstat-val" id="hdr-running"
-             style="color:{{ '#16a34a' if active_count > 0 else '#94a3b8' }};">{{ active_count }}</div>
-        <div class="mc-hstat-lbl">Activos</div>
-      </div>
-    </div>
-    <div class="mc-header-actions">
-      <div class="mc-clock" id="mc-clock">—</div>
-      <a href="{{ url_for('agentes.index') }}" class="mc-btn">
-        <i class="bi bi-grid-3x3-gap"></i> Cards
-      </a>
-      <a href="{{ url_for('agentes.dashboard') }}" class="mc-btn">
-        <i class="bi bi-bar-chart-line"></i> Dashboard
-      </a>
-      {% if alerts|length > 0 %}
-      <a href="{{ url_for('agentes.alertas') }}" class="mc-btn" style="border-color:#fecaca;color:#dc2626;background:#fef2f2;">
-        <i class="bi bi-bell-fill"></i> {{ alerts|length }}
+
+    <nav class="mc-tabs">
+      <button class="mc-tab active" data-tab="resumen">
+        <i class="bi bi-speedometer2"></i> Resumen
+      </button>
+      <button class="mc-tab" data-tab="prospectos">
+        <i class="bi bi-people"></i> Prospectos
+        <span class="badge" id="tabBadgeProspectos">—</span>
+      </button>
+      <button class="mc-tab" data-tab="agentes">
+        <i class="bi bi-cpu"></i> Agentes
+        <span class="badge" id="tabBadgeAgentes">—</span>
+      </button>
+      <button class="mc-tab" data-tab="historial">
+        <i class="bi bi-clock-history"></i> Historial
+      </button>
+    </nav>
+
+    <div class="mc-corner">
+      {% if alerts %}
+      <a href="/agentes/alertas" class="stag stag-error" style="text-decoration:none;font-size:.65rem;">
+        <i class="bi bi-exclamation-triangle-fill"></i> {{ alerts|length }} alerta{{ 's' if alerts|length != 1 }}
       </a>
       {% endif %}
+      {% if kpis and kpis.get('dry_run') %}
+      <span class="stag stag-dry"><i class="bi bi-pause-fill"></i> DRY RUN</span>
+      {% endif %}
+      <button class="mc-refresh-btn" id="refreshBtn" onclick="refreshActive()">
+        <i class="bi bi-arrow-clockwise"></i> Actualizar
+      </button>
+      <span class="mc-clock" id="clock">--:--:--</span>
     </div>
   </div>
 
-  <!-- DRY RUN BANNER ────────────────────────────────────────────── -->
-  {% if prospeccion and prospeccion.dry_run %}
-  <div style="background:linear-gradient(90deg,#fefce8,#fef9c3);border-bottom:1px solid #fde68a;
-              padding:6px 20px;display:flex;align-items:center;justify-content:space-between;
-              font-size:.72rem;font-family:system-ui;">
-    <span style="display:flex;align-items:center;gap:8px;">
-      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d97706;
-                   box-shadow:0 0 6px rgba(217,119,6,.7);"></span>
-      <strong style="color:#92400e;">MODO DRY RUN</strong>
-      <span style="color:#78350f;">— El ecosistema procesa y simula. Los envíos comerciales reales están desactivados.</span>
-    </span>
-    <span style="color:#b45309;font-weight:700;letter-spacing:.04em;">DRY_RUN=true</span>
+  <!-- ══════════════════════ CONTENT ═════════════════════ -->
+  <div class="mc-content">
+
+    <!-- ─────────────────── TAB: RESUMEN ─────────────────── -->
+    <div class="mc-pane active" id="pane-resumen">
+
+      <!-- KPI strip -->
+      <div class="kpi-row" id="kpiRow">
+        <div class="skel skel-kpi"></div>
+        <div class="skel skel-kpi"></div>
+        <div class="skel skel-kpi"></div>
+        <div class="skel skel-kpi"></div>
+        <div class="skel skel-kpi"></div>
+      </div>
+
+      <!-- Bandejas -->
+      <div class="sec-hdr">
+        Bandejas de correo
+        <span class="src" id="bandejasAge" style="margin-left:auto;font-size:.6rem;color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:.02em;"></span>
+      </div>
+      <div class="bandeja-row" id="bandejasRow">
+        <div class="skel" style="height:76px;flex:1;border-radius:10px;"></div>
+        <div class="skel" style="height:76px;flex:1;border-radius:10px;"></div>
+        <div class="skel" style="height:76px;flex:1;border-radius:10px;"></div>
+      </div>
+
+      <!-- Alertas Flask (del contexto Jinja) -->
+      {% if alerts %}
+      <div class="sec-hdr">Alertas activas <span class="type-badge">Flask ORM</span></div>
+      <div class="mc-card" style="padding:0;overflow:hidden;">
+        <table class="mc-table">
+          <thead>
+            <tr>
+              <th>Severidad</th>
+              <th>Título</th>
+              <th>Mensaje</th>
+              <th>Creada</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in alerts %}
+            <tr>
+              <td>
+                {% if a.severity == 'critical' %}<span class="stag stag-error">crítica</span>
+                {% elif a.severity == 'error' %}<span class="stag stag-error">error</span>
+                {% elif a.severity == 'warning' %}<span class="stag stag-warn">aviso</span>
+                {% else %}<span class="stag stag-idle">info</span>{% endif %}
+              </td>
+              <td style="font-weight:600;">{{ a.title }}</td>
+              <td style="color:var(--muted);font-size:.74rem;">{{ a.message }}</td>
+              <td class="data-age">{{ a.created_at.strftime('%d/%m %H:%M') if a.created_at else '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+    </div><!-- /pane-resumen -->
+
+
+    <!-- ─────────────────── TAB: PROSPECTOS ─────────────── -->
+    <div class="mc-pane" id="pane-prospectos">
+
+      <div class="filter-bar">
+        <input type="text" id="prospectoQ" placeholder="Buscar empresa, email, RUC…" onkeydown="if(event.key==='Enter')loadProspectos(1)">
+        <select id="prospectoEstadoEmail" onchange="loadProspectos(1)">
+          <option value="">Estado email: todos</option>
+        </select>
+        <select id="prospectoEstadoCom" onchange="loadProspectos(1)">
+          <option value="">Estado com.: todos</option>
+        </select>
+        <button class="filter-btn" onclick="loadProspectos(1)"><i class="bi bi-search"></i> Buscar</button>
+        <button class="filter-btn secondary" onclick="clearProspectoFilters()">Limpiar</button>
+        <span class="data-age" id="prospectosMeta" style="margin-left:auto;"></span>
+      </div>
+
+      <div class="mc-card" style="padding:0;overflow:hidden;">
+        <div id="prospectosSkel" style="padding:16px;">
+          <div class="mc-empty"><i class="bi bi-people"></i>Abre esta pestaña para cargar los prospectos.</div>
+        </div>
+        <table class="mc-table" id="prospectosTbl" style="display:none;">
+          <thead>
+            <tr>
+              <th>Empresa</th>
+              <th>Email</th>
+              <th>RUC</th>
+              <th>Est. email</th>
+              <th>Est. com.</th>
+              <th>Score</th>
+              <th>Últ. contacto</th>
+            </tr>
+          </thead>
+          <tbody id="prospectosTbody"></tbody>
+        </table>
+      </div>
+
+      <div class="pager" id="prospectosPager" style="display:none;">
+        <button id="pgPrev" onclick="loadProspectos(prospectoPage-1)"><i class="bi bi-chevron-left"></i></button>
+        <span id="pgInfo">—</span>
+        <button id="pgNext" onclick="loadProspectos(prospectoPage+1)"><i class="bi bi-chevron-right"></i></button>
+        <span style="margin-left:auto;" class="data-age" id="prospectosSrc"></span>
+      </div>
+
+    </div><!-- /pane-prospectos -->
+
+
+    <!-- ─────────────────── TAB: AGENTES ─────────────────── -->
+    <div class="mc-pane" id="pane-agentes">
+
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;" id="agentesMetaRow">
+        <span class="data-age" id="agentesMeta"></span>
+      </div>
+
+      <!-- Worker agents (Render / cloud) -->
+      <div class="sec-hdr">
+        Agentes Worker
+        <span class="type-badge">Render · ecosistema.db · agent_heartbeat</span>
+      </div>
+      <div class="agent-grid" id="workerAgentsGrid">
+        <div class="skel" style="height:100px;border-radius:10px;"></div>
+        <div class="skel" style="height:100px;border-radius:10px;"></div>
+        <div class="skel" style="height:100px;border-radius:10px;"></div>
+      </div>
+
+      <!-- Flask agents (local Flask ORM) -->
+      <div class="sec-hdr">
+        Agentes Flask
+        <span class="type-badge">Flask ORM · agent_status</span>
+      </div>
+      <div class="agent-grid" id="flaskAgentsGrid">
+        <div class="skel" style="height:100px;border-radius:10px;"></div>
+        <div class="skel" style="height:100px;border-radius:10px;"></div>
+      </div>
+
+    </div><!-- /pane-agentes -->
+
+
+    <!-- ─────────────────── TAB: HISTORIAL ──────────────── -->
+    <div class="mc-pane" id="pane-historial">
+
+      <div class="filter-bar">
+        <select id="historialAgente" onchange="loadHistorial()">
+          <option value="">Todos los agentes</option>
+        </select>
+        <select id="historialLimit" onchange="loadHistorial()">
+          <option value="20">Últimas 20</option>
+          <option value="50">Últimas 50</option>
+          <option value="100">Últimas 100</option>
+          <option value="200">Últimas 200</option>
+        </select>
+        <button class="filter-btn" onclick="loadHistorial()"><i class="bi bi-arrow-clockwise"></i> Cargar</button>
+        <span class="data-age" id="historialMeta" style="margin-left:auto;"></span>
+      </div>
+
+      <div class="mc-card" style="padding:0;overflow:hidden;">
+        <div id="historialSkel" style="padding:16px;">
+          <div class="mc-empty"><i class="bi bi-clock-history"></i>Abre esta pestaña para cargar el historial.</div>
+        </div>
+        <table class="mc-table" id="historialTbl" style="display:none;">
+          <thead>
+            <tr>
+              <th>Agente</th>
+              <th>Inicio</th>
+              <th>Duración</th>
+              <th>Estado</th>
+              <th>Acc.</th>
+              <th>Out</th>
+              <th>Trigger</th>
+              <th>Error</th>
+            </tr>
+          </thead>
+          <tbody id="historialTbody"></tbody>
+        </table>
+      </div>
+
+    </div><!-- /pane-historial -->
+
+  </div><!-- /mc-content -->
+</div><!-- /mc -->
+
+
+<!-- ══════════════════════ DRAWER ═══════════════════════════ -->
+<div class="mc-drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="mc-drawer" id="drawer">
+  <div class="mc-drawer-header">
+    <div>
+      <div class="mc-drawer-title" id="drawerTitle">Prospecto</div>
+      <div style="font-size:.68rem;color:var(--muted);" id="drawerSub"></div>
+    </div>
+    <button class="mc-drawer-close" onclick="closeDrawer()"><i class="bi bi-x-lg"></i></button>
   </div>
-  {% endif %}
+  <div class="mc-drawer-body" id="drawerBody">
+    <div class="mc-empty"><i class="bi bi-hourglass-split"></i>Cargando…</div>
+  </div>
+</div>
 
-  <!-- BODY ──────────────────────────────────────────────────────── -->
-  <div class="mc-body">
 
-    <!-- N8N CANVAS ─────────────────────────────────────────────── -->
-    <div class="n8n-canvas-wrapper">
-      <div class="n8n-canvas">
-
-        <!-- Canvas label -->
-        <div style="position:absolute;left:0;top:-24px;font-size:.58rem;
-                    color:rgba(100,130,160,.6);text-transform:uppercase;
-                    letter-spacing:.12em;font-family:system-ui;font-weight:700;">
-          Pipeline de Automatización — {{ agents|length }} agentes activos
-        </div>
-        <div style="position:absolute;left:830px;top:248px;font-size:.56rem;
-                    color:rgba(100,130,160,.4);font-family:system-ui;font-style:italic;">
-          ↩ ciclo de retorno
-        </div>
-
-        <!-- SVG connections ──────────────────────────────────── -->
-        <svg class="n8n-svg" viewBox="0 0 1100 480">
-          <defs>
-            <filter id="glow-f"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-          </defs>
-          <!-- Base wires -->
-          <path class="conn-base" d="M 240 116 C 270 116, 270 116, 300 116"/>
-          <path class="conn-base" d="M 500 116 C 530 116, 530 116, 560 116"/>
-          <path class="conn-base" d="M 760 116 C 790 116, 790 116, 820 116"/>
-          <path class="conn-base" d="M 920 182 C 920 231, 920 231, 920 280"/>
-          <path class="conn-base" d="M 820 346 C 790 346, 790 346, 760 346"/>
-          <path class="conn-base" d="M 560 346 C 530 346, 530 346, 500 346"/>
-
-          <!-- Glow layers -->
-          <path class="conn-glow c-blue"   d="M 240 116 C 270 116, 270 116, 300 116"/>
-          <path class="conn-glow c-green"  d="M 500 116 C 530 116, 530 116, 560 116"/>
-          <path class="conn-glow c-teal"   d="M 760 116 C 790 116, 790 116, 820 116"/>
-          <path class="conn-glow c-purple" d="M 920 182 C 920 231, 920 231, 920 280"/>
-          <path class="conn-glow c-amber"  d="M 820 346 C 790 346, 790 346, 760 346"/>
-          <path class="conn-glow c-navy"   d="M 560 346 C 530 346, 530 346, 500 346"/>
-
-          <!-- Animated flowing dashes -->
-          <path class="conn-flow c-blue"   d="M 240 116 C 270 116, 270 116, 300 116"/>
-          <path class="conn-flow c-green"  d="M 500 116 C 530 116, 530 116, 560 116"/>
-          <path class="conn-flow c-teal"   d="M 760 116 C 790 116, 790 116, 820 116"/>
-          <path class="conn-flow c-purple" d="M 920 182 C 920 231, 920 231, 920 280"/>
-          <path class="conn-flow c-amber"  d="M 820 346 C 790 346, 790 346, 760 346"/>
-          <path class="conn-flow c-navy"   d="M 560 346 C 530 346, 530 346, 500 346"/>
-
-          <!-- Arrow tips -->
-          <polyline class="conn-tip" points="296,112 303,116 296,120" stroke="rgba(96,165,250,.8)"/>
-          <polyline class="conn-tip" points="556,112 563,116 556,120" stroke="rgba(34,197,94,.8)"/>
-          <polyline class="conn-tip" points="816,112 823,116 816,120" stroke="rgba(45,212,191,.8)"/>
-          <polyline class="conn-tip" points="916,278 920,284 924,278" stroke="rgba(167,139,250,.8)"/>
-          <polyline class="conn-tip" points="763,342 757,346 763,350" stroke="rgba(251,191,36,.8)"/>
-          <polyline class="conn-tip" points="503,342 497,346 503,350" stroke="rgba(147,197,253,.8)"/>
-        </svg>
-
-        <!-- Agent nodes ──────────────────────────────────────── -->
-        {% for agent_id in NODE_ORDER %}
-          {% set pos   = NODE_POS[agent_id] %}
-          {% set color = NODE_COLOR[agent_id] %}
-          {% set icon  = NODE_ICON[agent_id] %}
-          {% set a     = agent_map.get(agent_id) %}
-          {% set st    = a.status if a else 'stopped' %}
-
-        <div class="n8n-node status-{{ st }}"
-             id="node-{{ agent_id }}"
-             data-agent="{{ agent_id }}"
-             style="left:{{ pos.x }}px; top:{{ pos.y }}px;">
-
-          {# Ports #}
-          {% if agent_id == 'lead_discovery' %}
-            <div class="n8n-port port-right"></div>
-          {% elif agent_id == 'data_quality' %}
-            <div class="n8n-port port-left"></div>
-            <div class="n8n-port port-right"></div>
-          {% elif agent_id == 'mail_agent' %}
-            <div class="n8n-port port-left"></div>
-            <div class="n8n-port port-right"></div>
-          {% elif agent_id == 'email_intelligence' %}
-            <div class="n8n-port port-left"></div>
-            <div class="n8n-port port-bottom"></div>
-          {% elif agent_id == 'outreach' %}
-            <div class="n8n-port port-top"></div>
-            <div class="n8n-port port-left"></div>
-          {% elif agent_id == 'supervisor' %}
-            <div class="n8n-port port-right"></div>
-            <div class="n8n-port port-left"></div>
-          {% elif agent_id == 'executive' %}
-            <div class="n8n-port port-right"></div>
-          {% endif %}
-
-          <!-- Head -->
-          <div class="n8n-head">
-            <div class="n8n-icon ic-{{ color }}">
-              <i class="bi {{ a.icon if a else icon }}"></i>
-            </div>
-            <div class="n8n-name">{{ a.name if a else agent_id.replace('_',' ').title() }}</div>
-            <div class="n8n-sdot sdot-{{ st }}"></div>
-          </div>
-
-          <!-- Metrics -->
-          <div class="n8n-metrics">
-            <div class="n8n-metric">
-              <div class="n8n-mval tasks-val">{{ a.tasks_today if a else 0 }}</div>
-              <div class="n8n-mlbl">Tareas</div>
-            </div>
-            <div class="n8n-metric">
-              <div class="n8n-mval last-run-val">
-                {{ a.last_run.strftime('%H:%M') if a and a.last_run else '—' }}
-              </div>
-              <div class="n8n-mlbl">Último</div>
-            </div>
-            <div class="n8n-metric">
-              <div class="n8n-mval perf-val"
-                   style="{{ 'color:#dc2626;' if a and (a.errors_today or 0) > 2 else '' }}">
-                {{ (a.performance|round(0)|int)|string ~ '%' if a else '—' }}
-              </div>
-              <div class="n8n-mlbl">Perf.</div>
-            </div>
-          </div>
-
-          <!-- Actions -->
-          <div class="n8n-actions">
-            <button class="n8n-btn run" onclick="triggerAgent('{{ agent_id }}', this)">
-              <i class="bi bi-play-fill"></i> Run
-            </button>
-            {% if a and a.enabled %}
-            <button class="n8n-btn pause" onclick="pauseAgent('{{ agent_id }}', this)">
-              <i class="bi bi-pause-fill"></i> Pause
-            </button>
-            {% else %}
-            <button class="n8n-btn" style="border-color:rgba(74,222,128,.25);color:#4ade80;"
-                    onclick="resumeAgent('{{ agent_id }}', this)">
-              <i class="bi bi-play-circle"></i> Resume
-            </button>
-            {% endif %}
-            <button class="n8n-btn" onclick="resetAgent('{{ agent_id }}', this)" title="Reset">
-              <i class="bi bi-arrow-counterclockwise"></i>
-            </button>
-          </div>
-        </div>
-        {% endfor %}
-
-      </div><!-- /n8n-canvas -->
-    </div><!-- /n8n-canvas-wrapper -->
-
-    <!-- SIDEBAR ────────────────────────────────────────────────── -->
-    <div class="mc-sidebar">
-
-      <!-- KPIs -->
-      <div class="mc-kpis">
-        <div class="kpi-tile">
-          <div class="kpi-v" id="kpi-prospectos">{{ kpis.total_prospectos or 0 }}</div>
-          <div class="kpi-l">Prospectos</div>
-        </div>
-        <div class="kpi-tile">
-          <div class="kpi-v" id="kpi-clientes" style="color:#2563eb;">{{ kpis.clientes or 0 }}</div>
-          <div class="kpi-l">Clientes</div>
-        </div>
-        <div class="kpi-tile">
-          <div class="kpi-v" id="kpi-rebotes" style="color:#dc2626;">{{ kpis.rebotes or 0 }}</div>
-          <div class="kpi-l">Rebotes</div>
-        </div>
-        <div class="kpi-tile">
-          <div class="kpi-v" id="kpi-conv" style="color:#7c3aed;">{{ kpis.tasa_conversion or 0 }}%</div>
-          <div class="kpi-l">Conversión</div>
-        </div>
-        <div class="kpi-tile">
-          <div class="kpi-v" id="kpi-emails">{{ kpis.emails_sent_hoy or 0 }}</div>
-          <div class="kpi-l">Emails hoy</div>
-        </div>
-        <div class="kpi-tile">
-          <div class="kpi-v" id="kpi-opps">{{ kpis.oportunidades_semana or 0 }}</div>
-          <div class="kpi-l">Opor. semana</div>
-        </div>
-      </div>
-
-      <!-- Prospeccion MASTER stats -->
-      {% if prospeccion and prospeccion.db_disponible %}
-      {% set ms = prospeccion.master %}
-      {% set tc = prospeccion.tc %}
-      <div class="mc-sec-title" style="margin:10px 0 6px;padding-top:10px;border-top:1px solid rgba(0,0,0,.07);">
-        <span><i class="bi bi-database me-1"></i>MASTER</span>
-        <a href="{{ url_for('agentes.base_datos') }}">Ver DB →</a>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;">
-          <div style="font-size:1.05rem;font-weight:800;color:#1e293b;line-height:1;">{{ "{:,}".format(ms.total or 0) }}</div>
-          <div style="font-size:.6rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-top:2px;">Total</div>
-        </div>
-        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 10px;">
-          <div style="font-size:1.05rem;font-weight:800;color:#16a34a;line-height:1;" id="mc-ready">{{ "{:,}".format(ms.ready_for_outreach or 0) }}</div>
-          <div style="font-size:.6rem;color:#86efac;text-transform:uppercase;letter-spacing:.05em;margin-top:2px;">Ready</div>
-        </div>
-        <div style="background:#fefce8;border:1px solid #fef08a;border-radius:8px;padding:8px 10px;">
-          <div style="font-size:1.05rem;font-weight:800;color:#d97706;line-height:1;">{{ "{:,}".format(ms.sin_validar or 0) }}</div>
-          <div style="font-size:.6rem;color:#fcd34d;text-transform:uppercase;letter-spacing:.05em;margin-top:2px;">Sin validar</div>
-        </div>
-        <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:8px;padding:8px 10px;">
-          <div style="font-size:1.05rem;font-weight:800;color:#dc2626;line-height:1;">{{ "{:,}".format(ms.rebotados or 0) }}</div>
-          <div style="font-size:.6rem;color:#fca5a5;text-transform:uppercase;letter-spacing:.05em;margin-top:2px;">Rebotados</div>
-        </div>
-      </div>
-
-      <!-- TC -->
-      {% if tc.compra or tc.venta %}
-      <div style="background:{% if tc.fresco %}#f0fdf4{% else %}#fefce8{% endif %};
-                  border:1px solid {% if tc.fresco %}#bbf7d0{% else %}#fde68a{% endif %};
-                  border-radius:8px;padding:8px 10px;margin-bottom:8px;
-                  display:flex;align-items:center;justify-content:space-between;">
-        <div>
-          <div style="font-size:.6rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Tipo de Cambio</div>
-          <div style="font-size:.8rem;font-weight:700;color:#1e293b;">
-            C <strong>{{ tc.compra }}</strong> &nbsp;|&nbsp; V <strong>{{ tc.venta }}</strong>
-          </div>
-        </div>
-        <div style="font-size:.6rem;font-weight:700;color:{% if tc.fresco %}#16a34a{% else %}#d97706{% endif %};">
-          {% if tc.fresco %}✓ Fresco{% else %}⚠ Stale{% endif %}
-          {% if tc.age_min is not none %}<br><span style="font-weight:400;">{{ tc.age_min }}min</span>{% endif %}
-        </div>
-      </div>
-      {% endif %}
-
-      {% if ms.last_full_sync %}
-      <div style="font-size:.6rem;color:#94a3b8;text-align:center;margin-bottom:6px;">
-        Última sync: {{ ms.last_full_sync[:16] }}
-      </div>
-      {% endif %}
-
-      {% elif prospeccion and not prospeccion.db_disponible %}
-      <div style="font-size:.7rem;color:#94a3b8;padding:8px 0;border-top:1px solid rgba(0,0,0,.07);margin-top:10px;">
-        <i class="bi bi-database-x me-1"></i>ecosistema.db no disponible
-        <div style="font-size:.6rem;margin-top:2px;">Ver <a href="#" style="color:#64748b;">arquitectura</a></div>
-      </div>
-      {% endif %}
-
-      <!-- Alerts -->
-      <div class="mc-alerts-sec">
-        <div class="mc-sec-title">
-          <span><i class="bi bi-exclamation-triangle me-1"></i>Alertas</span>
-          <a href="{{ url_for('agentes.alertas') }}">Ver todas →</a>
-        </div>
-        {% if alerts %}
-          {% for alert in alerts[:3] %}
-          <div class="al-row {{ 'warn' if alert.severity == 'warning' else '' }}" id="alert-{{ alert.id }}">
-            <div class="al-title">{{ alert.title }}</div>
-            <div class="al-msg">{{ alert.message[:80] }}</div>
-          </div>
-          {% endfor %}
-        {% else %}
-          <div class="ok-badge"><i class="bi bi-check-circle-fill"></i> Sin alertas activas</div>
-        {% endif %}
-      </div>
-
-      <!-- Console -->
-      <div class="mc-console">
-        <div class="mc-console-head">
-          <span class="mc-sec-title" style="margin:0;"><i class="bi bi-terminal me-1"></i>Actividad</span>
-          <div class="live-badge"><div class="live-dot"></div> LIVE</div>
-        </div>
-        <div class="console-body" id="console-body">
-          {% for log in recent_logs %}
-          <div class="log-row">
-            <span class="log-t">{{ log.created_at.strftime('%H:%M:%S') if log.created_at else '' }}</span>
-            <span class="log-a">{{ log.agent_id }}</span>
-            <span class="log-m {{ log.level }}">{{ log.message[:100] }}</span>
-          </div>
-          {% else %}
-          <div class="log-row">
-            <span class="log-m" style="color:rgba(255,255,255,.18);">Esperando actividad...</span>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-
-    </div><!-- /mc-sidebar -->
-  </div><!-- /mc-body -->
-</div><!-- /mc-root -->
-{% endblock %}
-
-{% block scripts %}
+<!-- ══════════════════════ SCRIPTS ══════════════════════════ -->
 <script>
-/* Clock */
-function updateClock() {
-  const t = new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  document.getElementById('mc-clock').textContent = t;
-}
-setInterval(updateClock, 1000); updateClock();
+/* ── State ──────────────────────────────────────────────── */
+let activeTab       = 'resumen';
+let prospectoPage   = 1;
+let prospectoTotal  = 0;
+let prospectoPages  = 0;
+let agentesLoaded   = false;
+let prospectosFiltrosLoaded = false;
+let historialLoaded = false;
+let autoRefreshTimer = null;
+const AUTO_REFRESH_MS = 90_000;  /* 90 s */
 
-/* Socket.IO — envuelto en try/catch para evitar que un fallo de CDN congele el script */
-let _mcSocket;
-try {
-  _mcSocket = io({ transports: ['polling','websocket'] });
-  _mcSocket.on('agent_status_update', updateNode);
-  _mcSocket.on('agent_log', appendLog);
-  _mcSocket.on('executive_kpis', updateKPIs);
-} catch(e) {
-  console.warn('[MC] Socket.IO no disponible:', e);
+/* ── Clock ──────────────────────────────────────────────── */
+function tickClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('es-PE', {hour12: false});
 }
+tickClock();
+setInterval(tickClock, 1000);
 
-/* Update node card */
-function updateNode(d) {
-  const node = document.getElementById('node-' + d.agent_id);
-  if (!node) return;
-  node.className = 'n8n-node status-' + d.status;
-  const dot = node.querySelector('.n8n-sdot');
-  if (dot) dot.className = 'n8n-sdot sdot-' + d.status;
-  const tv = node.querySelector('.tasks-val');  if (tv) tv.textContent = d.tasks_today || 0;
-  const pv = node.querySelector('.perf-val');   if (pv) pv.textContent = (d.performance || 0) + '%';
-  const lv = node.querySelector('.last-run-val');
-  if (lv && d.last_run_iso) {
-    const dt = new Date(d.last_run_iso);
-    lv.textContent = dt.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
-  }
-}
+/* ── Tabs ───────────────────────────────────────────────── */
+document.querySelectorAll('.mc-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    switchTab(tab);
+  });
+});
 
-/* Append log line */
-function appendLog(d) {
-  const body = document.getElementById('console-body');
-  if (!body) return;
-  const row = document.createElement('div');
-  row.className = 'log-row';
-  row.innerHTML =
-    `<span class="log-t">${d.time||''}</span>` +
-    `<span class="log-a">${d.agent_id||''}</span>` +
-    `<span class="log-m ${d.level||'INFO'}">${(d.message||'').substring(0,100)}</span>`;
-  body.insertBefore(row, body.firstChild);
-  while (body.children.length > 150) body.removeChild(body.lastChild);
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.mc-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.mc-pane').forEach(p =>
+    p.classList.toggle('active', p.id === 'pane-' + tab));
+  refreshActive(false);  /* don't force — lazy first load */
 }
 
-/* Update KPIs */
-function updateKPIs(k) {
-  const map = {
-    'kpi-prospectos': k.total_prospectos, 'kpi-clientes': k.clientes,
-    'kpi-rebotes': k.rebotes, 'kpi-conv': (k.tasa_conversion||0)+'%',
-    'kpi-emails': k.emails_sent_hoy, 'kpi-opps': k.oportunidades_semana,
-    'hdr-prospectos': k.total_prospectos, 'hdr-emails': k.emails_sent_hoy, 'hdr-opps': k.oportunidades_semana,
-  };
-  for (const [id, val] of Object.entries(map)) {
-    const el = document.getElementById(id);
-    if (el && val !== undefined) el.textContent = val;
-  }
+/* ── Refresh active tab ──────────────────────────────────── */
+function refreshActive(force = true) {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  setTimeout(() => btn.classList.remove('spinning'), 600);
+
+  if (activeTab === 'resumen')     loadResumen();
+  if (activeTab === 'agentes')     loadAgentes(force);
+  if (activeTab === 'prospectos')  { if (force || !prospectosFiltrosLoaded) initProspectos(); }
+  if (activeTab === 'historial')   loadHistorial();
 }
 
-/* CSRF helper */
-function _csrf() {
-  const m = document.querySelector('meta[name="csrf-token"]');
-  return m ? m.getAttribute('content') : '';
+/* Auto-refresh */
+function startAutoRefresh() {
+  clearInterval(autoRefreshTimer);
+  autoRefreshTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') refreshActive(true);
+  }, AUTO_REFRESH_MS);
 }
+startAutoRefresh();
 
-/* Agent controls */
-async function triggerAgent(id, btn) {
-  btn.disabled = true;
-  const orig = btn.innerHTML;
-  btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+/* ══════════════════════════════════════════════════════════
+   TAB 1 — RESUMEN
+══════════════════════════════════════════════════════════ */
+async function loadResumen() {
   try {
-    const resp = await fetch(`/agentes/api/trigger/${id}`, {
-      method: 'POST',
-      headers: { 'X-CSRFToken': _csrf() }
-    });
-    const d = await resp.json().catch(() => ({}));
-    if (resp.ok && d.ok) {
-      btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+    const data = await apiFetch('/agentes/api/v2/resumen');
+    renderResumen(data);
+  } catch(e) {
+    document.getElementById('kpiRow').innerHTML =
+      `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> Error al cargar resumen: ${e.message}</div>`;
+  }
+}
+
+function renderResumen(d) {
+  /* Worker dot */
+  const dot = document.getElementById('workerDot');
+  const w = d.worker || {};
+  if (w.error) { dot.className = 'mc-brand-dot unknown'; }
+  else if (w.online) { dot.className = 'mc-brand-dot'; }
+  else { dot.className = 'mc-brand-dot offline'; }
+
+  /* DRY RUN indicator in topbar */
+  const dr = d.dry_run || {};
+
+  /* KPI strip */
+  const oh = d.outreach_hoy || {};
+  const tc = d.tc || {};
+  const sy = d.sync || {};
+
+  const workerStatus = (() => {
+    if (w.error) return `<span class="stag stag-nodata"><i class="bi bi-question-circle"></i> sin información — ${w.error}</span>`;
+    if (w.online === null) return `<span class="stag stag-nodata">sin información</span>`;
+    if (w.online) return `<span class="stag stag-running"><i class="bi bi-circle-fill"></i> en línea</span>`;
+    const ageStr = w.age_s != null ? ` · hace ${fmtAge(w.age_s)}` : '';
+    return `<span class="stag stag-stale"><i class="bi bi-clock"></i> sin señal${ageStr}</span>`;
+  })();
+
+  const tcStatus = (() => {
+    if (tc.error) return `<span class="stag stag-nodata">sin información</span>`;
+    if (!tc.compra) return `<span class="stag stag-nodata">sin datos TC</span>`;
+    const freshTag = tc.fresco === false
+      ? `<span class="stag stag-stale">desactualizado · ${tc.age_min} min</span>`
+      : tc.fresco === true
+        ? `<span class="stag stag-ok">fresco · ${tc.age_min} min</span>`
+        : '';
+    return `${tc.compra} / ${tc.venta} ${freshTag}`;
+  })();
+
+  const drTag = dr.activo
+    ? `<span class="stag stag-dry"><i class="bi bi-pause-fill"></i> DRY RUN activo</span>`
+    : dr.error ? `<span class="stag stag-nodata">—</span>`
+    : `<span class="stag stag-ok"><i class="bi bi-send-fill"></i> envíos activos</span>`;
+
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi ${w.online ? 'green' : w.online === false ? 'red' : 'amber'}">
+      <div class="kpi-lbl">Worker Render</div>
+      <div style="margin-top:6px;">${workerStatus}</div>
+      ${w.hostname ? `<div class="kpi-sub">${w.hostname}${w.age_s != null ? ' · hace ' + fmtAge(w.age_s) : ''}</div>` : ''}
+      <div class="data-age" style="margin-top:4px;">fuente: agent_heartbeat</div>
+    </div>
+    <div class="kpi ${dr.activo ? 'amber' : 'accent'}">
+      <div class="kpi-lbl">Modo envío</div>
+      <div style="margin-top:6px;">${drTag}</div>
+      <div class="data-age" style="margin-top:4px;">fuente: runtime_config</div>
+    </div>
+    <div class="kpi accent">
+      <div class="kpi-lbl">Emails hoy</div>
+      <div class="kpi-val ${oh.enviados > 0 ? 'blue' : 'muted'}">${oh.error ? '—' : (oh.enviados ?? '—')}</div>
+      <div class="kpi-sub">${oh.error ? oh.error : `de ${oh.total ?? 0} intentos · ${oh.fallidos ?? 0} fallidos`}</div>
+      <div class="data-age" style="margin-top:4px;">fuente: outreach_log · ${oh.query_date || '—'}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-lbl">TC Qoricash</div>
+      <div style="margin-top:6px;font-size:.78rem;">${tcStatus}</div>
+      <div class="data-age" style="margin-top:4px;">fuente: runtime_config</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-lbl">Último sync Sheets</div>
+      <div style="margin-top:6px;font-size:.78rem;color:var(--txt);">
+        ${sy.error ? `<span class="stag stag-nodata">sin información</span>` : (sy.last_full_sync ? fmtDatetime(sy.last_full_sync) : `<span class="stag stag-nodata">sin datos</span>`)}
+      </div>
+      <div class="data-age" style="margin-top:4px;">fuente: sync_state</div>
+    </div>
+  `;
+
+  /* Bandejas */
+  const bnd = d.bandejas || {};
+  if (bnd.error) {
+    document.getElementById('bandejasRow').innerHTML =
+      `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${bnd.error} (fuente: bandeja_estado)</div>`;
+  } else {
+    const items = bnd.items || [];
+    if (items.length === 0) {
+      document.getElementById('bandejasRow').innerHTML =
+        `<div class="mc-empty" style="padding:20px;"><i class="bi bi-inbox"></i> Sin datos de bandejas</div>`;
     } else {
-      btn.innerHTML = '<i class="bi bi-x-lg"></i>';
-      console.warn('[Trigger] error:', d.error || resp.status);
+      document.getElementById('bandejasRow').innerHTML = items.map(b => `
+        <div class="bandeja-card">
+          <div class="bandeja-name">${b.bandeja}</div>
+          <div class="bandeja-sent">${b.enviados_hoy ?? '—'}</div>
+          <div class="bandeja-sub">enviados hoy · ${b.bounce_24h ?? 0} rebotes 24h</div>
+          ${b.pausada ? `<div style="margin-top:6px;"><span class="stag stag-warn"><i class="bi bi-pause-fill"></i> pausada</span></div>` : ''}
+        </div>
+      `).join('');
     }
-    setTimeout(() => { btn.disabled=false; btn.innerHTML=orig; }, 3000);
-  } catch(e) {
-    btn.innerHTML = '<i class="bi bi-x-lg"></i>';
-    console.error('[Trigger]', e);
-    setTimeout(() => { btn.disabled=false; btn.innerHTML=orig; }, 2000);
+    const age = bnd.ultimo_update ? ` · actualizado ${fmtDatetime(bnd.ultimo_update)}` : '';
+    document.getElementById('bandejasAge').textContent = `fuente: bandeja_estado${age}`;
   }
-}
-async function pauseAgent(id) {
-  try {
-    await fetch(`/agentes/api/pause/${id}`, {
-      method: 'POST',
-      headers: { 'X-CSRFToken': _csrf() }
-    });
-  } catch(e) { console.error('[Pause]', e); }
-  location.reload();
-}
-async function resumeAgent(id) {
-  try {
-    await fetch(`/agentes/api/resume/${id}`, {
-      method: 'POST',
-      headers: { 'X-CSRFToken': _csrf() }
-    });
-  } catch(e) { console.error('[Resume]', e); }
-  location.reload();
-}
-async function resetAgent(id, btn) {
-  const orig = btn.innerHTML;
-  try {
-    await fetch(`/agentes/api/reset/${id}`, {
-      method: 'POST',
-      headers: { 'X-CSRFToken': _csrf() }
-    });
-    btn.innerHTML = '<i class="bi bi-check-lg"></i>';
-  } catch(e) {
-    btn.innerHTML = '<i class="bi bi-x-lg"></i>';
-    console.error('[Reset]', e);
-  }
-  setTimeout(() => btn.innerHTML=orig, 2000);
+
+  /* Query time */
+  const ms = d._server_ms != null ? ` · ${d._server_ms} ms` : '';
+  const cached = d.cached ? ' · caché' : '';
+  // show in meta
 }
 
-/* Polling fallback every 15s */
-setInterval(async () => {
-  try { (await (await fetch('/agentes/api/status')).json()).forEach(updateNode); }
-  catch {}
-}, 15000);
+/* ══════════════════════════════════════════════════════════
+   TAB 2 — PROSPECTOS
+══════════════════════════════════════════════════════════ */
+async function initProspectos() {
+  if (!prospectosFiltrosLoaded) {
+    prospectosFiltrosLoaded = true;
+    try {
+      const est = await apiFetch('/agentes/api/v2/prospectos/estados');
+      const selEmail = document.getElementById('prospectoEstadoEmail');
+      const selCom   = document.getElementById('prospectoEstadoCom');
+      (est.estado_email || []).forEach(e => {
+        const o = document.createElement('option');
+        o.value = e.value || ''; o.textContent = `${e.value || '(vacío)'} (${e.count})`;
+        selEmail.appendChild(o);
+      });
+      (est.estado_com || []).forEach(e => {
+        const o = document.createElement('option');
+        o.value = e.value || ''; o.textContent = `${e.value || '(vacío)'} (${e.count})`;
+        selCom.appendChild(o);
+      });
+    } catch(e) { /* filtros no críticos */ }
+  }
+  loadProspectos(1);
+}
+
+async function loadProspectos(page) {
+  prospectoPage = page;
+  const q   = document.getElementById('prospectoQ').value.trim();
+  const ee  = document.getElementById('prospectoEstadoEmail').value;
+  const ec  = document.getElementById('prospectoEstadoCom').value;
+
+  const skel = document.getElementById('prospectosSkel');
+  const tbl  = document.getElementById('prospectosTbl');
+  const pgr  = document.getElementById('prospectosPager');
+
+  skel.innerHTML = [1,2,3,4,5].map(() => `<div class="skel skel-row"></div>`).join('');
+  skel.style.display = 'block'; tbl.style.display = 'none'; pgr.style.display = 'none';
+
+  const params = new URLSearchParams({ page, per_page: 50 });
+  if (q)  params.set('q', q);
+  if (ee) params.set('estado_email', ee);
+  if (ec) params.set('estado_com', ec);
+
+  try {
+    const data = await apiFetch(`/agentes/api/v2/prospectos?${params}`);
+    if (data.error) throw new Error(data.error);
+
+    prospectoTotal = data.total || 0;
+    prospectoPages = data.pages || 0;
+
+    const items = data.items || [];
+    document.getElementById('tabBadgeProspectos').textContent = prospectoTotal.toLocaleString('es-PE');
+    document.getElementById('prospectosMeta').textContent =
+      `${prospectoTotal.toLocaleString('es-PE')} resultados · fuente: ${data.source || 'ec_prospectos'} · ${fmtDatetime(data.query_at)}`;
+
+    skel.style.display = 'none';
+
+    if (items.length === 0) {
+      skel.innerHTML = `<div class="mc-empty"><i class="bi bi-search"></i>Sin resultados para los filtros aplicados.</div>`;
+      skel.style.display = 'block'; return;
+    }
+
+    document.getElementById('prospectosTbody').innerHTML = items.map(p => `
+      <tr class="clickable" onclick="openProspecto(${p.id}, ${JSON.stringify(p.razon_social).replace(/"/g,'&quot;')}, ${JSON.stringify(p.email||'').replace(/"/g,'&quot;')})">
+        <td style="font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.razon_social)}</td>
+        <td style="color:var(--muted);font-size:.74rem;">${esc(p.email||'—')}</td>
+        <td style="font-family:monospace;font-size:.74rem;">${esc(p.ruc||'—')}</td>
+        <td>${statusEmailTag(p.estado_email)}</td>
+        <td>${statusComTag(p.estado_com)}</td>
+        <td>${scoreTag(p.score)}</td>
+        <td class="data-age">${p.fecha_ult_contacto ? fmtDate(p.fecha_ult_contacto) : '—'}</td>
+      </tr>
+    `).join('');
+
+    tbl.style.display = 'table';
+    pgr.style.display = 'flex';
+
+    document.getElementById('pgInfo').textContent =
+      `Pág. ${page} / ${prospectoPages} (${prospectoTotal.toLocaleString('es-PE')} total)`;
+    document.getElementById('pgPrev').disabled = page <= 1;
+    document.getElementById('pgNext').disabled = page >= prospectoPages;
+    document.getElementById('prospectosSrc').textContent =
+      `fuente: ${data.source || 'ec_prospectos'} · ${data._server_ms != null ? data._server_ms + ' ms' : ''}`;
+
+  } catch(e) {
+    skel.innerHTML = `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(e.message)}</div>`;
+    skel.style.display = 'block';
+  }
+}
+
+function clearProspectoFilters() {
+  document.getElementById('prospectoQ').value = '';
+  document.getElementById('prospectoEstadoEmail').value = '';
+  document.getElementById('prospectoEstadoCom').value = '';
+  loadProspectos(1);
+}
+
+/* ══════════════════════════════════════════════════════════
+   TAB 3 — AGENTES
+══════════════════════════════════════════════════════════ */
+async function loadAgentes(force = false) {
+  if (agentesLoaded && !force) return;
+  agentesLoaded = true;
+
+  try {
+    const data = await apiFetch('/agentes/api/v2/agentes');
+
+    const meta = `consulta: ${fmtDatetime(data.query_at)}${data.cached ? ' · caché' : ''} · ${data._server_ms != null ? data._server_ms + ' ms' : ''}`;
+    document.getElementById('agentesMeta').textContent = meta;
+
+    /* Worker agents */
+    const wa = data.worker_agents || {};
+    if (wa.error) {
+      document.getElementById('workerAgentsGrid').innerHTML =
+        `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${wa.error}</div>`;
+    } else {
+      const items = wa.items || [];
+      document.getElementById('tabBadgeAgentes').textContent = items.length;
+      document.getElementById('workerAgentsGrid').innerHTML =
+        items.length === 0
+          ? `<div class="mc-empty" style="grid-column:1/-1;"><i class="bi bi-cpu"></i>Sin agentes worker registrados</div>`
+          : items.map(a => renderWorkerAgentCard(a)).join('');
+    }
+
+    /* Flask agents */
+    const fa = data.flask_agents || {};
+    if (fa.error) {
+      document.getElementById('flaskAgentsGrid').innerHTML =
+        `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${fa.error}</div>`;
+    } else {
+      const items = fa.items || [];
+      document.getElementById('flaskAgentsGrid').innerHTML =
+        items.length === 0
+          ? `<div class="mc-empty" style="grid-column:1/-1;"><i class="bi bi-cpu"></i>Sin agentes Flask registrados</div>`
+          : items.map(a => renderFlaskAgentCard(a)).join('');
+    }
+
+  } catch(e) {
+    document.getElementById('workerAgentsGrid').innerHTML =
+      `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(e.message)}</div>`;
+  }
+}
+
+function renderWorkerAgentCard(a) {
+  /* Status: basado en age_s e is_offline — sin umbral universal */
+  let statusClass = 'nodata', statusHtml = '';
+
+  if (a.is_offline && a.age_s == null) {
+    statusHtml = `<span class="stag stag-nodata">sin información</span>`;
+  } else if (a.is_offline) {
+    statusClass = 'stale';
+    statusHtml = `<span class="stag stag-stale"><i class="bi bi-clock"></i> sin señal · hace ${fmtAge(a.age_s)}</span>`;
+  } else if (a.status === 'running') {
+    statusClass = 'running';
+    statusHtml = `<span class="stag stag-running"><i class="bi bi-circle-fill"></i> ejecutándose</span>`;
+  } else {
+    statusClass = '';
+    statusHtml = `<span class="stag stag-idle"><i class="bi bi-check-circle"></i> en espera</span>`;
+  }
+
+  const lastRunStatus = a.last_run_status;
+  if (lastRunStatus === 'error' || lastRunStatus === 'failed') statusClass = 'error';
+
+  const durStr = a.last_run_started && a.last_run_finished
+    ? (() => {
+        const s = new Date(a.last_run_started), e = new Date(a.last_run_finished);
+        return fmtDuration(Math.round((e - s) / 1000));
+      })()
+    : null;
+
+  return `
+    <div class="agent-card ${statusClass}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+        <div class="agent-card-name">${esc(a.agent)}</div>
+        ${statusHtml}
+      </div>
+      <div class="agent-meta">
+        ${a.last_seen ? `<span><i class="bi bi-heartbeat"></i> heartbeat: ${fmtDatetime(a.last_seen)}</span>` : ''}
+        ${a.last_run_started ? `<span><i class="bi bi-play-fill"></i> último run: ${fmtDatetime(a.last_run_started)}</span>` : ''}
+        ${durStr ? `<span><i class="bi bi-stopwatch"></i> ${durStr}</span>` : ''}
+        ${a.actions_taken != null ? `<span><i class="bi bi-check2-all"></i> ${a.actions_taken} acciones</span>` : ''}
+        ${a.records_out != null ? `<span><i class="bi bi-box-arrow-up"></i> ${a.records_out} out</span>` : ''}
+        ${lastRunStatus ? `<span class="${lastRunStatus === 'ok' || lastRunStatus === 'success' ? 'run-ok' : lastRunStatus === 'error' || lastRunStatus === 'failed' ? 'run-err' : ''}">
+          <i class="bi bi-flag"></i> ${lastRunStatus}</span>` : ''}
+      </div>
+      ${a.last_error ? `<div class="agent-err"><i class="bi bi-exclamation-circle"></i> ${esc(a.last_error)}</div>` : ''}
+      <div class="data-age" style="margin-top:6px;">fuente: agent_heartbeat + agent_runs</div>
+    </div>
+  `;
+}
+
+function renderFlaskAgentCard(a) {
+  /* Status: basado en status + enabled + last_run vs run_interval */
+  let statusClass = '', statusHtml = '';
+  const now = Date.now();
+  const lastRun = a.last_run ? new Date(a.last_run).getTime() : null;
+  const interval = a.run_interval;  /* segundos — puede ser null */
+
+  if (!a.enabled) {
+    statusClass = 'nodata';
+    statusHtml = `<span class="stag stag-disabled">deshabilitado</span>`;
+  } else if (a.status === 'running') {
+    statusClass = 'running';
+    statusHtml = `<span class="stag stag-running"><i class="bi bi-circle-fill"></i> ejecutándose</span>`;
+  } else if (a.status === 'error') {
+    statusClass = 'error';
+    statusHtml = `<span class="stag stag-error"><i class="bi bi-x-circle"></i> error</span>`;
+  } else if (lastRun == null) {
+    statusClass = 'nodata';
+    statusHtml = `<span class="stag stag-nodata">sin información</span>`;
+  } else if (interval && (now - lastRun) > interval * 1500) {
+    /* Más de 1.5× el intervalo configurado sin ejecutar → señal perdida */
+    statusClass = 'stale';
+    const ageS = Math.round((now - lastRun) / 1000);
+    statusHtml = `<span class="stag stag-stale"><i class="bi bi-clock"></i> sin señal reciente · hace ${fmtAge(ageS)}</span>`;
+  } else {
+    statusHtml = `<span class="stag stag-ok"><i class="bi bi-check-circle"></i> habilitado</span>`;
+  }
+
+  const nextRunStr = a.next_run ? `<span><i class="bi bi-calendar-event"></i> próximo: ${fmtDatetime(a.next_run)}</span>` : '';
+  const intervalStr = interval ? `<span><i class="bi bi-repeat"></i> cada ${fmtDuration(interval)}</span>` : '';
+
+  return `
+    <div class="agent-card ${statusClass}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+        <div class="agent-card-name">${esc(a.name || a.agent_id)}</div>
+        ${statusHtml}
+      </div>
+      <div class="agent-meta">
+        ${a.last_run ? `<span><i class="bi bi-play-fill"></i> último run: ${fmtDatetime(a.last_run)}</span>` : ''}
+        ${nextRunStr}
+        ${intervalStr}
+        ${a.tasks_today != null ? `<span><i class="bi bi-check2-all"></i> ${a.tasks_today} tareas hoy</span>` : ''}
+        ${a.errors_today != null && a.errors_today > 0 ? `<span class="run-err"><i class="bi bi-bug"></i> ${a.errors_today} errores hoy</span>` : ''}
+      </div>
+      ${a.last_error ? `<div class="agent-err"><i class="bi bi-exclamation-circle"></i> ${esc(a.last_error)}</div>` : ''}
+      ${a.last_result ? `<div style="font-size:.67rem;color:var(--muted);margin-top:5px;">${esc(a.last_result.substring(0, 120))}${a.last_result.length > 120 ? '…' : ''}</div>` : ''}
+      <div class="data-age" style="margin-top:6px;">fuente: agent_status</div>
+    </div>
+  `;
+}
+
+/* ══════════════════════════════════════════════════════════
+   TAB 4 — HISTORIAL
+══════════════════════════════════════════════════════════ */
+let historialAgentOptions = false;
+
+async function loadHistorial() {
+  /* Populate agent filter lazily */
+  if (!historialAgentOptions) {
+    historialAgentOptions = true;
+    try {
+      const d = await apiFetch('/agentes/api/v2/agentes');
+      const sel = document.getElementById('historialAgente');
+      const items = (d.worker_agents && d.worker_agents.items) || [];
+      items.forEach(a => {
+        const o = document.createElement('option');
+        o.value = a.agent; o.textContent = a.agent;
+        sel.appendChild(o);
+      });
+    } catch(e) { /* non-critical */ }
+  }
+
+  const agent = document.getElementById('historialAgente').value;
+  const limit = document.getElementById('historialLimit').value;
+
+  const skel = document.getElementById('historialSkel');
+  const tbl  = document.getElementById('historialTbl');
+  skel.innerHTML = [1,2,3,4,5].map(() => `<div class="skel skel-row"></div>`).join('');
+  skel.style.display = 'block'; tbl.style.display = 'none';
+
+  const params = new URLSearchParams({ limit });
+  if (agent) params.set('agent', agent);
+
+  try {
+    const data = await apiFetch(`/agentes/api/v2/historial?${params}`);
+    if (data.error) throw new Error(data.error);
+
+    const items = data.items || [];
+    historialLoaded = true;
+
+    document.getElementById('historialMeta').textContent =
+      `${items.length} ejecuciones · fuente: ${data.source || 'agent_runs'} · ${fmtDatetime(data.query_at)}${data.cached ? ' · caché' : ''}${data._server_ms != null ? ' · ' + data._server_ms + ' ms' : ''}`;
+
+    skel.style.display = 'none';
+    if (items.length === 0) {
+      skel.innerHTML = `<div class="mc-empty"><i class="bi bi-clock-history"></i>Sin ejecuciones registradas.</div>`;
+      skel.style.display = 'block'; return;
+    }
+
+    document.getElementById('historialTbody').innerHTML = items.map(r => {
+      const stClass = r.status === 'ok' || r.status === 'success' ? 'run-ok'
+                    : r.status === 'error' || r.status === 'failed' ? 'run-err'
+                    : 'run-warn';
+      const dur = r.duration_s != null ? fmtDuration(r.duration_s) : '—';
+      return `
+        <tr>
+          <td style="font-weight:600;">${esc(r.agent)}</td>
+          <td class="data-age">${r.started_at ? fmtDatetime(r.started_at) : '—'}</td>
+          <td style="font-family:monospace;">${dur}</td>
+          <td><span class="${stClass}" style="font-weight:600;">${esc(r.status || '—')}</span></td>
+          <td style="font-family:monospace;">${r.actions_taken ?? '—'}</td>
+          <td style="font-family:monospace;">${r.records_out ?? '—'}</td>
+          <td style="font-size:.68rem;color:var(--muted);">${esc(r.triggered_by || '—')}</td>
+          <td style="font-size:.68rem;color:var(--red);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.error_msg||'')}">
+            ${r.error_msg ? esc(r.error_msg.substring(0, 60)) + (r.error_msg.length > 60 ? '…' : '') : ''}
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    tbl.style.display = 'table';
+
+  } catch(e) {
+    skel.innerHTML = `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(e.message)}</div>`;
+    skel.style.display = 'block';
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   DRAWER — Detalle de prospecto
+══════════════════════════════════════════════════════════ */
+function openProspecto(id, razonSocial, email) {
+  document.getElementById('drawerTitle').textContent = razonSocial || `Prospecto #${id}`;
+  document.getElementById('drawerSub').textContent = email || '';
+  document.getElementById('drawerBody').innerHTML =
+    `<div class="mc-empty"><i class="bi bi-hourglass-split"></i>Cargando historial…</div>`;
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('open');
+  loadProspectoDrawer(id);
+}
+
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+}
+
+async function loadProspectoDrawer(id) {
+  try {
+    const data = await apiFetch(`/agentes/api/v2/prospecto/${id}/historial`);
+
+    if (data.error) {
+      document.getElementById('drawerBody').innerHTML =
+        `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(data.error)}</div>`;
+      return;
+    }
+
+    const p = data.prospecto || {};
+    const outreach = (data.outreach && data.outreach.items) || [];
+    const stateLog = (data.state_log && data.state_log.items) || [];
+    const leads    = (data.leads && data.leads.items) || [];
+
+    let html = '';
+
+    /* Ficha */
+    html += `
+      <div class="mc-card" style="margin-bottom:16px;">
+        <div class="mc-card-title">Ficha <span class="src">fuente: ec_prospectos</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:.76rem;">
+          <div><span style="color:var(--muted);">RUC:</span> <strong>${esc(p.ruc||'—')}</strong></div>
+          <div><span style="color:var(--muted);">Score:</span> ${scoreTag(p.score)}</div>
+          <div><span style="color:var(--muted);">Est. email:</span> ${statusEmailTag(p.estado_email)}</div>
+          <div><span style="color:var(--muted);">Est. com.:</span> ${statusComTag(p.estado_com)}</div>
+        </div>
+      </div>
+    `;
+
+    /* Envíos */
+    html += `<div class="mc-card-title" style="margin-bottom:8px;">
+      Envíos (${outreach.length}) <span class="src">fuente: outreach_log</span>
+    </div>`;
+    if (outreach.length === 0) {
+      html += `<div class="mc-empty" style="padding:16px 0;"><i class="bi bi-envelope"></i> Sin envíos registrados</div>`;
+    } else {
+      html += `<div class="mc-card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+        <table class="mc-table">
+          <thead><tr><th>Fecha</th><th>Bandeja</th><th>Etapa</th><th>Estado</th></tr></thead>
+          <tbody>
+            ${outreach.map(o => `
+              <tr>
+                <td class="data-age">${fmtDatetime(o.sent_at)}</td>
+                <td style="font-size:.74rem;">${esc(o.bandeja||'—')}</td>
+                <td style="font-size:.72rem;color:var(--muted);">${esc(o.stage||'—')}</td>
+                <td>${o.status === 'enviado'
+                  ? `<span class="stag stag-ok">enviado</span>`
+                  : `<span class="stag stag-warn">${esc(o.status||'—')}</span>`}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    }
+
+    /* Cambios de estado */
+    if (stateLog.length > 0) {
+      html += `<div class="mc-card-title" style="margin-bottom:8px;">
+        Cambios de estado (${stateLog.length}) <span class="src">fuente: prospect_state_log</span>
+      </div>
+      <div class="mc-card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+        <table class="mc-table">
+          <thead><tr><th>Fecha</th><th>Anterior</th><th>Nuevo</th><th>Motivo</th></tr></thead>
+          <tbody>
+            ${stateLog.map(s => `
+              <tr>
+                <td class="data-age">${fmtDatetime(s.created_at)}</td>
+                <td style="font-size:.72rem;">${esc(s.estado_anterior||'—')}</td>
+                <td style="font-size:.72rem;font-weight:600;">${esc(s.estado_nuevo||'—')}</td>
+                <td style="font-size:.7rem;color:var(--muted);">${esc(s.motivo||'—')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    }
+
+    /* Leads */
+    if (leads.length > 0) {
+      html += `<div class="mc-card-title" style="margin-bottom:8px;">
+        Leads generados (${leads.length}) <span class="src">fuente: lead_pipeline</span>
+      </div>
+      <div class="mc-card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+        <table class="mc-table">
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>WH</th></tr></thead>
+          <tbody>
+            ${leads.map(l => `
+              <tr>
+                <td class="data-age">${fmtDatetime(l.created_at)}</td>
+                <td style="font-size:.74rem;">${esc(l.tipo||'—')}</td>
+                <td>${l.webhook_ok ? `<span class="stag stag-ok">OK</span>` : `<span class="stag stag-warn">—</span>`}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    }
+
+    html += `<div class="data-age" style="margin-top:12px;">consulta: ${fmtDatetime(data.query_at)}${data._server_ms != null ? ' · ' + data._server_ms + ' ms' : ''}</div>`;
+
+    document.getElementById('drawerBody').innerHTML = html;
+
+  } catch(e) {
+    document.getElementById('drawerBody').innerHTML =
+      `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(e.message)}</div>`;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   UTILS
+══════════════════════════════════════════════════════════ */
+async function apiFetch(url) {
+  const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function fmtDatetime(iso) {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = now - d;
+    if (diffMs < 60_000)    return 'hace ' + Math.round(diffMs/1000) + ' s';
+    if (diffMs < 3_600_000) return 'hace ' + Math.round(diffMs/60_000) + ' min';
+    if (diffMs < 86_400_000 * 2) {
+      const h = d.getHours().toString().padStart(2,'0');
+      const m = d.getMinutes().toString().padStart(2,'0');
+      return (diffMs < 86_400_000 ? 'hoy ' : 'ayer ') + h + ':' + m;
+    }
+    return d.toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric'})
+      + ' ' + d.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'});
+  } catch(e) { return iso; }
+}
+
+function fmtDate(s) {
+  if (!s) return '—';
+  try { return new Date(s).toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric'}); }
+  catch(e) { return s; }
+}
+
+function fmtAge(seconds) {
+  if (seconds == null) return '—';
+  if (seconds < 60)   return seconds + ' s';
+  if (seconds < 3600) return Math.round(seconds/60) + ' min';
+  return Math.round(seconds/3600) + ' h';
+}
+
+function fmtDuration(seconds) {
+  if (seconds == null) return '—';
+  if (seconds < 60)   return seconds + 's';
+  if (seconds < 3600) return Math.floor(seconds/60) + 'm ' + (seconds%60) + 's';
+  return Math.floor(seconds/3600) + 'h ' + Math.floor((seconds%3600)/60) + 'm';
+}
+
+function scoreTag(score) {
+  if (score == null) return '<span class="score-pill" style="background:#f1f5f9;color:#94a3b8;">—</span>';
+  const cls = score >= 7 ? 'score-high' : score >= 4 ? 'score-mid' : 'score-low';
+  return `<span class="score-pill ${cls}">${score}</span>`;
+}
+
+function statusEmailTag(v) {
+  if (!v) return '<span class="stag stag-nodata">—</span>';
+  const s = String(v).toLowerCase();
+  if (s.includes('rebote') || s.includes('bounce')) return `<span class="stag stag-error">${esc(v)}</span>`;
+  if (s.includes('valid')) return `<span class="stag stag-ok">${esc(v)}</span>`;
+  if (s.includes('invalid') || s.includes('inválid')) return `<span class="stag stag-warn">${esc(v)}</span>`;
+  return `<span class="stag stag-idle">${esc(v)}</span>`;
+}
+
+function statusComTag(v) {
+  if (!v) return '<span class="stag stag-nodata">—</span>';
+  const s = String(v).toLowerCase();
+  if (s.includes('cliente') || s.includes('p4')) return `<span class="stag stag-running">${esc(v)}</span>`;
+  if (s.includes('negocian') || s.includes('p3')) return `<span class="stag stag-ok">${esc(v)}</span>`;
+  if (s.includes('interesad')) return `<span class="stag stag-ok">${esc(v)}</span>`;
+  if (s.includes('no_contactar') || s.includes('no contactar')) return `<span class="stag stag-error">${esc(v)}</span>`;
+  if (s.includes('rebotado')) return `<span class="stag stag-error">${esc(v)}</span>`;
+  return `<span class="stag stag-idle">${esc(v)}</span>`;
+}
+
+/* ══════════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════════ */
+loadResumen();
 </script>
 {% endblock %}
