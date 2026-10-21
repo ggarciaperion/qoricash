@@ -3912,17 +3912,36 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
         _typing(numero, wa_id)
 
         # ── Bot pausado: asesor atendiendo manualmente ─────────────
-        # El control vuelve al bot únicamente mediante acción explícita del asesor
-        # desde el CRM (/crm/toggle-bot/<numero> o cierre de atención).
-        # Ningún mensaje ni botón del cliente reactiva el bot automáticamente.
+        # El control vuelve al bot mediante acción explícita del asesor
+        # desde el CRM (/crm/toggle-bot/<numero> o cierre de atención),
+        # O automáticamente si han pasado más de 4 horas sin actividad
+        # (evita que sesiones olvidadas queden silenciadas para siempre).
+        _BOT_PAUSA_TIMEOUT_H = 4
         try:
             _bot_pausado = session.bot_pausado
         except Exception:
             _bot_pausado = False
         if _bot_pausado:
-            log.info(f'[WaBot] {numero} — bot pausado (asesor en control), mensaje ignorado.')
-            db.session.commit()
-            return
+            # Auto-liberar si el asesor no tuvo actividad en >4 horas
+            _pausa_expirada = False
+            try:
+                if session.updated_at:
+                    _horas_sin_actividad = (now_peru() - session.updated_at).total_seconds() / 3600
+                    _pausa_expirada = _horas_sin_actividad > _BOT_PAUSA_TIMEOUT_H
+            except Exception:
+                pass
+            if _pausa_expirada:
+                log.info(f'[WaBot] {numero} — pausa de asesor expirada (>{_BOT_PAUSA_TIMEOUT_H}h sin actividad), reactivando bot.')
+                session.bot_pausado = False
+                try:
+                    session.estado_atencion = 'bot'
+                except Exception:
+                    pass
+                _bot_pausado = False
+            else:
+                log.info(f'[WaBot] {numero} — bot pausado (asesor en control), mensaje ignorado.')
+                db.session.commit()
+                return
 
         # ── Sesión expirada por inactividad (cliente escribe tras 20 min) ──
         # Excepción: si el cliente tiene una operación En proceso, no expirar —
