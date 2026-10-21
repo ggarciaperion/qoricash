@@ -1,324 +1,518 @@
 {% extends "base.html" %}
-{% block title %}Centro de prospección — Qoricash{% endblock %}
+{% block title %}Oficina Virtual — Qoricash{% endblock %}
 
 {% block head %}
 <style>
-/* ═══════════════════════════════════════════════════════════
-   CENTRO DE PROSPECCIÓN v3
-   #196BFE · blanco · negro — Bootstrap 5.1 ya cargado.
-═══════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════
+   OFICINA VIRTUAL — Qoricash
+   #196BFE · blanco · negro — Bootstrap 5.1 + BI 1.11 cargados
+════════════════════════════════════════════════════════ */
 :root {
-  --qb:   #196BFE;
-  --qbd:  #0f55d4;
-  --qbl:  #e8f0fe;
-  --txt:  #0f172a;
-  --muted:#64748b;
-  --bdr:  #e2e8f0;
-  --bg:   #f8fafc;
-  --card: #ffffff;
-  --green:#16a34a;
-  --red:  #dc2626;
-  --amber:#d97706;
-  --tag-h: 22px;
+  --qb:    #196BFE;
+  --qbd:   #0f55d4;
+  --qbl:   #dbeafe;
+  --qbll:  #eff6ff;
+  --txt:   #0f172a;
+  --txt2:  #374151;
+  --muted: #64748b;
+  --bdr:   #e2e8f0;
+  --bg:    #f1f5f9;
+  --card:  #ffffff;
+  --green: #16a34a;
+  --red:   #dc2626;
+  --amber: #d97706;
+  --r:     12px;
+  --sh:    0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.05);
+  --sh-md: 0 4px 14px rgba(0,0,0,.09), 0 2px 4px rgba(0,0,0,.05);
+  --sh-ho: 0 8px 24px rgba(25,107,254,.16), 0 2px 8px rgba(0,0,0,.07);
 }
 
+/* ── Shell ───────────────────────────────────────────── */
 .mc { background: var(--bg); min-height: calc(100vh - 56px); }
 
-/* ── Topbar ─────────────────────────────────────────────── */
+/* ── Topbar ──────────────────────────────────────────── */
 .mc-top {
   background: var(--card); border-bottom: 1px solid var(--bdr);
   padding: 0 24px; display: flex; align-items: stretch;
-  position: sticky; top: 56px; z-index: 100; gap: 0;
+  position: sticky; top: 56px; z-index: 100;
 }
 .mc-brand {
   display: flex; flex-direction: column; justify-content: center;
-  padding-right: 24px; border-right: 1px solid var(--bdr); min-width: 0;
+  padding-right: 20px; border-right: 1px solid var(--bdr); min-width: 0;
 }
 .mc-brand-name {
-  font-weight: 800; font-size: .82rem; letter-spacing: .06em;
+  font-weight: 800; font-size: .78rem; letter-spacing: .05em;
   text-transform: uppercase; color: var(--txt);
-  display: flex; align-items: center; gap: 8px; line-height: 1.2;
+  display: flex; align-items: center; gap: 7px; line-height: 1.2;
 }
 .mc-brand-dot {
   width: 7px; height: 7px; border-radius: 50%;
-  background: var(--green); box-shadow: 0 0 0 3px rgba(22,163,74,.2);
-  flex-shrink: 0;
+  background: #94a3b8; flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(148,163,184,.2);
+  transition: background .4s, box-shadow .4s;
 }
-.mc-brand-dot.offline { background: var(--red); box-shadow: 0 0 0 3px rgba(220,38,38,.2); }
-.mc-brand-dot.unknown { background: var(--amber); box-shadow: 0 0 0 3px rgba(215,119,6,.2); }
-.mc-brand-sub {
-  font-size: .62rem; color: var(--muted); line-height: 1.3;
-  max-width: 280px; margin-top: 2px; font-weight: 400;
-}
+.mc-brand-dot.online  { background: var(--green); box-shadow: 0 0 0 3px rgba(22,163,74,.2); }
+.mc-brand-dot.offline { background: var(--red);   box-shadow: 0 0 0 3px rgba(220,38,38,.2); }
+.mc-brand-dot.warn    { background: var(--amber);  box-shadow: 0 0 0 3px rgba(217,119,6,.2); }
+.mc-brand-sub { font-size: .6rem; color: var(--muted); max-width: 260px; margin-top: 2px; }
 
-/* ── Demo banner ─────────────────────────────────────────── */
+/* ── Demo banner ─────────────────────────────────────── */
 .demo-banner {
-  background: #fef3c7; border-bottom: 1px solid #fbbf24;
-  padding: 5px 24px; font-size: .72rem; color: #92400e; font-weight: 600;
+  background: #fef3c7; border-bottom: 2px solid #fbbf24;
+  padding: 5px 24px; font-size: .71rem; color: #92400e; font-weight: 600;
   display: flex; align-items: center; gap: 8px;
   position: sticky; top: calc(56px + 44px); z-index: 99;
 }
 
-/* ── Tabs ───────────────────────────────────────────────── */
+/* ── Tabs ────────────────────────────────────────────── */
 .mc-tabs { display: flex; align-items: stretch; padding: 0 16px; flex: 1; gap: 2px; }
 .mc-tab {
   display: flex; align-items: center; gap: 6px;
   padding: 0 14px; height: 44px; border: none; background: none;
-  font-size: .78rem; font-weight: 600; color: var(--muted);
+  font-size: .77rem; font-weight: 600; color: var(--muted);
   cursor: pointer; border-bottom: 2px solid transparent;
   transition: color .15s, border-color .15s; white-space: nowrap;
 }
-.mc-tab:hover { color: var(--txt); }
+.mc-tab:hover  { color: var(--txt); }
 .mc-tab.active { color: var(--qb); border-bottom-color: var(--qb); }
-.mc-tab .badge {
-  background: var(--qbl); color: var(--qb);
-  border-radius: 10px; padding: 1px 6px;
-  font-size: .65rem; font-weight: 700; line-height: 16px;
-}
-.mc-tab .badge.red { background: #fee2e2; color: var(--red); }
 
-/* ── Corner ──────────────────────────────────────────────── */
-.mc-corner { display: flex; align-items: center; gap: 10px; padding-left: 20px; border-left: 1px solid var(--bdr); }
-.mc-clock { font-size: .7rem; color: var(--muted); font-family: 'Courier New', monospace; letter-spacing: .04em; }
+.mc-corner {
+  display: flex; align-items: center; gap: 10px;
+  padding-left: 20px; border-left: 1px solid var(--bdr);
+}
+.mc-clock {
+  font-size: .68rem; color: var(--muted);
+  font-family: 'Courier New', monospace; letter-spacing: .04em;
+}
 .mc-refresh-btn {
   border: 1px solid var(--bdr); background: none; border-radius: 6px;
-  padding: 4px 10px; font-size: .72rem; font-weight: 600; color: var(--muted);
+  padding: 4px 10px; font-size: .71rem; font-weight: 600; color: var(--muted);
   cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all .15s;
 }
 .mc-refresh-btn:hover { border-color: var(--qb); color: var(--qb); }
 .mc-refresh-btn.spinning i { animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Content ─────────────────────────────────────────────── */
-.mc-content { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+/* ── Panes ───────────────────────────────────────────── */
 .mc-pane { display: none; }
 .mc-pane.active { display: block; }
 
-/* ── Cards ───────────────────────────────────────────────── */
-.mc-card { background: var(--card); border: 1px solid var(--bdr); border-radius: 10px; padding: 16px 20px; }
-.mc-card-title {
-  font-size: .65rem; font-weight: 700; color: var(--muted);
-  text-transform: uppercase; letter-spacing: .1em; margin-bottom: 10px;
+/* ════════════════════════════════════════════════════════
+   OFICINA VIRTUAL
+════════════════════════════════════════════════════════ */
+.office-wrap { padding: 20px 24px 32px; }
+
+.office-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.office-title { font-size: .85rem; font-weight: 700; color: var(--txt); }
+.office-sub   { font-size: .68rem; color: var(--muted); margin-top: 2px; }
+
+.office-legend {
+  display: flex; gap: 16px; align-items: center;
+  font-size: .62rem; color: var(--muted);
+}
+.leg-item { display: flex; align-items: center; gap: 5px; }
+.leg-dot  { width: 7px; height: 7px; border-radius: 50%; }
+
+/* ── Zones + grid ────────────────────────────────────── */
+.office-container {
+  position: relative;
+}
+.office-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  position: relative;
+  z-index: 2;
+}
+.zone {
+  background: var(--card);
+  border: 1px solid var(--bdr);
+  border-radius: var(--r);
+  padding: 16px;
+  box-shadow: var(--sh);
+  display: flex; flex-direction: column; gap: 0;
+}
+.zone-header {
+  display: flex; align-items: center; gap: 8px;
+  padding-bottom: 12px; margin-bottom: 4px;
+  border-bottom: 1.5px solid var(--bdr);
+}
+.zone-pip {
+  width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0;
+}
+.zone-title {
+  font-size: .62rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .09em; color: var(--muted);
+}
+.zone-subtitle {
+  font-size: .58rem; color: var(--muted); margin-left: auto;
+  font-weight: 400;
+}
+
+/* ── Within-zone connectors ──────────────────────────── */
+.zone-connector {
+  display: flex; align-items: center; justify-content: center;
+  height: 20px; position: relative;
+}
+.zone-connector::before {
+  content: '';
+  position: absolute;
+  left: 50%; top: 0; bottom: 0;
+  width: 1.5px;
+  background: linear-gradient(to bottom, #cbd5e1, #94a3b8);
+  transform: translateX(-50%);
+}
+.zone-connector::after {
+  content: '';
+  position: absolute;
+  left: 50%; bottom: 0;
+  border: 4px solid transparent;
+  border-top-color: #94a3b8;
+  transform: translateX(-50%);
+}
+.zone-connector.active::before { background: linear-gradient(to bottom, var(--qb), var(--qb)); }
+.zone-connector.active::after  { border-top-color: var(--qb); }
+
+/* ── Desk card ───────────────────────────────────────── */
+.desk {
+  background: var(--card);
+  border: 1.5px solid var(--bdr);
+  border-radius: 10px;
+  padding: 14px 14px 12px;
+  cursor: pointer;
+  transition: box-shadow .2s, border-color .2s, transform .15s;
+  position: relative;
+  overflow: hidden;
+}
+/* Left accent bar by status */
+.desk::before {
+  content: ''; position: absolute;
+  left: 0; top: 0; bottom: 0; width: 3px;
+  border-radius: 10px 0 0 10px;
+  background: #cbd5e1; transition: background .35s;
+}
+.desk.st-ok::before   { background: var(--green); }
+.desk.st-err::before  { background: var(--red); }
+.desk.st-warn::before { background: var(--amber); }
+.desk.st-idle::before { background: #94a3b8; }
+
+.desk:hover {
+  box-shadow: var(--sh-ho);
+  border-color: rgba(25,107,254,.35);
+  transform: translateY(-2px);
+}
+.desk.selected {
+  border-color: var(--qb);
+  box-shadow: 0 0 0 3px rgba(25,107,254,.12), var(--sh-md);
+  transform: translateY(-2px);
+}
+
+.desk-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+
+.desk-icon {
+  width: 38px; height: 38px; border-radius: 9px;
+  background: var(--qbll); color: var(--qb);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; flex-shrink: 0;
+  transition: background .25s, color .25s;
+}
+.desk.st-ok   .desk-icon { background: #dcfce7; color: var(--green); }
+.desk.st-err  .desk-icon { background: #fee2e2; color: var(--red); }
+.desk.st-warn .desk-icon { background: #fef3c7; color: var(--amber); }
+.desk.st-idle .desk-icon { background: #f1f5f9; color: #94a3b8; }
+
+.desk-meta    { flex: 1; min-width: 0; }
+.desk-name    { font-size: .8rem; font-weight: 700; color: var(--txt); line-height: 1.2; }
+.desk-fn      { font-size: .64rem; color: var(--muted); margin-top: 1px; }
+
+.desk-status  { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; }
+.sdot {
+  width: 6px; height: 6px; border-radius: 50%; background: #94a3b8; flex-shrink: 0;
+  transition: background .35s, box-shadow .35s;
+}
+.st-ok   .sdot { background: var(--green); box-shadow: 0 0 0 3px rgba(22,163,74,.18); }
+.st-err  .sdot { background: var(--red);   box-shadow: 0 0 0 3px rgba(220,38,38,.18); }
+.st-warn .sdot { background: var(--amber); box-shadow: 0 0 0 3px rgba(217,119,6,.18); }
+.stext { font-size: .65rem; color: var(--muted); font-weight: 500; }
+
+.desk-last {
+  font-size: .62rem; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.desk-last b { color: var(--txt2); font-weight: 600; }
+
+/* ── SVG connections overlay ─────────────────────────── */
+.office-svg-layer {
+  position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  overflow: visible;
+}
+
+/* ── Legend pill ─────────────────────────────────────── */
+.office-legend-row {
+  display: flex; gap: 16px; flex-wrap: wrap;
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px solid var(--bdr);
+}
+.leg-row-item {
   display: flex; align-items: center; gap: 6px;
+  font-size: .62rem; color: var(--muted);
 }
-.mc-card-title .src { font-weight: 400; font-size: .6rem; color: #94a3b8; margin-left: auto; letter-spacing: .02em; text-transform: none; }
 
-/* ── Commercial KPIs ─────────────────────────────────────── */
-.ckpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px; }
-.ckpi {
-  background: var(--card); border: 1px solid var(--bdr);
-  border-radius: 10px; padding: 16px 18px; border-left: 3px solid var(--bdr);
+/* ════════════════════════════════════════════════════════
+   PANEL LATERAL (agente)
+════════════════════════════════════════════════════════ */
+.panel-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,23,42,.22);
+  z-index: 200; opacity: 0; pointer-events: none;
+  transition: opacity .25s;
 }
-.ckpi.blue  { border-left-color: var(--qb); }
-.ckpi.green { border-left-color: var(--green); }
-.ckpi.amber { border-left-color: var(--amber); }
-.ckpi.red   { border-left-color: var(--red); }
-.ckpi.gray  { border-left-color: #cbd5e1; }
-.ckpi-val { font-size: 1.8rem; font-weight: 800; line-height: 1; font-family: 'Courier New', monospace; color: var(--txt); }
-.ckpi-val.blue  { color: var(--qb); }
-.ckpi-val.green { color: var(--green); }
-.ckpi-val.amber { color: var(--amber); }
-.ckpi-val.red   { color: var(--red); }
-.ckpi-val.muted { color: #94a3b8; font-size: 1rem; margin-top: 6px; }
-.ckpi-lbl { font-size: .68rem; font-weight: 700; color: var(--txt); margin-top: 5px; }
-.ckpi-sub { font-size: .62rem; color: var(--muted); margin-top: 3px; line-height: 1.4; }
-.ckpi-src { font-size: .58rem; color: #94a3b8; margin-top: 5px; }
+.panel-overlay.open { opacity: 1; pointer-events: all; }
 
-/* ── Status tags ─────────────────────────────────────────── */
-.stag {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 8px; border-radius: 20px;
-  font-size: .65rem; font-weight: 700; height: var(--tag-h); white-space: nowrap;
+.agent-panel {
+  position: fixed; top: 56px; right: 0; bottom: 0;
+  width: 440px; max-width: 100vw;
+  background: var(--card); border-left: 1px solid var(--bdr);
+  z-index: 201; display: flex; flex-direction: column;
+  transform: translateX(100%);
+  transition: transform .3s cubic-bezier(.4,0,.2,1);
+  overflow: hidden;
 }
-.stag-running  { background: #dcfce7; color: #15803d; }
-.stag-ok       { background: #dbeafe; color: #1d4ed8; }
-.stag-idle     { background: #f1f5f9; color: #475569; }
-.stag-warn     { background: #fef3c7; color: #92400e; }
-.stag-error    { background: #fee2e2; color: #b91c1c; }
-.stag-stale    { background: #fef9c3; color: #854d0e; }
-.stag-nodata   { background: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; }
-.stag-disabled { background: #f1f5f9; color: #94a3b8; }
+.agent-panel.open { transform: translateX(0); }
 
-/* ── Section header ──────────────────────────────────────── */
-.sec-hdr {
-  font-size: .72rem; font-weight: 700; color: var(--muted);
-  text-transform: uppercase; letter-spacing: .1em; margin: 22px 0 10px;
+.ap-head {
+  padding: 18px 18px 14px; border-bottom: 1px solid var(--bdr);
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.ap-icon {
+  width: 44px; height: 44px; border-radius: 10px;
+  background: var(--qbll); color: var(--qb);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.15rem; flex-shrink: 0;
+}
+.ap-titles { flex: 1; min-width: 0; }
+.ap-name { font-size: 1rem; font-weight: 800; color: var(--txt); }
+.ap-fn   { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+.ap-close {
+  border: none; background: none; color: var(--muted); font-size: 1.1rem;
+  cursor: pointer; padding: 4px; border-radius: 6px; transition: background .15s;
+  flex-shrink: 0;
+}
+.ap-close:hover { background: var(--bg); color: var(--txt); }
+
+.ap-body { flex: 1; overflow-y: auto; padding: 18px; }
+
+.ap-section { margin-bottom: 18px; }
+.ap-section-title {
+  font-size: .6rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .09em; color: var(--muted); margin-bottom: 10px;
   display: flex; align-items: center; gap: 8px;
 }
-.sec-hdr::after { content: ''; flex: 1; height: 1px; background: var(--bdr); }
-.sec-hdr .type-badge {
-  font-size: .58rem; padding: 2px 7px; border-radius: 10px;
-  background: var(--qbl); color: var(--qb);
-  text-transform: none; letter-spacing: .02em; font-weight: 600;
+.ap-section-title::after {
+  content: ''; flex: 1; height: 1px; background: var(--bdr);
 }
 
-/* ── Activity timeline ───────────────────────────────────── */
-.activity-list { display: flex; flex-direction: column; gap: 2px; }
-.activity-item {
-  display: grid; grid-template-columns: 52px 1fr auto;
-  gap: 0 12px; padding: 9px 12px; border-radius: 7px;
-  align-items: start; transition: background .12s;
+.ap-desc {
+  font-size: .77rem; color: var(--txt2); line-height: 1.65;
+  background: var(--bg); border-radius: 8px; padding: 12px 14px;
 }
-.activity-item:hover { background: var(--bg); }
-.activity-time { font-size: .66rem; color: var(--muted); font-family: 'Courier New', monospace; padding-top: 1px; }
-.activity-main { min-width: 0; }
-.activity-fn { font-size: .76rem; font-weight: 600; color: var(--txt); }
-.activity-detail { font-size: .68rem; color: var(--muted); margin-top: 1px; line-height: 1.4; }
-.activity-result { text-align: right; font-size: .68rem; white-space: nowrap; }
-.run-ok   { color: var(--green); font-weight: 600; }
-.run-err  { color: var(--red);   font-weight: 600; }
-.run-open { color: var(--amber); font-weight: 600; }
 
-/* ── Attention items ─────────────────────────────────────── */
-.attn-list { display: flex; flex-direction: column; gap: 6px; }
-.attn-item {
-  display: flex; align-items: flex-start; gap: 10px;
-  background: #fffbeb; border: 1px solid #fde68a;
-  border-radius: 8px; padding: 10px 14px;
-}
-.attn-item.critical { background: #fff1f2; border-color: #fecdd3; }
-.attn-item i { font-size: .9rem; margin-top: 1px; flex-shrink: 0; }
-.attn-item.critical i { color: var(--red); }
-.attn-item i { color: var(--amber); }
-.attn-body { flex: 1; min-width: 0; }
-.attn-title { font-size: .76rem; font-weight: 700; color: var(--txt); }
-.attn-sub   { font-size: .68rem; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+.ap-row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 7px; }
+.ap-lbl { font-size: .68rem; color: var(--muted); min-width: 120px; flex-shrink: 0; }
+.ap-val { font-size: .73rem; color: var(--txt); font-weight: 500; }
+.ap-val.mono { font-family: 'Courier New', monospace; font-size: .66rem; }
+.ap-val.empty { color: var(--muted); font-style: italic; font-weight: 400; }
 
-/* ── Technical details collapsible ──────────────────────── */
-.tech-toggle {
-  display: flex; align-items: center; gap: 7px;
-  font-size: .68rem; font-weight: 600; color: var(--muted);
-  cursor: pointer; padding: 6px 0; border: none; background: none;
-  text-decoration: none; transition: color .15s;
+.ap-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  border-radius: 20px; padding: 2px 8px;
+  font-size: .62rem; font-weight: 700;
 }
-.tech-toggle:hover { color: var(--txt); }
-.tech-toggle i { transition: transform .2s; }
-.tech-toggle.open i.bi-chevron-right { transform: rotate(90deg); }
-.tech-body { display: none; margin-top: 8px; }
-.tech-body.open { display: block; }
-.tech-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
-.tech-cell {
-  background: var(--bg); border: 1px solid var(--bdr);
-  border-radius: 7px; padding: 8px 12px;
-}
-.tech-cell-lbl { font-size: .6rem; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; font-weight: 700; }
-.tech-cell-val { font-size: .74rem; color: var(--txt); margin-top: 3px; word-break: break-all; }
+.chip-green  { background: #dcfce7; color: var(--green); }
+.chip-red    { background: #fee2e2; color: var(--red); }
+.chip-amber  { background: #fef3c7; color: var(--amber); }
+.chip-blue   { background: var(--qbl); color: var(--qb); }
+.chip-gray   { background: #f1f5f9; color: var(--muted); }
 
-/* ── Bandejas ────────────────────────────────────────────── */
-.bandeja-row { display: flex; flex-wrap: wrap; gap: 10px; }
-.bandeja-card {
-  background: var(--card); border: 1px solid var(--bdr);
-  border-radius: 10px; padding: 12px 16px; flex: 1; min-width: 150px;
+.ap-flow { display: flex; gap: 6px; flex-wrap: wrap; }
+.ap-flow-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid var(--bdr); border-radius: 6px;
+  padding: 3px 9px; font-size: .63rem; color: var(--txt2);
+  background: var(--bg);
 }
-.bandeja-card.stale { border-color: #fde68a; background: #fffbeb; }
-.bandeja-name { font-size: .7rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-.bandeja-sent { font-size: 1.4rem; font-weight: 800; color: var(--txt); font-family: 'Courier New', monospace; }
-.bandeja-sub  { font-size: .64rem; color: var(--muted); margin-top: 2px; }
+.ap-flow-chip i { color: var(--muted); font-size: .55rem; }
 
-/* ── Agent cards ─────────────────────────────────────────── */
-.agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
-.agent-card {
-  background: var(--card); border: 1px solid var(--bdr);
-  border-radius: 10px; padding: 16px 18px; border-left: 3px solid var(--bdr);
+.ap-tech-toggle {
+  border: 1px solid var(--bdr); background: none; border-radius: 6px;
+  padding: 4px 10px; font-size: .63rem; font-weight: 600; color: var(--muted);
+  cursor: pointer; display: flex; align-items: center; gap: 5px;
+  transition: background .15s; margin-top: 6px;
+}
+.ap-tech-toggle:hover { background: var(--bg); }
+.ap-tech-body { display: none; margin-top: 8px; }
+.ap-tech-body.open { display: block; }
+
+.ap-empty { font-size: .72rem; color: var(--muted); font-style: italic; }
+.ap-err   { font-size: .72rem; color: var(--red); display: flex; align-items: center; gap: 5px; }
+
+.ap-hist-item {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 8px 0; border-bottom: 1px solid var(--bdr);
+}
+.ap-hist-item:last-child { border-bottom: none; }
+.ap-hist-time { font-size: .62rem; color: var(--muted); min-width: 38px; flex-shrink: 0; padding-top: 2px; }
+.ap-hist-main { flex: 1; min-width: 0; }
+.ap-hist-status { font-size: .64rem; font-weight: 600; }
+.ap-hist-detail { font-size: .61rem; color: var(--muted); margin-top: 2px; }
+
+/* ════════════════════════════════════════════════════════
+   PROSPECTOS TAB
+════════════════════════════════════════════════════════ */
+.mc-content { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+.mc-card { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--r); }
+
+.filter-bar {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px;
+}
+.filter-bar input, .filter-bar select {
+  height: 34px; border: 1px solid var(--bdr); border-radius: 6px;
+  padding: 0 10px; font-size: .73rem; color: var(--txt); background: var(--card); outline: none;
   transition: border-color .15s;
 }
-.agent-card.running { border-left-color: var(--green); }
-.agent-card.error   { border-left-color: var(--red); }
-.agent-card.stale   { border-left-color: var(--amber); }
-.agent-card.nodata  { border-left-color: #cbd5e1; }
-.agent-fn    { font-size: .88rem; font-weight: 700; color: var(--txt); margin-bottom: 4px; }
-.agent-desc  { font-size: .7rem; color: var(--muted); margin-bottom: 10px; line-height: 1.4; }
-.agent-stat  { display: flex; flex-direction: column; gap: 4px; font-size: .72rem; margin-bottom: 10px; }
-.agent-stat-row { display: flex; gap: 8px; align-items: flex-start; }
-.agent-stat-lbl { color: var(--muted); white-space: nowrap; min-width: 90px; }
-.agent-stat-val { color: var(--txt); font-weight: 500; }
-.agent-err { font-size: .67rem; color: var(--red); background: #fff1f2; border-radius: 5px; padding: 4px 8px; word-break: break-word; margin-top: 4px; }
-.data-age { font-size: .62rem; color: #94a3b8; }
-.data-age.stale { color: var(--amber); }
-
-/* ── Tables ──────────────────────────────────────────────── */
-.mc-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
-.mc-table th {
-  text-align: left; font-size: .63rem; font-weight: 700;
-  color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
-  padding: 7px 10px; border-bottom: 2px solid var(--bdr); white-space: nowrap; background: var(--bg);
-}
-.mc-table td { padding: 9px 10px; border-bottom: 1px solid var(--bdr); vertical-align: middle; color: var(--txt); }
-.mc-table tbody tr:last-child td { border-bottom: none; }
-.mc-table tbody tr:hover { background: var(--bg); }
-.mc-table tbody tr.clickable { cursor: pointer; }
-.mc-table tbody tr.clickable:hover td:first-child { color: var(--qb); }
-
-/* ── Filter bar ──────────────────────────────────────────── */
-.filter-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
-.filter-bar input, .filter-bar select {
-  border: 1px solid var(--bdr); border-radius: 7px; padding: 6px 10px;
-  font-size: .76rem; color: var(--txt); background: var(--card); outline: none; transition: border-color .15s;
-}
+.filter-bar input { min-width: 240px; }
 .filter-bar input:focus, .filter-bar select:focus { border-color: var(--qb); }
-.filter-bar input { min-width: 220px; }
 .filter-btn {
-  background: var(--qb); color: #fff; border: none; border-radius: 7px;
-  padding: 6px 14px; font-size: .76rem; font-weight: 600; cursor: pointer; transition: background .15s;
+  height: 34px; padding: 0 14px; border: 1px solid var(--bdr); border-radius: 6px;
+  background: var(--card); font-size: .73rem; font-weight: 600; color: var(--txt2);
+  cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all .15s;
 }
-.filter-btn:hover { background: var(--qbd); }
-.filter-btn.secondary { background: none; color: var(--muted); border: 1px solid var(--bdr); }
-.filter-btn.secondary:hover { border-color: var(--qb); color: var(--qb); background: none; }
+.filter-btn:hover    { border-color: var(--qb); color: var(--qb); }
+.filter-btn.primary  { background: var(--qb); border-color: var(--qb); color: #fff; }
+.filter-btn.primary:hover { background: var(--qbd); }
+.filter-btn.secondary { color: var(--muted); }
+.data-age { font-size: .62rem; color: var(--muted); }
 
-/* ── Pagination ──────────────────────────────────────────── */
-.pager { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: .76rem; color: var(--muted); }
+.mc-table { width: 100%; border-collapse: collapse; font-size: .72rem; }
+.mc-table th {
+  padding: 9px 12px; text-align: left; font-size: .6rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+  border-bottom: 1px solid var(--bdr); background: var(--bg); white-space: nowrap;
+}
+.mc-table td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; color: var(--txt2); }
+.mc-table tr:last-child td { border-bottom: none; }
+.mc-table tr:hover td { background: var(--bg); }
+
+.st-tag {
+  display: inline-block; border-radius: 20px; padding: 1px 7px;
+  font-size: .6rem; font-weight: 700;
+}
+.st-tag.ok    { background: #dcfce7; color: var(--green); }
+.st-tag.warn  { background: #fef3c7; color: var(--amber); }
+.st-tag.err   { background: #fee2e2; color: var(--red); }
+.st-tag.gray  { background: #f1f5f9; color: var(--muted); }
+.st-tag.blue  { background: var(--qbl); color: var(--qb); }
+
+.pager {
+  display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+  border-top: 1px solid var(--bdr); font-size: .72rem;
+}
 .pager button {
   border: 1px solid var(--bdr); background: var(--card); border-radius: 6px;
-  padding: 5px 12px; cursor: pointer; font-size: .76rem; color: var(--txt); transition: all .15s;
+  padding: 3px 10px; cursor: pointer; color: var(--txt2); transition: all .15s;
 }
-.pager button:hover:not(:disabled) { border-color: var(--qb); color: var(--qb); }
+.pager button:hover    { border-color: var(--qb); color: var(--qb); }
 .pager button:disabled { opacity: .4; cursor: not-allowed; }
+.pager span { color: var(--muted); font-size: .68rem; }
 
-/* ── Drawer ──────────────────────────────────────────────── */
+.mc-empty, .mc-err {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--muted); font-size: .73rem; padding: 24px;
+  font-style: italic;
+}
+.mc-err { color: var(--red); font-style: normal; }
+.mc-empty i, .mc-err i { font-size: 1rem; }
+
+.skel { background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%); background-size: 200% 100%; border-radius: 6px; animation: shimmer 1.4s infinite; }
+.skel-row { height: 36px; border-radius: 6px; margin-bottom: 8px; }
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+/* ════════════════════════════════════════════════════════
+   ACTIVIDAD TAB
+════════════════════════════════════════════════════════ */
+.run-ok   { color: var(--green); font-weight: 600; }
+.run-err  { color: var(--red); font-weight: 600; }
+.run-open { color: var(--amber); font-weight: 500; }
+
+/* ════════════════════════════════════════════════════════
+   HORARIOS TAB
+════════════════════════════════════════════════════════ */
+.sched-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px;
+}
+.sched-card {
+  background: var(--card); border: 1px solid var(--bdr); border-radius: var(--r);
+  padding: 14px;
+}
+.sched-name { font-size: .8rem; font-weight: 700; color: var(--txt); margin-bottom: 4px; }
+.sched-fn   { font-size: .64rem; color: var(--muted); margin-bottom: 10px; }
+.sched-row  { display: flex; gap: 6px; align-items: baseline; margin-bottom: 5px; font-size: .68rem; }
+.sched-lbl  { color: var(--muted); min-width: 100px; }
+.sched-val  { color: var(--txt2); font-weight: 500; }
+.sched-note { font-size: .62rem; color: var(--amber); margin-top: 6px; font-style: italic; }
+
+/* ── Drawer (prospectos) ─────────────────────────────── */
 .mc-drawer-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,.35);
-  z-index: 900; opacity: 0; pointer-events: none; transition: opacity .2s;
+  position: fixed; inset: 0; background: rgba(15,23,42,.2);
+  z-index: 300; opacity: 0; pointer-events: none; transition: opacity .2s;
 }
 .mc-drawer-overlay.open { opacity: 1; pointer-events: all; }
 .mc-drawer {
-  position: fixed; right: 0; top: 0; bottom: 0; width: 480px; max-width: 92vw;
-  background: var(--card); z-index: 901; box-shadow: -4px 0 24px rgba(0,0,0,.12);
-  display: flex; flex-direction: column;
-  transform: translateX(100%); transition: transform .25s cubic-bezier(.4,0,.2,1);
+  position: fixed; top: 56px; right: 0; bottom: 0; width: 420px; max-width: 100vw;
+  background: var(--card); border-left: 1px solid var(--bdr); z-index: 301;
+  display: flex; flex-direction: column; transform: translateX(100%);
+  transition: transform .28s cubic-bezier(.4,0,.2,1);
 }
 .mc-drawer.open { transform: translateX(0); }
-.mc-drawer-header { padding: 16px 20px; border-bottom: 1px solid var(--bdr); display: flex; align-items: center; gap: 10px; }
-.mc-drawer-title { font-size: .9rem; font-weight: 700; color: var(--txt); flex: 1; }
-.mc-drawer-close { border: none; background: none; cursor: pointer; color: var(--muted); font-size: 1.1rem; padding: 4px; border-radius: 5px; transition: color .15s; }
-.mc-drawer-close:hover { color: var(--txt); }
-.mc-drawer-body { flex: 1; overflow-y: auto; padding: 20px; }
+.mc-drawer-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px; border-bottom: 1px solid var(--bdr);
+}
+.mc-drawer-title { font-size: .9rem; font-weight: 700; color: var(--txt); }
+.mc-drawer-close {
+  border: none; background: none; color: var(--muted); font-size: 1.1rem;
+  cursor: pointer; padding: 4px; border-radius: 6px;
+}
+.mc-drawer-body { flex: 1; overflow-y: auto; padding: 18px; }
 
-/* ── Skeletons ───────────────────────────────────────────── */
-.skel { background: linear-gradient(90deg, #e2e8f0 25%, #f8fafc 50%, #e2e8f0 75%); background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite; border-radius: 5px; }
-@keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-.skel-row { height: 42px; margin-bottom: 6px; }
-.skel-kpi { height: 88px; border-radius: 10px; }
-
-/* ── Error / empty ───────────────────────────────────────── */
-.mc-err { background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 10px 14px; font-size: .76rem; color: var(--red); display: flex; align-items: center; gap: 8px; }
-.mc-empty { text-align: center; padding: 40px; color: var(--muted); font-size: .82rem; }
-.mc-empty i { font-size: 1.8rem; display: block; margin-bottom: 8px; opacity: .4; }
-
-/* ── Score / status pills ────────────────────────────────── */
-.score-pill { display: inline-block; min-width: 26px; text-align: center; padding: 1px 6px; border-radius: 10px; font-size: .68rem; font-weight: 700; }
-.score-high { background: #dcfce7; color: #15803d; }
-.score-mid  { background: #fef9c3; color: #854d0e; }
-.score-low  { background: #f1f5f9; color: #64748b; }
-
-/* ── Mobile ──────────────────────────────────────────────── */
-@media (max-width: 640px) {
+/* ── Mobile ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .mc-top  { padding: 0 12px; }
+  .mc-brand { padding-right: 10px; }
   .mc-brand-sub { display: none; }
-  .mc-content { padding: 12px 14px; }
-  .ckpi-row { grid-template-columns: 1fr 1fr; }
-  .agent-grid { grid-template-columns: 1fr; }
-  .mc-table th:nth-child(n+4), .mc-table td:nth-child(n+4) { display: none; }
-  .activity-item { grid-template-columns: 46px 1fr; }
-  .activity-result { display: none; }
+  .mc-corner .mc-clock { display: none; }
+  .office-wrap { padding: 12px; }
+  .office-grid { grid-template-columns: 1fr; gap: 12px; }
+  .office-topbar { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .office-legend { display: none; }
+  .agent-panel { width: 100vw; top: 0; }
+  .mc-content  { padding: 12px; }
+  .filter-bar input { min-width: 160px; }
+  .mc-table th:nth-child(3),
+  .mc-table td:nth-child(3),
+  .mc-table th:nth-child(7),
+  .mc-table td:nth-child(7) { display: none; }
+  .sched-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 480px) {
+  .sched-grid { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .desk, .agent-panel, .mc-drawer, .panel-overlay, .mc-drawer-overlay { transition: none !important; }
+  .skel { animation: none !important; }
 }
 </style>
 {% endblock %}
@@ -326,207 +520,302 @@
 {% block content %}
 <div class="mc">
 
-  <!-- ══════════════════════ TOP BAR ══════════════════════ -->
+  <!-- ── Topbar ─────────────────────────────────────────── -->
   <div class="mc-top">
     <div class="mc-brand">
       <div class="mc-brand-name">
         <span class="mc-brand-dot" id="workerDot"></span>
-        Centro de prospección
+        Qoricash Agentes
       </div>
-      <div class="mc-brand-sub">Consulta qué hacen tus agentes, a quién contactan y qué necesita atención</div>
+      <div class="mc-brand-sub">Oficina virtual · solo lectura</div>
     </div>
 
-    <nav class="mc-tabs">
-      <button class="mc-tab active" data-tab="resumen">
-        <i class="bi bi-grid-1x2"></i> Resumen
+    <nav class="mc-tabs" role="tablist">
+      <button class="mc-tab active" data-tab="oficina"    role="tab" aria-selected="true">
+        <i class="bi bi-building"></i> Oficina
       </button>
-      <button class="mc-tab" data-tab="prospectos">
+      <button class="mc-tab" data-tab="prospectos" role="tab" aria-selected="false">
         <i class="bi bi-people"></i> Prospectos
-        <span class="badge" id="tabBadgeProspectos">—</span>
       </button>
-      <button class="mc-tab" data-tab="agentes">
-        <i class="bi bi-cpu"></i> Agentes
-        <span class="badge" id="tabBadgeAgentes">—</span>
-      </button>
-      <button class="mc-tab" data-tab="actividad">
+      <button class="mc-tab" data-tab="actividad"  role="tab" aria-selected="false">
         <i class="bi bi-clock-history"></i> Actividad
+      </button>
+      <button class="mc-tab" data-tab="horarios"   role="tab" aria-selected="false">
+        <i class="bi bi-calendar3"></i> Horarios
       </button>
     </nav>
 
     <div class="mc-corner">
-      {% if alerts %}
-      <a href="/agentes/alertas" class="stag stag-error" style="text-decoration:none;font-size:.65rem;">
-        <i class="bi bi-exclamation-triangle-fill"></i> {{ alerts|length }} alerta{{ 's' if alerts|length != 1 }}
-      </a>
-      {% endif %}
+      <span class="mc-clock" id="clock">--:--:--</span>
       <button class="mc-refresh-btn" id="refreshBtn" onclick="refreshActive()">
         <i class="bi bi-arrow-clockwise"></i> Actualizar
       </button>
-      <span class="mc-clock" id="clock">--:--:--</span>
     </div>
   </div>
 
-  <!-- Demo banner — shown when env_note indicates SQLite -->
+  <!-- ── Demo banner ────────────────────────────────────── -->
   <div class="demo-banner" id="demoBanner" style="display:none;">
     <i class="bi bi-cone-striped"></i>
-    <span id="demoBannerText">Demostración local · Los datos no representan el estado de producción</span>
+    <strong>Demostración local · Datos ficticios</strong>
+    <span id="demoBannerNote" style="font-weight:400;"></span>
   </div>
 
-  <!-- ══════════════════════ CONTENT ═════════════════════ -->
-  <div class="mc-content">
+  <!-- ══════════════════ OFICINA ══════════════════════════ -->
+  <div class="mc-pane active" id="pane-oficina">
+    <div class="office-wrap">
 
-    <!-- ─────────────────── TAB: RESUMEN ─────────────────── -->
-    <div class="mc-pane active" id="pane-resumen">
-
-      <!-- Commercial KPIs -->
-      <div class="ckpi-row" id="ckpiRow">
-        <div class="skel skel-kpi"></div>
-        <div class="skel skel-kpi"></div>
-        <div class="skel skel-kpi"></div>
-        <div class="skel skel-kpi"></div>
-      </div>
-
-      <!-- Últimas acciones -->
-      <div class="sec-hdr">
-        Últimas acciones <span class="type-badge">agent_runs</span>
-      </div>
-      <div class="mc-card" id="actividadCard">
-        <div class="activity-list" id="actividadList">
-          <div class="skel skel-row"></div>
-          <div class="skel skel-row"></div>
-          <div class="skel skel-row"></div>
+      <div class="office-topbar">
+        <div>
+          <div class="office-title">Oficina virtual de prospección</div>
+          <div class="office-sub" id="officeSubtitle">Cargando estado…</div>
+        </div>
+        <div class="office-legend">
+          <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>Activo</div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--amber)"></div>Advertencia</div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--red)"></div>Error</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#94a3b8"></div>Sin datos</div>
         </div>
       </div>
 
-      <!-- Necesita atención -->
-      <div id="attnSection" style="display:none;">
-        <div class="sec-hdr">Necesita atención</div>
-        <div class="attn-list" id="attnList"></div>
+      <!-- Grid de puestos -->
+      <div class="office-container" id="officeContainer">
+        <svg class="office-svg-layer" id="officeSvg" aria-hidden="true">
+          <defs>
+            <marker id="arr" markerWidth="7" markerHeight="6" refX="5" refY="3" orient="auto">
+              <polygon points="0 0,7 3,0 6" fill="#cbd5e1"/>
+            </marker>
+            <marker id="arr-active" markerWidth="7" markerHeight="6" refX="5" refY="3" orient="auto">
+              <polygon points="0 0,7 3,0 6" fill="#196BFE"/>
+            </marker>
+          </defs>
+        </svg>
+
+        <div class="office-grid" id="officeGrid">
+
+          <!-- ZONA 1: Adquisición -->
+          <div class="zone" id="zone-adquisicion">
+            <div class="zone-header">
+              <div class="zone-pip" style="background:#196BFE;"></div>
+              <span class="zone-title">Adquisición</span>
+              <span class="zone-subtitle">Descubrir y calificar</span>
+            </div>
+
+            <div class="desk" data-agent="scout" id="desk-scout">
+              <div class="desk-header">
+                <div class="desk-icon"><i class="bi bi-search"></i></div>
+                <div class="desk-meta">
+                  <div class="desk-name">Scout</div>
+                  <div class="desk-fn">Busca empresas nuevas</div>
+                </div>
+              </div>
+              <div class="desk-status">
+                <div class="sdot" id="sdot-scout"></div>
+                <span class="stext" id="stext-scout">–</span>
+              </div>
+              <div class="desk-last" id="dlast-scout">Última actividad: –</div>
+            </div>
+
+            <div class="zone-connector" id="conn-scout-research"></div>
+
+            <div class="desk" data-agent="research" id="desk-research">
+              <div class="desk-header">
+                <div class="desk-icon"><i class="bi bi-file-earmark-magnify"></i></div>
+                <div class="desk-meta">
+                  <div class="desk-name">Research</div>
+                  <div class="desk-fn">Investiga prospectos</div>
+                </div>
+              </div>
+              <div class="desk-status">
+                <div class="sdot" id="sdot-research"></div>
+                <span class="stext" id="stext-research">–</span>
+              </div>
+              <div class="desk-last" id="dlast-research">Última actividad: –</div>
+            </div>
+
+            <div class="zone-connector" id="conn-research-scoring"></div>
+
+            <div class="desk" data-agent="scoring" id="desk-scoring">
+              <div class="desk-header">
+                <div class="desk-icon"><i class="bi bi-bar-chart-line"></i></div>
+                <div class="desk-meta">
+                  <div class="desk-name">Scoring</div>
+                  <div class="desk-fn">Evalúa y prioriza</div>
+                </div>
+              </div>
+              <div class="desk-status">
+                <div class="sdot" id="sdot-scoring"></div>
+                <span class="stext" id="stext-scoring">–</span>
+              </div>
+              <div class="desk-last" id="dlast-scoring">Última actividad: –</div>
+            </div>
+          </div><!-- /zone-adquisicion -->
+
+          <!-- ZONA 2: Contacto -->
+          <div class="zone" id="zone-contacto">
+            <div class="zone-header">
+              <div class="zone-pip" style="background:#16a34a;"></div>
+              <span class="zone-title">Contacto</span>
+              <span class="zone-subtitle">Enviar y hacer seguimiento</span>
+            </div>
+
+            <div class="desk" data-agent="outreach" id="desk-outreach">
+              <div class="desk-header">
+                <div class="desk-icon"><i class="bi bi-envelope-check"></i></div>
+                <div class="desk-meta">
+                  <div class="desk-name">Outreach</div>
+                  <div class="desk-fn">Envía presentaciones</div>
+                </div>
+              </div>
+              <div class="desk-status">
+                <div class="sdot" id="sdot-outreach"></div>
+                <span class="stext" id="stext-outreach">–</span>
+              </div>
+              <div class="desk-last" id="dlast-outreach">Última actividad: –</div>
+            </div>
+
+            <div class="zone-connector" id="conn-outreach-followup"></div>
+
+            <div class="desk" data-agent="followup" id="desk-followup">
+              <div class="desk-header">
+                <div class="desk-icon"><i class="bi bi-arrow-repeat"></i></div>
+                <div class="desk-meta">
+                  <div class="desk-name">Follow-up</div>
+                  <div class="desk-fn">Realiza seguimiento</div>
+                </div>
+              </div>
+              <div class="desk-status">
+                <div class="sdot" id="sdot-followup"></div>
+                <span class="stext" id="stext-followup">–</span>
+              </div>
+              <div class="desk-last" id="dlast-followup">Última actividad: –</div>
+            </div>
+
+            <div class="zone-connector" id="conn-followup-response"></div>
+
+            <div class="desk" data-agent="response" id="desk-response">
+              <div class="desk-header">
+                <div class="desk-icon"><i class="bi bi-inbox-fill"></i></div>
+                <div class="desk-meta">
+                  <div class="desk-name">Response</div>
+                  <div class="desk-fn">Gestiona respuestas</div>
+                </div>
+              </div>
+              <div class="desk-status">
+                <div class="sdot" id="sdot-response"></div>
+                <span class="stext" id="stext-response">–</span>
+              </div>
+              <div class="desk-last" id="dlast-response">Última actividad: –</div>
+            </div>
+          </div><!-- /zone-contacto -->
+
+          <!-- ZONA 3: Soporte -->
+          <div class="zone" id="zone-soporte">
+            <div class="zone-header">
+              <div class="zone-pip" style="background:#d97706;"></div>
+              <span class="zone-title">Soporte</span>
+              <span class="zone-subtitle">Sincronizar y analizar</span>
+            </div>
+
+            <div class="desk" data-agent="crm_bridge" id="desk-crm_bridge">
+              <div class="desk-header">
+                <div class="desk-icon"><i class="bi bi-database-check"></i></div>
+                <div class="desk-meta">
+                  <div class="desk-name">CRM Bridge</div>
+                  <div class="desk-fn">Sincroniza y registra</div>
+                </div>
+              </div>
+              <div class="desk-status">
+                <div class="sdot" id="sdot-crm_bridge"></div>
+                <span class="stext" id="stext-crm_bridge">–</span>
+              </div>
+              <div class="desk-last" id="dlast-crm_bridge">Última actividad: –</div>
+            </div>
+
+            <div class="zone-connector" id="conn-crm_bridge-intelligence" style="height:14px;"></div>
+
+            <div class="desk" data-agent="intelligence" id="desk-intelligence">
+              <div class="desk-header">
+                <div class="desk-icon"><i class="bi bi-graph-up-arrow"></i></div>
+                <div class="desk-meta">
+                  <div class="desk-name">Intelligence</div>
+                  <div class="desk-fn">Analiza oportunidades</div>
+                </div>
+              </div>
+              <div class="desk-status">
+                <div class="sdot" id="sdot-intelligence"></div>
+                <span class="stext" id="stext-intelligence">–</span>
+              </div>
+              <div class="desk-last" id="dlast-intelligence">Última actividad: –</div>
+            </div>
+          </div><!-- /zone-soporte -->
+
+        </div><!-- /office-grid -->
+      </div><!-- /office-container -->
+
+      <div class="office-legend-row">
+        <div class="leg-row-item"><svg width="28" height="8"><line x1="0" y1="4" x2="20" y2="4" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 3"/><polygon points="18,1 26,4 18,7" fill="#cbd5e1"/></svg>Flujo configurado</div>
+        <div class="leg-row-item"><svg width="28" height="8"><line x1="0" y1="4" x2="20" y2="4" stroke="#196BFE" stroke-width="2"/><polygon points="18,1 26,4 18,7" fill="#196BFE"/></svg>Transferencia reciente</div>
+        <div class="leg-row-item"><i class="bi bi-info-circle" style="font-size:.65rem;color:var(--muted)"></i>Haz clic en un puesto para ver detalles</div>
       </div>
 
-      <!-- Flask alerts (Jinja) -->
-      {% if alerts %}
-      <div class="sec-hdr">Alertas del sistema <span class="type-badge">Flask ORM</span></div>
-      <div class="attn-list">
-        {% for a in alerts %}
-        <div class="attn-item {{ 'critical' if a.severity in ('critical','error') else '' }}">
-          <i class="bi {{ 'bi-x-circle-fill' if a.severity in ('critical','error') else 'bi-exclamation-triangle-fill' }}"></i>
-          <div class="attn-body">
-            <div class="attn-title">{{ a.title }}</div>
-            <div class="attn-sub">{{ a.message }} · {{ a.created_at.strftime('%d/%m %H:%M') if a.created_at else '' }}</div>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      <!-- Bandejas + detalles técnicos (collapsible) -->
-      <div style="margin-top:20px;">
-        <button class="tech-toggle" id="techToggle" onclick="toggleTech()">
-          <i class="bi bi-chevron-right"></i>
-          Detalles técnicos — bandejas, tipo de cambio, worker, sincronización
-        </button>
-        <div class="tech-body" id="techBody">
-
-          <!-- Bandejas -->
-          <div class="sec-hdr" style="margin-top:12px;">
-            Contadores de bandeja
-            <span class="src" id="bandejasAge" style="margin-left:auto;font-size:.6rem;color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:.02em;"></span>
-          </div>
-          <div class="bandeja-row" id="bandejasRow">
-            <div class="skel" style="height:76px;flex:1;border-radius:10px;"></div>
-            <div class="skel" style="height:76px;flex:1;border-radius:10px;"></div>
-            <div class="skel" style="height:76px;flex:1;border-radius:10px;"></div>
-          </div>
-          <div class="tech-grid" id="techInfraGrid" style="margin-top:12px;"></div>
-
-        </div>
-      </div>
-
-    </div><!-- /pane-resumen -->
+    </div>
+  </div><!-- /pane-oficina -->
 
 
-    <!-- ─────────────────── TAB: PROSPECTOS ─────────────── -->
-    <div class="mc-pane" id="pane-prospectos">
-
+  <!-- ══════════════════ PROSPECTOS ══════════════════════ -->
+  <div class="mc-pane" id="pane-prospectos">
+    <div class="mc-content">
       <div class="filter-bar">
-        <input type="text" id="prospectoQ" placeholder="Buscar empresa, email, RUC…" onkeydown="if(event.key==='Enter')loadProspectos(1)">
+        <input type="text" id="prospectoQ" placeholder="Buscar empresa, email, RUC…"
+               onkeydown="if(event.key==='Enter')loadProspectos(1)">
         <select id="prospectoEstadoEmail" onchange="loadProspectos(1)">
           <option value="">Estado email: todos</option>
         </select>
         <select id="prospectoEstadoCom" onchange="loadProspectos(1)">
-          <option value="">Estado com.: todos</option>
+          <option value="">Estado comercial: todos</option>
         </select>
-        <button class="filter-btn" onclick="loadProspectos(1)"><i class="bi bi-search"></i> Buscar</button>
+        <button class="filter-btn primary" onclick="loadProspectos(1)">
+          <i class="bi bi-search"></i> Buscar
+        </button>
         <button class="filter-btn secondary" onclick="clearProspectoFilters()">Limpiar</button>
         <span class="data-age" id="prospectosMeta" style="margin-left:auto;"></span>
       </div>
-
-      <div class="mc-card" style="padding:0;overflow:hidden;">
+      <div class="mc-card" style="overflow:hidden;">
         <div id="prospectosSkel" style="padding:16px;">
-          <div class="mc-empty"><i class="bi bi-people"></i>Abre esta pestaña para cargar los prospectos.</div>
+          <div class="mc-empty">
+            <i class="bi bi-people"></i>Abre esta pestaña para cargar los prospectos.
+          </div>
         </div>
         <table class="mc-table" id="prospectosTbl" style="display:none;">
           <thead>
             <tr>
-              <th>Empresa</th>
-              <th>Email</th>
-              <th>RUC</th>
-              <th>Est. email</th>
-              <th>Est. com.</th>
-              <th>Score</th>
-              <th>Últ. contacto</th>
+              <th>Empresa</th><th>Email</th><th>RUC</th>
+              <th>Est. email</th><th>Est. com.</th><th>Score</th><th>Últ. contacto</th>
             </tr>
           </thead>
           <tbody id="prospectosTbody"></tbody>
         </table>
+        <div class="pager" id="prospectosPager" style="display:none;">
+          <button id="pgPrev" onclick="loadProspectos(prospectoPage-1)">
+            <i class="bi bi-chevron-left"></i>
+          </button>
+          <span id="pgInfo">—</span>
+          <button id="pgNext" onclick="loadProspectos(prospectoPage+1)">
+            <i class="bi bi-chevron-right"></i>
+          </button>
+          <span style="margin-left:auto;" class="data-age" id="prospectosSrc"></span>
+        </div>
       </div>
-
-      <div class="pager" id="prospectosPager" style="display:none;">
-        <button id="pgPrev" onclick="loadProspectos(prospectoPage-1)"><i class="bi bi-chevron-left"></i></button>
-        <span id="pgInfo">—</span>
-        <button id="pgNext" onclick="loadProspectos(prospectoPage+1)"><i class="bi bi-chevron-right"></i></button>
-        <span style="margin-left:auto;" class="data-age" id="prospectosSrc"></span>
-      </div>
-
-    </div><!-- /pane-prospectos -->
+    </div>
+  </div><!-- /pane-prospectos -->
 
 
-    <!-- ─────────────────── TAB: AGENTES ─────────────────── -->
-    <div class="mc-pane" id="pane-agentes">
-
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;" id="agentesMetaRow">
-        <span class="data-age" id="agentesMeta"></span>
-      </div>
-
-      <div class="sec-hdr">
-        Agentes en Render (nube)
-        <span class="type-badge">agent_heartbeat + agent_runs</span>
-      </div>
-      <div class="agent-grid" id="workerAgentsGrid">
-        <div class="skel" style="height:130px;border-radius:10px;"></div>
-        <div class="skel" style="height:130px;border-radius:10px;"></div>
-        <div class="skel" style="height:130px;border-radius:10px;"></div>
-      </div>
-
-      <div class="sec-hdr">
-        Agentes del sistema Flask
-        <span class="type-badge">agent_status</span>
-      </div>
-      <div class="agent-grid" id="flaskAgentsGrid">
-        <div class="skel" style="height:130px;border-radius:10px;"></div>
-        <div class="skel" style="height:130px;border-radius:10px;"></div>
-      </div>
-
-    </div><!-- /pane-agentes -->
-
-
-    <!-- ─────────────────── TAB: ACTIVIDAD ──────────────── -->
-    <div class="mc-pane" id="pane-actividad">
-
+  <!-- ══════════════════ ACTIVIDAD ═══════════════════════ -->
+  <div class="mc-pane" id="pane-actividad">
+    <div class="mc-content">
       <div class="filter-bar">
         <select id="actAgente" onchange="loadActividad()">
-          <option value="">Todos los agentes</option>
+          <option value="">Todos los asistentes</option>
         </select>
         <select id="actLimit" onchange="loadActividad()">
           <option value="20">Últimas 20</option>
@@ -534,44 +823,73 @@
           <option value="100">Últimas 100</option>
           <option value="200">Últimas 200</option>
         </select>
-        <button class="filter-btn" onclick="loadActividad()"><i class="bi bi-arrow-clockwise"></i> Cargar</button>
+        <button class="filter-btn" onclick="loadActividad()">
+          <i class="bi bi-arrow-clockwise"></i> Cargar
+        </button>
         <span class="data-age" id="actMeta" style="margin-left:auto;"></span>
       </div>
-
-      <div class="mc-card" style="padding:0;overflow:hidden;">
+      <div class="mc-card" style="overflow:hidden;">
         <div id="actSkel" style="padding:16px;">
-          <div class="mc-empty"><i class="bi bi-clock-history"></i>Abre esta pestaña para ver la actividad de los agentes.</div>
+          <div class="mc-empty">
+            <i class="bi bi-clock-history"></i>Abre esta pestaña para ver la actividad.
+          </div>
         </div>
         <table class="mc-table" id="actTbl" style="display:none;">
           <thead>
             <tr>
-              <th>Agente</th>
-              <th>Función</th>
-              <th>Inicio</th>
-              <th>Duración</th>
-              <th>Resultado</th>
-              <th>Acciones</th>
-              <th>Cierre</th>
-              <th>Error</th>
+              <th>Asistente</th><th>Función</th><th>Inicio</th>
+              <th>Duración</th><th>Resultado</th><th>Acciones</th><th>Cierre</th>
             </tr>
           </thead>
           <tbody id="actTbody"></tbody>
         </table>
       </div>
+    </div>
+  </div><!-- /pane-actividad -->
 
-    </div><!-- /pane-actividad -->
 
-  </div><!-- /mc-content -->
+  <!-- ══════════════════ HORARIOS ════════════════════════ -->
+  <div class="mc-pane" id="pane-horarios">
+    <div class="mc-content">
+      <div style="margin-bottom:12px;display:flex;align-items:center;gap:12px;">
+        <span class="data-age" id="horariosMeta"></span>
+        <div style="margin-left:auto;font-size:.68rem;color:var(--amber);display:flex;align-items:center;gap:5px;" id="horariosNote">
+          <i class="bi bi-info-circle"></i>
+          Los horarios mostrados son los configurados en el código, no confirman ejecución reciente.
+        </div>
+      </div>
+      <div class="sched-grid" id="schedGrid"></div>
+    </div>
+  </div><!-- /pane-horarios -->
+
 </div><!-- /mc -->
 
 
-<!-- ══════════════════════ DRAWER ═══════════════════════════ -->
+<!-- ── Panel de agente ─────────────────────────────────── -->
+<div class="panel-overlay" id="panelOverlay" onclick="closeAgentPanel()"></div>
+<div class="agent-panel" id="agentPanel">
+  <div class="ap-head">
+    <div class="ap-icon" id="apIcon"><i class="bi bi-search" id="apIconI"></i></div>
+    <div class="ap-titles">
+      <div class="ap-name" id="apName">–</div>
+      <div class="ap-fn"   id="apFn">–</div>
+    </div>
+    <button class="ap-close" onclick="closeAgentPanel()" aria-label="Cerrar">
+      <i class="bi bi-x-lg"></i>
+    </button>
+  </div>
+  <div class="ap-body" id="apBody">
+    <div class="mc-empty"><i class="bi bi-hourglass-split"></i>Cargando…</div>
+  </div>
+</div>
+
+<!-- ── Drawer (prospecto) ──────────────────────────────── -->
 <div class="mc-drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
 <div class="mc-drawer" id="drawer">
   <div class="mc-drawer-header">
     <div>
       <div class="mc-drawer-title" id="drawerTitle">Prospecto</div>
-      <div style="font-size:.68rem;color:var(--muted);" id="drawerSub"></div>
+      <div style="font-size:.66rem;color:var(--muted);" id="drawerSub"></div>
     </div>
     <button class="mc-drawer-close" onclick="closeDrawer()"><i class="bi bi-x-lg"></i></button>
   </div>
@@ -581,390 +899,610 @@
 </div>
 
 
-<!-- ══════════════════════ SCRIPTS ══════════════════════════ -->
+<!-- ══════════════════ SCRIPTS ══════════════════════════ -->
 <script>
-/* ── Agent descriptions ──────────────────────────────────── */
-const AGENTE = {
-  scout:        { fn: 'Busca empresas nuevas',      ico: 'bi-search',           desc: 'Escanea fuentes externas para incorporar nuevos prospectos a la base.' },
-  research:     { fn: 'Valida contactos',            ico: 'bi-check2-circle',    desc: 'Verifica que los correos y datos de las empresas sean válidos.' },
-  scoring:      { fn: 'Puntúa prospectos',           ico: 'bi-bar-chart-line',   desc: 'Calcula la prioridad de contacto para cada empresa según su perfil.' },
-  outreach:     { fn: 'Envía presentaciones',        ico: 'bi-envelope-check',   desc: 'Distribuye correos de prospección a las empresas elegibles del día.' },
-  followup:     { fn: 'Realiza seguimiento',         ico: 'bi-arrow-repeat',     desc: 'Envía correos de seguimiento a empresas que aún no han respondido.' },
-  response:     { fn: 'Gestiona respuestas',         ico: 'bi-reply-fill',       desc: 'Lee y clasifica las respuestas recibidas para detectar interesados.' },
-  crm_bridge:   { fn: 'Sincroniza datos',            ico: 'bi-arrow-left-right', desc: 'Mantiene la base de datos actualizada con los cambios del sistema.' },
-  intelligence: { fn: 'Analiza oportunidades',       ico: 'bi-graph-up-arrow',   desc: 'Identifica prospectos de alta probabilidad de conversión.' },
-  orchestrator: { fn: 'Coordinador principal',       ico: 'bi-cpu',              desc: 'Supervisa y agenda todos los agentes del ecosistema.' },
-  default:      { fn: null, ico: 'bi-gear',          desc: null },
+/* ── URLs ───────────────────────────────────────────────── */
+const URLS = {
+  resumen:   '{{ url_for("agentes.api_v2_resumen") }}',
+  agentes:   '{{ url_for("agentes.api_v2_agentes") }}',
+  prospectos:'{{ url_for("agentes.api_v2_prospectos") }}',
+  estados:   '{{ url_for("agentes.api_v2_prospectos_estados") }}',
+  historial: '{{ url_for("agentes.api_v2_historial") }}',
 };
-function agInfo(name) {
-  const key = (name || '').toLowerCase().replace(/[^a-z_]/g, '');
-  return AGENTE[key] || { ...AGENTE.default, fn: name };
+
+/* ── Agent definitions ──────────────────────────────────── */
+const AGENTS = {
+  scout: {
+    name: 'Scout', ico: 'bi-search', zone: 'adquisicion',
+    fn: 'Busca empresas nuevas',
+    desc: 'Escanea fuentes externas para descubrir nuevas empresas y registrarlas como prospectos en la base de datos. Opera una vez al día al inicio de la jornada.',
+    schedule: '06:00 Lima (diario)',
+    receives: [],
+    sends: [{ agent:'research', label:'Empresas descubiertas' }],
+  },
+  research: {
+    name: 'Research', ico: 'bi-file-earmark-magnify', zone: 'adquisicion',
+    fn: 'Investiga prospectos',
+    desc: 'Enriquece la información de los prospectos recién incorporados: valida datos de contacto, completa campos faltantes y verifica la actividad comercial.',
+    schedule: 'Cada 4 horas',
+    receives: [{ agent:'scout', label:'Empresas nuevas' }],
+    sends: [{ agent:'scoring', label:'Prospectos enriquecidos' }],
+  },
+  scoring: {
+    name: 'Scoring', ico: 'bi-bar-chart-line', zone: 'adquisicion',
+    fn: 'Evalúa y prioriza',
+    desc: 'Calcula una puntuación de prioridad para cada prospecto según su perfil, sector y señales de interés. El resultado determina quién recibe contacto al día siguiente.',
+    schedule: '23:00 Lima (diario)',
+    receives: [{ agent:'research', label:'Prospectos enriquecidos' }],
+    sends: [{ agent:'outreach', label:'Lista priorizada' }, { agent:'crm_bridge', label:'Puntajes actualizados' }],
+  },
+  outreach: {
+    name: 'Outreach', ico: 'bi-envelope-check', zone: 'contacto',
+    fn: 'Envía presentaciones',
+    desc: 'Distribuye correos de presentación a las empresas de mayor prioridad. Opera en 8 lotes durante la jornada laboral para respetar cuotas de envío.',
+    schedule: '8 lotes: 09:30–17:30',
+    receives: [{ agent:'scoring', label:'Lista priorizada' }],
+    sends: [{ agent:'followup', label:'Contactos realizados' }, { agent:'crm_bridge', label:'Registro de envíos' }],
+  },
+  followup: {
+    name: 'Follow-up', ico: 'bi-arrow-repeat', zone: 'contacto',
+    fn: 'Realiza seguimiento',
+    desc: 'Envía correos de seguimiento a empresas que recibieron contacto inicial pero no han respondido. Respeta los tiempos mínimos entre contactos.',
+    schedule: '10:00 Lima (diario)',
+    receives: [{ agent:'outreach', label:'Contactos realizados' }],
+    sends: [{ agent:'response', label:'Seguimientos enviados' }],
+  },
+  response: {
+    name: 'Response', ico: 'bi-inbox-fill', zone: 'contacto',
+    fn: 'Gestiona respuestas',
+    desc: 'Lee y clasifica las respuestas recibidas en las bandejas de correo: detecta interesados, rebotes y solicitudes de exclusión. Actualiza el estado de cada prospecto.',
+    schedule: 'Cada 30 minutos',
+    receives: [{ agent:'outreach', label:'Respuestas de envíos' }, { agent:'followup', label:'Respuestas de seguimiento' }],
+    sends: [{ agent:'crm_bridge', label:'Clasificación de respuestas' }],
+  },
+  crm_bridge: {
+    name: 'CRM Bridge', ico: 'bi-database-check', zone: 'soporte',
+    fn: 'Sincroniza y registra',
+    desc: 'Mantiene la base de datos de prospectos sincronizada con los resultados de los demás agentes: actualiza estados, registra interacciones y consolida la información.',
+    schedule: 'Cada hora',
+    receives: [
+      { agent:'scoring',  label:'Puntajes' },
+      { agent:'outreach', label:'Envíos realizados' },
+      { agent:'response', label:'Respuestas clasificadas' },
+    ],
+    sends: [],
+  },
+  intelligence: {
+    name: 'Intelligence', ico: 'bi-graph-up-arrow', zone: 'soporte',
+    fn: 'Analiza oportunidades',
+    desc: 'Analiza patrones en los datos acumulados para identificar oportunidades comerciales de alta probabilidad. Produce métricas e informes de rendimiento del pipeline.',
+    schedule: '20:00 Lima (diario)',
+    receives: [
+      { agent:'outreach',  label:'Datos de envíos' },
+      { agent:'response',  label:'Datos de respuestas' },
+      { agent:'scoring',   label:'Distribución de puntajes' },
+    ],
+    sends: [],
+  },
+};
+
+/* Connections to draw as SVG cross-zone arrows */
+const CROSS_CONNECTIONS = [
+  { from: 'scoring',  to: 'outreach',   label: 'Lista priorizada' },
+  { from: 'response', to: 'crm_bridge', label: 'Respuestas clasificadas' },
+];
+
+/* ── State ──────────────────────────────────────────────── */
+let activeTab          = 'oficina';
+let prospectoPage      = 1;
+let prospectoTotal     = 0;
+let prospectoPages     = 0;
+let actividadInitialized = false;
+let prospectoEstados   = null;
+let officeData         = null;    // { agentMap, histMap, resumen }
+let selectedAgent      = null;
+
+/* ── Helpers ────────────────────────────────────────────── */
+function esc(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtDatetime(iso) {
+  if (!iso) return '–';
+  try {
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2,'0');
+    return `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch { return iso; }
+}
+function fmtHora(iso) {
+  if (!iso) return '–';
+  try {
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2,'0');
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch { return iso; }
+}
+function fmtDuration(s) {
+  if (s == null) return '–';
+  if (s < 60)  return `${s}s`;
+  if (s < 3600) return `${Math.floor(s/60)}m ${s%60}s`;
+  return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
+}
+function fmtScore(n) {
+  if (n == null) return '–';
+  return n >= 8 ? `<span class="st-tag ok">${n}</span>`
+       : n >= 5 ? `<span class="st-tag blue">${n}</span>`
+       : n >= 3 ? `<span class="st-tag warn">${n}</span>`
+                : `<span class="st-tag gray">${n}</span>`;
+}
+function stateTag(val) {
+  if (!val) return '<span class="st-tag gray">–</span>';
+  const v = val.toLowerCase();
+  if (v.includes('rebotado') || v.includes('error') || v.includes('invalid'))
+    return `<span class="st-tag err">${esc(val)}</span>`;
+  if (v.includes('interesado') || v.includes('cliente') || v.includes('ok'))
+    return `<span class="st-tag ok">${esc(val)}</span>`;
+  if (v.includes('no_contactar') || v.includes('excluido'))
+    return `<span class="st-tag warn">${esc(val)}</span>`;
+  return `<span class="st-tag gray">${esc(val)}</span>`;
 }
 
-/* ── State ───────────────────────────────────────────────── */
-let activeTab             = 'resumen';
-let prospectoPage         = 1;
-let prospectoTotal        = 0;
-let prospectoPages        = 0;
-let agentesLoaded         = false;
-let prospectosFiltrosLoaded = false;
-let actividadAgentOpts    = false;
-const AUTO_REFRESH_MS     = 90_000;
-let autoRefreshTimer      = null;
+async function apiFetch(url, opts) {
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
 
-/* ── Clock ───────────────────────────────────────────────── */
+/* ── Clock ──────────────────────────────────────────────── */
 function tickClock() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2,'0');
   document.getElementById('clock').textContent =
-    new Date().toLocaleTimeString('es-PE', {hour12: false});
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
-tickClock(); setInterval(tickClock, 1000);
+setInterval(tickClock, 1000); tickClock();
 
-/* ── Tabs ────────────────────────────────────────────────── */
-document.querySelectorAll('.mc-tab').forEach(btn =>
-  btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+/* ── Tabs ───────────────────────────────────────────────── */
+document.querySelectorAll('.mc-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('.mc-tab').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === tab);
+      b.setAttribute('aria-selected', b.dataset.tab === tab);
+    });
+    document.querySelectorAll('.mc-pane').forEach(p => {
+      p.classList.toggle('active', p.id === `pane-${tab}`);
+    });
+    activeTab = tab;
+    if (tab === 'prospectos' && !prospectoEstados) initProspectos();
+    if (tab === 'actividad'  && !actividadInitialized) { actividadInitialized = true; loadActividad(); }
+    if (tab === 'horarios')  renderHorarios();
+  });
+});
 
-function switchTab(tab) {
-  activeTab = tab;
-  document.querySelectorAll('.mc-tab').forEach(b =>
-    b.classList.toggle('active', b.dataset.tab === tab));
-  document.querySelectorAll('.mc-pane').forEach(p =>
-    p.classList.toggle('active', p.id === 'pane-' + tab));
-  refreshActive(false);
-}
-
-function refreshActive(force = true) {
+function refreshActive() {
   const btn = document.getElementById('refreshBtn');
   btn.classList.add('spinning');
-  setTimeout(() => btn.classList.remove('spinning'), 600);
-  if (activeTab === 'resumen')    loadResumen();
-  if (activeTab === 'agentes')    loadAgentes(force);
-  if (activeTab === 'prospectos') { if (force || !prospectosFiltrosLoaded) initProspectos(); }
-  if (activeTab === 'actividad')  loadActividad();
+  const done = () => btn.classList.remove('spinning');
+  if (activeTab === 'oficina')     loadOffice().then(done);
+  else if (activeTab === 'actividad')  { loadActividad(); done(); }
+  else if (activeTab === 'prospectos') { loadProspectos(prospectoPage); done(); }
+  else done();
 }
 
-function startAutoRefresh() {
-  clearInterval(autoRefreshTimer);
-  autoRefreshTimer = setInterval(() => {
-    if (document.visibilityState === 'visible') refreshActive(true);
-  }, AUTO_REFRESH_MS);
-}
-startAutoRefresh();
-
-/* ── Tech details toggle ─────────────────────────────────── */
-function toggleTech() {
-  const btn  = document.getElementById('techToggle');
-  const body = document.getElementById('techBody');
-  btn.classList.toggle('open');
-  body.classList.toggle('open');
-}
-
-/* ══════════════════════════════════════════════════════════
-   TAB 1 — RESUMEN
-══════════════════════════════════════════════════════════ */
-async function loadResumen() {
+/* ════════════════════════════════════════════════════════
+   OFICINA — carga principal
+════════════════════════════════════════════════════════ */
+async function loadOffice() {
   try {
-    const [res, hist] = await Promise.all([
-      apiFetch('/agentes/api/v2/resumen'),
-      apiFetch('/agentes/api/v2/historial?limit=8'),
+    const [agData, resData, histData] = await Promise.all([
+      apiFetch(URLS.agentes),
+      apiFetch(URLS.resumen),
+      apiFetch(URLS.historial + '?limit=50'),
     ]);
-    renderResumen(res, hist);
-  } catch(e) {
-    document.getElementById('ckpiRow').innerHTML =
-      `<div class="mc-err" style="grid-column:1/-1"><i class="bi bi-exclamation-circle"></i> Error al cargar: ${esc(e.message)}</div>`;
-  }
-}
 
-function renderResumen(d, hist) {
-  /* ── Demo banner ─────────────────────────────────────── */
-  const envNote = d.env_note || '';
-  const isLocal = envNote.toLowerCase().includes('sqlite');
-  const banner  = document.getElementById('demoBanner');
-  const dot     = document.getElementById('workerDot');
-  if (isLocal) {
-    banner.style.display = 'flex';
-    document.getElementById('demoBannerText').textContent =
-      'Demostración local · Datos ficticios — ' + envNote;
-    dot.className = 'mc-brand-dot unknown';
-  } else {
-    const w = d.worker || {};
-    dot.className = 'mc-brand-dot' + (w.online === false ? ' offline' : w.online === null ? ' unknown' : '');
-  }
-
-  /* ── Commercial KPIs ─────────────────────────────────── */
-  const oh    = d.outreach_hoy || {};
-  const w     = d.worker || {};
-  const dr    = d.dry_run || {};
-  const bnd   = d.bandejas || {};
-
-  // KPI 1: Correos aceptados hoy (authoritative: outreach_log)
-  let kpi1Val = '—', kpi1Sub = '', kpi1Color = 'gray', kpi1Src = '';
-  if (oh.error) {
-    kpi1Val = '—'; kpi1Sub = 'Aún no se registra en este entorno'; kpi1Color = 'gray';
-    kpi1Src = 'fuente: outreach_log — ' + oh.error;
-  } else {
-    kpi1Val = oh.enviados != null ? String(oh.enviados) : '—';
-    kpi1Color = oh.enviados > 0 ? 'blue' : 'gray';
-    kpi1Sub  = oh.enviados != null
-      ? (oh.fallidos > 0 ? `${oh.fallidos} fallidos · ${oh.total} intentos registrados` : `${oh.total} intentos registrados hoy`)
-      : 'Sin datos';
-    kpi1Src  = `fuente: outreach_log · ${oh.query_date || '—'} · ${oh.label || ''}`;
-  }
-
-  // KPI 2: Acciones registradas (from historial — runs completadas hoy)
-  let kpi2Val = '—', kpi2Sub = '', kpi2Color = 'gray';
-  const histItems  = (hist && hist.items) || [];
-  const today      = new Date().toLocaleDateString('es-PE', {timeZone:'America/Lima', year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
-  const todayRuns  = histItems.filter(r => r.started_at && r.started_at.startsWith(today.slice(0,10)));
-  const totalAcc   = todayRuns.reduce((s, r) => s + (r.actions_taken || 0), 0);
-  if (hist && hist.error) {
-    kpi2Sub = 'Aún no se registra'; kpi2Color = 'gray';
-  } else {
-    kpi2Val   = String(totalAcc);
-    kpi2Color = totalAcc > 0 ? 'green' : 'gray';
-    kpi2Sub   = todayRuns.length > 0
-      ? `en ${todayRuns.length} ejecuciones de hoy`
-      : 'Sin ejecuciones registradas hoy';
-  }
-
-  // KPI 3: Situaciones que necesitan atención (derived)
-  const attnItems = buildAttnItems(d, hist);
-  const kpi3Val   = String(attnItems.length);
-  const kpi3Color = attnItems.length === 0 ? 'gray' : attnItems.some(a => a.critical) ? 'red' : 'amber';
-  const kpi3Sub   = attnItems.length === 0 ? 'Sin situaciones detectadas' : attnItems.map(a => a.title).slice(0,2).join(' · ') + (attnItems.length > 2 ? ` y ${attnItems.length - 2} más` : '');
-
-  // KPI 4: Seguimientos pendientes
-  const kpi4Val = '—';
-  const kpi4Sub = 'Aún no se registra en este entorno';
-
-  // Modo de envío — no presenta como "Sistema OK", explica que es solo configuración
-  const drLabel = dr.error
-    ? 'Sin información'
-    : dr.activo
-      ? 'Envíos deshabilitados (modo prueba)'
-      : 'Envíos habilitados (configuración) · No confirma actividad reciente';
-  const drColor = dr.error ? 'gray' : dr.activo ? 'amber' : 'blue';
-
-  document.getElementById('ckpiRow').innerHTML = `
-    <div class="ckpi ${kpi1Color}">
-      <div class="ckpi-val ${kpi1Color}">${kpi1Val}</div>
-      <div class="ckpi-lbl">Correos aceptados hoy</div>
-      <div class="ckpi-sub">${esc(kpi1Sub)}</div>
-      <div class="ckpi-src">${esc(kpi1Src)}</div>
-    </div>
-    <div class="ckpi ${kpi2Color}">
-      <div class="ckpi-val ${kpi2Color}">${kpi2Val}</div>
-      <div class="ckpi-lbl">Acciones registradas hoy</div>
-      <div class="ckpi-sub">${esc(kpi2Sub)}</div>
-      <div class="ckpi-src">fuente: agent_runs${hist && hist.env_note ? ' · ' + hist.env_note : ''}</div>
-    </div>
-    <div class="ckpi ${kpi3Color}">
-      <div class="ckpi-val ${kpi3Color}">${kpi3Val}</div>
-      <div class="ckpi-lbl">Situaciones a revisar</div>
-      <div class="ckpi-sub">${esc(kpi3Sub)}</div>
-      <div class="ckpi-src">derivado de múltiples fuentes</div>
-    </div>
-    <div class="ckpi gray">
-      <div class="ckpi-val muted">${kpi4Val}</div>
-      <div class="ckpi-lbl">Seguimientos pendientes</div>
-      <div class="ckpi-sub">${esc(kpi4Sub)}</div>
-      <div class="ckpi-src" style="color:var(--muted);font-style:italic;">pendiente de implementación</div>
-    </div>
-  `;
-
-  /* ── Últimas acciones ────────────────────────────────── */
-  const al = document.getElementById('actividadList');
-  if (hist && hist.error) {
-    al.innerHTML = `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(hist.error)}</div>`;
-  } else if (!histItems.length) {
-    al.innerHTML = `<div class="mc-empty" style="padding:20px;"><i class="bi bi-inbox"></i>Sin ejecuciones registradas.</div>`;
-  } else {
-    al.innerHTML = histItems.map(r => {
-      const ag     = agInfo(r.agent);
-      const fn     = ag.fn || r.agent;
-      const ico    = ag.ico;
-      const closed = r.cierre_registrado;
-      const status = r.display_status || r.status || '—';
-      const resultCls = (status === 'ok' || status === 'success') ? 'run-ok'
-                      : (!closed) ? 'run-open'
-                      : (status === 'error' || status === 'failed') ? 'run-err' : '';
-      const resultLabel = !closed
-        ? 'sin cierre registrado'
-        : (r.actions_taken != null ? `${r.actions_taken} acciones` : status);
-      const detail = [
-        r.records_out != null ? `${r.records_out} registros` : null,
-        r.duration_s != null ? fmtDuration(r.duration_s) : null,
-      ].filter(Boolean).join(' · ');
-      return `
-        <div class="activity-item">
-          <div class="activity-time">${r.started_at ? fmtHora(r.started_at) : '—'}</div>
-          <div class="activity-main">
-            <div class="activity-fn"><i class="bi ${ico}"></i> ${esc(fn)}</div>
-            <div class="activity-detail">${detail || ''}</div>
-          </div>
-          <div class="activity-result">
-            <span class="${resultCls}">${esc(resultLabel)}</span>
-          </div>
-        </div>`;
-    }).join('');
-  }
-
-  /* ── Necesita atención ───────────────────────────────── */
-  if (attnItems.length > 0) {
-    document.getElementById('attnSection').style.display = 'block';
-    document.getElementById('attnList').innerHTML = attnItems.map(a => `
-      <div class="attn-item ${a.critical ? 'critical' : ''}">
-        <i class="bi ${a.critical ? 'bi-x-circle-fill' : 'bi-exclamation-triangle-fill'}"></i>
-        <div class="attn-body">
-          <div class="attn-title">${esc(a.title)}</div>
-          <div class="attn-sub">${esc(a.sub)}</div>
-        </div>
-      </div>
-    `).join('');
-  }
-
-  /* ── Bandejas (collapsible) ──────────────────────────── */
-  if (bnd.error) {
-    document.getElementById('bandejasRow').innerHTML =
-      `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(bnd.error)}</div>`;
-  } else {
-    const items = bnd.items || [];
-    document.getElementById('bandejasRow').innerHTML = items.length === 0
-      ? `<div class="mc-empty" style="padding:16px;"><i class="bi bi-inbox"></i>Sin datos de bandejas</div>`
-      : items.map(b => {
-          const stale = b.data_stale;
-          const nota  = b.enviados_hoy_nota || '';
-          return `
-            <div class="bandeja-card ${stale ? 'stale' : ''}">
-              <div class="bandeja-name">${esc(b.bandeja)}</div>
-              <div class="bandeja-sent">${b.enviados_hoy ?? '—'}</div>
-              <div class="bandeja-sub">contador de bandeja${stale ? ` · <span style="color:var(--amber);">${esc(nota)}</span>` : ''}</div>
-              ${b.bounce_24h > 0 ? `<div class="bandeja-sub">${b.bounce_24h} rebotes 24 h</div>` : ''}
-              ${b.pausada ? `<div style="margin-top:5px;"><span class="stag stag-warn"><i class="bi bi-pause-fill"></i> pausada</span></div>` : ''}
-            </div>`;
-        }).join('');
-    // Explicación de diferencia bandeja vs outreach_log
-    if (!oh.error && oh.enviados != null && items.length > 0) {
-      const bndTotal = items.reduce((s, b) => s + (b.enviados_hoy || 0), 0);
-      if (Math.abs(bndTotal - oh.enviados) > 0) {
-        document.getElementById('bandejasRow').innerHTML += `
-          <div style="flex-basis:100%;font-size:.68rem;color:var(--muted);padding:6px 4px;line-height:1.5;">
-            <strong>Nota sobre cifras:</strong>
-            Los contadores de bandeja (total ${bndTotal}) y los correos de outreach_log (${oh.enviados} aceptados)
-            miden cosas distintas: bandeja_estado registra envíos por cuenta de correo,
-            outreach_log registra el resultado confirmado por el proveedor.
-            No deben sumarse; la diferencia es esperada.
-          </div>`;
-      }
+    // Show demo banner
+    const envNote = agData.env_note || resData.env_note || '';
+    if (envNote.toLowerCase().includes('sqlite')) {
+      document.getElementById('demoBanner').style.display = 'flex';
+      document.getElementById('demoBannerNote').textContent = '— ' + envNote;
     }
-    const age = bnd.ultimo_update ? ` · actualizado ${fmtDatetime(bnd.ultimo_update)}` : '';
-    const qd  = bnd.query_date ? ` · fecha consulta: ${bnd.query_date}` : '';
-    document.getElementById('bandejasAge').textContent = `fuente: bandeja_estado${age}${qd}`;
-  }
 
-  /* ── Infra grid (modo envío, worker, TC, sync) ───────── */
-  const tc  = d.tc  || {};
-  const sy  = d.sync || {};
-  document.getElementById('techInfraGrid').innerHTML = `
-    <div class="tech-cell">
-      <div class="tech-cell-lbl">Modo de envío</div>
-      <div class="tech-cell-val">${esc(drLabel)}</div>
+    // Build agent lookup from worker_agents
+    const waItems = (agData.worker_agents && agData.worker_agents.items) || [];
+    const agentMap = {};
+    waItems.forEach(a => { agentMap[a.agent] = a; });
+
+    // Build last-run lookup from historial
+    const histItems = (histData.items) || [];
+    const histMap = {};
+    histItems.forEach(r => {
+      if (!histMap[r.agent]) histMap[r.agent] = r;
+    });
+
+    officeData = { agentMap, histMap, resData };
+
+    // Worker global status
+    updateWorkerDot(resData);
+    updateOfficeSubtitle(agentMap, resData);
+
+    // Update each desk
+    Object.keys(AGENTS).forEach(key => {
+      updateDesk(key, agentMap[key], histMap[key]);
+    });
+
+    // Draw cross-zone SVG connections
+    requestAnimationFrame(() => drawSvgConnections(histMap));
+
+  } catch(e) {
+    document.getElementById('officeSubtitle').textContent = 'Error al cargar: ' + e.message;
+  }
+}
+
+function updateWorkerDot(resData) {
+  const dot = document.getElementById('workerDot');
+  const w = resData.worker || {};
+  if (w.error)            { dot.className = 'mc-brand-dot'; }
+  else if (w.online)      { dot.className = 'mc-brand-dot online'; }
+  else if (w.online===false){ dot.className = 'mc-brand-dot offline'; }
+  else                    { dot.className = 'mc-brand-dot warn'; }
+}
+
+function updateOfficeSubtitle(agentMap, resData) {
+  const count = Object.values(agentMap).filter(a => !a.is_offline).length;
+  const total = Object.keys(AGENTS).length;
+  const dr    = resData.dry_run || {};
+  let sub = '';
+  if (Object.keys(agentMap).length === 0) {
+    sub = 'Sin datos de ejecución en este entorno';
+  } else {
+    sub = `${count} de ${total} asistentes con actividad registrada`;
+    if (!dr.error && dr.activo) sub += ' · Envíos en modo prueba';
+  }
+  document.getElementById('officeSubtitle').textContent = sub;
+}
+
+function deskStatusClass(agData, histData) {
+  if (!agData && !histData) return '';
+  if (agData) {
+    if (agData.is_offline === true)  return 'st-idle';
+    if (agData.is_offline === false) {
+      if (agData.last_error)         return 'st-warn';
+      return 'st-ok';
+    }
+    if (agData.is_offline === null && histData) {
+      if (histData.last_run_status === 'error') return 'st-err';
+      if (histData.cierre_registrado)            return 'st-ok';
+    }
+  }
+  if (histData) {
+    if (histData.last_run_status === 'error') return 'st-err';
+    if (histData.cierre_registrado) return 'st-ok';
+  }
+  return 'st-idle';
+}
+
+function deskStatusText(agData, histData) {
+  if (!agData && !histData) return 'Sin datos en este entorno';
+  if (agData) {
+    if (agData.is_offline === true)  return 'Inactivo (sin heartbeat reciente)';
+    if (agData.is_offline === false) return agData.last_error ? 'Activo · con errores' : 'Activo';
+    if (agData.is_offline === null)  return 'Estado desconocido (sin heartbeat)';
+  }
+  if (histData) {
+    if (!histData.cierre_registrado) return 'Ejecución sin cierre registrado';
+    if (histData.last_run_status === 'error') return 'Último ciclo con error';
+    return 'Último ciclo completado';
+  }
+  return 'Sin datos';
+}
+
+function updateDesk(key, agData, histData) {
+  const desk  = document.getElementById(`desk-${key}`);
+  const sdot  = document.getElementById(`sdot-${key}`);
+  const stext = document.getElementById(`stext-${key}`);
+  const dlast = document.getElementById(`dlast-${key}`);
+  if (!desk) return;
+
+  const cls = deskStatusClass(agData, histData);
+  desk.className = `desk ${cls}`;
+
+  const stText = deskStatusText(agData, histData);
+  if (stext) stext.textContent = stText;
+
+  // Last activity
+  const lastRun = agData
+    ? (agData.last_run_started || agData.last_seen)
+    : (histData ? histData.started_at : null);
+  if (dlast) {
+    if (lastRun) {
+      dlast.innerHTML = `Última actividad: <b>${fmtDatetime(lastRun)}</b>`;
+    } else {
+      dlast.textContent = 'Actividad actual no disponible';
+    }
+  }
+}
+
+/* ── SVG cross-zone connections ─────────────────────────── */
+function drawSvgConnections(histMap) {
+  const svg = document.getElementById('officeSvg');
+  const container = document.getElementById('officeContainer');
+  if (!svg || !container) return;
+
+  const cr = container.getBoundingClientRect();
+  if (cr.width === 0) return;
+
+  // Remove old paths (keep defs)
+  svg.querySelectorAll('path.flow-path, line.flow-path').forEach(el => el.remove());
+
+  CROSS_CONNECTIONS.forEach(({ from, to }) => {
+    const fromDesk = document.getElementById(`desk-${from}`);
+    const toDesk   = document.getElementById(`desk-${to}`);
+    if (!fromDesk || !toDesk) return;
+
+    const fr = fromDesk.getBoundingClientRect();
+    const tr = toDesk.getBoundingClientRect();
+
+    // Source: right-center
+    const x1 = fr.right  - cr.left;
+    const y1 = fr.top + fr.height / 2 - cr.top;
+    // Target: left-center
+    const x2 = tr.left   - cr.left;
+    const y2 = tr.top  + tr.height / 2 - cr.top;
+
+    // Cubic bezier — horizontal control points
+    const dx = x2 - x1;
+    const cx1 = x1 + dx * 0.55;
+    const cx2 = x2 - dx * 0.55;
+
+    // Is there a recent run from the source agent?
+    const hist  = histMap[from];
+    const recent = hist && hist.cierre_registrado && isRecent(hist.started_at, 24);
+    const cls   = recent ? 'flow-path active' : 'flow-path';
+    const markerId = recent ? 'arr-active' : 'arr';
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M ${x1} ${y1} C ${cx1} ${y1} ${cx2} ${y2} ${x2} ${y2}`);
+    path.setAttribute('class', cls);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', recent ? '#196BFE' : '#cbd5e1');
+    path.setAttribute('stroke-width', recent ? '2' : '1.5');
+    path.setAttribute('stroke-dasharray', recent ? 'none' : '6 4');
+    path.setAttribute('marker-end', `url(#${markerId})`);
+    svg.appendChild(path);
+  });
+}
+
+function isRecent(isoStr, hours) {
+  if (!isoStr) return false;
+  try {
+    const diff = (Date.now() - new Date(isoStr).getTime()) / 3600000;
+    return diff <= hours;
+  } catch { return false; }
+}
+
+// Redraw SVG on resize
+const ro = new ResizeObserver(() => {
+  if (officeData) drawSvgConnections(officeData.histMap);
+});
+const container = document.getElementById('officeContainer');
+if (container) ro.observe(container);
+
+/* ── Desk click → Agent panel ───────────────────────────── */
+document.querySelectorAll('.desk').forEach(d => {
+  d.addEventListener('click', () => openAgentPanel(d.dataset.agent));
+});
+
+function openAgentPanel(key) {
+  const def = AGENTS[key];
+  if (!def) return;
+
+  selectedAgent = key;
+  document.querySelectorAll('.desk').forEach(d => {
+    d.classList.toggle('selected', d.dataset.agent === key);
+  });
+
+  const panel   = document.getElementById('agentPanel');
+  const overlay = document.getElementById('panelOverlay');
+  document.getElementById('apIconI').className = `bi ${def.ico}`;
+  document.getElementById('apName').textContent = def.name;
+  document.getElementById('apFn').textContent   = def.fn;
+  panel.classList.add('open');
+  overlay.classList.add('open');
+
+  // Render panel with what we have
+  renderAgentPanel(key, def);
+
+  // Fetch fresh history for this agent
+  apiFetch(URLS.historial + `?agent=${encodeURIComponent(key)}&limit=5`)
+    .then(data => renderAgentPanelHistory(key, data))
+    .catch(() => {});
+}
+
+function closeAgentPanel() {
+  document.getElementById('agentPanel').classList.remove('open');
+  document.getElementById('panelOverlay').classList.remove('open');
+  document.querySelectorAll('.desk').forEach(d => d.classList.remove('selected'));
+  selectedAgent = null;
+}
+
+function renderAgentPanel(key, def) {
+  const body    = document.getElementById('apBody');
+  const agData  = officeData && officeData.agentMap[key];
+  const histData= officeData && officeData.histMap[key];
+
+  const statusCls  = deskStatusClass(agData, histData);
+  const statusText = deskStatusText(agData, histData);
+  const chipCls    = statusCls === 'st-ok' ? 'chip-green'
+                   : statusCls === 'st-err' ? 'chip-red'
+                   : statusCls === 'st-warn'? 'chip-amber'
+                   : 'chip-gray';
+
+  // Receives / sends
+  const recvHtml = def.receives.length
+    ? def.receives.map(r => `<div class="ap-flow-chip"><i class="bi bi-arrow-down-left"></i>${esc(AGENTS[r.agent]?.name||r.agent)} <span style="color:var(--muted)">·</span> ${esc(r.label)}</div>`).join('')
+    : '<span class="ap-empty">No recibe de otros asistentes — lee fuentes externas</span>';
+
+  const sendHtml = def.sends.length
+    ? def.sends.map(s => `<div class="ap-flow-chip"><i class="bi bi-arrow-up-right"></i>${esc(AGENTS[s.agent]?.name||s.agent)} <span style="color:var(--muted)">·</span> ${esc(s.label)}</div>`).join('')
+    : '<span class="ap-empty">No entrega a otros asistentes — actualiza la base de datos</span>';
+
+  // Last run from agentMap or histMap
+  const lr        = agData || histData;
+  const started   = lr ? (lr.last_run_started || lr.started_at) : null;
+  const finished  = lr ? (lr.last_run_finished || lr.finished_at) : null;
+  const durS      = lr ? lr.duration_s : null;
+  const actions   = lr ? lr.actions_taken : null;
+  const recOut    = lr ? lr.records_out  : null;
+  const lastErr   = lr ? lr.last_error   : null;
+  const closed    = lr ? lr.cierre_registrado : null;
+
+  const runStatus = closed === false
+    ? '<span class="run-open">sin cierre registrado</span>'
+    : lr ? (lr.last_run_status === 'error'
+      ? '<span class="run-err">error</span>'
+      : '<span class="run-ok">completado</span>')
+    : '–';
+
+  body.innerHTML = `
+    <div class="ap-section">
+      <div class="ap-section-title">Función</div>
+      <div class="ap-desc">${esc(def.desc)}</div>
     </div>
-    <div class="tech-cell">
-      <div class="tech-cell-lbl">Worker Render</div>
-      <div class="tech-cell-val">${w.error ? w.error : (w.online ? 'en línea' : w.online === false ? `sin señal · hace ${fmtAge(w.age_s)}` : 'sin información')}</div>
+
+    <div class="ap-section">
+      <div class="ap-section-title">Estado actual</div>
+      <div class="ap-row">
+        <span class="ap-lbl">Estado:</span>
+        <span class="ap-val"><span class="ap-chip ${chipCls}">${esc(statusText)}</span></span>
+      </div>
+      ${agData && agData.last_seen
+        ? `<div class="ap-row"><span class="ap-lbl">Señal de vida:</span><span class="ap-val">${fmtDatetime(agData.last_seen)}</span></div>`
+        : ''}
     </div>
-    <div class="tech-cell">
-      <div class="tech-cell-lbl">Tipo de cambio</div>
-      <div class="tech-cell-val">${tc.error ? tc.error : (tc.compra ? `Compra ${tc.compra} / Venta ${tc.venta}${tc.age_min != null ? ' · hace ' + tc.age_min + ' min' : ''}` : 'sin datos')}</div>
+
+    <div class="ap-section">
+      <div class="ap-section-title">Última ejecución</div>
+      ${started
+        ? `<div class="ap-row"><span class="ap-lbl">Inicio:</span><span class="ap-val">${fmtDatetime(started)}</span></div>
+           <div class="ap-row"><span class="ap-lbl">Cierre:</span><span class="ap-val">${finished ? fmtDatetime(finished) : '–'}</span></div>
+           <div class="ap-row"><span class="ap-lbl">Resultado:</span><span class="ap-val">${runStatus}</span></div>
+           <div class="ap-row"><span class="ap-lbl">Duración:</span><span class="ap-val">${durS != null ? fmtDuration(durS) : '–'}</span></div>
+           <div class="ap-row"><span class="ap-lbl">Acciones:</span><span class="ap-val">${actions ?? '–'}</span></div>
+           <div class="ap-row"><span class="ap-lbl">Registros:</span><span class="ap-val">${recOut ?? '–'}</span></div>
+           ${lastErr ? `<div class="ap-row"><span class="ap-lbl">Error:</span><span class="ap-val" style="color:var(--red);font-size:.68rem;">${esc(lastErr)}</span></div>` : ''}`
+        : `<div class="ap-empty">Sin ejecuciones registradas en este entorno.</div>`
+      }
     </div>
-    <div class="tech-cell">
-      <div class="tech-cell-lbl">Última sincronización</div>
-      <div class="tech-cell-val">${sy.error ? sy.error : (sy.last_full_sync ? fmtDatetime(sy.last_full_sync) : 'sin datos')}</div>
+
+    <div class="ap-section">
+      <div class="ap-section-title">Recibe de</div>
+      <div class="ap-flow">${recvHtml}</div>
     </div>
-    <div class="tech-cell" style="grid-column:1/-1;">
-      <div class="tech-cell-lbl">Entorno</div>
-      <div class="tech-cell-val" style="color:var(--muted);">${esc(envNote || 'no identificado')}</div>
+
+    <div class="ap-section">
+      <div class="ap-section-title">Entrega a</div>
+      <div class="ap-flow">${sendHtml}</div>
+    </div>
+
+    <div class="ap-section">
+      <div class="ap-section-title">Horario configurado</div>
+      <div class="ap-row">
+        <span class="ap-lbl">Frecuencia:</span>
+        <span class="ap-val">${esc(def.schedule)}</span>
+      </div>
+      <div style="font-size:.62rem;color:var(--amber);margin-top:4px;display:flex;align-items:center;gap:4px;">
+        <i class="bi bi-info-circle"></i>
+        Horario según configuración del código. No confirma ejecución reciente.
+      </div>
+    </div>
+
+    <div class="ap-section" id="apHistSection">
+      <div class="ap-section-title">Ejecuciones recientes</div>
+      <div id="apHistBody"><div class="mc-empty" style="padding:4px 0;"><i class="bi bi-hourglass-split"></i>Cargando…</div></div>
+    </div>
+
+    <div class="ap-section">
+      <button class="ap-tech-toggle" onclick="toggleApTech()">
+        <i class="bi bi-chevron-right" id="apTechArrow"></i> Detalles técnicos
+      </button>
+      <div class="ap-tech-body" id="apTechBody">
+        <div class="ap-row" style="margin-top:8px;">
+          <span class="ap-lbl">Nombre técnico:</span>
+          <span class="ap-val mono">${esc(key)}</span>
+        </div>
+        <div class="ap-row">
+          <span class="ap-lbl">Zona:</span>
+          <span class="ap-val mono">${esc(AGENTS[key].zone)}</span>
+        </div>
+        ${agData
+          ? `<div class="ap-row"><span class="ap-lbl">is_offline:</span><span class="ap-val mono">${String(agData.is_offline)}</span></div>
+             <div class="ap-row"><span class="ap-lbl">heartbeat_age:</span><span class="ap-val mono">${agData.age_s != null ? agData.age_s+'s' : '–'}</span></div>
+             <div class="ap-row"><span class="ap-lbl">Fuente:</span><span class="ap-val mono">${esc(officeData?.agentMap?.__source || 'agent_heartbeat')}</span></div>`
+          : `<div class="ap-row"><span class="ap-lbl">Heartbeat:</span><span class="ap-val mono empty">no disponible en este entorno</span></div>`
+        }
+      </div>
     </div>
   `;
 }
 
-/* Build attention items from all available data */
-function buildAttnItems(d, hist) {
-  const items = [];
-  const w   = d.worker || {};
-  const bnd = d.bandejas || {};
-  const oh  = d.outreach_hoy || {};
-
-  // Worker offline
-  if (!w.error && w.online === false) {
-    items.push({ critical: true, title: 'Worker Render sin señal', sub: `Última señal hace ${fmtAge(w.age_s)}. Los agentes de nube pueden no estar ejecutándose.` });
+function renderAgentPanelHistory(key, data) {
+  const el = document.getElementById('apHistBody');
+  if (!el) return;
+  if (data.error || !data.items || data.items.length === 0) {
+    el.innerHTML = `<div class="ap-empty">Sin ejecuciones registradas${data.error ? ' — ' + esc(data.error) : ''}.</div>`;
+    return;
   }
-  if (w.error) {
-    items.push({ critical: false, title: 'No se pudo consultar el worker', sub: w.error + ' · fuente: agent_heartbeat' });
-  }
-
-  // Bandejas stale
-  const staleB = (bnd.items || []).filter(b => b.data_stale);
-  if (staleB.length > 0) {
-    items.push({ critical: false, title: `${staleB.length === 1 ? 'Una bandeja' : staleB.length + ' bandejas'} con datos de otro día`, sub: staleB.map(b => b.enviados_hoy_nota || b.bandeja).join(' · ') });
-  }
-  const pausedB = (bnd.items || []).filter(b => b.pausada);
-  if (pausedB.length > 0) {
-    items.push({ critical: false, title: `${pausedB.map(b => b.bandeja).join(', ')} pausada${pausedB.length > 1 ? 's' : ''}`, sub: 'Los envíos desde estas cuentas están temporalmente suspendidos.' });
-  }
-
-  // Runs sin cierre registrado (abiertos por más de 2h)
-  const histItems = (hist && hist.items) || [];
-  const openRuns  = histItems.filter(r => !r.cierre_registrado && r.started_at);
-  const stuckRuns = openRuns.filter(r => {
-    const age = Date.now() - new Date(r.started_at).getTime();
-    return age > 7_200_000; // 2h
-  });
-  if (stuckRuns.length > 0) {
-    const names = [...new Set(stuckRuns.map(r => agInfo(r.agent).fn || r.agent))];
-    items.push({ critical: false, title: `${stuckRuns.length} ejecución${stuckRuns.length > 1 ? 'es' : ''} sin cierre registrado`, sub: `${names.join(', ')} — comenzaron hace más de 2 horas sin registro de finalización.` });
-  }
-
-  // Failed runs today
-  const todayFailed = histItems.filter(r => {
-    const isToday = r.started_at && new Date(r.started_at).toDateString() === new Date().toDateString();
-    return isToday && (r.status === 'error' || r.status === 'failed');
-  });
-  if (todayFailed.length > 0) {
-    const names = [...new Set(todayFailed.map(r => agInfo(r.agent).fn || r.agent))];
-    items.push({ critical: true, title: `${todayFailed.length} ejecución${todayFailed.length > 1 ? 'es' : ''} con error hoy`, sub: names.join(', ') });
-  }
-
-  // Outreach fallidos
-  if (!oh.error && oh.fallidos > 0) {
-    items.push({ critical: false, title: `${oh.fallidos} correo${oh.fallidos > 1 ? 's' : ''} con fallo en el envío`, sub: `Registrado en outreach_log · fecha ${oh.query_date}` });
-  }
-
-  return items;
+  el.innerHTML = data.items.map(r => {
+    const ds = r.display_status || r.status || '–';
+    const resCls = ds === 'ok' || ds === 'success' ? 'run-ok'
+                 : !r.cierre_registrado             ? 'run-open'
+                 : ds === 'error'                   ? 'run-err' : '';
+    const detail = [
+      r.actions_taken != null ? `${r.actions_taken} acciones` : null,
+      r.duration_s    != null ? fmtDuration(r.duration_s)     : null,
+    ].filter(Boolean).join(' · ');
+    return `<div class="ap-hist-item">
+      <div class="ap-hist-time">${fmtHora(r.started_at)}</div>
+      <div class="ap-hist-main">
+        <div class="ap-hist-status ${resCls}">${esc(r.cierre_registrado ? (ds) : 'sin cierre')}</div>
+        <div class="ap-hist-detail">${detail || fmtDatetime(r.started_at)}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
-/* ══════════════════════════════════════════════════════════
-   TAB 2 — PROSPECTOS
-══════════════════════════════════════════════════════════ */
+function toggleApTech() {
+  const body  = document.getElementById('apTechBody');
+  const arrow = document.getElementById('apTechArrow');
+  if (body)  body.classList.toggle('open');
+  if (arrow) arrow.className = body && body.classList.contains('open')
+    ? 'bi bi-chevron-down' : 'bi bi-chevron-right';
+}
+
+/* ════════════════════════════════════════════════════════
+   PROSPECTOS
+════════════════════════════════════════════════════════ */
 async function initProspectos() {
-  if (!prospectosFiltrosLoaded) {
-    prospectosFiltrosLoaded = true;
-    try {
-      const est = await apiFetch('/agentes/api/v2/prospectos/estados');
-      const selEmail = document.getElementById('prospectoEstadoEmail');
-      const selCom   = document.getElementById('prospectoEstadoCom');
-      (est.estado_email || []).forEach(e => {
-        const o = document.createElement('option');
-        o.value = e.value || ''; o.textContent = `${e.value || '(vacío)'} (${e.count})`;
-        selEmail.appendChild(o);
-      });
-      (est.estado_com || []).forEach(e => {
-        const o = document.createElement('option');
-        o.value = e.value || ''; o.textContent = `${e.value || '(vacío)'} (${e.count})`;
-        selCom.appendChild(o);
-      });
-    } catch(e) { /* non-critical */ }
-  }
+  try {
+    const d = await apiFetch(URLS.estados);
+    prospectoEstados = d;
+    const se = document.getElementById('prospectoEstadoEmail');
+    const sc = document.getElementById('prospectoEstadoCom');
+    (d.estado_email || []).forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.value; opt.textContent = `${o.value} (${o.count})`;
+      se.appendChild(opt);
+    });
+    (d.estado_com || []).forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.value; opt.textContent = `${o.value} (${o.count})`;
+      sc.appendChild(opt);
+    });
+  } catch(e) {}
   loadProspectos(1);
 }
 
@@ -973,49 +1511,55 @@ async function loadProspectos(page) {
   const q  = document.getElementById('prospectoQ').value.trim();
   const ee = document.getElementById('prospectoEstadoEmail').value;
   const ec = document.getElementById('prospectoEstadoCom').value;
-  const skel = document.getElementById('prospectosSkel');
-  const tbl  = document.getElementById('prospectosTbl');
-  const pgr  = document.getElementById('prospectosPager');
-
-  skel.innerHTML = [1,2,3,4,5].map(() => `<div class="skel skel-row"></div>`).join('');
-  skel.style.display = 'block'; tbl.style.display = 'none'; pgr.style.display = 'none';
-
   const params = new URLSearchParams({ page, per_page: 50 });
   if (q)  params.set('q', q);
   if (ee) params.set('estado_email', ee);
   if (ec) params.set('estado_com', ec);
 
+  const skel = document.getElementById('prospectosSkel');
+  const tbl  = document.getElementById('prospectosTbl');
+  const pgr  = document.getElementById('prospectosPager');
+
+  skel.innerHTML = [1,2,3,4,5].map(() => '<div class="skel skel-row"></div>').join('');
+  skel.style.display = 'block'; tbl.style.display = 'none'; pgr.style.display = 'none';
+
   try {
-    const data = await apiFetch(`/agentes/api/v2/prospectos?${params}`);
+    const data = await apiFetch(`${URLS.prospectos}?${params}`);
     if (data.error) throw new Error(data.error);
     prospectoTotal = data.total || 0;
     prospectoPages = data.pages || 0;
-    const items = data.items || [];
-    document.getElementById('tabBadgeProspectos').textContent = prospectoTotal.toLocaleString('es-PE');
+
     document.getElementById('prospectosMeta').textContent =
-      `${prospectoTotal.toLocaleString('es-PE')} resultados · fuente: ${data.source || 'ec_prospectos'}${data.source_note ? ' (' + data.source_note.split('—')[0].trim() + ')' : ''}`;
+      `${prospectoTotal.toLocaleString('es-PE')} prospectos${data.env_note ? ' · ' + data.env_note : ''}`;
+    document.getElementById('prospectosSrc').textContent =
+      `fuente: ${data.source || 'ec_prospectos'}`;
+
+    const items = data.items || [];
     skel.style.display = 'none';
     if (items.length === 0) {
-      skel.innerHTML = `<div class="mc-empty"><i class="bi bi-search"></i>Sin resultados.</div>`;
+      skel.innerHTML = '<div class="mc-empty"><i class="bi bi-people"></i>Sin resultados para los filtros aplicados.</div>';
       skel.style.display = 'block'; return;
     }
+
     document.getElementById('prospectosTbody').innerHTML = items.map(p => `
-      <tr class="clickable" onclick="openProspecto(${p.id}, ${JSON.stringify(p.razon_social).replace(/"/g,'&quot;')}, ${JSON.stringify(p.email||'').replace(/"/g,'&quot;')})">
-        <td style="font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.razon_social)}</td>
-        <td style="color:var(--muted);font-size:.74rem;">${esc(p.email||'—')}</td>
-        <td style="font-family:monospace;font-size:.74rem;">${esc(p.ruc||'—')}</td>
-        <td>${statusEmailTag(p.estado_email)}</td>
-        <td>${statusComTag(p.estado_com)}</td>
-        <td>${scoreTag(p.score)}</td>
-        <td class="data-age">${p.fecha_ult_contacto ? fmtDate(p.fecha_ult_contacto) : '—'}</td>
+      <tr onclick="openProspecto(${p.id})" style="cursor:pointer;">
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(p.razon_social)}">${esc(p.razon_social || '–')}</td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.68rem;">${esc(p.email || '–')}</td>
+        <td style="font-size:.68rem;">${esc(p.ruc || '–')}</td>
+        <td>${stateTag(p.estado_email)}</td>
+        <td>${stateTag(p.estado_com)}</td>
+        <td>${fmtScore(p.score)}</td>
+        <td style="font-size:.68rem;">${p.fecha_ult_contacto ? fmtDatetime(p.fecha_ult_contacto) : '–'}</td>
       </tr>`).join('');
-    tbl.style.display = 'table'; pgr.style.display = 'flex';
-    document.getElementById('pgInfo').textContent = `Pág. ${page} / ${prospectoPages} (${prospectoTotal.toLocaleString('es-PE')} total)`;
+
+    tbl.style.display = 'table';
+    document.getElementById('pgInfo').textContent =
+      `Pág. ${page} de ${prospectoPages} · ${prospectoTotal.toLocaleString('es-PE')} total`;
     document.getElementById('pgPrev').disabled = page <= 1;
     document.getElementById('pgNext').disabled = page >= prospectoPages;
-    document.getElementById('prospectosSrc').textContent = `fuente: ${data.source || 'ec_prospectos'}${data._server_ms != null ? ' · ' + data._server_ms + ' ms' : ''}`;
+    pgr.style.display = 'flex';
   } catch(e) {
-    skel.innerHTML = `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(e.message)}</div>`;
+    skel.innerHTML = `<div class="mc-err"><i class="bi bi-exclamation-circle"></i>${esc(e.message)}</div>`;
     skel.style.display = 'block';
   }
 }
@@ -1023,500 +1567,171 @@ async function loadProspectos(page) {
 function clearProspectoFilters() {
   document.getElementById('prospectoQ').value = '';
   document.getElementById('prospectoEstadoEmail').value = '';
-  document.getElementById('prospectoEstadoCom').value = '';
+  document.getElementById('prospectoEstadoCom').value   = '';
   loadProspectos(1);
 }
 
-/* ══════════════════════════════════════════════════════════
-   TAB 3 — AGENTES
-══════════════════════════════════════════════════════════ */
-async function loadAgentes(force = false) {
-  if (agentesLoaded && !force) return;
-  agentesLoaded = true;
+async function openProspecto(id) {
+  const overlay = document.getElementById('drawerOverlay');
+  const drawer  = document.getElementById('drawer');
+  const body    = document.getElementById('drawerBody');
+  overlay.classList.add('open');
+  drawer.classList.add('open');
+  body.innerHTML = '<div class="mc-empty"><i class="bi bi-hourglass-split"></i>Cargando…</div>';
+  document.getElementById('drawerTitle').textContent = 'Prospecto';
+  document.getElementById('drawerSub').textContent   = '';
   try {
-    const data = await apiFetch('/agentes/api/v2/agentes');
-    document.getElementById('agentesMeta').textContent =
-      `Consulta: ${fmtDatetime(data.query_at)}${data.cached ? ' · caché' : ''}${data.env_note ? ' · ' + data.env_note : ''}`;
-
-    const wa = data.worker_agents || {};
-    if (wa.error) {
-      document.getElementById('workerAgentsGrid').innerHTML =
-        `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(wa.error)}</div>`;
-    } else {
-      const items = wa.items || [];
-      document.getElementById('tabBadgeAgentes').textContent = items.length;
-      const hbAvail = wa.heartbeat_available !== false;
-      document.getElementById('workerAgentsGrid').innerHTML =
-        items.length === 0
-          ? `<div class="mc-empty" style="grid-column:1/-1;"><i class="bi bi-cpu"></i>Sin agentes worker registrados</div>`
-          : items.map(a => renderWorkerAgentCard(a, hbAvail)).join('');
-    }
-
-    const fa = data.flask_agents || {};
-    if (fa.error) {
-      document.getElementById('flaskAgentsGrid').innerHTML =
-        `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(fa.error)}</div>`;
-    } else {
-      const items = fa.items || [];
-      document.getElementById('flaskAgentsGrid').innerHTML =
-        items.length === 0
-          ? `<div class="mc-empty" style="grid-column:1/-1;"><i class="bi bi-cpu"></i>Sin agentes Flask registrados</div>`
-          : items.map(a => renderFlaskAgentCard(a)).join('');
-    }
+    const d = await apiFetch(`/agentes/api/v2/prospecto/${id}/historial`);
+    if (d.error) throw new Error(d.error);
+    const p = d.prospecto || {};
+    document.getElementById('drawerTitle').textContent = p.razon_social || 'Prospecto';
+    document.getElementById('drawerSub').textContent   = p.email || '';
+    const outreach = (d.outreach && d.outreach.items) || [];
+    const states   = (d.state_log && d.state_log.items) || [];
+    const sup      = d.suppression || {};
+    body.innerHTML = `
+      <div style="margin-bottom:12px;">
+        <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;">Datos</div>
+        ${[['Email', p.email],['RUC',p.ruc],['Est. email', p.estado_email],
+           ['Est. com.', p.estado_com],['Score', p.score]].map(([l,v]) =>
+          `<div class="ap-row"><span class="ap-lbl">${l}:</span><span class="ap-val">${esc(v) || '–'}</span></div>`
+        ).join('')}
+        ${sup.suprimido ? `<div style="margin-top:6px;" class="ap-row"><span class="ap-lbl">Suppression:</span><span class="ap-val" style="color:var(--red);">Sí — ${esc(sup.razon||'')}</span></div>` : ''}
+      </div>
+      <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;">Envíos (${outreach.length})</div>
+      ${outreach.length === 0
+        ? '<div class="ap-empty">Sin envíos registrados.</div>'
+        : outreach.map(o => `<div class="ap-hist-item">
+            <div class="ap-hist-time">${fmtHora(o.sent_at)}</div>
+            <div class="ap-hist-main">
+              <div class="ap-hist-status">${esc(o.stage||o.template_sector||'–')}</div>
+              <div class="ap-hist-detail">${esc(o.status||'')} · ${esc(o.bandeja||'')} · ${fmtDatetime(o.sent_at)}</div>
+            </div></div>`).join('')
+      }
+      ${states.length ? `
+      <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:12px 0 8px;">Cambios de estado (${states.length})</div>
+      ${states.map(s => `<div class="ap-hist-item">
+        <div class="ap-hist-time">${fmtHora(s.created_at)}</div>
+        <div class="ap-hist-main">
+          <div class="ap-hist-status">${esc(s.estado_anterior||'–')} → ${esc(s.estado_nuevo||'–')}</div>
+          <div class="ap-hist-detail">${esc(s.motivo||'')} · ${esc(s.agente||'')}</div>
+        </div></div>`).join('')}` : ''}
+    `;
   } catch(e) {
-    document.getElementById('workerAgentsGrid').innerHTML =
-      `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(e.message)}</div>`;
+    body.innerHTML = `<div class="mc-err"><i class="bi bi-exclamation-circle"></i>${esc(e.message)}</div>`;
   }
 }
 
-function renderWorkerAgentCard(a, heartbeatAvailable) {
-  const ag  = agInfo(a.agent);
-  const fn  = ag.fn || a.agent;
-  const ico = ag.ico;
-  const desc = ag.desc;
-
-  // Status
-  let cardClass = '', statusHtml = '', estadoTexto = '', trabajoTexto = '';
-
-  if (!heartbeatAvailable || a.is_offline === null) {
-    cardClass  = 'nodata';
-    statusHtml = `<span class="stag stag-nodata">Sin señal de actividad</span>`;
-    estadoTexto = 'No podemos confirmar si está activo o inactivo en este entorno.';
-  } else if (a.is_offline) {
-    cardClass   = 'stale';
-    const age   = a.age_s != null ? ` (hace ${fmtAge(a.age_s)})` : '';
-    statusHtml  = `<span class="stag stag-stale"><i class="bi bi-clock"></i> Sin señal reciente</span>`;
-    estadoTexto = `Última señal registrada${age}. No hay confirmación de actividad reciente.`;
-  } else if (a.status === 'running') {
-    cardClass   = 'running';
-    statusHtml  = `<span class="stag stag-running"><i class="bi bi-circle-fill"></i> Ejecutándose</span>`;
-    estadoTexto = `Activo · señal hace ${fmtAge(a.age_s)}`;
-  } else {
-    statusHtml  = `<span class="stag stag-idle"><i class="bi bi-check-circle"></i> En espera</span>`;
-    estadoTexto = `Disponible · señal hace ${fmtAge(a.age_s)}`;
-  }
-
-  // Override if last run failed
-  if (a.last_run_status === 'error' || a.last_run_status === 'failed') {
-    cardClass = 'error';
-  }
-
-  // Last work
-  if (a.last_run_started) {
-    const dur    = a.last_run_started && a.last_run_finished
-      ? fmtDuration(Math.round((new Date(a.last_run_finished) - new Date(a.last_run_started)) / 1000))
-      : null;
-    const closed = a.cierre_registrado;
-    const acc    = a.actions_taken != null ? `${a.actions_taken} acciones` : null;
-    const out    = a.records_out   != null ? `${a.records_out} registros` : null;
-    const parts  = [acc, out, dur].filter(Boolean);
-    trabajoTexto = `Última ejecución: ${fmtDatetime(a.last_run_started)}${parts.length ? ' · ' + parts.join(' · ') : ''}${!closed ? ' · sin cierre registrado' : ''}`;
-  } else {
-    trabajoTexto = 'Sin ejecuciones registradas en esta fuente.';
-  }
-
-  const techId = `tech_w_${a.agent.replace(/[^a-z0-9]/g,'')}`;
-  return `
-    <div class="agent-card ${cardClass}">
-      <div class="agent-fn"><i class="bi ${ico}"></i> ${esc(fn)}</div>
-      ${desc ? `<div class="agent-desc">${esc(desc)}</div>` : ''}
-      <div class="agent-stat">
-        <div class="agent-stat-row">
-          <span class="agent-stat-lbl">Estado:</span>
-          <span class="agent-stat-val">${statusHtml} <span style="font-size:.68rem;color:var(--muted);">${esc(estadoTexto)}</span></span>
-        </div>
-        <div class="agent-stat-row">
-          <span class="agent-stat-lbl">Último trabajo:</span>
-          <span class="agent-stat-val" style="font-size:.72rem;">${esc(trabajoTexto)}</span>
-        </div>
-        ${a.last_run_status && (a.last_run_status === 'ok' || a.last_run_status === 'success') ? `
-        <div class="agent-stat-row">
-          <span class="agent-stat-lbl">Resultado:</span>
-          <span class="agent-stat-val run-ok">completado</span>
-        </div>` : ''}
-      </div>
-      ${a.last_error ? `<div class="agent-err"><i class="bi bi-exclamation-circle"></i> ${esc(a.last_error)}</div>` : ''}
-      <button class="tech-toggle" onclick="toggleTechBlock('${techId}')">
-        <i class="bi bi-chevron-right"></i> Detalles técnicos
-      </button>
-      <div class="tech-body" id="${techId}">
-        <div class="tech-grid" style="margin-top:6px;">
-          <div class="tech-cell"><div class="tech-cell-lbl">Nombre técnico</div><div class="tech-cell-val">${esc(a.agent)}</div></div>
-          ${a.last_seen ? `<div class="tech-cell"><div class="tech-cell-lbl">Último heartbeat</div><div class="tech-cell-val">${fmtDatetime(a.last_seen)}</div></div>` : ''}
-          ${a.last_run_started ? `<div class="tech-cell"><div class="tech-cell-lbl">Inicio de run</div><div class="tech-cell-val">${fmtDatetime(a.last_run_started)}</div></div>` : ''}
-          <div class="tech-cell"><div class="tech-cell-lbl">Cierre registrado</div><div class="tech-cell-val">${a.cierre_registrado ? 'Sí' : 'No'}</div></div>
-          <div class="tech-cell"><div class="tech-cell-lbl">Fuente</div><div class="tech-cell-val">${!heartbeatAvailable ? 'agent_runs (sin heartbeat)' : 'agent_heartbeat + agent_runs'}</div></div>
-        </div>
-      </div>
-    </div>`;
+function closeDrawer() {
+  document.getElementById('drawerOverlay').classList.remove('open');
+  document.getElementById('drawer').classList.remove('open');
 }
 
-function renderFlaskAgentCard(a) {
-  const ag   = agInfo(a.agent_id);
-  const fn   = ag.fn || a.name || a.agent_id;
-  const ico  = ag.ico;
-  const desc = ag.desc;
-
-  const now      = Date.now();
-  const lastRun  = a.last_run ? new Date(a.last_run).getTime() : null;
-  const interval = a.run_interval;
-
-  let cardClass = '', statusHtml = '', estadoTexto = '', trabajoTexto = '';
-
-  if (!a.enabled) {
-    cardClass   = 'nodata';
-    statusHtml  = `<span class="stag stag-disabled">Deshabilitado</span>`;
-    estadoTexto = 'Este agente está apagado y no ejecuta tareas.';
-  } else if (a.status === 'running') {
-    cardClass   = 'running';
-    statusHtml  = `<span class="stag stag-running"><i class="bi bi-circle-fill"></i> Ejecutándose</span>`;
-    estadoTexto = 'Está procesando en este momento.';
-  } else if (a.status === 'error') {
-    cardClass   = 'error';
-    statusHtml  = `<span class="stag stag-error"><i class="bi bi-x-circle"></i> Error</span>`;
-    estadoTexto = 'La última ejecución terminó con error.';
-  } else if (!lastRun) {
-    cardClass   = 'nodata';
-    statusHtml  = `<span class="stag stag-nodata">Sin información</span>`;
-    estadoTexto = 'No hay registro de ejecuciones anteriores.';
-  } else if (interval && (now - lastRun) > interval * 1500) {
-    cardClass   = 'stale';
-    const ageS  = Math.round((now - lastRun) / 1000);
-    statusHtml  = `<span class="stag stag-stale"><i class="bi bi-clock"></i> Sin señal reciente</span>`;
-    estadoTexto = `Debería haberse ejecutado hace ${fmtAge(ageS)} (intervalo: ${fmtDuration(interval)}).`;
-  } else {
-    statusHtml  = `<span class="stag stag-ok"><i class="bi bi-check-circle"></i> Habilitado</span>`;
-    estadoTexto = `En espera · se ejecuta cada ${interval ? fmtDuration(interval) : '—'}`;
-  }
-
-  if (a.last_run) {
-    const parts = [];
-    if (a.tasks_today > 0)  parts.push(`${a.tasks_today} tareas hoy`);
-    if (a.errors_today > 0) parts.push(`${a.errors_today} errores`);
-    if (a.last_result) parts.push(a.last_result.substring(0, 60));
-    trabajoTexto = `Última ejecución: ${fmtDatetime(a.last_run)}${parts.length ? ' · ' + parts.join(' · ') : ''}`;
-  } else {
-    trabajoTexto = 'Sin ejecuciones registradas.';
-  }
-
-  const proximo = a.next_run ? `Próxima programada: ${fmtDatetime(a.next_run)} (evidencia registrada)` : 'Próxima ejecución: sin registro';
-
-  const techId = `tech_f_${(a.agent_id||'').replace(/[^a-z0-9]/g,'')}`;
-  return `
-    <div class="agent-card ${cardClass}">
-      <div class="agent-fn"><i class="bi ${ico}"></i> ${esc(fn)}</div>
-      ${desc ? `<div class="agent-desc">${esc(desc)}</div>` : ''}
-      <div class="agent-stat">
-        <div class="agent-stat-row">
-          <span class="agent-stat-lbl">Estado:</span>
-          <span class="agent-stat-val">${statusHtml} <span style="font-size:.68rem;color:var(--muted);">${esc(estadoTexto)}</span></span>
-        </div>
-        <div class="agent-stat-row">
-          <span class="agent-stat-lbl">Último trabajo:</span>
-          <span class="agent-stat-val" style="font-size:.72rem;">${esc(trabajoTexto)}</span>
-        </div>
-        <div class="agent-stat-row">
-          <span class="agent-stat-lbl">Próximo:</span>
-          <span class="agent-stat-val" style="font-size:.68rem;color:var(--muted);">${esc(proximo)}</span>
-        </div>
-      </div>
-      ${a.last_error ? `<div class="agent-err"><i class="bi bi-exclamation-circle"></i> ${esc(a.last_error)}</div>` : ''}
-      <button class="tech-toggle" onclick="toggleTechBlock('${techId}')">
-        <i class="bi bi-chevron-right"></i> Detalles técnicos
-      </button>
-      <div class="tech-body" id="${techId}">
-        <div class="tech-grid" style="margin-top:6px;">
-          <div class="tech-cell"><div class="tech-cell-lbl">ID técnico</div><div class="tech-cell-val">${esc(a.agent_id)}</div></div>
-          <div class="tech-cell"><div class="tech-cell-lbl">Intervalo configurado</div><div class="tech-cell-val">${interval ? fmtDuration(interval) : 'sin configurar'}</div></div>
-          ${a.next_run ? `<div class="tech-cell"><div class="tech-cell-lbl">next_run (DB)</div><div class="tech-cell-val">${fmtDatetime(a.next_run)}</div></div>` : ''}
-          <div class="tech-cell"><div class="tech-cell-lbl">Fuente</div><div class="tech-cell-val">agent_status (Flask ORM)</div></div>
-        </div>
-      </div>
-    </div>`;
-}
-
-function toggleTechBlock(id) {
-  const body = document.getElementById(id);
-  if (!body) return;
-  const btn = body.previousElementSibling;
-  body.classList.toggle('open');
-  if (btn) btn.classList.toggle('open');
-}
-
-/* ══════════════════════════════════════════════════════════
-   TAB 4 — ACTIVIDAD (ex Historial)
-══════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════
+   ACTIVIDAD
+════════════════════════════════════════════════════════ */
+let actOpts = false;
 async function loadActividad() {
-  if (!actividadAgentOpts) {
-    actividadAgentOpts = true;
+  if (!actOpts) {
+    actOpts = true;
     try {
-      const d = await apiFetch('/agentes/api/v2/agentes');
+      const d = await apiFetch(URLS.agentes);
       const sel = document.getElementById('actAgente');
       const items = (d.worker_agents && d.worker_agents.items) || [];
       items.forEach(a => {
         const o = document.createElement('option');
         o.value = a.agent;
-        o.textContent = agInfo(a.agent).fn || a.agent;
+        o.textContent = AGENTS[a.agent] ? AGENTS[a.agent].name + ' — ' + AGENTS[a.agent].fn : a.agent;
         sel.appendChild(o);
       });
-    } catch(e) { /* non-critical */ }
+    } catch(e) {}
   }
 
   const agent = document.getElementById('actAgente').value;
   const limit = document.getElementById('actLimit').value;
   const skel  = document.getElementById('actSkel');
   const tbl   = document.getElementById('actTbl');
-
-  skel.innerHTML = [1,2,3,4,5].map(() => `<div class="skel skel-row"></div>`).join('');
-  skel.style.display = 'block'; tbl.style.display = 'none';
-
   const params = new URLSearchParams({ limit });
   if (agent) params.set('agent', agent);
 
-  try {
-    const data = await apiFetch(`/agentes/api/v2/historial?${params}`);
-    if (data.error) throw new Error(data.error);
+  skel.innerHTML = [1,2,3,4,5].map(() => '<div class="skel skel-row"></div>').join('');
+  skel.style.display = 'block'; tbl.style.display = 'none';
 
+  try {
+    const data = await apiFetch(`${URLS.historial}?${params}`);
+    if (data.error) throw new Error(data.error);
     document.getElementById('actMeta').textContent =
-      `${(data.items||[]).length} ejecuciones · fuente: ${data.source || 'agent_runs'}` +
-      (data.env_note ? ' · ' + data.env_note : '') +
-      (data._server_ms != null ? ` · ${data._server_ms} ms` : '');
+      `${(data.items||[]).length} ejecuciones · ${data.source||'agent_runs'}${data.env_note ? ' · ' + data.env_note : ''}`;
 
     const items = data.items || [];
     skel.style.display = 'none';
     if (items.length === 0) {
-      skel.innerHTML = `<div class="mc-empty"><i class="bi bi-clock-history"></i>Sin ejecuciones registradas.</div>`;
+      skel.innerHTML = '<div class="mc-empty"><i class="bi bi-clock-history"></i>Sin ejecuciones registradas.</div>';
       skel.style.display = 'block'; return;
     }
 
     document.getElementById('actTbody').innerHTML = items.map(r => {
-      const ag   = agInfo(r.agent);
-      const fn   = ag.fn || r.agent;
-      const ds   = r.display_status || r.status || '—';
+      const def    = AGENTS[r.agent] || {};
+      const ds     = r.display_status || r.status || '–';
       const resCls = ds === 'ok' || ds === 'success' ? 'run-ok'
-                   : !r.cierre_registrado ? 'run-open'
-                   : ds === 'error' || ds === 'failed' ? 'run-err' : '';
-      const cierreLbl = r.cierre_registrado
-        ? `<span class="stag stag-ok" style="font-size:.6rem;">sí</span>`
-        : `<span class="stag stag-warn" style="font-size:.6rem;">no</span>`;
+                   : !r.cierre_registrado             ? 'run-open'
+                   : ds === 'error'                   ? 'run-err' : '';
       return `<tr>
-        <td style="font-size:.72rem;color:var(--muted);">${esc(r.agent)}</td>
-        <td style="font-weight:600;font-size:.74rem;">${esc(fn)}</td>
-        <td class="data-age">${r.started_at ? fmtDatetime(r.started_at) : '—'}</td>
-        <td style="font-family:monospace;">${r.duration_s != null ? fmtDuration(r.duration_s) : '—'}</td>
-        <td><span class="${resCls}" style="font-weight:600;">${esc(ds)}</span></td>
-        <td style="font-family:monospace;">${r.actions_taken ?? '—'}</td>
-        <td>${cierreLbl}</td>
-        <td style="font-size:.67rem;color:var(--red);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.error_msg||'')}">
-          ${r.error_msg ? esc(r.error_msg.substring(0, 55)) + (r.error_msg.length > 55 ? '…' : '') : ''}
-        </td>
+        <td style="font-size:.68rem;">${esc(r.agent)}</td>
+        <td>${esc(def.fn || r.agent)}</td>
+        <td style="font-size:.66rem;">${fmtDatetime(r.started_at)}</td>
+        <td style="font-size:.66rem;">${r.duration_s != null ? fmtDuration(r.duration_s) : '–'}</td>
+        <td><span class="${resCls}">${esc(r.cierre_registrado ? ds : 'sin cierre')}</span></td>
+        <td style="font-size:.68rem;">${r.actions_taken ?? '–'}</td>
+        <td style="font-size:.62rem;">${r.cierre_registrado ? '<i class="bi bi-check-circle text-success"></i>' : '<i class="bi bi-dash-circle" style="color:var(--amber)"></i>'}</td>
       </tr>`;
     }).join('');
     tbl.style.display = 'table';
   } catch(e) {
-    skel.innerHTML = `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(e.message)}</div>`;
+    skel.innerHTML = `<div class="mc-err"><i class="bi bi-exclamation-circle"></i>${esc(e.message)}</div>`;
     skel.style.display = 'block';
   }
 }
 
-/* ══════════════════════════════════════════════════════════
-   DRAWER — Prospecto detail
-══════════════════════════════════════════════════════════ */
-function openProspecto(id, razonSocial, email) {
-  document.getElementById('drawerTitle').textContent = razonSocial || `Prospecto #${id}`;
-  document.getElementById('drawerSub').textContent = email || '';
-  document.getElementById('drawerBody').innerHTML =
-    `<div class="mc-empty"><i class="bi bi-hourglass-split"></i>Cargando historial…</div>`;
-  document.getElementById('drawer').classList.add('open');
-  document.getElementById('drawerOverlay').classList.add('open');
-  loadProspectoDrawer(id);
-}
+/* ════════════════════════════════════════════════════════
+   HORARIOS
+════════════════════════════════════════════════════════ */
+function renderHorarios() {
+  const grid = document.getElementById('schedGrid');
+  const meta = document.getElementById('horariosMeta');
+  if (meta) meta.textContent = 'Fuente: configuración del código del worker';
 
-function closeDrawer() {
-  document.getElementById('drawer').classList.remove('open');
-  document.getElementById('drawerOverlay').classList.remove('open');
-}
+  grid.innerHTML = Object.entries(AGENTS).map(([key, def]) => {
+    const agData  = officeData && officeData.agentMap[key];
+    const histData= officeData && officeData.histMap[key];
+    const lastRun = agData
+      ? (agData.last_run_started || agData.last_seen)
+      : (histData ? histData.started_at : null);
+    const cls = deskStatusClass(agData, histData);
+    const dotColor = cls === 'st-ok' ? 'var(--green)'
+                   : cls === 'st-err' ? 'var(--red)'
+                   : cls === 'st-warn'? 'var(--amber)' : '#94a3b8';
 
-async function loadProspectoDrawer(id) {
-  try {
-    const data = await apiFetch(`/agentes/api/v2/prospecto/${id}/historial`);
-    if (data.error) {
-      document.getElementById('drawerBody').innerHTML =
-        `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(data.error)}</div>`;
-      return;
-    }
-
-    const p       = data.prospecto || {};
-    const outreach = (data.outreach && data.outreach.items) || [];
-    const stateLog = (data.state_log && data.state_log.items) || [];
-    const leads    = (data.leads    && data.leads.items)    || [];
-    const sup      = data.suppression || {};
-
-    let html = '';
-    html += `<div class="mc-card" style="margin-bottom:14px;">
-      <div class="mc-card-title">Ficha <span class="src">ec_prospectos</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 16px;font-size:.76rem;">
-        <div><span style="color:var(--muted);">RUC:</span> <strong>${esc(p.ruc||'—')}</strong></div>
-        <div><span style="color:var(--muted);">Score:</span> ${scoreTag(p.score)}</div>
-        <div><span style="color:var(--muted);">Est. email:</span> ${statusEmailTag(p.estado_email)}</div>
-        <div><span style="color:var(--muted);">Est. com.:</span> ${statusComTag(p.estado_com)}</div>
+    return `<div class="sched-card">
+      <div class="sched-name" style="display:flex;align-items:center;gap:6px;">
+        <div class="leg-dot" style="background:${dotColor};flex-shrink:0;"></div>
+        ${esc(def.name)}
       </div>
+      <div class="sched-fn">${esc(def.fn)}</div>
+      <div class="sched-row">
+        <span class="sched-lbl">Frecuencia:</span>
+        <span class="sched-val">${esc(def.schedule)}</span>
+      </div>
+      <div class="sched-row">
+        <span class="sched-lbl">Última registrada:</span>
+        <span class="sched-val" style="font-size:.65rem;">${lastRun ? fmtDatetime(lastRun) : '–'}</span>
+      </div>
+      ${!lastRun ? `<div class="sched-note">Sin ejecuciones registradas en este entorno.</div>` : ''}
     </div>`;
-
-    // Suppression alert
-    if (!sup.error && sup.suprimido) {
-      html += `<div class="attn-item critical" style="margin-bottom:12px;">
-        <i class="bi bi-shield-x"></i>
-        <div class="attn-body">
-          <div class="attn-title">Email en lista de supresión — NO enviar</div>
-          <div class="attn-sub">${sup.razon ? 'Motivo: ' + esc(sup.razon) : ''} ${sup.desde ? '· desde ' + fmtDate(sup.desde) : ''}</div>
-          ${sup.nota ? `<div class="attn-sub" style="color:var(--red);">${esc(sup.nota)}</div>` : ''}
-        </div>
-      </div>`;
-    }
-
-    // Envíos
-    html += `<div class="mc-card-title" style="margin-bottom:8px;">Envíos (${outreach.length}) <span class="src">outreach_log</span></div>`;
-    if (outreach.length === 0) {
-      html += `<div class="mc-empty" style="padding:12px 0;"><i class="bi bi-envelope"></i>Sin envíos registrados</div>`;
-    } else {
-      html += `<div class="mc-card" style="padding:0;overflow:hidden;margin-bottom:14px;">
-        <table class="mc-table">
-          <thead><tr><th>Fecha</th><th>Bandeja</th><th>Etapa</th><th>Estado</th></tr></thead>
-          <tbody>${outreach.map(o => `<tr>
-            <td class="data-age">${fmtDatetime(o.sent_at)}</td>
-            <td style="font-size:.72rem;">${esc(o.bandeja||'—')}</td>
-            <td style="font-size:.7rem;color:var(--muted);">${esc(o.stage||'—')}</td>
-            <td>${o.status === 'enviado' ? `<span class="stag stag-ok">enviado</span>` : `<span class="stag stag-warn">${esc(o.status||'—')}</span>`}</td>
-          </tr>`).join('')}</tbody>
-        </table>
-      </div>`;
-    }
-
-    if (stateLog.length > 0) {
-      html += `<div class="mc-card-title" style="margin-bottom:8px;">Cambios de estado (${stateLog.length}) <span class="src">prospect_state_log</span></div>
-      <div class="mc-card" style="padding:0;overflow:hidden;margin-bottom:14px;">
-        <table class="mc-table">
-          <thead><tr><th>Fecha</th><th>Anterior</th><th>Nuevo</th><th>Motivo</th></tr></thead>
-          <tbody>${stateLog.map(s => `<tr>
-            <td class="data-age">${fmtDatetime(s.created_at)}</td>
-            <td style="font-size:.7rem;">${esc(s.estado_anterior||'—')}</td>
-            <td style="font-weight:600;font-size:.72rem;">${esc(s.estado_nuevo||'—')}</td>
-            <td style="font-size:.68rem;color:var(--muted);">${esc(s.motivo||'—')}</td>
-          </tr>`).join('')}</tbody>
-        </table>
-      </div>`;
-    }
-
-    if (leads.length > 0) {
-      html += `<div class="mc-card-title" style="margin-bottom:8px;">Leads (${leads.length}) <span class="src">lead_pipeline</span></div>
-      <div class="mc-card" style="padding:0;overflow:hidden;margin-bottom:14px;">
-        <table class="mc-table">
-          <thead><tr><th>Fecha</th><th>Tipo</th><th>WH</th></tr></thead>
-          <tbody>${leads.map(l => `<tr>
-            <td class="data-age">${fmtDatetime(l.created_at)}</td>
-            <td style="font-size:.74rem;">${esc(l.tipo||'—')}</td>
-            <td>${l.webhook_ok ? `<span class="stag stag-ok">OK</span>` : `<span class="stag stag-warn">—</span>`}</td>
-          </tr>`).join('')}</tbody>
-        </table>
-      </div>`;
-    }
-
-    html += `<div class="data-age" style="margin-top:8px;">consulta: ${fmtDatetime(data.query_at)}${data._server_ms != null ? ' · ' + data._server_ms + ' ms' : ''}</div>`;
-    document.getElementById('drawerBody').innerHTML = html;
-  } catch(e) {
-    document.getElementById('drawerBody').innerHTML =
-      `<div class="mc-err"><i class="bi bi-exclamation-circle"></i> ${esc(e.message)}</div>`;
-  }
+  }).join('');
 }
 
-/* ══════════════════════════════════════════════════════════
-   UTILS
-══════════════════════════════════════════════════════════ */
-async function apiFetch(url) {
-  const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
-
-function esc(s) {
-  if (s == null) return '';
-  return String(s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-
-function fmtDatetime(iso) {
-  if (!iso) return '—';
-  try {
-    const d = new Date(iso), now = new Date();
-    const ms = now - d;
-    if (ms < 60_000)      return 'hace ' + Math.round(ms/1000) + ' s';
-    if (ms < 3_600_000)   return 'hace ' + Math.round(ms/60_000) + ' min';
-    if (ms < 86_400_000)  return 'hoy ' + d.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'});
-    if (ms < 172_800_000) return 'ayer ' + d.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'});
-    return d.toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric'}) + ' ' + d.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'});
-  } catch(e) { return iso; }
-}
-
-function fmtHora(iso) {
-  if (!iso) return '—';
-  try {
-    const d = new Date(iso), now = new Date();
-    const ms = now - d;
-    if (ms < 3_600_000)  return Math.round(ms/60_000) + 'm';
-    if (ms < 86_400_000) return d.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'});
-    return d.toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit'});
-  } catch(e) { return iso; }
-}
-
-function fmtDate(s) {
-  if (!s) return '—';
-  try { return new Date(s).toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric'}); }
-  catch(e) { return s; }
-}
-
-function fmtAge(s) {
-  if (s == null) return '—';
-  if (s < 60)   return s + ' s';
-  if (s < 3600) return Math.round(s/60) + ' min';
-  return Math.round(s/3600) + ' h';
-}
-
-function fmtDuration(s) {
-  if (s == null) return '—';
-  if (s < 60)   return s + 's';
-  if (s < 3600) return Math.floor(s/60) + 'm ' + (s%60) + 's';
-  return Math.floor(s/3600) + 'h ' + Math.floor((s%3600)/60) + 'm';
-}
-
-function scoreTag(score) {
-  if (score == null) return '<span class="score-pill" style="background:#f1f5f9;color:#94a3b8;">—</span>';
-  const cls = score >= 7 ? 'score-high' : score >= 4 ? 'score-mid' : 'score-low';
-  return `<span class="score-pill ${cls}">${score}</span>`;
-}
-
-function statusEmailTag(v) {
-  if (!v) return '<span class="stag stag-nodata">—</span>';
-  const s = String(v).toLowerCase();
-  if (s.includes('rebote') || s.includes('bounce')) return `<span class="stag stag-error">${esc(v)}</span>`;
-  if (s.includes('valid')) return `<span class="stag stag-ok">${esc(v)}</span>`;
-  if (s.includes('invalid')) return `<span class="stag stag-warn">${esc(v)}</span>`;
-  return `<span class="stag stag-idle">${esc(v)}</span>`;
-}
-
-function statusComTag(v) {
-  if (!v) return '<span class="stag stag-nodata">—</span>';
-  const s = String(v).toLowerCase();
-  if (s.includes('cliente') || s === 'p4') return `<span class="stag stag-running">${esc(v)}</span>`;
-  if (s.includes('negocian') || s === 'p3') return `<span class="stag stag-ok">${esc(v)}</span>`;
-  if (s.includes('interesad')) return `<span class="stag stag-ok">${esc(v)}</span>`;
-  if (s.includes('no_contactar') || s === 'no contactar') return `<span class="stag stag-error">${esc(v)}</span>`;
-  if (s.includes('rebotado')) return `<span class="stag stag-error">${esc(v)}</span>`;
-  return `<span class="stag stag-idle">${esc(v)}</span>`;
-}
-
-/* ── Init ──────────────────────────────────────────────── */
-loadResumen();
+/* ── Init ───────────────────────────────────────────────── */
+loadOffice();
 </script>
 {% endblock %}
