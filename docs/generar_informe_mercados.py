@@ -72,7 +72,7 @@ else:
 # ── Anthropic standalone ───────────────────────────────────────────────────────
 import anthropic as _anthropic
 
-def _ask_claude(prompt: str, max_tokens: int = 5000) -> dict:
+def _ask_claude(prompt: str, max_tokens: int = 10000) -> dict:
     key = os.environ.get('ANTHROPIC_API_KEY')
     if not key:
         raise RuntimeError('ANTHROPIC_API_KEY no configurada')
@@ -480,8 +480,44 @@ def generar(output_path: str):
     fecha_footer = today_long  # ej: "Jueves, 25 de septiembre de 2026"
 
     # ── Query datos ───────────────────────────────────────────────────────────
+    # ── Precios en tiempo real (yfinance) — sobrescribe DB si disponible ────
+    _yf_snap = {}
+    try:
+        import yfinance as _yf
+        _tickers = {
+            'USDPEN=X': 'usdpen', 'DX-Y.NYB': 'dxy', 'EURUSD=X': 'eurusd',
+            'USDJPY=X': 'usdjpy', 'CL=F': 'oil', 'GC=F': 'gold',
+            'HG=F': 'copper', '^GSPC': 'sp500', '^IXIC': 'nasdaq',
+            '^VIX': 'vix', 'BTC-USD': 'btc', 'EEM': 'eem',
+        }
+        _data = _yf.download(list(_tickers.keys()), period='5d', auto_adjust=True, progress=False)['Close']
+        for sym, key in _tickers.items():
+            try:
+                col = _data[sym] if sym in _data.columns else _data
+                vals = col.dropna()
+                if len(vals) >= 2:
+                    _cur = float(vals.iloc[-1]); _prev = float(vals.iloc[-2])
+                    _yf_snap[key] = _cur
+                    _yf_snap[f'{key}_chg_pct'] = ((_cur - _prev) / _prev) * 100
+                elif len(vals) == 1:
+                    _yf_snap[key] = float(vals.iloc[-1])
+            except Exception:
+                pass
+        # Treasury 10Y via separate ticker
+        try:
+            _tnx = _yf.Ticker('^TNX').history(period='5d')['Close'].dropna()
+            if len(_tnx) >= 2:
+                _yf_snap['treasury_10y'] = float(_tnx.iloc[-1])
+                _yf_snap['treasury_10y_chg'] = float(_tnx.iloc[-1] - _tnx.iloc[-2])
+        except Exception:
+            pass
+        print(f"[YF] Precios obtenidos: {list(_yf_snap.keys())}")
+    except Exception as _yf_err:
+        print(f'[YF] Error yfinance: {_yf_err}')
+
     snap = _one('SELECT * FROM market_snapshots ORDER BY captured_at DESC LIMIT 1')
     snap = dict(snap) if snap else {}
+    snap.update(_yf_snap)  # yfinance overwrites stale DB values with real-time data
 
     snap_hora = '—'
     ts = _to_dt(snap.get('captured_at'))
@@ -523,7 +559,7 @@ def generar(output_path: str):
     print('[AI] Llamando a Claude Sonnet...')
     ai = {}
     try:
-        ai = _ask_claude(prompt, max_tokens=5000)
+        ai = _ask_claude(prompt, max_tokens=10000)
         print('[AI] OK')
     except Exception as e:
         print(f'[WARN] Claude: {e}')
@@ -858,7 +894,7 @@ if __name__ == '__main__':
         out = args.output
     else:
         fecha = datetime.now(timezone(timedelta(hours=-5))).strftime('%Y%m%d')
-        out = os.path.join(_ROOT, 'docs', f'Informe_Mercados_QoriCash_{fecha}.pdf')
+        out = os.path.join(os.path.expanduser('~/Downloads'), f'Informe_Mercados_QoriCash_{fecha}.pdf')
 
     os.makedirs(os.path.dirname(out), exist_ok=True)
     print('[QoriCash] Generando Informe de Mercados...')
