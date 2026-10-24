@@ -229,11 +229,19 @@ class EmailService:
         return text.strip()
 
     @staticmethod
-    def _send_async(msg, timeout=15, max_retries=2):
+    def _send_async(msg, timeout=15, max_retries=2, operation_id=None):
         """
         Envía un email de forma asíncrona via Gmail/Google Workspace (Flask-Mail).
         Reintenta hasta max_retries veces con backoff exponencial.
         Agrega plain-text automáticamente si no se proporcionó.
+
+        Si operation_id se pasa, marca new_operation_email_sent=TRUE mediante
+        UPDATE directo, ÚNICAMENTE tras aceptación SMTP confirmada. Así:
+        - Fallo SMTP → flag False → reintento posible.
+        - SMTP OK + fallo UPDATE → se registra como "enviado, flag incierto"
+          y NO se reenvía (evitar duplicado al cliente).
+        LIMITACIÓN: spawn_n no es cola persistente; si el proceso cae entre
+        spawn_n y mail.send(), el email se pierde sin recovery automático.
         """
         from flask import current_app
         app = current_app._get_current_object()
@@ -247,19 +255,43 @@ class EmailService:
                     try:
                         with eventlet.Timeout(timeout):
                             mail.send(msg)
-                        logger.info(f'[EMAIL] Enviado OK to={msg.recipients}')
+                        # SMTP aceptó el mensaje. A partir de aquí no volver a enviar
+                        # aunque el UPDATE falle (evita duplicado al cliente).
+                        logger.info(f'[EMAIL] Enviado OK op={operation_id} to={msg.recipients}')
+                        if operation_id:
+                            try:
+                                from app.extensions import db
+                                result = db.session.execute(
+                                    db.text(
+                                        'UPDATE operations SET new_operation_email_sent=TRUE '
+                                        'WHERE operation_id=:oid'
+                                    ),
+                                    {'oid': operation_id}
+                                )
+                                db.session.commit()
+                                if result.rowcount == 0:
+                                    logger.warning(
+                                        f'[EMAIL] UPDATE flag: 0 filas afectadas op={operation_id} '
+                                        f'(operación no encontrada o ya marcada)'
+                                    )
+                            except Exception as _fe:
+                                # SMTP ya aceptó — no reenviar. Solo registrar que la
+                                # persistencia del flag quedó pendiente.
+                                logger.warning(
+                                    f'[EMAIL] Enviado OK pero flag no persistido op={operation_id}: {_fe}'
+                                )
                         return
                     except eventlet.Timeout:
-                        logger.warning(f'[EMAIL] Timeout ({timeout}s) intento {attempt} to={msg.recipients}')
+                        logger.warning(f'[EMAIL] Timeout ({timeout}s) intento {attempt} op={operation_id} to={msg.recipients}')
                     except Exception as e:
-                        logger.error(f'[EMAIL] Error intento {attempt}: {str(e)}')
+                        logger.error(f'[EMAIL] Error intento {attempt} op={operation_id}: {str(e)}')
 
                     if attempt <= max_retries:
                         wait = 2 ** attempt
                         logger.warning(f'[EMAIL] Reintento {attempt}/{max_retries} en {wait}s')
                         time.sleep(wait)
                     else:
-                        logger.error(f'[EMAIL] Todos los intentos fallaron to={msg.recipients}')
+                        logger.error(f'[EMAIL] Todos los intentos fallaron op={operation_id} to={msg.recipients}')
 
         eventlet.spawn_n(_send)
 
@@ -342,9 +374,24 @@ class EmailService:
             # Reply-To: trader dueño de la operación (para que el cliente pueda responder directamente al trader)
             trader_email = operation.user.email if operation.user and operation.user.email else None
 
-            # Crear mensaje — sender usa MAIL_DEFAULT_SENDER para no romper autenticación SMTP
+            # Sender explícito: Message() sin sender= depende de MAIL_DEFAULT_SENDER.
+            # Si esa env var falta en Render, Flask-Mail lanza AssertionError silencioso
+            # dentro de _send_async y el correo nunca se despacha.
+            from flask import current_app as _curr_app
+            _sender = (
+                _curr_app.config.get('MAIL_DEFAULT_SENDER')
+                or _curr_app.config.get('MAIL_USERNAME')
+            )
+            if not _sender:
+                logger.error(
+                    f'[EMAIL] MAIL_DEFAULT_SENDER y MAIL_USERNAME no configurados; '
+                    f'no se puede enviar email op={operation.operation_id}'
+                )
+                return False, 'Remitente SMTP no configurado'
+
             msg = Message(
                 subject=subject,
+                sender=_sender,
                 recipients=to,
                 cc=cc,
                 bcc=bcc,
@@ -353,16 +400,13 @@ class EmailService:
             if trader_email:
                 msg.reply_to = trader_email
 
-            # Marcar como enviado ANTES del spawn para evitar race condition
-            try:
-                from app.extensions import db
-                operation.new_operation_email_sent = True
-                db.session.commit()
-            except Exception:
-                pass  # No bloquear el envío si falla el flag
-
-            # Enviar ASÍNCRONO para no bloquear el worker
-            EmailService._send_async(msg, timeout=15)
+            # El flag new_operation_email_sent se actualiza DENTRO del greenlet _send,
+            # únicamente tras aceptación SMTP. Así un fallo SMTP no bloquea reintentos.
+            # AVISO: la verificación de idempotencia al inicio de esta función lee el
+            # valor en memoria del objeto; no es atómica frente a dos greenlets
+            # concurrentes. Con workers=1 (Gunicorn eventlet) el riesgo es bajo pero
+            # existe si dos peticiones solapan antes de que el primer _send complete.
+            EmailService._send_async(msg, timeout=15, operation_id=operation.operation_id)
 
             logger.info(f'Email de nueva operación programado para envío: {operation.operation_id}')
             return True, 'Email programado para envío'

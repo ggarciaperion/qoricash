@@ -2858,26 +2858,45 @@ def _crear_op_y_confirmar(numero, session, client, confirm_token=None):
         db.session.commit()
 
         # ── Email de nueva operación al cliente ──
+        # Se captura solo el operation_id (str) para evitar pasar el objeto SQLAlchemy
+        # a un greenlet diferente. Tras db.session.commit() el objeto queda expirado;
+        # si el greenlet se ejecuta después de db.session.remove() (teardown del
+        # request), acceder a cualquier atributo lanza DetachedInstanceError, que es
+        # capturado silenciosamente → correo nunca enviado.
         try:
             from app.services.email_service import EmailService
             import eventlet as _ev
-            _op_ref = op
+            _op_id_for_email = op.operation_id  # str, seguro para capturar en closure
             def _send_new_op_email():
                 from flask import current_app
                 with current_app.app_context():
                     try:
-                        EmailService.send_new_operation_email(_op_ref)
+                        from app.models.operation import Operation as _Op
+                        _op_fresh = _Op.query.filter_by(
+                            operation_id=_op_id_for_email
+                        ).first()
+                        if _op_fresh:
+                            EmailService.send_new_operation_email(_op_fresh)
+                        else:
+                            log.warning(
+                                f'[WaBot] Operación {_op_id_for_email} no encontrada al enviar email'
+                            )
                     except Exception as _ee:
-                        log.warning(f'[WaBot] Error enviando email nueva op: {_ee}')
+                        log.warning(f'[WaBot] Error enviando email nueva op {_op_id_for_email}: {_ee}')
             _ev.spawn_n(_send_new_op_email)
         except Exception as _email_err:
             log.warning(f'[WaBot] No se pudo despachar email nueva op: {_email_err}')
 
         # ── Enviar instrucciones al cliente ──
-        sent = _flujo_op_creada(numero, op, session, client)
-        if not sent:
-            log.warning(f'[WaBot] Instrucciones no enviadas para {_op_id}; '
-                        f'cliente puede recuperar respondiendo en estado op_pendiente_pago.')
+        # Aislado en try/except para que un fallo de WA al cliente no impida
+        # que los avisos internos (admins) se ejecuten a continuación.
+        try:
+            sent = _flujo_op_creada(numero, op, session, client)
+            if not sent:
+                log.warning(f'[WaBot] Instrucciones no enviadas para {_op_id}; '
+                            f'cliente puede recuperar respondiendo en estado op_pendiente_pago.')
+        except Exception as _wa_client_err:
+            log.warning(f'[WaBot] Error enviando instrucciones WA al cliente op={_op_id}: {_wa_client_err}')
 
         # ── Notificar al sistema en tiempo real ──
         try:
