@@ -80,7 +80,10 @@ def create_app(config_name=None):
 
     # Inicializar scheduler de expiración de operaciones usando eventlet
     # IMPORTANTE: Usar eventlet en lugar de APScheduler para compatibilidad con SocketIO
-    start_operation_expiry_scheduler(app)
+    # Omitir cuando se ejecuta como herramienta CLI (FLASK_CLI_ONLY=true).
+    import os as _os
+    if not _os.environ.get('FLASK_CLI_ONLY'):
+        start_operation_expiry_scheduler(app)
 
     # Aplicar headers de seguridad HTTP en todas las respuestas
     from app.utils.security import configure_security_headers
@@ -1083,8 +1086,9 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[FX] seed_competitors falló (puede que las tablas no existan aún): {e}")
 
-    # Inicializar schedulers del módulo Mercado
-    start_market_schedulers(app)
+    # Inicializar schedulers del módulo Mercado (omitir en modo CLI).
+    if not os.environ.get('FLASK_CLI_ONLY'):
+        start_market_schedulers(app)
 
     # Agentes IA desactivados: reemplazados por scripts directos y cron jobs.
     # La auditoría contable corre via cron_auditoria_diaria.py (Render Cron Job).
