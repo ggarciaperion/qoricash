@@ -696,9 +696,13 @@ def hoy():
             cats_faltantes = inv_out.get('categorias_faltantes', [])
             for cat, noticia in inv_out.get('categorized', {}).items():
                 fuentes_by_cat[cat] = {
-                    'fuente_nombre': noticia.get('source', noticia.get('fuente_nombre', '')),
-                    'fuente_url':    noticia.get('url',    noticia.get('fuente_url', '')),
-                    'fecha':         noticia.get('fecha',  noticia.get('published', '')),
+                    'fuente_nombre':  noticia.get('source_name',
+                                      noticia.get('source', noticia.get('fuente_nombre', ''))),
+                    'fuente_url':     noticia.get('url', noticia.get('fuente_url', '')),
+                    'fecha':          (noticia.get('published_at') or
+                                       noticia.get('fecha') or
+                                       noticia.get('published') or ''),
+                    'is_market_feed': bool(noticia.get('is_market_feed', False)),
                 }
 
     return render_template(
@@ -820,11 +824,12 @@ def api_generar_diario_sync():
     Bloquea hasta completar. No usar desde el navegador.
     """
     import os
-    token_esperado = os.environ.get('ESTUDIO_CRON_TOKEN', '')
-    if token_esperado:
-        token_recibido = request.headers.get('X-Cron-Token', '')
-        if not token_recibido or token_recibido != token_esperado:
-            return jsonify({'ok': False, 'msg': 'No autorizado'}), 401
+    token_esperado = os.environ.get('ESTUDIO_CRON_TOKEN', '').strip()
+    if not token_esperado:
+        return jsonify({'ok': False, 'msg': 'ESTUDIO_CRON_TOKEN no configurado en el servidor'}), 503
+    token_recibido = request.headers.get('X-Cron-Token', '').strip()
+    if not token_recibido or token_recibido != token_esperado:
+        return jsonify({'ok': False, 'msg': 'No autorizado'}), 401
     from app.models.content_pipeline import EntregaDiaria
     from app.services.content.pipeline_coordinator import create_pipeline, run_pipeline_auto
     from datetime import date as _d
