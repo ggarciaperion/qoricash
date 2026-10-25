@@ -380,6 +380,58 @@ def _insert_batch(db, table, cols, rows_params):
     return importados, duplicados, descartados, discard_reasons
 
 
+# ── Entrada directa (eventos JSON sin archivo) ────────────────────────────────
+
+def import_eventos(eventos: list) -> tuple:
+    """
+    Inserta eventos de envío recibidos directamente (sin parsear archivos de log).
+    Cada evento es un dict con campos:
+        email, empresa, bandeja, proceso, enviado_at, resultado_log, fuente_archivo
+    El hash se calcula igual que para logs: _hash32(fuente_archivo, enviado_at, email),
+    garantizando idempotencia incluso si el mismo evento llega por ambas vías.
+
+    Retorna (importados, duplicados, descartados, error_list).
+    """
+    from app.extensions import db
+    from datetime import datetime
+
+    if not eventos:
+        return 0, 0, 0, []
+
+    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    cols = ['envio_hash', 'email', 'empresa', 'bandeja', 'proceso',
+            'enviado_at', 'resultado_log', 'fuente_archivo']
+
+    rows = []
+    for ev in eventos:
+        email = (ev.get('email') or '').strip().lower()
+        if not email or '@' not in email:
+            continue
+        ts     = (ev.get('enviado_at') or now_str).strip()
+        fuente = (ev.get('fuente_archivo') or ev.get('proceso') or 'directo').strip()
+        rows.append({
+            'envio_hash':    _hash32(fuente, ts, email),
+            'email':         email,
+            'empresa':       (ev.get('empresa') or '').strip() or None,
+            'bandeja':       (ev.get('bandeja') or '').strip() or None,
+            'proceso':       (ev.get('proceso') or '').strip() or None,
+            'enviado_at':    ts,
+            'resultado_log': (ev.get('resultado_log') or 'OK').strip()[:10],
+            'fuente_archivo': fuente,
+        })
+
+    if not rows:
+        return 0, 0, len(eventos), ['Sin emails válidos']
+
+    imp, dup, desc, errs = _insert_batch(db, 'camp_envio', cols, rows)
+    try:
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return 0, 0, len(rows), [str(exc)[:120]]
+    return imp, dup, desc, errs
+
+
 # ── Entrada principal ─────────────────────────────────────────────────────────
 
 def import_file(filename, content):

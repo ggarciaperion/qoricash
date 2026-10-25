@@ -7,6 +7,8 @@
 | `4fcfb097` | fix: autenticación obligatoria sin bypass en endpoints de importación |
 | `8299d417` | feat: versionar sincronizador y enriquecimiento de prospectos |
 | `09872022` | fix: estado por destino, upsert PostgreSQL, enriquecimiento vía API |
+| `7e1415eb` | docs: nota de continuidad inicial |
+| ver git log | feat: cola en Application Support, sync-evento, sin FDA |
 
 ---
 
@@ -14,116 +16,130 @@
 
 | Ruta | Método | Auth | Uso |
 |------|--------|------|-----|
-| `/agentes/api/prospeccion/sync-importar` | POST | `X-Sync-Key` | Importa `.log` / `_resultado.json` desde Mac vía multipart |
-| `/agentes/api/prospeccion/sync-enrich`   | POST | `X-Sync-Key` | Upsert idempotente de registros enriquecidos desde Sheets |
-| `/agentes/prospeccion`                   | GET  | sesión + rol  | Panel web de revisión |
+| `POST /agentes/api/prospeccion/sync-evento`   | POST | `X-Sync-Key` | **Vía principal (nueva)**: eventos directos desde campañas / cola |
+| `POST /agentes/api/prospeccion/sync-importar` | POST | `X-Sync-Key` | Legado: archivos `.log` / `_resultado.json` vía multipart |
+| `POST /agentes/api/prospeccion/sync-enrich`   | POST | `X-Sync-Key` | Upsert enriquecimiento desde Sheets |
+| `GET  /agentes/prospeccion`                   | GET  | sesión + rol  | Panel web de revisión |
 
-**Clave de autenticación**: `SYNC_API_KEY` en `.env` del servidor = contenido de `~/.config/qoricash/sync_key` en la Mac.
+**Clave de autenticación**: `SYNC_API_KEY` en `.env` del servidor = `~/.config/qoricash/sync_key` en la Mac.
+
+---
+
+## Arquitectura de nuevos eventos (sin FDA)
+
+```
+Campaña (Mac, terminal)
+    │ send_evento()  ←── campaign_sink.py
+    │
+    ├─ Flask disponible ──► POST /sync-evento ──► camp_envio (DB)
+    │
+    └─ Flask no disponible ──► ~/Library/Application Support/qoricash/queue/evt_*.json
+                                          │
+                              launchd (c/15 min, sin FDA)
+                                          │
+                              sincronizador.py (Application Support)
+                                          │
+                                POST /sync-evento ──► camp_envio (DB)
+                                          │
+                              Elimina evt_*.json confirmados
+```
+
+**Archivos históricos en `~/Desktop/Prospeccion/`** permanecen intactos hasta autorización expresa.
+No se borran hasta confirmar transferencia completa.
+
+---
+
+## Infraestructura en Application Support (`~/Library/Application Support/qoricash/`)
+
+| Archivo / Dir | Función |
+|---------------|---------|
+| `sincronizador.py` | Drainer de cola — launchd lo ejecuta c/15 min |
+| `queue/evt_*.json` | Cola de reintentos (solo eventos sin confirmación) |
+| `sincronizador.log` | Log rotado (500 KB × 3 archivos) |
+| `launchd.log` | Salida cruda de launchd (errores no capturados) |
+| `email_enviados_*.json` | Dedup 48h de campana_prospeccion_nueva_base |
+
+**No requiere Full Disk Access** — Application Support es accesible sin TCC para launchd.
 
 ---
 
 ## Scripts en la Mac (`~/Desktop/Prospeccion/`)
 
-### `sincronizador_prospeccion.py`
-Escanea `~/Desktop/Prospeccion/` en busca de archivos `.log` y `_resultado.json` nuevos o modificados y los envía a `sync-importar`.
+### `campaign_sink.py` ← nuevo
+Librería importada por las campañas. `send_evento(record)` intenta POST a `/sync-evento`;
+si el servidor no está disponible, escribe a la cola en Application Support.
 
+```python
+from campaign_sink import send_evento
+send_evento({
+    'email': 'contacto@empresa.com',
+    'empresa': 'Empresa S.A.',
+    'bandeja': 'ggarcia@qoricash.pe',
+    'proceso': 'campana_150',
+    'enviado_at': '2026-10-25 09:30:00',
+    'resultado_log': 'OK',
+    'fuente_archivo': 'campana_150_2026-10-25.log',  # hash compatible con imports históricos
+})
+```
+
+### `sincronizador.py` (en Application Support)
 ```bash
-# Modo normal (launchd lo llama cada 15 min)
-python3 sincronizador_prospeccion.py
+# Ver cola pendiente
+python3 ~/Library/Application\ Support/qoricash/sincronizador.py --dry-run
 
 # Apuntar a Render
-python3 sincronizador_prospeccion.py --url https://TU-APP.onrender.com/agentes/api/prospeccion/sync-importar
-
-# Ver pendientes sin enviar
-python3 sincronizador_prospeccion.py --dry-run
-
-# Olvidar estado para un destino y re-enviar todo
-python3 sincronizador_prospeccion.py --reset --url https://TU-APP.onrender.com/...
+python3 ~/Library/Application\ Support/qoricash/sincronizador.py \
+  --url https://TU-APP.onrender.com/agentes/api/prospeccion/sync-evento
 ```
 
-**Estado separado por destino** (`sincronizador_estado.json` formato v2):
-```json
-{ "version": 2, "destinos": {
-    "http://localhost:5002/agentes/api/prospeccion/sync-importar": { "enviados": {...} },
-    "https://TU-APP.onrender.com/agentes/api/prospeccion/sync-importar": { "enviados": {} }
-}}
-```
-Archivos enviados a localhost **no** se omiten al enviar a Render.
-
-### `enrich_camp_prospectos.py`
-Lee PROSPECTOS_MASTER de Google Sheets y envía los registros enriquecidos a `sync-enrich`. Las credenciales OAuth de Sheets se quedan en la Mac.
+### LaunchAgent
+**Plist**: `~/Library/LaunchAgents/pe.qoricash.sincronizador.plist`
+**Intervalo**: 900 s (15 min) | **Sin FDA** | **Ejecución verificada**: 2026-10-25
 
 ```bash
-# Enriquecer contra localhost
-python3 enrich_camp_prospectos.py
-
-# Enriquecer contra Render
-python3 enrich_camp_prospectos.py --url https://TU-APP.onrender.com/agentes/api/prospeccion/sync-enrich
-
-# Ver sin enviar
-python3 enrich_camp_prospectos.py --dry-run
-```
-
----
-
-## LaunchAgent (automatización local)
-
-**Plist instalado**: `~/Library/LaunchAgents/pe.qoricash.sincronizador.plist`  
-**Intervalo**: cada 15 minutos  
-**Script ejecutado**: `~/Desktop/Prospeccion/sincronizador_prospeccion.py`  
-**Log**: `~/Desktop/Prospeccion/sincronizador.log`
-
-```bash
-# Activar
-launchctl load ~/Library/LaunchAgents/pe.qoricash.sincronizador.plist
+# Log operativo
+tail -f ~/Library/Application\ Support/qoricash/sincronizador.log
 
 # Disparar manualmente
 launchctl kickstart -k gui/$(id -u)/pe.qoricash.sincronizador
 
 # Estado
 launchctl list pe.qoricash.sincronizador
-
-# Log en vivo
-tail -f ~/Desktop/Prospeccion/sincronizador.log
 ```
 
-### PENDIENTE — EPERM de macOS TCC
-
-**Estado**: `launchd` no puede abrir `~/Desktop/Prospeccion/` — bloqueado por macOS TCC.  
-**Binario a desbloquear**: `/Library/Developer/CommandLineTools/usr/bin/python3`
-
-**Paso único en System Settings**:
-> Ajustes del Sistema → Privacidad y seguridad → Acceso completo al disco  
-> Clic en `+` → Cmd+Shift+G → pegar `/Library/Developer/CommandLineTools/usr/bin/python3` → Abrir
-
-Una vez concedido, disparar manualmente y confirmar en el log:
+**Ejecución real confirmada (2026-10-25 01:25)**:
 ```
-[YYYY-MM-DD HH:MM:SS] Sincronizador QoriCash
-  Archivos pendientes: N
-  Endpoint: http://localhost:5002/...  [con clave]
-  → archivo.log (X KB) [OK] N nuevos / M dup / 0 desc
+2026-10-25 01:25:02 INFO Sincronizador QoriCash — 1 eventos pendientes | http://localhost:5002/...
+2026-10-25 01:25:02 INFO   lote 1-1: 1 confirmados y eliminados de la cola
+2026-10-25 01:25:02 INFO Total confirmados: 1 | En cola: 0
+LastExitStatus = 0
 ```
-**No dar por resuelto EPERM hasta ver esa salida real en el log.**
 
 ---
 
-## Primer arranque en Render (logs históricos)
+## Transferencia de históricos a Render (cuando se autorice deploy)
 
 ```bash
-# 1. Agregar en Render → Environment → SYNC_API_KEY=<misma clave que sync_key local>
-# 2. Sincronizar logs históricos (re-envío completo)
-python3 sincronizador_prospeccion.py \
+# 1. Agregar en Render env vars: SYNC_API_KEY=<misma clave que sync_key local>
+# 2. Logs históricos (archivos .log / .json en Desktop — legado)
+python3 ~/Desktop/Prospeccion/sincronizador_prospeccion.py \
   --reset \
   --url https://TU-APP.onrender.com/agentes/api/prospeccion/sync-importar
 
-# 3. Enriquecer prospectos
-python3 enrich_camp_prospectos.py \
+# 3. Nuevos eventos (cola en Application Support)
+python3 ~/Library/Application\ Support/qoricash/sincronizador.py \
+  --url https://TU-APP.onrender.com/agentes/api/prospeccion/sync-evento
+
+# 4. Enriquecimiento desde Sheets
+python3 ~/Desktop/Prospeccion/enrich_camp_prospectos.py \
   --url https://TU-APP.onrender.com/agentes/api/prospeccion/sync-enrich
 ```
+
+**No conectar a Render hasta autorización.** Los históricos del Desktop se conservan hasta confirmar transferencia íntegra y autorización explícita de borrado.
 
 ---
 
 ## Panel web (revisión local)
 
-URL: `http://127.0.0.1:5002/agentes/prospeccion`  
+URL: `http://127.0.0.1:5002/agentes/prospeccion`
 Requiere sesión activa con rol `agente`, `admin` o `superadmin`.

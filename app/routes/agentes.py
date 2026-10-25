@@ -433,6 +433,47 @@ def api_sync_enrich():
     return jsonify({'ok': True, 'upserted': upserted, 'skipped': skipped, 'errors': errors})
 
 
+@agentes_bp.route('/api/prospeccion/sync-evento', methods=['POST'])
+@csrf.exempt
+def api_sync_evento():
+    """
+    Recibe eventos de envío directamente desde campaign_sink (Mac → servidor).
+    Elimina la dependencia de archivos .log en ~/Desktop — no requiere FDA.
+    Requiere X-Sync-Key. Idempotente: mismo hash = duplicado, no falla.
+    Body: {"eventos": [{email, empresa, bandeja, proceso,
+                        enviado_at, resultado_log, fuente_archivo}]}
+    """
+    expected = os.environ.get('SYNC_API_KEY', '').strip()
+    if not expected:
+        return jsonify({'error': 'Sincronización no configurada en este servidor'}), 503
+    if request.headers.get('X-Sync-Key', '') != expected:
+        _log.warning('api_sync_evento: clave inválida desde %s', request.remote_addr)
+        return jsonify({'error': 'No autorizado'}), 401
+
+    data = request.get_json(silent=True)
+    if not data or not isinstance(data.get('eventos'), list):
+        return jsonify({'error': 'Body JSON requerido: {"eventos": [...]}'}), 400
+
+    eventos = data['eventos']
+    if not eventos:
+        return jsonify({'ok': True, 'importados': 0, 'duplicados': 0})
+
+    from app.services.camp_importer import init_camp_tables, import_eventos
+    try:
+        init_camp_tables()
+    except Exception as exc:
+        return jsonify({'error': f'Error inicializando tablas: {exc}'}), 500
+
+    try:
+        imp, dup, desc, errs = import_eventos(eventos)
+    except Exception as exc:
+        _log.error('api_sync_evento: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+    return jsonify({'ok': True, 'importados': imp, 'duplicados': dup,
+                    'descartados': desc, 'errores': errs})
+
+
 @agentes_bp.route('/api/prospeccion/contactos')
 def api_contactos():
     """
