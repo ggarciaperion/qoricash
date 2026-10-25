@@ -281,32 +281,25 @@ def api_cobertura():
     return jsonify(get_camp_prospeccion_cobertura())
 
 
-def _sync_auth_ok() -> bool:
-    """
-    Verifica que la petición lleve la clave X-Sync-Key correcta.
-    Si SYNC_API_KEY no está configurada en el entorno, permite el acceso
-    sin clave (modo dev local). Nunca registra el valor de la clave.
-    """
-    expected = os.environ.get('SYNC_API_KEY', '').strip()
-    if not expected:
-        return True   # Modo dev: sin clave configurada → aceptar
-    provided = request.headers.get('X-Sync-Key', '')
-    return provided == expected
-
-
 @agentes_bp.route('/api/prospeccion/importar', methods=['POST'])
 @csrf.exempt
 def api_importar():
     """
-    Recibe uno o varios archivos de campana (.log o _resultado.json),
-    los parsea e inserta en camp_envio / camp_rebote de forma idempotente.
-    Los archivos se tratan como datos; nunca se ejecutan.
-    Requiere X-Sync-Key si SYNC_API_KEY está configurada en el entorno.
+    Importación manual desde el panel. Requiere sesión activa, rol autorizado y
+    token CSRF válido (X-CSRFToken header, leído del meta tag por el JS del panel).
+    Se verifica en este orden: sesión → rol → CSRF, para retornar JSON limpio.
     """
-    if not _sync_auth_ok():
-        _log.warning('api_importar: clave de sincronización inválida desde %s',
-                     request.remote_addr)
-        return jsonify({'error': 'No autorizado'}), 401
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'Sesión requerida'}), 401
+    if current_user.role not in _ALLOWED:
+        return jsonify({'error': 'Permisos insuficientes'}), 403
+    # Validar CSRF manualmente (permite retornar JSON en lugar de 400 HTML)
+    from flask_wtf.csrf import validate_csrf, ValidationError
+    try:
+        validate_csrf(request.headers.get('X-CSRFToken', ''))
+    except ValidationError:
+        _log.warning('api_importar: CSRF inválido desde %s', request.remote_addr)
+        return jsonify({'error': 'Token CSRF inválido o ausente'}), 400
 
     from app.services.camp_importer import import_file, init_camp_tables
 
@@ -336,6 +329,59 @@ def api_importar():
 
     total_imp = sum(r.get('importados', 0) for r in resultados)
     total_dup = sum(r.get('duplicados', 0) for r in resultados)
+    total_desc = sum(r.get('descartados', 0) for r in resultados)
+    return jsonify({
+        'ok': True,
+        'archivos': len(resultados),
+        'total_importados': total_imp,
+        'total_duplicados': total_dup,
+        'total_descartados': total_desc,
+        'resultados': resultados,
+    })
+
+
+@agentes_bp.route('/api/prospeccion/sync-importar', methods=['POST'])
+@csrf.exempt
+def api_sync_importar():
+    """
+    Importación automática desde sincronizador_prospeccion.py.
+    Requiere cabecera X-Sync-Key con valor idéntico a SYNC_API_KEY del entorno.
+    Si SYNC_API_KEY no está configurada, rechaza con 503 (no hay bypass).
+    """
+    expected = os.environ.get('SYNC_API_KEY', '').strip()
+    if not expected:
+        _log.error('api_sync_importar: SYNC_API_KEY no configurada; sincronización rechazada')
+        return jsonify({'error': 'Sincronización no configurada en este servidor'}), 503
+    if request.headers.get('X-Sync-Key', '') != expected:
+        _log.warning('api_sync_importar: clave inválida desde %s', request.remote_addr)
+        return jsonify({'error': 'No autorizado'}), 401
+
+    from app.services.camp_importer import import_file, init_camp_tables
+
+    files = request.files.getlist('files')
+    if not files or all(f.filename == '' for f in files):
+        return jsonify({'error': 'No se recibieron archivos'}), 400
+
+    try:
+        init_camp_tables()
+    except Exception as exc:
+        return jsonify({'error': f'Error inicializando tablas: {exc}'}), 500
+
+    resultados = []
+    for f in files:
+        name = f.filename
+        if not (name.endswith('.log') or name.endswith('.json')):
+            resultados.append({'filename': name, 'error': 'Extension no permitida. Solo .log y .json'})
+            continue
+        try:
+            content = f.read().decode('utf-8', errors='replace')
+        except Exception as exc:
+            resultados.append({'filename': name, 'error': f'Error leyendo archivo: {exc}'})
+            continue
+        resultados.append(import_file(name, content))
+
+    total_imp  = sum(r.get('importados', 0) for r in resultados)
+    total_dup  = sum(r.get('duplicados', 0) for r in resultados)
     total_desc = sum(r.get('descartados', 0) for r in resultados)
     return jsonify({
         'ok': True,
