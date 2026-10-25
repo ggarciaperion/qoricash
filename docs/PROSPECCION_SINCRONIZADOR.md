@@ -29,7 +29,7 @@ El flujo automatizado opera exclusivamente a través de `orchestrator.py` (Rende
 El panel (`GET /agentes/prospeccion`) debe distinguir:
 1. Actividad de agentes 24/7 (fuente: `camp_envio` con `proceso` = valores de agentes)
 2. Historial de campañas manuales (fuente: `camp_envio` con `proceso` = `campana_150`, `campana_prospeccion`, `campana_nuevos`, etc.)
-3. Estado del worker de Render: presentar solo si existe señal verificada reciente (ej. `runtime_config` con `feature.flags_recorded_at` < N minutos)
+3. Estado del worker de Render: `feature.flags_recorded_at` registra cuándo arrancó el worker, no si sigue activo. Para mostrarlo como activo se necesita un heartbeat o evidencia de ejecución reciente proveniente de Render (no disponible actualmente). Si no existe esa señal, mostrar "Estado no verificado".
 
 No instrumentar los agentes ni las campañas para implementar esto. El panel debe observar las fuentes existentes mediante código separado en la ruta `/agentes/prospeccion`.
 
