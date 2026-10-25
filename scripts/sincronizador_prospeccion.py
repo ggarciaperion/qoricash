@@ -136,37 +136,48 @@ def _es_archivo_valido(name: str) -> bool:
     return nl.endswith('.log') or nl.endswith('_resultado.json')
 
 
-# ── Estado ────────────────────────────────────────────────────────────────────
+# ── Estado por destino ────────────────────────────────────────────────────────
+#
+# Formato v2:
+#   { "version": 2,
+#     "destinos": {
+#       "http://localhost:5002/.../sync-importar": { "enviados": { "file.log": {...} } },
+#       "https://app.render.com/.../sync-importar": { "enviados": {} }
+#     }
+#   }
+#
+# El progreso es independiente por URL de destino:
+# archivos enviados a localhost no bloquean el envío a Render.
 
 def _cargar_estado() -> dict:
-    estado = {'enviados': {}}
+    raw = {}
     if os.path.exists(ESTADO_FILE):
         try:
             with open(ESTADO_FILE, 'r') as f:
-                estado = json.load(f)
+                raw = json.load(f)
         except (OSError, json.JSONDecodeError):
             pass
-    if 'enviados' not in estado:
-        estado['enviados'] = {}
 
-    # Migrar entradas antiguas (sin sha256): calcular hash si el tamaño coincide
-    migrated = False
-    for fname, entry in estado['enviados'].items():
-        if 'sha256' not in entry:
-            fpath = Path(PROSPECCION_DIR) / fname
-            if fpath.exists() and fpath.stat().st_size == entry.get('size', -1):
-                try:
-                    entry['sha256'] = _sha256(fpath)
-                    migrated = True
-                except OSError:
-                    pass
-    if migrated:
-        _guardar_estado(estado)
+    # Migración v1 → v2: formato antiguo tiene 'enviados' en la raíz
+    if 'enviados' in raw and 'destinos' not in raw:
+        raw = {
+            'version': 2,
+            'destinos': {DEFAULT_URL: {'enviados': raw['enviados']}},
+        }
+        _guardar_estado_raw(raw)
 
-    return estado
+    if 'destinos' not in raw:
+        raw = {'version': 2, 'destinos': {}}
+
+    return raw
 
 
-def _guardar_estado(estado: dict):
+def _enviados_para(estado: dict, dest_url: str) -> dict:
+    """Devuelve el sub-dict 'enviados' para un destino concreto."""
+    return estado['destinos'].setdefault(dest_url, {'enviados': {}}).setdefault('enviados', {})
+
+
+def _guardar_estado_raw(estado: dict):
     try:
         with open(ESTADO_FILE, 'w') as f:
             json.dump(estado, f, indent=2, ensure_ascii=False)
@@ -174,12 +185,25 @@ def _guardar_estado(estado: dict):
         print(f'  [WARN] No se pudo guardar estado: {exc}')
 
 
-def _archivos_pendientes(estado: dict) -> list:
+def _migrar_sha256(enviados: dict) -> bool:
+    """Agrega sha256 a entradas antiguas que solo tienen 'size'. Retorna True si hubo cambios."""
+    changed = False
+    for fname, entry in enviados.items():
+        if 'sha256' not in entry:
+            fpath = Path(PROSPECCION_DIR) / fname
+            if fpath.exists() and fpath.stat().st_size == entry.get('size', -1):
+                try:
+                    entry['sha256'] = _sha256(fpath)
+                    changed = True
+                except OSError:
+                    pass
+    return changed
+
+
+def _archivos_pendientes(enviados: dict) -> list:
     """
-    Retorna archivos nuevos o modificados. Usa tamaño + SHA-256 para detectar:
-    - Archivos nunca enviados
-    - Archivos con tamaño distinto (incluyendo truncados)
-    - Archivos con mismo tamaño pero contenido diferente (rotación o re-escritura)
+    Retorna archivos nuevos o modificados para un destino.
+    Compara tamaño + SHA-256: detecta rotación, truncamiento y re-escritura.
     """
     directorio = Path(PROSPECCION_DIR)
     pendientes = []
@@ -192,28 +216,21 @@ def _archivos_pendientes(estado: dict) -> list:
         if size == 0:
             continue
 
-        prev = estado['enviados'].get(p.name)
+        prev = enviados.get(p.name)
         if not prev:
             pendientes.append(p)
             continue
-
-        # Tamaño diferente → cambió
         if prev.get('size') != size:
             pendientes.append(p)
             continue
-
-        # Mismo tamaño pero sin hash guardado → no se puede confirmar
         if 'sha256' not in prev:
             pendientes.append(p)
             continue
-
-        # Mismo tamaño → comparar hash
         try:
-            current_hash = _sha256(p)
+            if _sha256(p) != prev['sha256']:
+                pendientes.append(p)
         except OSError:
             continue
-        if current_hash != prev['sha256']:
-            pendientes.append(p)
 
     return pendientes
 
@@ -320,9 +337,19 @@ def _run(args):
     api_key = '' if args.dry_run else _load_api_key()
     auth_info = 'con clave' if api_key else 'dry-run'
 
-    estado = {'enviados': {}} if args.reset else _cargar_estado()
+    if args.reset:
+        estado = {'version': 2, 'destinos': {}}
+    else:
+        estado = _cargar_estado()
 
-    pendientes = _archivos_pendientes(estado)
+    # Estado separado por destino: archivos enviados a localhost no bloquean Render
+    enviados = _enviados_para(estado, args.url)
+
+    # Migrar entradas antiguas sin sha256 (primera vez que se abre con v2)
+    if _migrar_sha256(enviados):
+        _guardar_estado_raw(estado)
+
+    pendientes = _archivos_pendientes(enviados)
 
     if not pendientes:
         print(f'[{time.strftime("%Y-%m-%d %H:%M:%S")}] Sincronizador: no hay archivos nuevos.')
@@ -376,13 +403,13 @@ def _run(args):
         except OSError:
             file_hash = ''
 
-        estado['enviados'][path.name] = {
+        enviados[path.name] = {
             'size':       path.stat().st_size,
             'sha256':     file_hash,
             'importados': imp,
             'ts':         time.strftime('%Y-%m-%d %H:%M:%S'),
         }
-        _guardar_estado(estado)   # guardar después de cada archivo exitoso
+        _guardar_estado_raw(estado)   # guardar después de cada archivo exitoso
 
     print(f'  Total importados: {total_imp}')
     if errores:

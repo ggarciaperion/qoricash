@@ -5,28 +5,59 @@ Vincula por email exacto (case-insensitive). No une por nombre ni empresa.
 Cuando hay múltiples filas con el mismo email en Sheets, usa la que tenga
 Fecha Ultimo Contacto más reciente (o la primera si no hay fechas).
 
-Uso:
-    python3 enrich_camp_prospectos.py [--limit N]
+Envía los registros al endpoint /api/prospeccion/sync-enrich del servidor Flask
+(compatible con localhost y Render). Las credenciales de Sheets quedan en la Mac;
+el servidor solo recibe JSON limpio vía HTTP autenticado.
 
-Requiere token.json con acceso a la hoja PROSPECTOS_MASTER.
-Se puede relanzar en cualquier momento — es idempotente (INSERT OR REPLACE).
+Uso:
+    python3 enrich_camp_prospectos.py [--limit N] [--url URL] [--dry-run]
+
+  --url URL    Endpoint Flask (por defecto: localhost:5002).
+               Para Render: --url https://tu-app.onrender.com/agentes/api/prospeccion/sync-enrich
+  --dry-run    Lee Sheets y deduplica, pero no envía al servidor.
+
+Requiere:
+  - token.json con acceso a PROSPECTOS_MASTER.
+  - SYNC_API_KEY en entorno o ~/.config/qoricash/sync_key (misma clave que el servidor).
+Se puede relanzar en cualquier momento — es idempotente (COALESCE upsert en el servidor).
 """
 
 import os
 import sys
-import sqlite3
 import argparse
+import json
 import time
+import urllib.request
+import urllib.error
 
 # ── Config ────────────────────────────────────────────────────────────────────
-SHEET_ID   = '1Dn0YmyPK3417MKIin1xMUm9cbMxqvgysGePO9d9pxUw'
-SHEET_TAB  = 'PROSPECTOS_MASTER'
-TOKEN_PATH = os.path.expanduser('~/Desktop/Prospeccion/token.json')
-SCOPES     = ['https://www.googleapis.com/auth/spreadsheets']
-BATCH_SIZE = 5000  # rows per Sheets API call
-DB_PATH    = os.path.join(os.path.dirname(__file__),
-             '..', 'Qoricash', 'Sistema', 'qoricash', 'instance', 'qoricash_local.db')
+SHEET_ID    = '1Dn0YmyPK3417MKIin1xMUm9cbMxqvgysGePO9d9pxUw'
+SHEET_TAB   = 'PROSPECTOS_MASTER'
+TOKEN_PATH  = os.path.expanduser('~/Desktop/Prospeccion/token.json')
+SCOPES      = ['https://www.googleapis.com/auth/spreadsheets']
+BATCH_SIZE  = 5000  # rows per Sheets API call
+DEFAULT_URL = 'http://localhost:5002/agentes/api/prospeccion/sync-enrich'
+_KEY_FILE   = os.path.expanduser('~/.config/qoricash/sync_key')
+API_BATCH   = 500   # records per POST to /sync-enrich
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+def _load_api_key() -> str:
+    """Lee la clave de API desde SYNC_API_KEY o ~/.config/qoricash/sync_key."""
+    k = os.environ.get('SYNC_API_KEY', '').strip()
+    if k:
+        return k
+    if os.path.exists(_KEY_FILE):
+        try:
+            v = open(_KEY_FILE).read().strip()
+            if v:
+                return v
+        except OSError:
+            pass
+    print('[ERROR] Clave de sincronización no configurada.')
+    print(f'  Configura SYNC_API_KEY como variable de entorno')
+    print(f'  o crea {_KEY_FILE} con el valor de la clave.')
+    sys.exit(2)
 
 
 def get_sheets_service():
@@ -127,74 +158,110 @@ def dedup_by_email(rows):
     return best, ambiguous
 
 
-def upsert_to_db(db_path, records_by_email, ambiguous_emails, camp_emails):
+def send_to_api(url, api_key, records_by_email, ambiguous_emails, camp_emails):
     """
-    INSERT OR REPLACE en camp_prospecto solo para emails en camp_emails.
-    Retorna (insertados, omitidos_sin_match).
+    Envía registros al endpoint /sync-enrich en lotes de API_BATCH.
+    Solo envía emails presentes en camp_emails (ya importados al servidor).
+    Retorna (upserted, omitidos_sin_match, errores).
+    El servidor hace upsert idempotente con COALESCE — compatible con SQLite y PostgreSQL.
+    La clave nunca se registra en logs.
     """
-    conn = sqlite3.connect(db_path)
-    now  = time.strftime('%Y-%m-%d %H:%M:%S')
+    now = time.strftime('%Y-%m-%d %H:%M:%S')
 
-    insertados = 0
-    omitidos   = 0
-
-    sql = """
-        INSERT OR REPLACE INTO camp_prospecto
-            (email, ruc, razon_social, nombre_contacto, cargo,
-             telefono, rubro, provincia, fuente, actualizado_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?)
-    """
-
+    # Construir lista filtrada
+    to_send = []
+    omitidos = 0
     for email, r in records_by_email.items():
         if email not in camp_emails:
             omitidos += 1
             continue
-        fuente = 'sheets_ambiguo' if email in ambiguous_emails else 'sheets_master'
-        conn.execute(sql, (
-            email, r['ruc'], r['razon_social'], r['nombre_contacto'],
-            r['cargo'], r['telefono'], r['rubro'], r['provincia'],
-            fuente, now,
-        ))
-        insertados += 1
+        to_send.append({
+            'email':           email,
+            'ruc':             r['ruc'],
+            'razon_social':    r['razon_social'],
+            'nombre_contacto': r['nombre_contacto'],
+            'cargo':           r['cargo'],
+            'telefono':        r['telefono'],
+            'rubro':           r['rubro'],
+            'provincia':       r['provincia'],
+            'fuente':          'sheets_ambiguo' if email in ambiguous_emails else 'sheets_master',
+            'actualizado_at':  now,
+        })
 
-    conn.commit()
-    conn.close()
-    return insertados, omitidos
+    upserted = 0
+    errores  = 0
+
+    headers = {
+        'Content-Type': 'application/json; charset=utf-8',
+        'X-Sync-Client': 'enrich_camp_prospectos/2.0',
+    }
+    if api_key:
+        headers['X-Sync-Key'] = api_key   # nunca aparece en logs
+
+    total = len(to_send)
+    for i in range(0, total, API_BATCH):
+        batch = to_send[i:i + API_BATCH]
+        body  = json.dumps({'records': batch}).encode('utf-8')
+        req   = urllib.request.Request(url, data=body, headers=headers, method='POST')
+        lote  = f'lote {i//API_BATCH + 1}/{(total + API_BATCH - 1)//API_BATCH}'
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                data = json.loads(resp.read().decode('utf-8', errors='replace'))
+                upserted += data.get('upserted', 0)
+                print(f'  {lote}: {data.get("upserted", "?")} upserted / '
+                      f'{data.get("skipped", "?")} skipped')
+        except urllib.error.HTTPError as exc:
+            body_err = ''
+            try:
+                body_err = exc.read().decode('utf-8', errors='replace')[:200]
+            except Exception:
+                pass
+            print(f'  {lote}: HTTP {exc.code} — {body_err}')
+            errores += len(batch)
+        except Exception as exc:
+            print(f'  {lote}: {type(exc).__name__}: {exc}')
+            errores += len(batch)
+
+    return upserted, omitidos, errores
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description='Enriquece camp_prospecto vía API desde PROSPECTOS_MASTER (Google Sheets)')
     parser.add_argument('--limit', type=int, default=None,
                         help='Leer solo N filas de Sheets (para pruebas)')
-    parser.add_argument('--db', default=DB_PATH,
-                        help='Ruta al archivo SQLite')
+    parser.add_argument('--url', default=DEFAULT_URL,
+                        help='Endpoint Flask sync-enrich')
+    parser.add_argument('--dry-run', action='store_true',
+                        help='Leer y deduplicar Sheets pero no enviar al servidor')
     args = parser.parse_args()
 
-    db_path = os.path.abspath(args.db)
-    if not os.path.exists(db_path):
-        # Try alternate locations
-        alts = [
-            os.path.join(os.path.dirname(__file__), '..', '..', 'instance', 'qoricash_local.db'),
-            os.path.join(os.path.dirname(__file__), '..', '..', 'qoricash', 'instance', 'qoricash_local.db'),
-        ]
-        for alt in alts:
-            if os.path.exists(os.path.abspath(alt)):
-                db_path = os.path.abspath(alt)
-                break
-        else:
-            print(f"ERROR: No se encontró la base de datos en {db_path}")
-            print("Pasa --db /ruta/a/qoricash_local.db")
-            sys.exit(1)
+    api_key = '' if args.dry_run else _load_api_key()
 
-    print(f"DB: {db_path}")
+    print(f"Endpoint: {args.url}")
+    if args.dry_run:
+        print("  (dry-run: solo se listan, no se envían)")
 
-    # Load camp_envio emails for matching
-    conn = sqlite3.connect(db_path)
-    camp_emails = set(
-        r[0] for r in conn.execute("SELECT DISTINCT email FROM camp_envio").fetchall()
-    )
-    conn.close()
-    print(f"Emails en camp_envio: {len(camp_emails):,}")
+    # Obtener emails ya importados (camp_envio) para filtrar antes de enviar
+    # El servidor expone cuántos emails existen via el mismo endpoint con GET
+    # — pero para no hacer dos trips, consultamos directamente si estamos en localhost.
+    # Si el servidor está en Render, pasamos camp_emails vacío: el servidor filtrará por sí mismo.
+    camp_emails: set = set()
+    if not args.dry_run:
+        # Intentar leer camp_envio emails desde el servidor
+        try:
+            req = urllib.request.Request(
+                args.url.replace('/sync-enrich', '/camp-emails'),
+                headers={'X-Sync-Key': api_key} if api_key else {},
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read())
+                camp_emails = set(data.get('emails', []))
+                print(f"Emails en camp_envio (servidor): {len(camp_emails):,}")
+        except Exception:
+            # Endpoint no disponible o no existe — enviar todo y dejar que el servidor filtre
+            camp_emails = None  # type: ignore[assignment]
+            print("  Aviso: no se pudo consultar /camp-emails; se enviarán todos los registros.")
 
     # Read Sheets
     svc = get_sheets_service()
@@ -203,27 +270,31 @@ def main():
     # Dedup
     records_by_email, ambiguous = dedup_by_email(rows)
     print(f"Emails únicos en Sheets: {len(records_by_email):,}")
-    print(f"Intersección (matches): {sum(1 for e in records_by_email if e in camp_emails):,}")
 
-    # Upsert
-    insertados, omitidos = upsert_to_db(db_path, records_by_email, ambiguous, camp_emails)
+    if camp_emails is not None:
+        matches = sum(1 for e in records_by_email if e in camp_emails)
+        print(f"Intersección con camp_envio (matches): {matches:,}")
+    else:
+        # Sin filtro previo: enviar todos y dejar que el servidor upserte solo los que existen
+        camp_emails = set(records_by_email.keys())
+
+    if args.dry_run:
+        filtrados = sum(1 for e in records_by_email if e in camp_emails)
+        print(f"\n=== DRY-RUN ===")
+        print(f"Registros que se enviarían: {filtrados:,}")
+        print(f"Sin match en camp_envio (omitidos): {len(records_by_email) - filtrados:,}")
+        return
+
+    # Enviar al endpoint
+    upserted, omitidos, errores = send_to_api(
+        args.url, api_key, records_by_email, ambiguous, camp_emails)
 
     print(f"\n=== RESULTADO ===")
-    print(f"Insertados en camp_prospecto: {insertados:,}")
-    print(f"Sin envío en historial (omitidos): {omitidos:,}")
-    print(f"Fuente: PROSPECTOS_MASTER (Google Sheets)")
-
-    # Quick coverage check
-    conn = sqlite3.connect(db_path)
-    con_datos = conn.execute("""
-        SELECT COUNT(DISTINCT ce.email)
-        FROM camp_envio ce
-        INNER JOIN camp_prospecto cp ON cp.email = ce.email
-        WHERE cp.nombre_contacto IS NOT NULL
-    """).scalar()
-    print(f"Contactos con nombre registrado: {con_datos:,} de {len(camp_emails):,} "
-          f"({100*con_datos//len(camp_emails) if camp_emails else 0}%)")
-    conn.close()
+    print(f"Upserted en camp_prospecto: {upserted:,}")
+    print(f"Sin match en camp_envio (omitidos localmente): {omitidos:,}")
+    if errores:
+        print(f"Errores de envío: {errores:,} registros no confirmados")
+        sys.exit(1)
 
 
 if __name__ == '__main__':

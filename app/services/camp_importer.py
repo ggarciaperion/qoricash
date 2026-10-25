@@ -153,6 +153,99 @@ def init_camp_tables():
         log.warning("camp_importer: init_camp_tables: %s", exc)
 
 
+# ── Upsert enriquecimiento ────────────────────────────────────────────────────
+
+def upsert_prospectos(records: list) -> tuple:
+    """
+    Inserta o actualiza registros en camp_prospecto de forma idempotente.
+
+    Reglas de actualización (no borrar datos existentes con campos vacíos):
+      - Si el campo entrante es NULL/vacío, conserva el valor existente (COALESCE).
+      - Solo 'fuente' y 'actualizado_at' se sobreescriben siempre.
+
+    Compatible con SQLite (3.24+, que soporta ON CONFLICT DO UPDATE)
+    y PostgreSQL (ON CONFLICT ... DO UPDATE con EXCLUDED).
+
+    Retorna (upserted, skipped, error_list).
+    """
+    from app.extensions import db
+    from datetime import datetime
+
+    _FIELDS = ('email', 'ruc', 'razon_social', 'nombre_contacto',
+               'cargo', 'telefono', 'rubro', 'provincia', 'fuente')
+
+    upserted = skipped = 0
+    error_list = []
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    # SQL idempotente compatible con SQLite 3.24+ y PostgreSQL.
+    # COALESCE(EXCLUDED.x, camp_prospecto.x) conserva el valor existente cuando
+    # el campo entrante es NULL.
+    sql = db.text("""
+        INSERT INTO camp_prospecto
+            (email, ruc, razon_social, nombre_contacto, cargo,
+             telefono, rubro, provincia, fuente, actualizado_at)
+        VALUES
+            (:email, :ruc, :razon_social, :nombre_contacto, :cargo,
+             :telefono, :rubro, :provincia, :fuente, :actualizado_at)
+        ON CONFLICT (email) DO UPDATE SET
+            ruc              = COALESCE(EXCLUDED.ruc,             camp_prospecto.ruc),
+            razon_social     = COALESCE(EXCLUDED.razon_social,    camp_prospecto.razon_social),
+            nombre_contacto  = COALESCE(EXCLUDED.nombre_contacto, camp_prospecto.nombre_contacto),
+            cargo            = COALESCE(EXCLUDED.cargo,            camp_prospecto.cargo),
+            telefono         = COALESCE(EXCLUDED.telefono,         camp_prospecto.telefono),
+            rubro            = COALESCE(EXCLUDED.rubro,            camp_prospecto.rubro),
+            provincia        = COALESCE(EXCLUDED.provincia,        camp_prospecto.provincia),
+            fuente           = EXCLUDED.fuente,
+            actualizado_at   = EXCLUDED.actualizado_at
+    """)
+
+    BATCH = 500
+    batch_params = []
+
+    def _flush():
+        nonlocal upserted
+        if not batch_params:
+            return
+        try:
+            db.session.execute(sql, batch_params)
+            db.session.commit()
+            upserted += len(batch_params)
+        except Exception as exc:
+            db.session.rollback()
+            error_list.append(str(exc)[:120])
+
+    for r in records:
+        email = (r.get('email') or '').strip().lower()
+        if not email or '@' not in email:
+            skipped += 1
+            continue
+
+        def _str(v):
+            v = (v or '').strip()
+            return v if v else None
+
+        batch_params.append({
+            'email':           email,
+            'ruc':             _str(r.get('ruc')),
+            'razon_social':    _str(r.get('razon_social')),
+            'nombre_contacto': _str(r.get('nombre_contacto')),
+            'cargo':           _str(r.get('cargo')),
+            'telefono':        _str(r.get('telefono')),
+            'rubro':           _str(r.get('rubro')),
+            'provincia':       _str(r.get('provincia')),
+            'fuente':          _str(r.get('fuente')) or 'sheets_master',
+            'actualizado_at':  now,
+        })
+
+        if len(batch_params) >= BATCH:
+            _flush()
+            batch_params.clear()
+
+    _flush()
+    return upserted, skipped, error_list
+
+
 # ── Parsers ───────────────────────────────────────────────────────────────────
 
 def parse_log_content(content, filename):

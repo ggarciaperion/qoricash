@@ -393,6 +393,46 @@ def api_sync_importar():
     })
 
 
+@agentes_bp.route('/api/prospeccion/sync-enrich', methods=['POST'])
+@csrf.exempt
+def api_sync_enrich():
+    """
+    Recibe registros de camp_prospecto desde enrich_camp_prospectos.py.
+    Requiere X-Sync-Key. Idempotente: campos vacíos no sobreescriben datos existentes.
+    Compatible con SQLite (dev) y PostgreSQL (producción).
+    Body: {"records": [{email, ruc, razon_social, nombre_contacto, cargo,
+                         telefono, rubro, provincia, fuente}]}
+    """
+    expected = os.environ.get('SYNC_API_KEY', '').strip()
+    if not expected:
+        return jsonify({'error': 'Sincronización no configurada en este servidor'}), 503
+    if request.headers.get('X-Sync-Key', '') != expected:
+        _log.warning('api_sync_enrich: clave inválida desde %s', request.remote_addr)
+        return jsonify({'error': 'No autorizado'}), 401
+
+    data = request.get_json(silent=True)
+    if not data or not isinstance(data.get('records'), list):
+        return jsonify({'error': 'Body JSON requerido: {"records": [...]}'}), 400
+
+    records = data['records']
+    if not records:
+        return jsonify({'ok': True, 'upserted': 0, 'skipped': 0})
+
+    from app.services.camp_importer import init_camp_tables, upsert_prospectos
+    try:
+        init_camp_tables()
+    except Exception as exc:
+        return jsonify({'error': f'Error inicializando tablas: {exc}'}), 500
+
+    try:
+        upserted, skipped, errors = upsert_prospectos(records)
+    except Exception as exc:
+        _log.error('api_sync_enrich: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+    return jsonify({'ok': True, 'upserted': upserted, 'skipped': skipped, 'errors': errors})
+
+
 @agentes_bp.route('/api/prospeccion/contactos')
 def api_contactos():
     """
