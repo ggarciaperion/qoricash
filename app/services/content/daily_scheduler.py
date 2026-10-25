@@ -91,6 +91,11 @@ def try_generate_today(force=False):
         return False, f'Entrega del {today} ya existe ({entrega.status})'
     if entrega and entrega.status == 'generando' and not force:
         return False, f'Entrega del {today} ya está generándose'
+    if entrega and entrega.pipeline_id and not force:
+        return False, (
+            f'Entrega del {today} ya tiene pipeline #{entrega.pipeline_id} '
+            f'({entrega.status}) — usar recover_pipeline'
+        )
 
     hoy_str  = today.strftime('%Y-%m-%d')
     pipeline = create_pipeline('diario',
@@ -279,29 +284,53 @@ def run_scheduler_loop(app):
             if e.status == 'listo':
                 _repaired_today = today   # no reparar lo que ya está listo
         elif _in_window(now_lima):
-            log.info('[ESTUDIO-SCHED] Startup recovery (en ventana): generando entrega del día')
-            try:
-                ok, msg = try_generate_today()
-                if ok:
-                    _fired_today = today
+            if e and e.pipeline_id:
+                log.info('[ESTUDIO-SCHED] Startup recovery (en ventana): recuperando pipeline existente')
+                try:
+                    ok, msg, _ = recover_pipeline(e.pipeline_id, today)
+                    if ok:
+                        _fired_today = today
                     log.info(f'[ESTUDIO-SCHED] Startup recovery: {msg}')
-            except Exception as ex:
-                log.error(f'[ESTUDIO-SCHED] Startup recovery error: {ex}')
-        else:
-            t = (now_lima.hour, now_lima.minute)
-            if t > WINDOW_END and (not e or e.status == 'error'):
-                log.info('[ESTUDIO-SCHED] Startup recovery tardío: generando entrega atrasada')
+                except Exception as ex:
+                    log.error(f'[ESTUDIO-SCHED] Startup recovery error: {ex}')
+            else:
+                log.info('[ESTUDIO-SCHED] Startup recovery (en ventana): generando entrega del día')
                 try:
                     ok, msg = try_generate_today()
                     if ok:
                         _fired_today = today
-                        e2 = EntregaDiaria.query.filter_by(fecha=today).first()
-                        if e2:
-                            e2.notas = (e2.notas or '') + ' [entrega atrasada — generada fuera de ventana]'
-                            db.session.commit()
-                        log.info(f'[ESTUDIO-SCHED] Tardío: {msg}')
+                        log.info(f'[ESTUDIO-SCHED] Startup recovery: {msg}')
                 except Exception as ex:
-                    log.error(f'[ESTUDIO-SCHED] Startup recovery tardío error: {ex}')
+                    log.error(f'[ESTUDIO-SCHED] Startup recovery error: {ex}')
+        else:
+            t = (now_lima.hour, now_lima.minute)
+            if t > WINDOW_END and (not e or e.status == 'error'):
+                if e and e.pipeline_id:
+                    log.info('[ESTUDIO-SCHED] Startup recovery tardío: recuperando pipeline existente')
+                    try:
+                        ok, msg, _ = recover_pipeline(e.pipeline_id, today)
+                        if ok:
+                            _fired_today = today
+                            e2 = EntregaDiaria.query.filter_by(fecha=today).first()
+                            if e2:
+                                e2.notas = (e2.notas or '') + ' [entrega atrasada — recuperada fuera de ventana]'
+                                db.session.commit()
+                        log.info(f'[ESTUDIO-SCHED] Tardío: {msg}')
+                    except Exception as ex:
+                        log.error(f'[ESTUDIO-SCHED] Startup recovery tardío error: {ex}')
+                else:
+                    log.info('[ESTUDIO-SCHED] Startup recovery tardío: generando entrega atrasada')
+                    try:
+                        ok, msg = try_generate_today()
+                        if ok:
+                            _fired_today = today
+                            e2 = EntregaDiaria.query.filter_by(fecha=today).first()
+                            if e2:
+                                e2.notas = (e2.notas or '') + ' [entrega atrasada — generada fuera de ventana]'
+                                db.session.commit()
+                            log.info(f'[ESTUDIO-SCHED] Tardío: {msg}')
+                    except Exception as ex:
+                        log.error(f'[ESTUDIO-SCHED] Startup recovery tardío error: {ex}')
             else:
                 _fired_today = today
 
@@ -314,7 +343,12 @@ def run_scheduler_loop(app):
             # Generación inicial: ventana 6:30–7:25 AM
             if _in_window(now_lima) and _fired_today != today:
                 with app.app_context():
-                    ok, msg = try_generate_today()
+                    from app.models.content_pipeline import EntregaDiaria as _ED
+                    e_cur = _ED.query.filter_by(fecha=today).first()
+                    if e_cur and e_cur.pipeline_id and e_cur.status in ('error', 'parcial'):
+                        ok, msg, _ = recover_pipeline(e_cur.pipeline_id, today)
+                    else:
+                        ok, msg = try_generate_today()
                     if ok:
                         log.info(f'[ESTUDIO-SCHED] {msg}')
                     _fired_today = today  # no reintentar en la misma ventana aunque fallara

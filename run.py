@@ -6,16 +6,18 @@ Producción: gunicorn -c gunicorn_config.py run:app
 """
 # CRÍTICO: Monkey patch de eventlet DEBE ser lo primero
 # Esto debe ejecutarse antes de cualquier import de threading, SQLAlchemy, etc.
+# FLASK_CLI_ONLY=true → omitir monkey_patch (comandos flask estudio-recuperar, etc.)
+import os as _os_pre
 import eventlet
-eventlet.monkey_patch()
-
-# Configurar psycopg2 para eventlet INMEDIATAMENTE después del monkey patch
-try:
-    from psycogreen.eventlet import patch_psycopg
-    patch_psycopg()
-    print("[RUN.PY] psycopg2 patched con psycogreen")
-except ImportError:
-    print("[RUN.PY] WARNING: psycogreen no disponible")
+if not _os_pre.environ.get('FLASK_CLI_ONLY'):
+    eventlet.monkey_patch()
+    # Configurar psycopg2 para eventlet INMEDIATAMENTE después del monkey patch
+    try:
+        from psycogreen.eventlet import patch_psycopg
+        patch_psycopg()
+        print("[RUN.PY] psycopg2 patched con psycogreen")
+    except ImportError:
+        print("[RUN.PY] WARNING: psycogreen no disponible")
 
 import os
 from dotenv import load_dotenv
