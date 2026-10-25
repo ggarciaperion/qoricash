@@ -196,8 +196,8 @@ def _run_diario(stage, pipeline):
         titulo = noticia.get('title', noticia.get('titulo', ''))
         resumen = noticia.get('summary', noticia.get('resumen', titulo))[:500]
         nota_tc = ''
-        if cat == 'mercados':
-            nota_tc = '\nNOTA: Este dato corresponde al ÚLTIMO CIERRE de la sesión bursátil. No es un precio en tiempo real.'
+        if noticia.get('is_market_feed'):
+            nota_tc = '\nNOTA: Este dato corresponde al ÚLTIMO CIERRE de la sesión (feed interno). No es precio en tiempo real.'
         noticias_ctx.append(
             f'CATEGORÍA: {cat} — {label}\n'
             f'Título: {titulo}\n'
@@ -258,18 +258,25 @@ Solo JSON, sin texto adicional."""
         else:
             posts = result.get('posts', [])
 
-        # Forzar categoria correcta por posición (por si el modelo la cambia)
-        for i, post in enumerate(posts):
-            if i < len(cats_disponibles):
-                post['categoria'] = cats_disponibles[i]
-                # Rellenar atribución desde categorized si el modelo lo omitió
-                noticia = categorized[cats_disponibles[i]]
-                if not post.get('fuente_nombre'):
-                    post['fuente_nombre'] = noticia.get('source', noticia.get('fuente_nombre', ''))
-                if not post.get('fuente_url'):
-                    post['fuente_url'] = noticia.get('url', noticia.get('fuente_url', ''))
-                if not post.get('fecha_publicacion'):
-                    post['fecha_publicacion'] = noticia.get('fecha', noticia.get('published', ''))
+        # Mantener la categoría devuelta por el modelo.
+        # Sólo rellenar atribución si el modelo la omitió (usando la noticia real de esa categoría).
+        for post in posts:
+            cat_post = post.get('categoria', '')
+            if cat_post not in categorized:
+                continue   # categoría desconocida: dejar sin modificar
+            noticia = categorized[cat_post]
+            if not post.get('fuente_nombre'):
+                post['fuente_nombre'] = noticia.get('source_name',
+                                        noticia.get('source', noticia.get('fuente_nombre', '')))
+            if not post.get('fuente_url'):
+                post['fuente_url'] = noticia.get('url', noticia.get('fuente_url', ''))
+            # Fecha: solo rellenar si la hay en la fuente (no sintetizar fecha desconocida)
+            if not post.get('fecha_publicacion'):
+                fecha_real = (noticia.get('published_at') or
+                              noticia.get('fecha') or
+                              noticia.get('published') or '')
+                if fecha_real:
+                    post['fecha_publicacion'] = fecha_real
 
         return {
             'ok':               True,

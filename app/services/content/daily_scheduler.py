@@ -1,9 +1,19 @@
 """
 Scheduler diario del Estudio Creativo.
 
-Se inicia desde gunicorn_config.py (post_fork) y desde run.py (__main__).
-Ventana de generación: 5:00 AM – 7:55 AM Lima.
-Control de duplicados: EntregaDiaria.fecha (unique constraint en DB).
+INICIO:
+  - Con gunicorn (comando Render): `python3 -m gunicorn --worker-class eventlet -w 1 run:app`
+    preload_app=False → cada worker importa run.py → eventlet.spawn_after(2, start_all_schedulers)
+    → start_all_schedulers() llama daily_scheduler.spawn(app) ~2 s después del fork.
+  - Con python run.py (desarrollo): __main__ llama start_all_schedulers() directamente.
+
+VENTANA NORMAL: 5:00 AM – 7:55 AM Lima.
+RECUPERACIÓN ATRASADA: si el servidor arranca después de las 7:55 y no hay entrega del día,
+  genera una sola vez y marca la entrega con notas='atrasada'.
+
+CONTROL DE DUPLICADOS: EntregaDiaria.fecha (UNIQUE en DB) + flags en memoria (_fired_today).
+  Seguro entre reinicios (DB) y en workers únicos (memoria). Con workers > 1 la DB sería
+  la única garantía (race condition estrecha en el commit — aceptable dado workers=1 en Render).
 """
 import logging
 from datetime import timezone, timedelta, date as _date, datetime as _dt
@@ -96,24 +106,46 @@ def run_scheduler_loop(app):
     import eventlet
     _fired_today = None
 
-    # Startup recovery: si arrancamos dentro de la ventana y falta la entrega, lanzar
+    # ── Startup recovery ──────────────────────────────────────────────────────
     with app.app_context():
         now_lima = _now_lima()
         today    = now_lima.date()
-        if _in_window(now_lima):
-            from app.models.content_pipeline import EntregaDiaria
-            e = EntregaDiaria.query.filter_by(fecha=today).first()
-            if not e or e.status == 'error':
-                log.info('[ESTUDIO-SCHED] Startup recovery: generando entrega del día')
+        from app.models.content_pipeline import EntregaDiaria
+        from app.extensions import db
+        e = EntregaDiaria.query.filter_by(fecha=today).first()
+
+        if e and e.status not in ('error',):
+            # Ya existe y no está en error: no hacer nada
+            _fired_today = today
+        elif _in_window(now_lima):
+            # Dentro de la ventana y sin entrega válida → generar
+            log.info('[ESTUDIO-SCHED] Startup recovery (en ventana): generando entrega del día')
+            try:
+                ok, msg = try_generate_today()
+                if ok:
+                    _fired_today = today
+                    log.info(f'[ESTUDIO-SCHED] Startup recovery: {msg}')
+            except Exception as ex:
+                log.error(f'[ESTUDIO-SCHED] Startup recovery error: {ex}')
+        else:
+            # Fuera de la ventana (arranque tardío o reinicio) → recuperar UNA vez si falta
+            t = (now_lima.hour, now_lima.minute)
+            if t > WINDOW_END and (not e or e.status == 'error'):
+                log.info('[ESTUDIO-SCHED] Startup recovery tardío: generando entrega atrasada')
                 try:
                     ok, msg = try_generate_today()
                     if ok:
                         _fired_today = today
-                        log.info(f'[ESTUDIO-SCHED] Startup recovery: {msg}')
+                        # Marcar como atrasada
+                        e2 = EntregaDiaria.query.filter_by(fecha=today).first()
+                        if e2:
+                            e2.notas = (e2.notas or '') + ' [entrega atrasada — generada fuera de ventana]'
+                            db.session.commit()
+                        log.info(f'[ESTUDIO-SCHED] Tardío: {msg}')
                 except Exception as ex:
-                    log.error(f'[ESTUDIO-SCHED] Startup recovery error: {ex}')
+                    log.error(f'[ESTUDIO-SCHED] Startup recovery tardío error: {ex}')
             else:
-                _fired_today = today   # ya existe, marcar como disparado
+                _fired_today = today   # ya dentro del día pero sin necesidad de generar
 
     while True:
         try:

@@ -1,4 +1,4 @@
-# Estudio Creativo — Nota de Continuidad (25 Oct 2026)
+# Estudio Creativo — Nota de Continuidad (25 Oct 2026, rev. correcciones)
 
 ## Estado del servidor
 - **Puerto**: 5002
@@ -59,53 +59,57 @@ investigador → editor → creativo → productor → revisor
 | `/contenido/api/propuesta/<id>/planificar-diario` | POST | Planifica pieza, resource_status=planificado |
 | `/contenido/api/propuesta/<id>/cargar-recurso-diario` | POST | Sube imagen/video, resource_status=recurso_cargado |
 
-## Scheduler
+## Scheduler — cómo se inicia y recupera
 
-### Local (gunicorn+eventlet)
-Configurado en `run.py` como greenlet + tpool. Se inicia automáticamente en `eventlet.spawn_after(2, ...)` cuando el worker arranca. Lanza el pipeline a las **5:00-5:05 AM Lima** si no existe EntregaDiaria para hoy.
+### Con el comando real de Gunicorn (local y Render)
+```
+python3 -m gunicorn --worker-class eventlet -w 1 --bind 127.0.0.1:5002 --timeout 300 run:app
+```
+- `preload_app=False` (default): el worker importa `run.py` → ejecuta `eventlet.spawn_after(2, start_all_schedulers)`.
+- A los ~2 s del fork: `start_all_schedulers()` llama `daily_scheduler.spawn(app)` → lanza `run_scheduler_loop` en un greenlet del hub de eventlet.
+- **No** hace falta `python run.py`; con gunicorn funciona exactamente igual.
 
 Para desactivar: `export ESTUDIO_DIARIO_AUTO=false` antes de arrancar.
 
-### Render producción — qué activar
-**Opción 1 (scheduler interno — cero costo adicional):**
-El scheduler ya está en `run.py`. Al hacer deploy, correrá automáticamente en el web worker.
-Simplemente asegurarse de que `ESTUDIO_DIARIO_AUTO` NO esté seteado como `false` en Render.
+### Ventanas de generación
+| Escenario | Comportamiento |
+|-----------|---------------|
+| Arranca 5:00–7:55 AM sin entrega → genera de inmediato (startup recovery normal) |
+| Arranca 5:00–7:55 AM y entrega ya existe → marca `_fired_today`, no vuelve a lanzar |
+| Loop normal 5:00–7:55 AM → lanza la entrega una vez (`_fired_today` evita repetición) |
+| **Arranca después de 7:55 sin entrega** → genera una vez, `entrega.notas` += `[entrega atrasada]` |
 
-**Opción 2 (Render Cron Job — más robusto, $1/mes):**
-Crear un Cron Job en Render con:
-- Comando: `curl -X POST https://<tu-app>.onrender.com/contenido/api/generar-diario-sync -H "Content-Type: application/json" -d '{}'`
-- Horario: `0 10 * * *` (10:00 UTC = 5:00 AM Lima)
-- Timeout: 600s
+### Control de duplicados (verificado)
+- **DB**: `EntregaDiaria.fecha UNIQUE` — cualquier segundo worker o reinicio que intente crear la entrega falla silenciosamente (ya existe).
+- **Memoria**: `_fired_today` flag en el greenlet — el loop no reintenta en el mismo día.
+- Conclusión: seguro con `workers=1` (configuración de Render). Con `workers>1` la DB es la única garantía (race condition pequeña en el commit; aceptable).
 
-## Entrega demostrada localmente (pipeline #28)
-| Pieza | Tipo | Categoría | Tema | Palabras | Prompt |
-|-------|------|-----------|------|----------|--------|
-| #28 | noticia | mercados | USD/PEN cierra en 3.4455 | 90 | OK 686c |
-| #29 | noticia | mercados | Bitcoin 80,800 USD antes de Fed | 103 | OK 723c |
-| #30 | noticia | internacional | Midterms EE.UU. incertidumbre Wall Street | 97 | OK 732c |
-| #31 | comercial | — | Cambia dólares desde donde estés | 75 | OK 697c |
-| #32 | comercial | — | Tipo de cambio pensado para negocios | ~90 | OK 738c |
-| #33 | comercial | — | El comercio exterior no para a las 6 pm | ~85 | OK 766c |
+### Render producción — Opción Cron Job ($1/mes, más robusto)
+Crear Cron Job en Render:
+```
+curl -s -X POST https://<app>.onrender.com/contenido/api/generar-diario-sync \
+  -H "Content-Type: application/json" \
+  -H "X-Cron-Token: <ESTUDIO_CRON_TOKEN>" \
+  -d '{}'
+```
+- Schedule: `0 10 * * *` (10:00 UTC = 5:00 AM Lima)
+- Timeout: 600 s
+- **ESTUDIO_CRON_TOKEN es obligatorio** en las variables de entorno de Render.
 
-## Cambios en esta sesión (sin commit)
-| Archivo | Cambio |
-|---------|--------|
-| `app/models/content_proposal.py` | +pipeline_id, delivery_type, noticia_category, resource_status, revisor_notas, correcciones, retry_count + properties |
-| `app/models/content_pipeline.py` | +EntregaDiaria model |
-| `app/services/content/pipeline_coordinator.py` | +tipo 'diario' en PIPELINE_SEQUENCES; editor mode 'investigador' |
-| `app/services/content/agents/investigador.py` | +_run_diario (3 noticias categorizadas, 48h/7d window) |
-| `app/services/content/agents/editor.py` | +_run_diario (3 posts LinkedIn 80-140 palabras) |
-| `app/services/content/agents/creativo.py` | +_run_diario (3 propuestas com. + visual prompts, audiencia rotativa) |
-| `app/services/content/agents/productor.py` | +_run_diario (Director Visual: 6 prompts Gemini/Flow, sin Pillow) |
-| `app/services/content/agents/revisor.py` | +_run_diario (revisa 6 piezas, correcciones, resource_status) |
-| `app/routes/contenido.py` | +/hoy, +/api/generar-diario, +/api/generar-diario-sync, +aprobar/planificar/cargar-recurso-diario |
-| `app/templates/contenido/hoy.html` | nueva vista principal Entrega de Hoy |
-| `app/templates/contenido/agentes.html` | +tab "Entrega de Hoy" |
-| `run.py` | +start_daily_content_scheduler (greenlet, 5 AM Lima, tpool) |
-| `migrations/versions/d1a2r3i4o5d6_daily_delivery.py` | migración (aplicada manualmente a SQLite) |
+## Autenticación de endpoints
+
+| Endpoint | Protección |
+|----------|-----------|
+| `/contenido/api/generar-diario` (async, manual) | Sesión + rol + CSRF — nunca expone el token cron |
+| `/contenido/api/generar-diario-sync` (cron externo) | `X-Cron-Token` requerido; 503 si `ESTUDIO_CRON_TOKEN` no está configurado; 401 si token ausente o incorrecto |
+
+## Entrega original (pipeline #28) — nota
+Pipeline #28 tenía dos noticias de mercados y una internacional, sin nacional.
+Las correcciones de código garantizan que el próximo pipeline diario tenga exactamente
+una noticia por categoría (nacional/internacional/mercados), con su fuente real sin reclasificación.
 
 ## Para deploy a Render
-1. Commit todos los archivos untracked del módulo (ver lista arriba + archivos originales c1o2n3t4e5n6)
-2. La migración `d1a2r3i4o5d6` usa `batch_alter_table` (compatible SQLite y PostgreSQL)
-3. El scheduler interno se activa solo al arrancar el worker
-4. Verificar que `ESTUDIO_DIARIO_AUTO` no esté bloqueado en variables de entorno de Render
+1. `ESTUDIO_CRON_TOKEN` es variable de entorno obligatoria si se usa el Cron Job.
+2. `ESTUDIO_DIARIO_AUTO` no debe estar en `false` si se usa el scheduler interno.
+3. La migración `d1a2r3i4o5d6` usa `batch_alter_table` (compatible SQLite y PostgreSQL).
+4. Commits incluidos: `92e93341` (feat inicial) + siguiente (correcciones).

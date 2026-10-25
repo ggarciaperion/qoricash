@@ -212,8 +212,8 @@
               {{ fuente.fuente_nombre }}
             {% endif %}
             {% if fuente.fecha %} · {{ fuente.fecha }}{% endif %}
-            {% if p.noticia_category == 'mercados' %}
-              <span class="text-warning ms-1" title="Precio del último cierre de sesión">
+            {% if fuente.is_market_feed %}
+              <span class="text-warning ms-1" title="Dato del último cierre de la sesión bursátil">
                 <i class="bi bi-clock-history"></i> último cierre
               </span>
             {% endif %}
