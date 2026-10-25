@@ -114,9 +114,47 @@ curl -s -X POST https://<app>.onrender.com/contenido/api/generar-diario-sync \
 | `f37cb165` | **feature/estudio-creativo** | cherry-pick de `1c6b8d24` — rama propia de Estudio Creativo |
 
 ## Coordinación de ramas
-- **`feature/estudio-creativo`**: rama propia del módulo. Contiene solo `f37cb165` (cherry-pick de la dirección visual) sobre master. Usar esta rama para futuros cambios de Estudio Creativo y para el deploy.
-- **`cleanup/prospeccion-inventario`**: rama de Terminal 2 (Prospección). Tiene `1c6b8d24` también, pero es secundario — no se modificó mientras Terminal 2 trabajaba y no arrastra cambios de Prospección.
-- **Regla**: próximos cambios de Estudio Creativo van a `feature/estudio-creativo`, no a la rama de Prospección.
+| Rama | Propósito | Estado |
+|------|-----------|--------|
+| **`deploy/estudio-creativo`** | Producción Render — solo Estudio Creativo | Pusheado, esperando activación en dashboard |
+| **`feature/estudio-creativo`** | Desarrollo del módulo | Actualizado con scheduler 6:30 AM |
+| `cleanup/prospeccion-inventario` | Rama Terminal 2 (Prospección) | Sin cambios de Prospección |
+| `master` | Base — Prospección no desplegada aún | No modificado |
+
+**Regla**: futuros cambios de Estudio Creativo van a `feature/estudio-creativo`; merges a `deploy/estudio-creativo` para producción.
+
+## Deploy a Render — instrucciones pendientes
+
+La rama `deploy/estudio-creativo` (HEAD: `b08810a6`) está en GitHub. Para activar el deploy:
+
+**Opción A (recomendada):** En Render dashboard → servicio `qoricash` → Settings →
+"Branch" → cambiar a `deploy/estudio-creativo` → Save → Click "Manual Deploy".
+
+**Opción B:** Si el servicio usa Blueprint sync: Render dashboard → Blueprint →
+"Sync" → seleccionar `deploy/estudio-creativo`.
+
+**Variable secreta requerida:** Antes del deploy, en Render dashboard → Environment →
+agregar `ESTUDIO_CRON_TOKEN` con un valor aleatorio (solo si se usará el endpoint cron externo).
+Generarlo con: `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`
+Si solo se usa el scheduler interno, esta variable puede dejarse vacía o ausente.
+
+**Commit que se desplegará:** `b08810a6` — render.yaml con branch + vars Estudio.
+
+## Scheduler en producción (configurado en deploy/estudio-creativo)
+| Evento | Hora Lima | Comportamiento |
+|--------|-----------|---------------|
+| Generación inicial | 6:30 AM | Pipeline completo: investigador → editor → creativo → productor → revisor |
+| Fin de ventana | 7:25 AM | No se inician nuevas generaciones completas |
+| Comprobación | 7:30 AM | Si la entrega no es `listo`, reintenta solo etapas fallidas (máx 1 vez) |
+| Deadline visible | 8:00 AM | `/contenido/hoy` muestra `listo`, `parcial` (Entrega incompleta) o `error` |
+| Recuperación | arranque | Si no hay entrega del día: genera de inmediato (si en ventana) o atrasada (si después) |
+
+**Funcionamiento en Render (gunicorn + eventlet):**
+- `gunicorn -c gunicorn_config.py run:app`
+- `run.py` importado por cada worker → `eventlet.spawn_after(2, start_all_schedulers)`
+- Scheduler corre en un greenlet propio dentro del worker
+- No depende del usuario ni del panel — completamente autónomo
+- Requiere `ESTUDIO_DIARIO_AUTO=true` (valor por defecto)
 
 ## Estado al cierre de la sesión de correcciones (25 Oct 2026)
 - **Pipeline #36**: `parcial` — 5 etapas completadas, 2 noticias + 3 comerciales.
@@ -186,14 +224,11 @@ extendido"*. El texto es correcto y no requiere reemplazarse por frases genéric
 - Muestras 45 (WhatsApp), 32 (Negocios) y 39 (Viajes) conservadas en `pendiente_aprobacion`.
 
 ## Próximos pasos
-1. Aprobación individual de las piezas cuando corresponda — dirección visual no aprueba el contenido.
-2. Los 3 agentes ya reflejan la nueva dirección para futuros pipelines.
-3. Revisión editorial: textos de los posts de las 3 noticias del pipeline 28.
-4. Decisión de deploy: scheduler interno en Render **o** Cron Job ($1/mes).
-5. Variables antes del deploy:
-   - `ESTUDIO_CRON_TOKEN` (obligatoria si se usa el endpoint cron)
-   - `ESTUDIO_DIARIO_AUTO=false` solo si se quiere desactivar el scheduler interno
-6. Para el deploy: usar rama `feature/estudio-creativo`, no `cleanup/prospeccion-inventario`.
+1. **Activar deploy en Render**: seguir instrucciones de la sección anterior.
+2. **Verificar post-deploy**: `/contenido/hoy` con auth, textos y prompts accesibles, scheduler con próxima ejecución en hora Lima.
+3. Aprobación individual de piezas (dirección visual aprobada, contenido pendiente por pieza).
+4. Revisión editorial: textos de las 3 noticias del pipeline 28.
+5. Primera entrega automática: mañana 26 Oct 2026 a las 6:30 AM Lima — registrar hora inicio, fin y estado para confirmar que terminó antes de las 8:00 AM.
 
 ## Para deploy a Render
 1. `ESTUDIO_CRON_TOKEN` obligatorio si se usa el Cron Job (endpoint sync).
