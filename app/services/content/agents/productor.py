@@ -305,20 +305,36 @@ Devuelve un array JSON de {len(piezas_para_prompt)} objetos. Solo JSON."""
     proposals_created = []
     sources = _collect_pipeline_sources(pipeline)
 
+    # Idempotencia: saber qué categorías de noticias y cuántas comerciales ya existen.
+    existing_cats = {
+        p.noticia_category
+        for p in ContentProposal.query.filter_by(
+            pipeline_id=pipeline.id, delivery_type='noticia'
+        ).all()
+        if p.noticia_category
+    }
+    cok_existing = ContentProposal.query.filter_by(
+        pipeline_id=pipeline.id, delivery_type='comercial'
+    ).count()
+
     # Noticias → ContentProposal (delivery_type=noticia)
     for i, post in enumerate(posts):
+        cat = post.get('categoria', 'internacional')
+        if cat in existing_cats:
+            log.info(f'[DirectorVisual] Noticia categoría "{cat}" ya existe para pipeline #{pipeline.id} — omitiendo')
+            continue
         pm = prompts_map.get(('noticia', i), {})
         cat_label = {
             'nacional': 'Economía Perú', 'internacional': 'Internacional',
             'mercados': 'Mercados/TC',
-        }.get(post.get('categoria', ''), 'Actualidad')
+        }.get(cat, 'Actualidad')
 
         p = ContentProposal(
             batch_id         = batch.id,
             pipeline_id      = pipeline.id,
             network          = 'linkedin',
             delivery_type    = 'noticia',
-            noticia_category = post.get('categoria', 'internacional'),
+            noticia_category = cat,
             topic            = post.get('topic', ''),
             tag              = cat_label,
             objective        = 'Posicionamiento editorial — actualidad económica',
@@ -346,7 +362,12 @@ Devuelve un array JSON de {len(piezas_para_prompt)} objetos. Solo JSON."""
         })
 
     # Propuestas comerciales → ContentProposal (delivery_type=comercial)
+    # Idempotencia: si ya existen N comerciales, solo crear los que falten hasta 3.
+    cok_created = 0
     for i, prop in enumerate(propuestas):
+        if cok_existing + cok_created >= 3:
+            log.info(f'[DirectorVisual] Comercial #{i} omitido: ya hay {cok_existing + cok_created} comerciales')
+            break
         pm = prompts_map.get(('comercial', i), {})
         p = ContentProposal(
             batch_id         = batch.id,
@@ -370,6 +391,7 @@ Devuelve un array JSON de {len(piezas_para_prompt)} objetos. Solo JSON."""
         )
         db.session.add(p)
         db.session.flush()
+        cok_created += 1
         proposals_created.append({
             'proposal_id':    p.id,
             'delivery_type':  'comercial',

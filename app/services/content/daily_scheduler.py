@@ -438,14 +438,19 @@ def recover_pipeline(pipeline_id, target_date):
             run_results.append({'seq': seq, 'agent': agent_role, 'skipped': True, 'reason': 'before_start'})
             continue
 
-        # Anti-duplicado: omitir productor si ya hay propuestas para este pipeline
+        # Anti-duplicado: omitir productor solo si ya existe el set completo (3n+3c).
+        # Si hay propuestas parciales, el productor corre con su guardia interna
+        # de idempotencia (salta noticias por categoría y comerciales en exceso).
         if agent_role == 'productor':
-            existing = ContentProposal.query.filter_by(pipeline_id=pipeline_id).count()
-            if existing > 0:
-                log.info(f'[ESTUDIO-RECOVER] Productor omitido: {existing} propuestas ya existen')
+            nok_ex = ContentProposal.query.filter_by(
+                pipeline_id=pipeline_id, delivery_type='noticia').count()
+            cok_ex = ContentProposal.query.filter_by(
+                pipeline_id=pipeline_id, delivery_type='comercial').count()
+            if nok_ex >= 3 and cok_ex >= 3:
+                log.info(f'[ESTUDIO-RECOVER] Productor omitido: set completo ({nok_ex}n+{cok_ex}c)')
                 run_results.append({
                     'seq': seq, 'agent': 'productor', 'skipped': True,
-                    'reason': f'{existing} propuestas ya existen',
+                    'reason': f'set completo {nok_ex}n+{cok_ex}c',
                 })
                 continue
 
