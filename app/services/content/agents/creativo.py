@@ -207,6 +207,12 @@ Devuelve un JSON con estructura:
 }}
 Exactamente 3 propuestas. Solo JSON."""
 
+    # Liberar la conexión DB antes de la llamada IA (puede tardar varios minutos).
+    # benefits, prohibited y tone ya están en variables locales; brand.id se captura aquí.
+    _brand_id = brand.id
+    from app.extensions import db
+    db.session.close()
+
     try:
         raw = ask_json(prompt, system=system, model=SONNET, max_tokens=4000)
         if isinstance(raw, list):
@@ -216,7 +222,7 @@ Exactamente 3 propuestas. Solo JSON."""
         return {
             'ok':         True,
             'propuestas': propuestas[:3],
-            'brand_version': brand.id,
+            'brand_version': _brand_id,
             'mode':       'diario',
         }
     except Exception as e:

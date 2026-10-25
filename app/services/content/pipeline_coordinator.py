@@ -176,10 +176,29 @@ def run_stage(pipeline_id: int, seq: int = None,
         log.error(f'[Pipeline] etapa {agent_role} error: {e}', exc_info=True)
         output = {'ok': False, 'reason': str(e)}
 
-    # NO se cierra la sesión aquí: agentes como investigador dejan ContentSources en flush()
-    # sin commit propio; cerrar la sesión descartaría esos writes pendientes.
-    # Si la conexión fue interrumpida durante el agente, commit() fallará con OperationalError
-    # y el bloque de retry a continuación persiste el estado de error con sesión nueva.
+    # Algunos agentes (creativo, productor, revisor) cierran la sesión antes de su llamada IA.
+    # Si lo hicieron, stage y pipeline quedaron desvinculados (detached). Re-cargar con sesión
+    # fresca antes de persistir para evitar DetachedInstanceError en stage.version u otros campos.
+    # Agentes que NO cierran la sesión (investigador) dejan ContentSources en flush() pendiente;
+    # para ellos stage no es detached y el bloque siguiente se salta correctamente.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        if _sa_inspect(stage).detached:
+            db.session.close()
+            stage    = PipelineStage.query.filter_by(
+                pipeline_id=pipeline_id, seq=target_seq).first()
+            pipeline = ContentPipeline.query.get(pipeline_id)
+            if not stage or not pipeline:
+                log.error(
+                    f'[Pipeline] stage/pipeline no encontrado tras re-carga post-agente {agent_role}')
+                return {
+                    'ok': False, 'stage_id': None, 'seq': target_seq, 'agent': agent_role,
+                    'status': 'error', 'output': output,
+                    'pipeline_status': 'error', 'next_seq': target_seq,
+                }
+    except Exception as _insp_exc:
+        # inspect falló (SQLAlchemy edge case); continuar y dejar que el retry de commit actúe.
+        log.warning(f'[Pipeline] inspect post-agente falló ({agent_role}): {_insp_exc}')
 
     # Persistir resultado
     stage.output_data   = json.dumps(output, ensure_ascii=False, default=str)
