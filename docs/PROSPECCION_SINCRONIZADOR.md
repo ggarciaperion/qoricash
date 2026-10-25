@@ -8,7 +8,8 @@
 | `8299d417` | feat: versionar sincronizador y enriquecimiento de prospectos |
 | `09872022` | fix: estado por destino, upsert PostgreSQL, enriquecimiento vía API |
 | `7e1415eb` | docs: nota de continuidad inicial |
-| ver git log | feat: cola en Application Support, sync-evento, sin FDA |
+| `0ee00c25` | feat: cola en Application Support, sync-evento, sin FDA |
+| ver git log | chore: scripts versionados, plist template actualizado |
 
 ---
 
@@ -60,6 +61,57 @@ No se borran hasta confirmar transferencia completa.
 | `email_enviados_*.json` | Dedup 48h de campana_prospeccion_nueva_base |
 
 **No requiere Full Disk Access** — Application Support es accesible sin TCC para launchd.
+
+---
+
+## Estado de scripts de campaña
+
+### ✅ Adaptados — usan `send_evento()` (sin FileHandler en Desktop)
+
+| Script | Canal | Proceso registrado |
+|--------|-------|--------------------|
+| `campana_qoricash_150.py` | email | `campana_150` |
+| `campana_prospeccion_nueva_base.py` | email | `campana_prospeccion` |
+| `campana_nuevos_prospectos.py` | email | `campana_nuevos` |
+
+Estos tres scripts:
+- Eliminaron el `FileHandler` a `~/Desktop/...log`
+- Llaman `send_evento()` tras cada envío (OK y FAIL)
+- Si el servidor no está disponible, el evento va a la cola en Application Support
+
+### ⏳ Pendientes de adaptar — envían email, aún sin `send_evento()`
+
+| Script | Canal | Nota |
+|--------|-------|------|
+| `campana_master.py` | email | Tiene FileHandler |
+| `campana_precios_lfc.py` | email + wa | Tiene FileHandler |
+| `campana_precios_lfc_3bandejas.py` | email | Tiene FileHandler |
+| `campana_seguimiento_hoja4.py` | email + wa | Tiene FileHandler |
+
+Estos scripts no están activos en el flujo principal actual. Adaptar cuando se requiera.
+
+### ℹ️ No aplica — solo WhatsApp (no registran en `camp_envio`)
+
+`campana_wa_clientes.py` · `campana_wa_prospeccion.py` · `campana_wa_prospectos_sheet.py`
+
+### ℹ️ Orquestador
+
+`campana_maestro.py` — llama a otros scripts; no envía directamente.
+
+---
+
+## Destino configurado actualmente
+
+| Destino | URL | Estado |
+|---------|-----|--------|
+| **Localhost** (activo) | `http://localhost:5002/agentes/api/prospeccion/sync-evento` | ✅ En uso |
+| Render (preparado) | `https://TU-APP.onrender.com/agentes/api/prospeccion/sync-evento` | ⏳ No conectado — pendiente autorización |
+
+Para cambiar destino del sincronizador automático sin editar el plist:
+```bash
+echo "https://TU-APP.onrender.com/agentes/api/prospeccion/sync-evento" \
+  > ~/.config/qoricash/sync_url
+```
 
 ---
 

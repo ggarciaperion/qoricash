@@ -2,16 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  Plantilla LaunchAgent para sincronizador_prospeccion.py (Mac local).
+  LaunchAgent — sincronizador de cola de eventos QoriCash (Mac local).
+  Drena ~/Library/Application Support/qoricash/queue/ cada 15 min.
+  No requiere Full Disk Access: opera solo en Application Support.
 
   INSTALACIÓN:
     1. Copia este archivo a ~/Library/LaunchAgents/pe.qoricash.sincronizador.plist
-    2. Reemplaza /Users/TU_USUARIO con tu path real
-    3. Genera la clave: python3 -c "import secrets; print(secrets.token_hex(32))"
-       y guárdala en ~/.config/qoricash/sync_key  (chmod 600)
-    4. Añade SYNC_API_KEY=<misma_clave> al .env del servidor Flask
-    5. Concede Full Disk Access a python3:
-       Sistema > Privacy & Security > Full Disk Access > "+" > /usr/bin/python3
+    2. Reemplaza /Users/TU_USUARIO con tu path real (usa `echo $HOME` para confirmarlo)
+    3. Copia scripts/sincronizador_queue.py a
+       ~/Library/Application Support/qoricash/sincronizador.py
+    4. Genera la clave: python3 -c "import secrets; print(secrets.token_hex(32))"
+       Guárdala en ~/.config/qoricash/sync_key  (chmod 600)
+    5. Añade SYNC_API_KEY=<misma_clave> al .env del servidor Flask
     6. launchctl load ~/Library/LaunchAgents/pe.qoricash.sincronizador.plist
 
   DEPENDENCIA: requiere Mac encendida y Flask corriendo en localhost.
@@ -21,7 +23,7 @@
     Detener:  launchctl unload ~/Library/LaunchAgents/pe.qoricash.sincronizador.plist
     Reanudar: launchctl load   ~/Library/LaunchAgents/pe.qoricash.sincronizador.plist
     Estado:   launchctl list pe.qoricash.sincronizador
-    Log:      tail -f ~/Desktop/Prospeccion/sincronizador.log
+    Log:      tail -f ~/Library/Application\ Support/qoricash/sincronizador.log
 -->
 <plist version="1.0">
 <dict>
@@ -31,9 +33,10 @@
   <key>ProgramArguments</key>
   <array>
     <string>/usr/bin/python3</string>
-    <string>/Users/TU_USUARIO/Desktop/Prospeccion/sincronizador_prospeccion.py</string>
+    <string>/Users/TU_USUARIO/Library/Application Support/qoricash/sincronizador.py</string>
   </array>
 
+  <!-- HOME garantiza resolución correcta de ~/.config/qoricash/sync_key -->
   <key>EnvironmentVariables</key>
   <dict>
     <key>HOME</key>
@@ -49,11 +52,13 @@
   <key>RunAtLoad</key>
   <false/>
 
+  <!-- Log de launchd (errores no capturados). El script gestiona su propio
+       log rotado en Application Support/qoricash/sincronizador.log -->
   <key>StandardOutPath</key>
-  <string>/Users/TU_USUARIO/Desktop/Prospeccion/sincronizador.log</string>
+  <string>/Users/TU_USUARIO/Library/Application Support/qoricash/launchd.log</string>
 
   <key>StandardErrorPath</key>
-  <string>/Users/TU_USUARIO/Desktop/Prospeccion/sincronizador.log</string>
+  <string>/Users/TU_USUARIO/Library/Application Support/qoricash/launchd.log</string>
 
   <key>ThrottleInterval</key>
   <integer>60</integer>
