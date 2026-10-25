@@ -1,0 +1,431 @@
+{% extends "base.html" %}
+{% block title %}Propuesta #{{ p.id }} — Contenido{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <a href="{{ url_for('contenido.index') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+      <h4 class="mb-0">
+        <i class="bi {{ p.network_icon }} me-2 text-qori"></i>{{ p.topic or 'Sin título' }}
+        {% if p.is_demo %}<span class="badge bg-warning text-dark ms-2" style="font-size:.65rem;">DEMO</span>{% endif %}
+      </h4>
+      <small class="text-muted">
+        {{ p.network | upper }} &bull; Propuesta #{{ p.id }}
+        &bull; {{ p.created_at.strftime('%d %b %Y') if p.created_at }}
+      </small>
+    </div>
+    <div class="ms-auto d-flex gap-2">
+      <span class="badge bg-{{ p.status_badge[0] }}">{{ p.status_badge[1] }}</span>
+      {% if p.status == 'borrador' %}
+        <button class="btn btn-sm btn-success" onclick="aprobar({{ p.id }})">
+          <i class="bi bi-check-lg"></i> Aprobar
+        </button>
+        <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#modalRechazar">
+          <i class="bi bi-x-lg"></i> Rechazar
+        </button>
+      {% elif p.status == 'aprobado' %}
+        <button class="btn btn-sm btn-info text-white" data-bs-toggle="modal" data-bs-target="#modalProgramar">
+          <i class="bi bi-calendar-event"></i> Programar
+        </button>
+      {% endif %}
+      {% if p.image_path %}
+      <a href="{{ url_for('contenido.api_imagen', pid=p.id) }}" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-download"></i> Imagen
+      </a>
+      {% endif %}
+      {% if p.flow_prompt %}
+      <button class="btn btn-sm btn-outline-secondary" onclick="copyFlowPrompt()">
+        <i class="bi bi-clipboard"></i> Flow Prompt
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- Left: Image + Info -->
+    <div class="col-lg-4">
+      <!-- Imagen -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+          {% if p.image_path %}
+            <img src="/static/{{ p.image_path }}" alt="Visual" class="img-fluid rounded w-100">
+          {% else %}
+            <div class="d-flex align-items-center justify-content-center bg-dark rounded"
+                 style="height:200px;">
+              <div class="text-center">
+                <i class="bi bi-image text-muted" style="font-size:2rem;"></i>
+                <p class="text-muted small mt-2 mb-0">Sin imagen generada</p>
+                <button class="btn btn-sm btn-outline-secondary mt-2" onclick="regenerarImagen({{ p.id }})">
+                  <i class="bi bi-arrow-clockwise"></i> Generar imagen
+                </button>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Metadata -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header py-2">
+          <h6 class="mb-0 small text-muted text-uppercase">Clasificación</h6>
+        </div>
+        <div class="card-body py-2">
+          <dl class="row mb-0 small">
+            <dt class="col-5 text-muted">Red</dt>
+            <dd class="col-7">
+              <span class="badge net-{{ p.network }}">
+                <i class="bi {{ p.network_icon }}"></i> {{ p.network | capitalize }}
+              </span>
+            </dd>
+            {% if p.objective %}
+            <dt class="col-5 text-muted">Objetivo</dt>
+            <dd class="col-7">{{ p.objective }}</dd>
+            {% endif %}
+            {% if p.audience %}
+            <dt class="col-5 text-muted">Audiencia</dt>
+            <dd class="col-7">{{ p.audience }}</dd>
+            {% endif %}
+            {% if p.cta %}
+            <dt class="col-5 text-muted">CTA</dt>
+            <dd class="col-7">{{ p.cta }}</dd>
+            {% endif %}
+            {% if p.scheduled_at %}
+            <dt class="col-5 text-muted">Programado</dt>
+            <dd class="col-7">{{ p.scheduled_at.strftime('%d %b %Y %H:%M') }}</dd>
+            {% endif %}
+          </dl>
+        </div>
+      </div>
+
+      <!-- Fuentes -->
+      {% if p.sources_list %}
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header py-2">
+          <h6 class="mb-0 small text-muted text-uppercase">Fuentes</h6>
+        </div>
+        <ul class="list-group list-group-flush">
+          {% for s in p.sources_list %}
+          <li class="list-group-item py-2 small">
+            <span class="text-muted">{{ s.get('date','') }}</span>
+            {% if s.get('url') %}
+              <a href="{{ s.url }}" target="_blank" class="ms-1">{{ s.get('title','Fuente') }}</a>
+            {% else %}
+              <span class="ms-1">{{ s.get('title','Fuente') }}</span>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Right: Content + Edit -->
+    <div class="col-lg-8">
+
+      <!-- Texto -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header d-flex align-items-center py-2">
+          <h6 class="mb-0 small text-muted text-uppercase me-auto">Texto para publicar</h6>
+          <button class="btn btn-sm btn-outline-secondary" onclick="copyText()">
+            <i class="bi bi-clipboard"></i>
+          </button>
+        </div>
+        <div class="card-body">
+          <pre id="txtBody" class="mb-0" style="white-space:pre-wrap;font-family:inherit;font-size:.9rem;">{{ p.text_body or '' }}</pre>
+          {% if p.hashtags %}
+          <div class="mt-2 text-qori small">{{ p.hashtags }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Idea visual -->
+      {% if p.visual_idea %}
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header py-2">
+          <h6 class="mb-0 small text-muted text-uppercase">Idea visual</h6>
+        </div>
+        <div class="card-body small">{{ p.visual_idea }}</div>
+      </div>
+      {% endif %}
+
+      <!-- Script de Reel -->
+      {% if p.scenes_list %}
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header py-2">
+          <h6 class="mb-0 small text-muted text-uppercase">Guion de Reel / TikTok</h6>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th>Escena</th><th>Duración</th><th>Texto en pantalla</th><th>Locución</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for sc in p.scenes_list %}
+              <tr>
+                <td class="text-muted">{{ sc.get('scene','') }}</td>
+                <td><span class="badge bg-secondary">{{ sc.get('duration','') }}</span></td>
+                <td><strong>{{ sc.get('text_screen','') }}</strong></td>
+                <td class="text-muted small">{{ sc.get('voice','') }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Google Flow prompt -->
+      {% if p.flow_prompt %}
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header d-flex align-items-center py-2">
+          <h6 class="mb-0 small text-muted text-uppercase me-auto">
+            <i class="bi bi-camera-video me-1"></i>Prompt para Google Flow / Gemini Veo
+          </h6>
+          <button class="btn btn-sm btn-outline-secondary" onclick="copyFlowPrompt()">
+            <i class="bi bi-clipboard"></i> Copiar
+          </button>
+        </div>
+        <div class="card-body">
+          <pre id="flowPromptText" class="mb-0 small" style="white-space:pre-wrap;background:#0d1117;color:#00DEA8;padding:1rem;border-radius:8px;">{{ p.flow_prompt }}</pre>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Ajuste con agente -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header py-2">
+          <h6 class="mb-0 small text-muted text-uppercase">
+            <i class="bi bi-magic me-1"></i>Ajustar con agente IA
+          </h6>
+        </div>
+        <div class="card-body">
+          <textarea id="adjustInput" class="form-control form-control-sm mb-2" rows="3"
+            placeholder="Ej: Hazlo más formal, enfocado en empresas PYME. Acorta el texto a 3 párrafos."></textarea>
+          <button class="btn btn-sm btn-qori" id="btnAjustar" onclick="ajustar({{ p.id }})">
+            <i class="bi bi-stars"></i> Ajustar
+          </button>
+          <span id="adjustSpinner" class="ms-2 d-none">
+            <span class="spinner-border spinner-border-sm text-qori"></span>
+          </span>
+          {% if p.adjustment_request %}
+          <div class="mt-3 p-2 rounded" style="background:#0d1b2a;border:1px solid #00DEA8;">
+            <div class="small text-muted mb-1">Última solicitud:</div>
+            <div class="small">{{ p.adjustment_request }}</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Edición manual -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header d-flex align-items-center py-2">
+          <h6 class="mb-0 small text-muted text-uppercase me-auto">Editar manualmente</h6>
+          <button class="btn btn-sm btn-outline-secondary" id="btnToggleEdit" onclick="toggleEdit()">
+            <i class="bi bi-pencil"></i>
+          </button>
+        </div>
+        <div class="card-body d-none" id="editPanel">
+          <div class="mb-3">
+            <label class="form-label small text-muted">Tema / Título</label>
+            <input type="text" class="form-control form-control-sm" id="editTopic"
+                   value="{{ p.topic or '' }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small text-muted">Texto para publicar</label>
+            <textarea class="form-control form-control-sm" id="editTextBody" rows="6">{{ p.text_body or '' }}</textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small text-muted">CTA</label>
+            <input type="text" class="form-control form-control-sm" id="editCta"
+                   value="{{ p.cta or '' }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small text-muted">Hashtags</label>
+            <input type="text" class="form-control form-control-sm" id="editHashtags"
+                   value="{{ p.hashtags or '' }}">
+          </div>
+          <button class="btn btn-sm btn-qori" onclick="guardarEdicion({{ p.id }})">
+            <i class="bi bi-save"></i> Guardar cambios
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /col-lg-8 -->
+  </div><!-- /row -->
+</div>
+
+<!-- Modal Rechazar -->
+<div class="modal fade" id="modalRechazar" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="background:#1a2f3f;">
+      <div class="modal-header border-0">
+        <h6 class="modal-title">Rechazar propuesta</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <textarea class="form-control" id="rechazarMotivo" rows="3"
+                  placeholder="Motivo del rechazo (opcional)"></textarea>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-sm btn-danger" onclick="rechazar({{ p.id }})">Rechazar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Programar -->
+<div class="modal fade" id="modalProgramar" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="background:#1a2f3f;">
+      <div class="modal-header border-0">
+        <h6 class="modal-title">Programar publicación</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label small text-muted">Fecha y hora</label>
+        <input type="datetime-local" class="form-control" id="progFecha">
+        <small class="text-muted">Solo registra la fecha planificada; la publicación es manual.</small>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-sm btn-info text-white" onclick="programar({{ p.id }})">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+  <div id="toast" class="toast align-items-center text-white border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body" id="toastMsg"></div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto"
+              data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const BASE = '/contenido/api/propuesta/{{ p.id }}';
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.className = `toast align-items-center text-white border-0 bg-${type}`;
+  document.getElementById('toastMsg').textContent = msg;
+  bootstrap.Toast.getOrCreateInstance(t).show();
+}
+
+function aprobar(pid) {
+  fetch(`/contenido/api/propuesta/${pid}/aprobar`, {method:'POST'})
+    .then(r => r.json()).then(d => {
+      if (d.ok) { showToast('Propuesta aprobada'); setTimeout(()=>location.reload(),800); }
+      else showToast(d.error || 'Error', 'danger');
+    });
+}
+
+function rechazar(pid) {
+  const motivo = document.getElementById('rechazarMotivo').value;
+  fetch(`/contenido/api/propuesta/${pid}/rechazar`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({reason: motivo})
+  }).then(r => r.json()).then(d => {
+    if (d.ok) { showToast('Rechazada'); setTimeout(()=>location.reload(),800); }
+    else showToast(d.error || 'Error', 'danger');
+  });
+  bootstrap.Modal.getInstance(document.getElementById('modalRechazar'))?.hide();
+}
+
+function programar(pid) {
+  const dt = document.getElementById('progFecha').value;
+  if (!dt) { showToast('Selecciona una fecha', 'warning'); return; }
+  fetch(`/contenido/api/propuesta/${pid}/programar`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({scheduled_at: dt})
+  }).then(r => r.json()).then(d => {
+    if (d.ok) { showToast('Programada'); setTimeout(()=>location.reload(),800); }
+    else showToast(d.error || 'Error', 'danger');
+  });
+  bootstrap.Modal.getInstance(document.getElementById('modalProgramar'))?.hide();
+}
+
+function ajustar(pid) {
+  const txt = document.getElementById('adjustInput').value.trim();
+  if (!txt) { showToast('Escribe una instrucción', 'warning'); return; }
+  document.getElementById('btnAjustar').disabled = true;
+  document.getElementById('adjustSpinner').classList.remove('d-none');
+  fetch(`/contenido/api/propuesta/${pid}/ajustar`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({adjustment: txt})
+  }).then(r => r.json()).then(d => {
+    document.getElementById('btnAjustar').disabled = false;
+    document.getElementById('adjustSpinner').classList.add('d-none');
+    if (d.ok) { showToast('Ajuste aplicado'); setTimeout(()=>location.reload(),1000); }
+    else showToast(d.error || 'Error al ajustar', 'danger');
+  }).catch(()=>{
+    document.getElementById('btnAjustar').disabled = false;
+    document.getElementById('adjustSpinner').classList.add('d-none');
+    showToast('Error de conexión', 'danger');
+  });
+}
+
+function toggleEdit() {
+  const p = document.getElementById('editPanel');
+  p.classList.toggle('d-none');
+}
+
+function guardarEdicion(pid) {
+  const payload = {
+    topic:     document.getElementById('editTopic').value,
+    text_body: document.getElementById('editTextBody').value,
+    cta:       document.getElementById('editCta').value,
+    hashtags:  document.getElementById('editHashtags').value,
+  };
+  fetch(`/contenido/api/propuesta/${pid}/editar`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  }).then(r => r.json()).then(d => {
+    if (d.ok) { showToast('Guardado'); setTimeout(()=>location.reload(),800); }
+    else showToast(d.error || 'Error', 'danger');
+  });
+}
+
+function regenerarImagen(pid) {
+  fetch(`/contenido/api/propuesta/${pid}/regenerar`, {method:'POST'})
+    .then(r => r.json()).then(d => {
+      if (d.ok) { showToast('Imagen regenerada'); setTimeout(()=>location.reload(),800); }
+      else showToast(d.error || 'Error', 'danger');
+    });
+}
+
+function copyText() {
+  const txt = document.getElementById('txtBody').textContent;
+  navigator.clipboard.writeText(txt).then(()=>showToast('Texto copiado'));
+}
+
+function copyFlowPrompt() {
+  const el = document.getElementById('flowPromptText');
+  if (el) navigator.clipboard.writeText(el.textContent).then(()=>showToast('Flow prompt copiado'));
+}
+</script>
+
+<style>
+.text-qori { color: #00DEA8; }
+.btn-qori { background:#00DEA8; color:#0d1b2a; border:none; }
+.btn-qori:hover { background:#00c997; color:#0d1b2a; }
+.net-linkedin  { background:#0a66c2; color:#fff; }
+.net-instagram { background: linear-gradient(45deg,#833ab4,#fd1d1d,#fcb045); color:#fff; }
+.net-facebook  { background:#1877f2; color:#fff; }
+.net-reel      { background:#111; color:#00DEA8; border:1px solid #00DEA8; }
+</style>
+{% endblock %}

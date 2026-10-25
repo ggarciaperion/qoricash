@@ -1,0 +1,425 @@
+{% extends "base.html" %}
+{% block title %}Estudio Creativo — QoriCash{% endblock %}
+
+{% block content %}
+<div class="contenido-wrap">
+
+  {# ── Header ──────────────────────────────────────────────────────────────── #}
+  <div class="page-header-bar d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h1 class="page-title mb-0">
+        <i class="bi bi-stars me-2" style="color:#00DEA8"></i>Estudio Creativo
+      </h1>
+      <p class="text-muted small mb-0">Pipeline editorial · 6 agentes especializados</p>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      {% if batch_age is none %}
+        <span class="badge bg-secondary">Sin lotes generados</span>
+      {% elif batch_age == 0 %}
+        <span class="badge bg-success">Lote generado hoy</span>
+      {% else %}
+        <span class="badge bg-warning text-dark">Último lote: hace {{ batch_age }} día{{ 's' if batch_age != 1 }}</span>
+      {% endif %}
+      <button class="btn btn-outline-secondary btn-sm" id="btnGenForce" title="Regenerar lote completo">
+        <i class="bi bi-arrow-clockwise"></i>
+      </button>
+      <button class="btn btn-primary btn-sm fw-semibold" id="btnGenerar">
+        <i class="bi bi-stars me-1"></i>Generar propuestas
+      </button>
+    </div>
+  </div>
+
+  {# ── Tabs de navegación ───────────────────────────────────────────────────── #}
+  <ul class="nav nav-tabs estudio-tabs mb-4">
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('contenido.agentes') }}">
+        <i class="bi bi-cpu me-1"></i>Agentes
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link active" href="{{ url_for('contenido.index') }}">
+        <i class="bi bi-grid-3x3-gap me-1"></i>Contenidos
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('contenido.calendario') }}">
+        <i class="bi bi-calendar3 me-1"></i>Calendario
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('contenido.configuracion') }}">
+        <i class="bi bi-sliders me-1"></i>Configuración
+      </a>
+    </li>
+  </ul>
+
+  {# ── KPIs ─────────────────────────────────────────────────────────────────── #}
+  <div class="row g-3 mb-4">
+    {% set kpis = [
+      ('total',      'Total',      'bi-layers',      'primary'),
+      ('borrador',   'Borrador',   'bi-pencil-square','secondary'),
+      ('aprobado',   'Aprobados',  'bi-check-circle', 'success'),
+      ('programado', 'Programado', 'bi-calendar-check','info'),
+      ('rechazado',  'Rechazado',  'bi-x-circle',     'danger'),
+    ] %}
+    {% for key, label, icon, color in kpis %}
+    <div class="col-6 col-md-2dot4">
+      <div class="card kpi-mini h-100 text-center border-0 shadow-sm">
+        <div class="card-body py-3">
+          <i class="bi {{ icon }} text-{{ color }} fs-4"></i>
+          <div class="fw-bold fs-4 mt-1">{{ counts.get(key, 0) }}</div>
+          <div class="text-muted small">{{ label }}</div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {# ── Filtros ──────────────────────────────────────────────────────────────── #}
+  <form method="GET" class="row g-2 align-items-end mb-4" id="filterForm">
+    <div class="col-6 col-md-auto">
+      <select name="network" class="form-select form-select-sm">
+        <option value="">Todas las redes</option>
+        {% for val, lbl in [('linkedin','LinkedIn'),('instagram','Instagram'),('facebook','Facebook'),('reel','Reel/TikTok')] %}
+        <option value="{{ val }}" {% if filters.network == val %}selected{% endif %}>{{ lbl }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-auto">
+      <select name="status" class="form-select form-select-sm">
+        <option value="">Todos los estados</option>
+        {% for val, lbl in [('borrador','Borrador'),('aprobado','Aprobado'),('rechazado','Rechazado'),('programado','Planificado (manual)'),('publicado','Publicado manualmente'),('error','Error')] %}
+        <option value="{{ val }}" {% if filters.status == val %}selected{% endif %}>{{ lbl }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-auto">
+      <input type="date" name="date_from" class="form-control form-control-sm"
+             value="{{ filters.date_from }}" placeholder="Desde">
+    </div>
+    <div class="col-6 col-md-auto">
+      <input type="date" name="date_to" class="form-control form-control-sm"
+             value="{{ filters.date_to }}" placeholder="Hasta">
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-funnel"></i> Filtrar
+      </button>
+      <a href="{{ url_for('contenido.index') }}" class="btn btn-outline-secondary btn-sm ms-1">
+        <i class="bi bi-x"></i>
+      </a>
+    </div>
+  </form>
+
+  {# ── Grid de propuestas ───────────────────────────────────────────────────── #}
+  <div id="proposalsGrid">
+    {% if not proposals %}
+    <div class="empty-state text-center py-5">
+      <i class="bi bi-stars display-4 text-muted"></i>
+      <p class="mt-3 text-muted">No hay propuestas todavía.</p>
+      <button class="btn btn-primary" id="btnGenerarEmpty">
+        <i class="bi bi-stars me-1"></i>Generar primer lote
+      </button>
+    </div>
+    {% else %}
+    <div class="row g-3">
+      {% for p in proposals %}
+      <div class="col-12 col-md-6 col-xl-4" id="card-{{ p.id }}">
+        <div class="card proposal-card h-100 border-0 shadow-sm
+                    {% if p.status == 'aprobado' %}border-start border-success border-3{% endif %}
+                    {% if p.status == 'error'    %}border-start border-warning border-3{% endif %}">
+
+          {# Imagen preview #}
+          {% if p.image_path %}
+          <a href="{{ url_for('contenido.detail', pid=p.id) }}">
+            <img src="/static/{{ p.image_path }}" class="card-img-top proposal-img"
+                 alt="{{ p.topic }}" loading="lazy">
+          </a>
+          {% else %}
+          <div class="proposal-img-placeholder d-flex align-items-center justify-content-center bg-dark text-muted">
+            <i class="bi {{ p.network_icon }} fs-1"></i>
+          </div>
+          {% endif %}
+
+          <div class="card-body d-flex flex-column">
+            {# Badges de red y estado #}
+            <div class="d-flex gap-1 mb-2 flex-wrap">
+              <span class="badge net-badge net-{{ p.network }}">
+                <i class="bi {{ p.network_icon }}"></i>
+                {{ {'linkedin':'LinkedIn','instagram':'Instagram','facebook':'Facebook','reel':'Reel'}[p.network] }}
+              </span>
+              {% set bc, bl = p.status_badge %}
+              <span class="badge bg-{{ bc }}">{{ bl }}</span>
+              {% if p.is_demo %}
+              <span class="badge bg-warning text-dark">Demo</span>
+              {% endif %}
+            </div>
+
+            <h6 class="card-title fw-semibold mb-1 line-clamp-2">{{ p.topic }}</h6>
+            <p class="card-text text-muted small line-clamp-3 flex-grow-1">{{ p.text_body[:160] }}{% if p.text_body|length > 160 %}…{% endif %}</p>
+
+            {% if p.error_msg %}
+            <div class="alert alert-warning alert-sm p-2 mt-1 mb-2 small">
+              <i class="bi bi-exclamation-triangle me-1"></i>{{ p.error_msg[:120] }}
+            </div>
+            {% endif %}
+
+            {# Acciones rápidas #}
+            <div class="d-flex gap-1 mt-auto pt-2 flex-wrap">
+              <a href="{{ url_for('contenido.detail', pid=p.id) }}"
+                 class="btn btn-sm btn-outline-secondary flex-fill">
+                <i class="bi bi-eye"></i> Ver
+              </a>
+              {% if p.status in ('borrador', 'rechazado') %}
+              <button class="btn btn-sm btn-success" onclick="aprobar({{ p.id }})">
+                <i class="bi bi-check-lg"></i>
+              </button>
+              <button class="btn btn-sm btn-danger" onclick="rechazar({{ p.id }})">
+                <i class="bi bi-x-lg"></i>
+              </button>
+              {% endif %}
+              {% if p.status == 'aprobado' %}
+              <button class="btn btn-sm btn-info text-white" onclick="programar({{ p.id }})">
+                <i class="bi bi-calendar-plus"></i>
+              </button>
+              {% endif %}
+              {% if p.status == 'error' %}
+              <button class="btn btn-sm btn-warning" onclick="regenerarUna({{ p.id }})">
+                <i class="bi bi-arrow-clockwise"></i> Reintentar
+              </button>
+              {% endif %}
+              {% if p.image_path %}
+              <a href="{{ url_for('contenido.api_imagen', pid=p.id) }}"
+                 class="btn btn-sm btn-outline-primary" title="Descargar imagen">
+                <i class="bi bi-download"></i>
+              </a>
+              {% endif %}
+            </div>
+          </div>
+
+          {% if p.scheduled_at %}
+          <div class="card-footer text-muted small bg-transparent border-top-0">
+            <i class="bi bi-calendar-event me-1"></i>
+            Planificado: {{ p.scheduled_at.strftime('%d/%m/%Y %H:%M') }}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Modal: Generando ─────────────────────────────────────────────────────── #}
+<div class="modal fade" id="modalGenerando" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0">
+      <div class="modal-body text-center py-5">
+        <div class="spinner-grow text-primary mb-3" style="width:3rem;height:3rem;"></div>
+        <h5 class="fw-semibold mb-1">Agente creativo trabajando…</h5>
+        <p class="text-muted small" id="genStatus">Consultando datos de mercado y noticias…</p>
+        <div class="progress mt-3" style="height:4px;">
+          <div class="progress-bar progress-bar-striped progress-bar-animated"
+               style="width:100%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Modal: Rechazar ──────────────────────────────────────────────────────── #}
+<div class="modal fade" id="modalRechazar" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header border-0">
+        <h6 class="modal-title fw-semibold">Rechazar propuesta</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label small text-muted">Motivo (opcional)</label>
+        <textarea class="form-control" id="rejectReason" rows="3"
+                  placeholder="¿Por qué se rechaza esta propuesta?"></textarea>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-danger btn-sm" id="btnConfirmRechazar">Rechazar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Modal: Programar ─────────────────────────────────────────────────────── #}
+<div class="modal fade" id="modalProgramar" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header border-0">
+        <h6 class="modal-title fw-semibold">Programar publicación</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label small text-muted">Fecha y hora planificada</label>
+        <input type="datetime-local" class="form-control" id="scheduleDate">
+        <p class="text-muted small mt-2">
+          <i class="bi bi-info-circle"></i>
+          La pieza quedará en estado <strong>"Planificado para publicación manual"</strong>.
+          No hay integración con plataformas externas — descarga la imagen, copia el texto
+          y publica directamente en la red social.
+        </p>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-info text-white btn-sm" id="btnConfirmProgramar">Programar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = document.querySelector('meta[name=csrf-token]')?.content || '';
+
+let _currentPid = null;
+
+// ── Generar lote ─────────────────────────────────────────────────────────────
+async function generarLote(force = false) {
+  const modal = new bootstrap.Modal(document.getElementById('modalGenerando'));
+  modal.show();
+  document.getElementById('genStatus').textContent =
+    'Consultando datos de mercado y noticias…';
+
+  setTimeout(() => {
+    document.getElementById('genStatus').textContent =
+      'Generando propuestas con Claude Sonnet…';
+  }, 2000);
+
+  try {
+    const res = await fetch('/contenido/api/generar', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'X-CSRFToken': CSRF},
+      body: JSON.stringify({n: 3, force})
+    });
+    const data = await res.json();
+    modal.hide();
+    if (data.ok) {
+      showToast(`${data.proposals.length} propuestas generadas`, 'success');
+      setTimeout(() => location.reload(), 800);
+    } else {
+      showToast(data.msg || 'Error al generar', 'danger');
+    }
+  } catch(e) {
+    modal.hide();
+    showToast('Error de conexión: ' + e.message, 'danger');
+  }
+}
+
+document.getElementById('btnGenerar')?.addEventListener('click', () => generarLote(false));
+document.getElementById('btnGenerarEmpty')?.addEventListener('click', () => generarLote(false));
+document.getElementById('btnGenForce')?.addEventListener('click', () => {
+  if (confirm('¿Generar un nuevo lote aunque ya haya uno de hoy?')) generarLote(true);
+});
+
+// ── Aprobar ──────────────────────────────────────────────────────────────────
+async function aprobar(pid) {
+  const res  = await fetch(`/contenido/api/propuesta/${pid}/aprobar`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF}
+  });
+  const data = await res.json();
+  if (data.ok) { showToast('Propuesta aprobada', 'success'); location.reload(); }
+  else showToast(data.msg, 'danger');
+}
+
+// ── Rechazar ─────────────────────────────────────────────────────────────────
+function rechazar(pid) {
+  _currentPid = pid;
+  document.getElementById('rejectReason').value = '';
+  new bootstrap.Modal(document.getElementById('modalRechazar')).show();
+}
+document.getElementById('btnConfirmRechazar')?.addEventListener('click', async () => {
+  const reason = document.getElementById('rejectReason').value;
+  const res    = await fetch(`/contenido/api/propuesta/${_currentPid}/rechazar`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({reason})
+  });
+  const data = await res.json();
+  bootstrap.Modal.getInstance(document.getElementById('modalRechazar'))?.hide();
+  if (data.ok) { showToast('Propuesta rechazada', 'warning'); location.reload(); }
+  else showToast(data.msg, 'danger');
+});
+
+// ── Programar ────────────────────────────────────────────────────────────────
+function programar(pid) {
+  _currentPid = pid;
+  new bootstrap.Modal(document.getElementById('modalProgramar')).show();
+}
+document.getElementById('btnConfirmProgramar')?.addEventListener('click', async () => {
+  const dt  = document.getElementById('scheduleDate').value;
+  const res = await fetch(`/contenido/api/propuesta/${_currentPid}/programar`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({scheduled_at: dt})
+  });
+  const data = await res.json();
+  bootstrap.Modal.getInstance(document.getElementById('modalProgramar'))?.hide();
+  if (data.ok) { showToast('Programado para ' + dt.replace('T',' '), 'info'); location.reload(); }
+  else showToast(data.msg, 'danger');
+});
+
+// ── Regenerar pieza con error ─────────────────────────────────────────────────
+async function regenerarUna(pid) {
+  if (!confirm('¿Regenerar únicamente esta pieza?')) return;
+  const res  = await fetch(`/contenido/api/propuesta/${pid}/regenerar`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF}
+  });
+  const data = await res.json();
+  if (data.ok) { showToast('Pieza regenerada', 'success'); location.reload(); }
+  else showToast(data.msg || 'Error', 'danger');
+}
+
+// ── Toast util ───────────────────────────────────────────────────────────────
+function showToast(msg, type='info') {
+  const container = document.getElementById('toastContainer') || (() => {
+    const c = document.createElement('div');
+    c.id = 'toastContainer';
+    c.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+    c.style.zIndex = 9999;
+    document.body.appendChild(c);
+    return c;
+  })();
+  const el = document.createElement('div');
+  el.className = `toast align-items-center text-bg-${type} border-0 show`;
+  el.innerHTML = `<div class="d-flex"><div class="toast-body">${msg}</div>
+    <button type="button" class="btn-close btn-close-white me-2 m-auto"
+            data-bs-dismiss="toast"></button></div>`;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+</script>
+
+<style>
+.contenido-wrap { padding: 1.5rem; }
+.page-title { font-size: 1.4rem; font-weight: 700; color: #0D1B2A; }
+.kpi-mini { transition: transform .15s; }
+.kpi-mini:hover { transform: translateY(-2px); }
+.col-md-2dot4 { flex: 0 0 auto; width: 20%; }
+.proposal-card { transition: box-shadow .2s; }
+.proposal-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.12) !important; }
+.proposal-img { height: 180px; object-fit: cover; width: 100%; }
+.proposal-img-placeholder { height: 180px; background: #0D1B2A; border-radius: .375rem .375rem 0 0; }
+.line-clamp-2 { display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden; }
+.line-clamp-3 { display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden; }
+.net-badge { font-size:.7rem; font-weight:600; }
+.estudio-tabs .nav-link { color:#6c757d; border:none; border-bottom:2px solid transparent; border-radius:0; padding:.5rem 1rem; }
+.estudio-tabs .nav-link.active { color:#00DEA8; border-bottom-color:#00DEA8; background:none; font-weight:600; }
+.estudio-tabs .nav-link:hover { color:#0D1B2A; border-bottom-color:#dee2e6; }
+.net-linkedin  { background:#0077b5; }
+.net-instagram { background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888); }
+.net-facebook  { background:#1877f2; }
+.net-reel      { background:#111; }
+.alert-sm { font-size:.78rem; }
+@media(max-width:768px){ .col-md-2dot4{width:50%;} }
+</style>
+{% endblock %}
