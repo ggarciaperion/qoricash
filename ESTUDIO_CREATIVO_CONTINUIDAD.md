@@ -1,4 +1,5 @@
-# Estudio Creativo — Nota de Continuidad (25 Oct 2026, rev. correcciones)
+# Estudio Creativo — Nota de Continuidad (25 Oct 2026)
+## Estado: implementación local cerrada — pendiente revisión editorial y decisión de deploy
 
 ## Estado del servidor
 - **Puerto**: 5002
@@ -103,13 +104,99 @@ curl -s -X POST https://<app>.onrender.com/contenido/api/generar-diario-sync \
 | `/contenido/api/generar-diario` (async, manual) | Sesión + rol + CSRF — nunca expone el token cron |
 | `/contenido/api/generar-diario-sync` (cron externo) | `X-Cron-Token` requerido; 503 si `ESTUDIO_CRON_TOKEN` no está configurado; 401 si token ausente o incorrecto |
 
-## Entrega original (pipeline #28) — nota
-Pipeline #28 tenía dos noticias de mercados y una internacional, sin nacional.
-Las correcciones de código garantizan que el próximo pipeline diario tenga exactamente
-una noticia por categoría (nacional/internacional/mercados), con su fuente real sin reclasificación.
+## Commits de esta etapa
+| Hash | Rama | Descripción |
+|------|------|-------------|
+| `92e93341` | master | feat: módulo Estudio Creativo completo (pipeline diario, 5 agentes, vistas, migraciones) |
+| `2b74e6c1` | master | fix: auth obligatoria en cron, categorías sin forzado posicional, scheduler tardío |
+| `2bb5818d` | cleanup/prospeccion-inventario | fix: app context en OS threads, subprocess para llamadas Claude (infra compartida) |
+| `1c6b8d24` | cleanup/prospeccion-inventario | feat: nueva dirección visual fotográfica + propuestas WhatsApp y viajes |
+| `f37cb165` | **feature/estudio-creativo** | cherry-pick de `1c6b8d24` — rama propia de Estudio Creativo |
+
+## Coordinación de ramas
+- **`feature/estudio-creativo`**: rama propia del módulo. Contiene solo `f37cb165` (cherry-pick de la dirección visual) sobre master. Usar esta rama para futuros cambios de Estudio Creativo y para el deploy.
+- **`cleanup/prospeccion-inventario`**: rama de Terminal 2 (Prospección). Tiene `1c6b8d24` también, pero es secundario — no se modificó mientras Terminal 2 trabajaba y no arrastra cambios de Prospección.
+- **Regla**: próximos cambios de Estudio Creativo van a `feature/estudio-creativo`, no a la rama de Prospección.
+
+## Estado al cierre de la sesión de correcciones (25 Oct 2026)
+- **Pipeline #36**: `parcial` — 5 etapas completadas, 2 noticias + 3 comerciales.
+  - `mercados` faltó por DNS timeouts en feeds de Yahoo Finance/noticias ese momento.
+  - Código correcto; `parcial` es estado esperado cuando una categoría no tiene feed disponible.
+- Panel disponible en `http://localhost:5002/contenido/hoy` para revisión editorial.
+- No se hizo push ni deploy.
+
+## Fix técnico crítico aplicado en esta sesión
+
+### Problema 1: `Working outside of application context` en scheduler
+`try_generate_today` usaba `_tpool.execute(lambda: run_pipeline_auto(...))`. Los OS threads de tpool NO heredan el app context de Flask.
+**Fix**: capturar `current_app._get_current_object()` antes de entrar al tpool y envolver `run_pipeline_auto` en `with _app.app_context()`. Aplicado también en `api_generar_diario_sync`.
+
+### Problema 2: DNS/red falla al llamar Claude desde greenlet
+`_call` caía a `_anthropic_urllib` que usa sockets monkey-patched por eventlet. Eventlet parchea `urllib` para usar tpool internamente → **deadlock** si ya estamos en un tpool OS thread.
+**Fix**: usar `_anthropic_subprocess` como fallback. Lanza un proceso Python limpio (sin monkey-patch). `subprocess.communicate()` es cooperativo en greenlets gracias al parche de `os.read()` de eventlet.
+
+### Regla permanente
+En producción (gunicorn+eventlet): el SDK Anthropic SIEMPRE falla ("Trio primitives monkey-patched") → subprocess es el fallback definitivo. No usar `_anthropic_urllib` ni tpool anidado.
+
+## Dirección visual actualizada (25 Oct 2026)
+
+### Archivos modificados
+| Archivo | Cambio |
+|---------|--------|
+| `app/services/content/agents/creativo.py` | Instrucciones de flow_prompt con estructura fotográfica obligatoria, prohibiciones explícitas, variedad entre piezas |
+| `app/services/content/agents/productor.py` | `SYSTEM_DV` con nueva dirección fotográfica; `prompt_dv` actualizado |
+| `app/services/content/agents/revisor.py` | `SYSTEM` con checklist visual; prompt `_run_diario` con 9 criterios visuales |
+
+### Nueva dirección — resumen
+- Fotografía publicitaria o composición conceptual fotorrealista (NO ilustración corporativa).
+- Un protagonista claro por pieza: persona en negocio, teléfono en uso, viajero, escena nocturna.
+- Azul #196BFE como acento en un objeto o detalle, no tinte de toda la imagen.
+- Logo como marca de agua, el usuario proporciona el archivo oficial.
+- Tres piezas comerciales del día con escenarios y composiciones distintos.
+- Texto en español en imagen solo si aporta valor; desarrollo en el copy del post.
+
+### Propuestas de prueba — enlaces directos (25 Oct 2026)
+| ID | Tema | URL | Estado |
+|----|------|-----|--------|
+| **45** | Operar por WhatsApp | `http://localhost:5002/contenido/propuesta/45` | `pendiente_aprobacion` |
+| **32** | Tipo de cambio para negocios | `http://localhost:5002/contenido/propuesta/32` | `pendiente_aprobacion` (aprobación anterior invalidada) |
+| **39** | Cambio de divisas para viajes | `http://localhost:5002/contenido/propuesta/39` | `pendiente_aprobacion` |
+
+### Historial de propuestas comerciales (pipeline 28 — conservado)
+| ID | Tema | Notas |
+|----|------|-------|
+| 31 | Spread cambiario: por qué varía el tipo de cambio | Prop original; flow_prompt actualizado a estilo fotográfico (cafetería Miraflores) |
+| 32 | Tipo de cambio para negocios | Aprobación anterior invalidada; nuevo prompt: taller textil La Victoria/Gamarra |
+| 33 | Comercio exterior — horario extendido | Texto corregido: distingue recepción de mensajes de ejecución operativa; NO es viajes |
+| 39 | Cambio de divisas para viajes *(creado manualmente)* | Aeropuerto Jorge Chávez, viajero con mochila y pasaporte |
+| 45 | Operar por WhatsApp *(creado manualmente)* | Dueño de ferretería/negocio revisando WhatsApp detrás del mostrador |
+
+### Prop 33 — corrección y verificación de horario
+**Problema original**: el texto podía insinuar operaciones disponibles a cualquier hora.
+**Corrección**: distingue que WhatsApp recibe mensajes fuera de horario, pero las operaciones
+se atienden "en la próxima ventana operativa disponible".
+**Verificación de horario**: "lunes a sábado en horario extendido" está respaldado por el
+beneficio verificado #3 de brand_configs: *"Operaciones disponibles de lunes a sábado en horario
+extendido"*. El texto es correcto y no requiere reemplazarse por frases genéricas.
+
+## Estado de la dirección visual (25 Oct 2026)
+- **Probada por el usuario** en Gemini/Flow — resultado mejoró respecto a la versión anterior.
+- **Dirección confirmada como base** para futuras propuestas, con variedad de escenas.
+- **NO implica aprobación automática**: cada pieza sigue sujeta a aprobación individual antes de publicar.
+- Muestras 45 (WhatsApp), 32 (Negocios) y 39 (Viajes) conservadas en `pendiente_aprobacion`.
+
+## Próximos pasos
+1. Aprobación individual de las piezas cuando corresponda — dirección visual no aprueba el contenido.
+2. Los 3 agentes ya reflejan la nueva dirección para futuros pipelines.
+3. Revisión editorial: textos de los posts de las 3 noticias del pipeline 28.
+4. Decisión de deploy: scheduler interno en Render **o** Cron Job ($1/mes).
+5. Variables antes del deploy:
+   - `ESTUDIO_CRON_TOKEN` (obligatoria si se usa el endpoint cron)
+   - `ESTUDIO_DIARIO_AUTO=false` solo si se quiere desactivar el scheduler interno
+6. Para el deploy: usar rama `feature/estudio-creativo`, no `cleanup/prospeccion-inventario`.
 
 ## Para deploy a Render
-1. `ESTUDIO_CRON_TOKEN` es variable de entorno obligatoria si se usa el Cron Job.
+1. `ESTUDIO_CRON_TOKEN` obligatorio si se usa el Cron Job (endpoint sync).
 2. `ESTUDIO_DIARIO_AUTO` no debe estar en `false` si se usa el scheduler interno.
 3. La migración `d1a2r3i4o5d6` usa `batch_alter_table` (compatible SQLite y PostgreSQL).
-4. Commits incluidos: `92e93341` (feat inicial) + siguiente (correcciones).
+4. Hacer push del branch una vez aprobada la revisión editorial.

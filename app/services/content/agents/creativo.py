@@ -157,9 +157,36 @@ TAREA: Genera 3 propuestas comerciales INDEPENDIENTES para LinkedIn, una por aud
 
 {audiencias_str}
 
-Para cada propuesta, incluye un prompt detallado para generar la imagen en Gemini/Imagen o Google Flow.
-El prompt visual debe describir: composición, colores de marca (Teal #00DEA8, Navy #0D1B2A, blanco),
-elementos gráficos, tipografía y qué debe transmitir la imagen.
+DIRECCIÓN VISUAL — LEE ESTO ANTES DE ESCRIBIR flow_prompt:
+Cada pieza debe ser fotografía publicitaria real o composición conceptual fotorrealista, NO ilustración
+corporativa ni infografía. La escena debe tener un protagonista claro y representar el beneficio de
+forma concreta. Las tres piezas deben tener escenarios y composiciones DIFERENTES entre sí.
+
+ESTRUCTURA OBLIGATORIA de cada flow_prompt (mín 100 palabras, listo para copiar en Gemini Imagen):
+1. Tipo de pieza: "Fotografía publicitaria." o "Composición conceptual fotorrealista."
+2. Sujeto y acción: persona real, edad aproximada, qué está haciendo, expresión natural.
+3. Entorno: lugar concreto en Perú (barrio, ciudad, tipo de local), elementos del espacio.
+4. Encuadre: plano y distribución (ej. "plano medio, sujeto izquierda 60%, espacio derecha 40%").
+5. Luz: fuente, temperatura, atmósfera (ej. "luz natural lateral, mañana, sombras suaves").
+6. Color de marca: cómo aparece #196BFE (Azul Qoricash) — en un objeto, prenda, detalle del entorno.
+   NO tiñas toda la imagen. Permite colores naturales, pieles reales, materiales neutros.
+7. Logo: "El logo Qoricash aparece como marca de agua discreta en esquina inferior derecha.
+   El usuario debe proporcionar el archivo oficial al generador."
+8. Formato: "1200×628 px horizontal (LinkedIn)."
+9. Texto en imagen: solo si aporta valor — una frase breve en español. Si no aplica, omitir.
+10. Exclusiones específicas: qué NO debe aparecer en esta pieza en particular.
+
+PROHIBIDO en flow_prompt:
+- Diagramas de flujo, íconos conectados, dashboards, tarjetas flotantes.
+- Monedas, billetes o símbolos de dólar como decoración.
+- Fondos tecnológicos (circuit-board, neón, hologramas).
+- Piel plástica, sonrisas forzadas, fotografía corporativa genérica.
+- Texto en inglés.
+- Frases vagas como "estilo premium, moderno, innovador" sin describir la escena.
+
+VARIEDAD: las 3 propuestas deben mostrar situaciones claramente distintas.
+Alterna entre: persona en negocio / persona con teléfono en escena cotidiana /
+viajero o importador / composición conceptual con materiales reales.
 
 Devuelve un JSON con estructura:
 {{
@@ -172,8 +199,8 @@ Devuelve un JSON con estructura:
       "text_body": "texto LinkedIn 80-140 palabras con \\n para párrafos",
       "cta": "llamada a la acción (máx 40 chars)",
       "hashtags": "#qoricash #tipodecambio ...",
-      "visual_idea": "descripción en 2-3 oraciones de qué mostrar visualmente",
-      "flow_prompt": "prompt completo y detallado para Gemini Imagen/Flow (mín 80 palabras): composición, colores, elementos, ambiente, texto en imagen si aplica",
+      "visual_idea": "descripción en 2-3 oraciones de la escena y el beneficio representado",
+      "flow_prompt": "prompt autónomo ≥100 palabras siguiendo la estructura indicada, listo para copiar en Gemini Imagen",
       "advertencia": "limitación o null"
     }}
   ]

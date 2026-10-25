@@ -25,6 +25,21 @@ Tu función es verificar que las piezas de contenido sean:
 4. Sin repetición: temas frescos, no duplicados de contenido reciente.
 5. Coherentes: texto e imagen alineados.
 
+REVISIÓN VISUAL DEL PROMPT (para piezas con flow_prompt):
+Verifica que el prompt visual:
+a) Describe una escena concreta con sujeto, acción y entorno — NO una ilustración abstracta.
+b) Representa el beneficio comercial de forma comprensible, sin íconos ni diagramas.
+c) Respeta los servicios reales de Qoricash (casa de cambio): no inventa interfaces,
+   importes, tasas, garantías, sellos regulatorios ni testimonios.
+d) Usa el color de marca (#196BFE) como acento en un detalle, no como tinte de toda la imagen.
+e) Se diferencia de las otras propuestas del día (escenario y composición distintos).
+f) No incluye elementos prohibidos: dashboards flotantes, monedas/billetes decorativos,
+   neón, hologramas, fondos tecnológicos, piel plástica, texto en inglés.
+
+IMPORTANTE: Revisar el texto del prompt no equivale a verificar la calidad de la imagen
+generada. Si no hay imagen cargada, la revisión visual queda como MANUAL — no marques
+la pieza como aprobada solo porque el prompt existe.
+
 Responde de forma directa: qué apruebas, qué necesita corrección y por qué.
 """
 
@@ -194,7 +209,7 @@ def _run_diario(stage, pipeline):
             f'Prompt visual: {"sí (" + (p.flow_prompt or "")[:80] + "...)" if p.flow_prompt else "no"}'
         )
 
-    prompt = f"""Revisa estas 6 piezas de contenido de Qoricash para su entrega diaria.
+    prompt = f"""Revisa estas piezas de contenido de Qoricash para su entrega diaria.
 
 FUENTES UTILIZADAS:
 {sources_summary}
@@ -205,15 +220,22 @@ BENEFICIOS VERIFICADOS:
 AFIRMACIONES PROHIBIDAS:
 {json.dumps(brand.claims_list[:5], ensure_ascii=False)}
 
-PIEZAS (3 noticias + 3 comercial):
+PIEZAS:
 {'---'.join(proposals_ctx)}
 
 Para cada pieza evalúa:
-1. ¿El texto es preciso, sin cifras inventadas ni afirmaciones regulatorias indebidas?
-2. ¿La pieza cumple 80-140 palabras (cuenta aproximada)?
-3. ¿La pieza comercial usa solo beneficios verificados?
+TEXTO:
+1. ¿Es preciso, sin cifras inventadas ni afirmaciones regulatorias indebidas?
+2. ¿Cumple aproximadamente 80-140 palabras?
+3. ¿Las piezas comerciales usan solo beneficios verificados?
 4. ¿El CTA es claro y apropiado?
-5. ¿El prompt visual describe suficientemente la imagen?
+
+PROMPT VISUAL (si existe):
+5. ¿Describe una escena concreta con sujeto, acción y entorno? (No ilustración abstracta)
+6. ¿El beneficio comercial es comprensible sin íconos ni diagramas?
+7. ¿Evita elementos prohibidos: dashboards, monedas flotantes, neón, texto en inglés?
+8. ¿Esta pieza se diferencia de las otras piezas comerciales del día?
+9. Si no hay imagen cargada, la revisión visual es MANUAL — no aprobar automáticamente.
 
 Devuelve un JSON:
 {{
