@@ -148,8 +148,9 @@ def fetch_calendar() -> list[dict]:
         logger.warning("[Calendario] Todos los mirrors fallaron — usando fallback generado")
         return _build_fallback_events()
 
-    data = raw_data
-    for item in data:
+    try:
+        data = raw_data
+        for item in data:
             impact  = (item.get('impact') or '').lower()
             country = (item.get('country') or '').upper()
 
