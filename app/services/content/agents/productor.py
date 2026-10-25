@@ -279,6 +279,10 @@ Para cada pieza devuelve:
 
 Devuelve un array JSON de {len(piezas_para_prompt)} objetos. Solo JSON."""
 
+    # Guardar created_by (non-PK) antes de cerrar la sesión; pipeline.id (PK) sobrevive al detach.
+    _pip_created_by = pipeline.created_by
+    db.session.close()
+
     try:
         prompts_result = ask_json(prompt_dv, system=SYSTEM_DV, model=SONNET, max_tokens=3000)
         if isinstance(prompts_result, dict):
@@ -290,7 +294,7 @@ Devuelve un array JSON de {len(piezas_para_prompt)} objetos. Solo JSON."""
 
     # ── Crear ContentProposal records ─────────────────────────────────────────
     batch = ContentBatch(
-        created_by = pipeline.created_by,
+        created_by = _pip_created_by,
         count      = len(posts) + len(propuestas),
         model_used = 'pipeline-diario',
         notes      = f'Pipeline diario #{pipeline.id}',

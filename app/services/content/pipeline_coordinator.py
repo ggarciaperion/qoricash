@@ -160,13 +160,29 @@ def run_stage(pipeline_id: int, seq: int = None,
     pipeline.status  = 'running'
     pipeline.current_stage_seq = target_seq
     db.session.commit()
+    # Liberar la conexión antes del agente: puede tardar minutos.
+    # pool_pre_ping garantizará una conexión válida al volver a persistir.
+    db.session.close()
+
+    # Recargar con sesión fresca antes de ejecutar el agente.
+    stage    = PipelineStage.query.filter_by(pipeline_id=pipeline_id, seq=target_seq).first()
+    pipeline = ContentPipeline.query.get(pipeline_id)
+    agent_role = stage.agent_role if stage else None
 
     # Ejecutar el agente correspondiente
     try:
         output = _dispatch_agent(stage, pipeline, user_instruction, user_urls)
     except Exception as e:
-        log.error(f'[Pipeline] etapa {stage.agent_role} error: {e}', exc_info=True)
+        log.error(f'[Pipeline] etapa {agent_role} error: {e}', exc_info=True)
         output = {'ok': False, 'reason': str(e)}
+
+    # Liberar conexión potencialmente obsoleta tras el agente y recargar para persistir.
+    db.session.close()
+    stage    = PipelineStage.query.filter_by(pipeline_id=pipeline_id, seq=target_seq).first()
+    pipeline = ContentPipeline.query.get(pipeline_id)
+    if not stage or not pipeline:
+        log.error(f'[Pipeline] pipeline {pipeline_id} etapa {target_seq} no encontrada al persistir')
+        return {'ok': False, 'reason': 'Pipeline/etapa no encontrada al persistir resultado'}
 
     # Persistir resultado
     stage.output_data   = json.dumps(output, ensure_ascii=False, default=str)
@@ -193,14 +209,47 @@ def run_stage(pipeline_id: int, seq: int = None,
         stage.status    = 'error'
         stage.error_msg = output.get('reason', 'Error desconocido')
         pipeline.status = 'error'
-        pipeline.error_msg = f'Error en etapa {target_seq} ({stage.agent_role}): {stage.error_msg}'
+        pipeline.error_msg = f'Error en etapa {target_seq} ({agent_role}): {stage.error_msg}'
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception as persist_exc:
+        log.error(f'[Pipeline] OperationalError al persistir etapa {target_seq}: {persist_exc}',
+                  exc_info=True)
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        db.session.close()
+        # Reintento de emergencia con sesión nueva: marcar error sin output_data
+        try:
+            s2 = PipelineStage.query.filter_by(pipeline_id=pipeline_id, seq=target_seq).first()
+            p2 = ContentPipeline.query.get(pipeline_id)
+            if s2 and p2:
+                s2.status       = 'error'
+                s2.error_msg    = f'OperationalError al persistir: {persist_exc}'
+                s2.completed_at = now_peru()
+                p2.status       = 'error'
+                p2.error_msg    = f'OperationalError etapa {target_seq} ({agent_role})'
+                db.session.commit()
+        except Exception as retry_exc:
+            log.error(f'[Pipeline] Reintento emergencia también falló: {retry_exc}')
+        return {
+            'ok':              False,
+            'stage_id':        None,
+            'seq':             target_seq,
+            'agent':           agent_role,
+            'status':          'error',
+            'output':          output,
+            'pipeline_status': 'error',
+            'next_seq':        target_seq,
+        }
+
     return {
         'ok':       output.get('ok', False),
         'stage_id': stage.id,
         'seq':      target_seq,
-        'agent':    stage.agent_role,
+        'agent':    agent_role,
         'status':   stage.status,
         'output':   output,
         'pipeline_status': pipeline.status,

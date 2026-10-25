@@ -252,10 +252,19 @@ Devuelve un JSON:
 }}
 Solo JSON."""
 
+    # Guardar IDs antes de cerrar la sesión: proposals se re-consultarán tras la llamada IA.
+    _proposal_ids = [p.id for p in proposals]
+    db.session.close()
+
     try:
         result = ask_json(prompt, system=SYSTEM, model=SONNET, max_tokens=3000)
         if not isinstance(result, dict):
             raise ValueError(f'Respuesta inesperada: {type(result)}')
+
+        # Re-consultar proposals con sesión fresca (la anterior fue liberada antes del AI call).
+        proposals = ContentProposal.query.filter(
+            ContentProposal.id.in_(_proposal_ids)
+        ).all()
 
         revisiones = result.get('revisiones', [])
         rev_map = {r['proposal_id']: r for r in revisiones if 'proposal_id' in r}
