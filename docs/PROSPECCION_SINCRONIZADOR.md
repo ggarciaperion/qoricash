@@ -9,7 +9,37 @@
 | `09872022` | fix: estado por destino, upsert PostgreSQL, enriquecimiento vía API |
 | `7e1415eb` | docs: nota de continuidad inicial |
 | `0ee00c25` | feat: cola en Application Support, sync-evento, sin FDA |
-| ver git log | chore: scripts versionados, plist template actualizado |
+| `b1c62bcd` | chore: scripts versionados, plist template actualizado |
+| `fd80e953` | docs: inventario completo v1 |
+| `aee231a3` | docs: inventario v2 — evidencia y 21 pendientes resueltos |
+| `4fba8237` | docs: inventario v3 — git diff, puntos de arranque ← **cierre de inventario** |
+
+---
+
+## Estado al cierre (2026-10-25)
+
+### Flujo 24/7
+
+El flujo automatizado opera exclusivamente a través de `orchestrator.py` (Render) y `motor_comercial.py` (LaunchAgent local, actualmente fallando por TCC — no reparar, evitar segundo ejecutor). Los 8 agentes son los únicos puntos de envío automático. Las 14 campañas manuales identificadas en el inventario son ajenas a este flujo y no deben presentarse en el panel como activas.
+
+**No verificar señal de Render como activo sin evidencia reciente del entorno.** El panel debe distinguir actividad de agentes 24/7 de historial de campañas manuales.
+
+### Pendiente para próxima sesión — panel web
+
+El panel (`GET /agentes/prospeccion`) debe distinguir:
+1. Actividad de agentes 24/7 (fuente: `camp_envio` con `proceso` = valores de agentes)
+2. Historial de campañas manuales (fuente: `camp_envio` con `proceso` = `campana_150`, `campana_prospeccion`, `campana_nuevos`, etc.)
+3. Estado del worker de Render: presentar solo si existe señal verificada reciente (ej. `runtime_config` con `feature.flags_recorded_at` < N minutos)
+
+No instrumentar los agentes ni las campañas para implementar esto. El panel debe observar las fuentes existentes mediante código separado en la ruta `/agentes/prospeccion`.
+
+### Pendiente para próxima sesión — limpieza
+
+Propuesta lista en `docs/INVENTARIO_PROSPECCION.md` commit `4fba8237`:
+- `_legacy/` (103 archivos): respaldo tar.gz → eliminar carpeta
+- Entrada cron `0 8 19 5 *`: `crontab -l | grep -v campana_mype | crontab -`
+
+No ejecutar hasta autorización explícita.
 
 ---
 
@@ -17,7 +47,7 @@
 
 | Ruta | Método | Auth | Uso |
 |------|--------|------|-----|
-| `POST /agentes/api/prospeccion/sync-evento`   | POST | `X-Sync-Key` | **Vía principal (nueva)**: eventos directos desde campañas / cola |
+| `POST /agentes/api/prospeccion/sync-evento`   | POST | `X-Sync-Key` | **Vía principal**: eventos directos desde campañas / cola |
 | `POST /agentes/api/prospeccion/sync-importar` | POST | `X-Sync-Key` | Legado: archivos `.log` / `_resultado.json` vía multipart |
 | `POST /agentes/api/prospeccion/sync-enrich`   | POST | `X-Sync-Key` | Upsert enriquecimiento desde Sheets |
 | `GET  /agentes/prospeccion`                   | GET  | sesión + rol  | Panel web de revisión |
@@ -74,27 +104,22 @@ No se borran hasta confirmar transferencia completa.
 | `campana_prospeccion_nueva_base.py` | email | `campana_prospeccion` |
 | `campana_nuevos_prospectos.py` | email | `campana_nuevos` |
 
-Estos tres scripts:
-- Eliminaron el `FileHandler` a `~/Desktop/...log`
-- Llaman `send_evento()` tras cada envío (OK y FAIL)
-- Si el servidor no está disponible, el evento va a la cola en Application Support
+Estos tres scripts eliminaron el `FileHandler` a `~/Desktop/...log`, llaman `send_evento()` tras cada envío (OK y FAIL), y si el servidor no está disponible el evento va a la cola en Application Support. No adaptar más campañas sin orden explícita.
 
-### ⏳ Pendientes de adaptar — envían email, aún sin `send_evento()`
+### ⏳ Con FileHandler — no adaptar por ahora
 
-| Script | Canal | Nota |
-|--------|-------|------|
-| `campana_master.py` | email | Tiene FileHandler |
-| `campana_precios_lfc.py` | email + wa | Tiene FileHandler |
-| `campana_precios_lfc_3bandejas.py` | email | Tiene FileHandler |
-| `campana_seguimiento_hoja4.py` | email + wa | Tiene FileHandler |
+| Script | Canal |
+|--------|-------|
+| `campana_master.py` | email |
+| `campana_precios_lfc.py` | email + wa |
+| `campana_precios_lfc_3bandejas.py` | email |
+| `campana_seguimiento_hoja4.py` | email + wa |
 
-Estos scripts no están activos en el flujo principal actual. Adaptar cuando se requiera.
-
-### ℹ️ No aplica — solo WhatsApp (no registran en `camp_envio`)
+### ℹ️ No aplica — solo WhatsApp
 
 `campana_wa_clientes.py` · `campana_wa_prospeccion.py` · `campana_wa_prospectos_sheet.py`
 
-### ℹ️ Orquestador
+### ℹ️ Orquestador manual
 
 `campana_maestro.py` — llama a otros scripts; no envía directamente.
 
@@ -117,7 +142,7 @@ echo "https://TU-APP.onrender.com/agentes/api/prospeccion/sync-evento" \
 
 ## Scripts en la Mac (`~/Desktop/Prospeccion/`)
 
-### `campaign_sink.py` ← nuevo
+### `campaign_sink.py`
 Librería importada por las campañas. `send_evento(record)` intenta POST a `/sync-evento`;
 si el servidor no está disponible, escribe a la cola en Application Support.
 
@@ -130,7 +155,7 @@ send_evento({
     'proceso': 'campana_150',
     'enviado_at': '2026-10-25 09:30:00',
     'resultado_log': 'OK',
-    'fuente_archivo': 'campana_150_2026-10-25.log',  # hash compatible con imports históricos
+    'fuente_archivo': 'campana_150_2026-10-25.log',
 })
 ```
 
