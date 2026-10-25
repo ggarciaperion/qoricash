@@ -3,6 +3,7 @@ services:
     name: qoricash
     env: python
     region: oregon
+    branch: deploy/estudio-creativo
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn -c gunicorn_config.py run:app
     preDeployCommand: bash migrate.sh
@@ -16,3 +17,14 @@ services:
         value: production
       - key: TZ
         value: America/Lima
+      # Estudio Creativo — scheduler diario
+      # ESTUDIO_CRON_TOKEN: token secreto para el endpoint /contenido/api/generar-diario-sync
+      # Si se usa el scheduler interno (ESTUDIO_DIARIO_AUTO=true por defecto), este token
+      # solo es necesario si además se configura un Cron Job externo en Render ($1/mes).
+      # Generar con: python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+      - key: ESTUDIO_CRON_TOKEN
+        sync: false   # valor secreto — configurar manualmente en Render dashboard
+      # ESTUDIO_DIARIO_AUTO: 'true' activa el scheduler interno (por defecto).
+      # Cambiar a 'false' solo si se usa exclusivamente el Cron Job externo.
+      - key: ESTUDIO_DIARIO_AUTO
+        value: "true"
