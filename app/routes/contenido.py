@@ -773,8 +773,6 @@ def api_generar_diario():
 
         # Ejecutar en background para no bloquear la respuesta HTTP
         def _bg():
-            with pipeline._sa_instance_state.session_id.__class__:
-                pass  # no-op para evitar import cíclico
             from app import create_app
             app_ctx = create_app()
             with app_ctx.app_context():
@@ -857,9 +855,16 @@ def api_generar_diario_sync():
             db.session.add(entrega)
         db.session.commit()
 
-        # Run pipeline in OS thread via tpool to avoid blocking eventlet hub
+        # Run pipeline in OS thread via tpool to avoid blocking eventlet hub.
+        # OS threads do NOT inherit Flask app context — capture app object first.
+        from flask import current_app as _flask_app
+        _app    = _flask_app._get_current_object()
+        _pip_id = pipeline.id
+
         def _run_sync():
-            return run_pipeline_auto(pipeline.id)
+            with _app.app_context():
+                from app.services.content.pipeline_coordinator import run_pipeline_auto as _rpa
+                return _rpa(_pip_id)
 
         try:
             import eventlet.tpool as _tpool
