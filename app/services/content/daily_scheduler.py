@@ -29,6 +29,28 @@ WINDOW_END   = (7, 25)   # 7:25 AM Lima — fin de ventana (no iniciar nuevas en
 REPAIR_TIME  = (7, 30)   # 7:30 AM Lima — comprobación de completitud y reintento
 REPAIR_LIMIT = 1         # máximo de intentos de reparación por día
 
+# Clave para advisory lock de PostgreSQL — exclusión compartida entre scheduler,
+# generación manual y recuperación. Fija por módulo; no colisiona con otras features.
+_LOCK_KEY = 7341523691
+
+
+def _try_advisory_lock(db):
+    """
+    Intenta adquirir un advisory lock de nivel-transacción en PostgreSQL.
+    Retorna True si se adquirió, False si otra sesión activa ya lo tiene.
+    El lock se libera automáticamente al hacer commit o rollback.
+    En SQLite (desarrollo) no hay advisory locks: siempre retorna True.
+    """
+    from sqlalchemy import text
+    try:
+        result = db.session.execute(
+            text('SELECT pg_try_advisory_xact_lock(:key)'),
+            {'key': _LOCK_KEY}
+        ).scalar()
+        return bool(result)
+    except Exception:
+        return True   # SQLite u otro motor: sin advisory locks, permitir paso
+
 
 def _now_lima():
     return _dt.now(LIMA_TZ)
@@ -58,6 +80,9 @@ def try_generate_today(force=False):
     from app.extensions import db
     from app.utils.formatters import now_peru
     from app.services.content.pipeline_coordinator import create_pipeline, run_pipeline_auto
+
+    if not _try_advisory_lock(db):
+        return False, 'Operación de generación activa en otra sesión DB — abortando'
 
     today   = _date.today()
     entrega = EntregaDiaria.query.filter_by(fecha=today).first()
@@ -132,6 +157,9 @@ def repair_delivery_today():
     from app.extensions import db
     from app.utils.formatters import now_peru
     from app.services.content.pipeline_coordinator import PIPELINE_SEQUENCES
+
+    if not _try_advisory_lock(db):
+        return False, 'Operación de generación activa en otra sesión DB — abortando'
 
     today   = _date.today()
     entrega = EntregaDiaria.query.filter_by(fecha=today).first()
@@ -305,6 +333,187 @@ def run_scheduler_loop(app):
             log.error(f'[ESTUDIO-SCHED] Error en loop: {e}')
 
         eventlet.sleep(60)
+
+
+def recover_pipeline(pipeline_id, target_date):
+    """
+    Recupera un pipeline diario específico reanudando etapas incompletas.
+
+    - Exclusión compartida con scheduler y generación manual (pg_try_advisory_xact_lock).
+    - Verifica entrega.pipeline_id == pipeline_id.
+    - Preserva etapas 'done' y sus resultados; no las re-ejecuta.
+    - Evita duplicar propuestas si el productor ya generó contenido.
+    - Re-consulta entrega y pipeline con sesión fresca tras las etapas.
+    - Marca 'listo' solo si: 3 noticias (nacional+internacional+mercados),
+      3 comerciales, 6 text_body no vacíos, 6 flow_prompt no vacíos, revisor done.
+    - Retorna (ok, mensaje, detalle).
+    """
+    from app.models.content_pipeline import EntregaDiaria, ContentPipeline, PipelineStage
+    from app.models.content_proposal import ContentProposal
+    from app.extensions import db
+    from app.utils.formatters import now_peru
+    from app.services.content.pipeline_coordinator import run_stage, PIPELINE_SEQUENCES
+
+    # ── 1. Exclusión compartida ────────────────────────────────────────────────
+    if not _try_advisory_lock(db):
+        return False, 'Otra operación de generación activa en DB — abortando', {}
+
+    # ── 2. Verificar entrega y pipeline ───────────────────────────────────────
+    entrega = EntregaDiaria.query.filter_by(fecha=target_date).first()
+    if not entrega:
+        return False, f'No hay EntregaDiaria para fecha={target_date}', {}
+    if entrega.pipeline_id != pipeline_id:
+        return False, (
+            f'EntregaDiaria.pipeline_id={entrega.pipeline_id} '
+            f'no coincide con pipeline_id solicitado={pipeline_id}'
+        ), {}
+    if entrega.status == 'generando':
+        return False, 'Entrega en progreso (status=generando) — espera finalización', {}
+    if entrega.status == 'listo':
+        return False, 'Entrega ya completa (status=listo)', {}
+
+    pipeline = ContentPipeline.query.get(pipeline_id)
+    if not pipeline:
+        return False, f'Pipeline #{pipeline_id} no encontrado', {}
+
+    # ── 3. Cargar etapas y determinar primera incompleta ──────────────────────
+    stages = PipelineStage.query.filter_by(
+        pipeline_id=pipeline_id
+    ).order_by(PipelineStage.seq).all()
+
+    if not stages:
+        return False, f'Pipeline #{pipeline_id} no tiene etapas registradas', {}
+
+    # Capturar (seq, agent_role, status) ANTES de cualquier commit o modificación.
+    stage_info = [(s.seq, s.agent_role, s.status) for s in stages]
+    done_seqs  = {seq for seq, role, st in stage_info if st == 'done'}
+
+    first_incomplete_seq = None
+    for seq, role, st in stage_info:
+        if st != 'done':
+            first_incomplete_seq = seq
+            break
+
+    if first_incomplete_seq is None:
+        # Todas las etapas completadas — recalcular estado final.
+        nok = ContentProposal.query.filter_by(pipeline_id=pipeline_id, delivery_type='noticia').count()
+        cok = ContentProposal.query.filter_by(pipeline_id=pipeline_id, delivery_type='comercial').count()
+        entrega.status       = 'listo' if (nok >= 3 and cok >= 3) else 'parcial'
+        entrega.noticias_ok  = nok
+        entrega.comercial_ok = cok
+        entrega.generado_at  = now_peru()
+        db.session.commit()
+        return False, f'Todas las etapas completas — estado recalculado: {entrega.status} ({nok}n+{cok}c)', {}
+
+    log.info(
+        f'[ESTUDIO-RECOVER] Pipeline #{pipeline_id} ({target_date}): '
+        f'primera incompleta seq={first_incomplete_seq}, '
+        f'done_seqs={sorted(done_seqs)}'
+    )
+
+    # ── 4. Limpiar etapas no-done (error/running → pending) ───────────────────
+    for s in stages:
+        if s.seq >= first_incomplete_seq and s.status not in ('done',):
+            s.status    = 'pending'
+            s.error_msg = None
+
+    # ── 5. Marcar generando + commit (libera advisory lock) ───────────────────
+    # A partir de aquí cualquier otro llamador verá status='generando' y abortará.
+    entrega.status     = 'generando'
+    pipeline.status    = 'running'
+    pipeline.error_msg = None
+    db.session.commit()
+    # Advisory lock liberado en el commit anterior.
+
+    # ── 6. Ejecutar etapas desde primera incompleta (usando stage_info cacheado) ─
+    run_results = []
+    for seq, agent_role, _orig_status in stage_info:
+        # Preservar etapas done
+        if seq in done_seqs:
+            run_results.append({'seq': seq, 'agent': agent_role, 'skipped': True, 'reason': 'done'})
+            continue
+
+        # No ejecutar etapas antes de la primera incompleta (todas deberían ser done)
+        if seq < first_incomplete_seq:
+            run_results.append({'seq': seq, 'agent': agent_role, 'skipped': True, 'reason': 'before_start'})
+            continue
+
+        # Anti-duplicado: omitir productor si ya hay propuestas para este pipeline
+        if agent_role == 'productor':
+            existing = ContentProposal.query.filter_by(pipeline_id=pipeline_id).count()
+            if existing > 0:
+                log.info(f'[ESTUDIO-RECOVER] Productor omitido: {existing} propuestas ya existen')
+                run_results.append({
+                    'seq': seq, 'agent': 'productor', 'skipped': True,
+                    'reason': f'{existing} propuestas ya existen',
+                })
+                continue
+
+        r = run_stage(pipeline_id, seq=seq)
+        run_results.append({'seq': seq, 'ok': r.get('ok'), 'agent': r.get('agent')})
+
+        if not r.get('ok'):
+            # Re-consultar entrega con sesión fresca (no usar expire sobre objeto posiblemente desvinculado)
+            entrega2 = EntregaDiaria.query.filter_by(fecha=target_date).first()
+            if entrega2:
+                entrega2.status = 'error'
+                entrega2.notas  = (entrega2.notas or '') + (
+                    f' [recover: fallo seq={seq} ({agent_role})]'
+                )
+                db.session.commit()
+            return (
+                False,
+                f'Falló etapa seq={seq} ({agent_role})',
+                {'run_results': run_results},
+            )
+
+    # ── 7. Re-consultar entrega y pipeline con sesión fresca ──────────────────
+    entrega  = EntregaDiaria.query.filter_by(fecha=target_date).first()
+    pipeline = ContentPipeline.query.get(pipeline_id)
+
+    nok = ContentProposal.query.filter_by(pipeline_id=pipeline_id, delivery_type='noticia').count()
+    cok = ContentProposal.query.filter_by(pipeline_id=pipeline_id, delivery_type='comercial').count()
+
+    # ── 8. Criterios estrictos para marcar 'listo' ────────────────────────────
+    textos_y_prompts_listos = False
+    if entrega and pipeline:
+        revisor_st  = PipelineStage.query.filter_by(
+            pipeline_id=pipeline_id, agent_role='revisor'
+        ).first()
+        revisor_ok  = revisor_st and revisor_st.status == 'done'
+
+        proposals   = ContentProposal.query.filter_by(pipeline_id=pipeline_id).all()
+        all_texts   = all(bool((p.text_body   or '').strip()) for p in proposals) if proposals else False
+        all_prompts = all(bool((p.flow_prompt or '').strip()) for p in proposals) if proposals else False
+
+        noticia_cats = {p.noticia_category for p in proposals if p.delivery_type == 'noticia'}
+        has_cats     = {'nacional', 'internacional', 'mercados'}.issubset(noticia_cats)
+
+        textos_y_prompts_listos = (
+            nok >= 3 and cok >= 3
+            and len(proposals) >= 6
+            and all_texts and all_prompts
+            and has_cats
+            and revisor_ok
+        )
+
+        entrega.status       = 'listo' if textos_y_prompts_listos else 'parcial'
+        entrega.noticias_ok  = nok
+        entrega.comercial_ok = cok
+        entrega.generado_at  = now_peru()
+        db.session.commit()
+
+    msg = (
+        f'Recuperación #{pipeline_id} ({target_date}): '
+        f'{entrega.status if entrega else "?"} ({nok}n+{cok}c)'
+    )
+    log.info(f'[ESTUDIO-RECOVER] {msg}')
+    return True, msg, {
+        'run_results':             run_results,
+        'noticias':                nok,
+        'comerciales':             cok,
+        'textos_y_prompts_listos': textos_y_prompts_listos,
+    }
 
 
 def spawn(app):

@@ -3344,3 +3344,45 @@ def register_cli_commands(app):
         print("-" * 85)
         print(f"{'TOTAL':>44} {float(total_buy):>12,.2f} {float(total_sell):>12,.2f} {float(total_amar):>12,.2f}")
         print(f"\n✓ Utilidad real del mes desde amarres: S/ {float(total_amar):,.2f}")
+
+    @app.cli.command("estudio-recuperar")
+    @click.argument('pipeline_id', type=int)
+    @click.argument('fecha')
+    def estudio_recuperar(pipeline_id, fecha):
+        """
+        Recupera un pipeline del Estudio Creativo reanudando etapas incompletas.
+
+        Uso: flask estudio-recuperar <pipeline_id> <fecha YYYY-MM-DD>
+        Ejemplo: flask estudio-recuperar 1 2026-10-25
+        """
+        import sys
+        from datetime import date
+
+        try:
+            target_date = date.fromisoformat(fecha)
+        except ValueError:
+            print(f'ERROR: fecha invalida "{fecha}". Formato esperado: YYYY-MM-DD')
+            sys.exit(1)
+
+        from app.services.content.daily_scheduler import recover_pipeline
+
+        print(f'[estudio-recuperar] Pipeline #{pipeline_id}, fecha={target_date}')
+        ok, msg, detail = recover_pipeline(pipeline_id, target_date)
+
+        print(f'{"OK" if ok else "INFO"}: {msg}')
+
+        if detail.get('run_results'):
+            print('\nEtapas:')
+            for r in detail['run_results']:
+                if r.get('skipped'):
+                    print(f'  seq={r["seq"]} ({r["agent"]}) -> omitida ({r.get("reason", "")})')
+                else:
+                    status = 'ok' if r.get('ok') else 'FALLO'
+                    print(f'  seq={r["seq"]} ({r["agent"]}) -> {status}')
+
+        if 'noticias' in detail:
+            print(f'\nNoticias: {detail["noticias"]}  Comerciales: {detail["comerciales"]}')
+            print(f'Textos y prompts listos: {detail.get("textos_y_prompts_listos", False)}')
+
+        if not ok and not detail:
+            sys.exit(1)
