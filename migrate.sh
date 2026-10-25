@@ -807,3 +807,95 @@ except Exception as e:
     print(f"   ⚠️  Error en patch índice wa_messages: {e}")
 PYEOF
 echo ""
+# ── Patch directo: tablas del Estudio Creativo (pipeline + brand) ─────────────
+# Seguridad adicional: si flask db upgrade heads falla antes de e1s2t3u4d5i6,
+# estas tablas se crean de todas formas. Totalmente idempotente (IF NOT EXISTS).
+echo "⚡ Garantizando tablas del Estudio Creativo (content_pipelines, pipeline_stages, content_sources, brand_configs)..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando patch directo Estudio Creativo")
+    sys.exit(0)
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    print("   DATABASE_URL no definida — saltando patch directo Estudio Creativo")
+    sys.exit(0)
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS content_pipelines (
+            id                SERIAL PRIMARY KEY,
+            created_at        TIMESTAMP WITHOUT TIME ZONE,
+            updated_at        TIMESTAMP WITHOUT TIME ZONE,
+            created_by        INTEGER REFERENCES users(id),
+            type              VARCHAR(20) NOT NULL,
+            title             VARCHAR(200),
+            status            VARCHAR(30) DEFAULT 'running',
+            current_stage_seq INTEGER DEFAULT 1,
+            notes             TEXT,
+            error_msg         TEXT
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS pipeline_stages (
+            id               SERIAL PRIMARY KEY,
+            pipeline_id      INTEGER NOT NULL REFERENCES content_pipelines(id),
+            seq              INTEGER NOT NULL,
+            agent_role       VARCHAR(40) NOT NULL,
+            status           VARCHAR(30) DEFAULT 'pending',
+            input_data       TEXT,
+            output_data      TEXT,
+            version          INTEGER DEFAULT 1,
+            started_at       TIMESTAMP WITHOUT TIME ZONE,
+            completed_at     TIMESTAMP WITHOUT TIME ZONE,
+            error_msg        TEXT,
+            user_instruction TEXT,
+            review_notes     TEXT,
+            approved_by      INTEGER REFERENCES users(id),
+            approved_at      TIMESTAMP WITHOUT TIME ZONE
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS content_sources (
+            id               SERIAL PRIMARY KEY,
+            pipeline_id      INTEGER REFERENCES content_pipelines(id),
+            stage_id         INTEGER REFERENCES pipeline_stages(id),
+            fetched_at       TIMESTAMP WITHOUT TIME ZONE,
+            url              VARCHAR(2000),
+            title            VARCHAR(500),
+            excerpt          TEXT,
+            published_at     VARCHAR(30),
+            source_name      VARCHAR(200),
+            source_type      VARCHAR(30),
+            is_verified      BOOLEAN DEFAULT false,
+            used_in_analysis BOOLEAN DEFAULT false
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS brand_configs (
+            id                SERIAL PRIMARY KEY,
+            updated_at        TIMESTAMP WITHOUT TIME ZONE,
+            updated_by        INTEGER REFERENCES users(id),
+            verified_benefits TEXT DEFAULT '[]',
+            prohibited_claims TEXT DEFAULT '[]',
+            tone_guide        TEXT DEFAULT '',
+            hashtag_sets      TEXT DEFAULT '{}',
+            approved_channels VARCHAR(200) DEFAULT 'linkedin,instagram,facebook,reel',
+            enabled_sources   VARCHAR(500) DEFAULT 'bcrp,sbs,el_comercio,gestion,peru21'
+        )
+    """)
+
+    conn.close()
+    print("   ✅ Tablas Estudio Creativo confirmadas en PostgreSQL")
+except Exception as e:
+    print(f"   ⚠️  Error en patch Estudio Creativo: {e}")
+PYEOF
+echo ""
