@@ -1,37 +1,1082 @@
 {% extends "base.html" %}
-{% block title %}Prospección — Agentes IA{% endblock %}
+{% block title %}Prospección — Contactos y Actividad{% endblock %}
+{% block head %}
+<style>
+:root{--navy:#0D1B2A;--bdr:#e8ecf0;--muted:#64748b;--accent:#2563eb;}
+/* ── Layout ── */
+.ps-header{background:var(--navy);border-radius:10px;padding:12px 18px;margin-bottom:16px;
+  display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+.ps-title{font-size:1.05rem;font-weight:800;color:#fff;margin:0;}
+.ps-tabs{display:flex;gap:4px;background:#f1f5f9;border-radius:8px;padding:3px;}
+.ps-tab{border:none;background:none;padding:6px 14px;border-radius:6px;font-size:.8rem;
+  font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;}
+.ps-tab.active{background:#fff;color:#1e293b;box-shadow:0 1px 3px rgba(0,0,0,.1);}
+.ps-pane{display:none;}.ps-pane.active{display:block;}
+
+/* ── Stats bar ── */
+.stats-bar{display:flex;gap:0;background:#fff;border:1px solid var(--bdr);border-radius:8px;
+  margin-bottom:12px;overflow:hidden;flex-wrap:wrap;}
+.stat-item{flex:1;min-width:130px;padding:10px 14px;border-right:1px solid var(--bdr);
+  display:flex;flex-direction:column;gap:2px;}
+.stat-item:last-child{border-right:none;}
+.stat-val{font-size:1.05rem;font-weight:800;color:#1e293b;line-height:1.2;}
+.stat-lbl{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);}
+.stat-sub{font-size:.63rem;color:var(--muted);}
+.partial-badge{display:inline-block;background:#fef9c3;color:#92400e;border:1px solid #fde68a;
+  border-radius:5px;padding:3px 10px;font-size:.72rem;font-weight:600;margin-bottom:10px;}
+.info-bar{background:#f8fafc;border:1px solid var(--bdr);border-radius:6px;padding:8px 14px;
+  font-size:.72rem;color:#475569;margin-bottom:10px;display:flex;gap:16px;flex-wrap:wrap;
+  align-items:center;}
+
+/* ── Filters bar ── */
+.filter-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;}
+.filter-group{display:flex;flex-direction:column;gap:2px;}
+.filter-label{font-size:.62rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--muted);padding-left:2px;}
+.filter-bar input,.filter-bar select{font-size:.78rem;padding:5px 10px;border:1px solid var(--bdr);
+  border-radius:6px;background:#fff;height:32px;}
+.filter-bar input{min-width:180px;}.filter-bar select{min-width:120px;}
+.btn-sm-icon{height:32px;padding:0 10px;font-size:.78rem;border-radius:6px;
+  display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
+.filter-actions{display:flex;gap:6px;align-items:flex-end;}
+
+/* ── Table ── */
+.ct-table{width:100%;border-collapse:collapse;font-size:.78rem;}
+.ct-table th{background:#f8fafc;color:var(--muted);font-weight:700;text-transform:uppercase;
+  font-size:.65rem;letter-spacing:.04em;padding:8px 10px;border-bottom:2px solid var(--bdr);
+  white-space:nowrap;}
+.ct-table td{padding:8px 10px;border-bottom:1px solid var(--bdr);vertical-align:middle;}
+.ct-table tr:hover td{background:#f8fafc;cursor:pointer;}
+.ct-table tr.detail-open td{background:#eff6ff;}
+.emp-cell{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.emp-cell .emp-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.emp-cell .emp-rubro{font-size:.65rem;color:var(--muted);margin-top:1px;}
+.contact-cell{max-width:160px;}
+.contact-cell .cont-name{font-size:.75rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.contact-cell .cont-tel{font-size:.65rem;color:var(--muted);font-family:monospace;}
+.email-cell{font-family:monospace;font-size:.71rem;color:#1e40af;max-width:180px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pill{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.65rem;font-weight:700;}
+.pill-ok{background:#dcfce7;color:#166534;}
+.pill-fail{background:#fee2e2;color:#991b1b;}
+.pill-skip{background:#fef9c3;color:#713f12;}
+.pill-rebotado{background:#fed7aa;color:#9a3412;}
+.pill-unknown{background:#f1f5f9;color:var(--muted);}
+.pill-resp{background:#dbeafe;color:#1e40af;}
+.badge-count{display:inline-block;background:#dbeafe;color:#1e40af;padding:1px 7px;
+  border-radius:10px;font-size:.68rem;font-weight:700;}
+.btn-hist{border:1px solid var(--bdr);background:#fff;border-radius:5px;padding:2px 8px;
+  font-size:.68rem;color:var(--accent);cursor:pointer;white-space:nowrap;}
+.btn-hist:hover{background:#eff6ff;border-color:var(--accent);}
+
+/* ── Pagination ── */
+.pgn{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:.8rem;}
+.pgn button{height:30px;min-width:30px;padding:0 8px;border:1px solid var(--bdr);
+  border-radius:5px;background:#fff;cursor:pointer;font-size:.78rem;}
+.pgn button:disabled{opacity:.4;cursor:default;}
+.pgn button.cur{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+/* ── Detail drawer ── */
+.detail-row td{padding:0;background:#f8fafc;}
+.detail-inner{padding:16px;border-top:1px solid var(--bdr);}
+.tl-item{display:flex;gap:10px;margin-bottom:10px;align-items:flex-start;}
+.tl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.tl-dot-send{background:#3b82f6;}
+.tl-dot-bounce{background:#ef4444;}
+.tl-body{flex:1;}
+.tl-ts{font-size:.65rem;color:var(--muted);}
+.no-data{color:var(--muted);font-style:italic;font-size:.78rem;}
+.source-tag{font-size:.6rem;color:var(--muted);border:1px solid var(--bdr);
+  border-radius:4px;padding:1px 5px;margin-left:6px;}
+.nota-rebote{background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;
+  padding:8px 12px;font-size:.72rem;color:#9a3412;margin-bottom:10px;}
+.prosp-bar{background:#f1f5f9;border-radius:6px;padding:8px 12px;margin-bottom:10px;
+  font-size:.73rem;display:flex;gap:16px;flex-wrap:wrap;align-items:center;}
+.prosp-bar b{color:#334155;}
+.no-registrado{color:var(--muted);font-style:italic;}
+.source-section{border:1px solid var(--bdr);border-radius:6px;margin-top:14px;}
+.source-section-header{padding:6px 12px;font-size:.72rem;font-weight:600;color:var(--muted);
+  cursor:pointer;user-select:none;display:flex;justify-content:space-between;}
+.source-section-header:hover{background:#f8fafc;}
+.source-section-body{padding:10px 12px;font-size:.7rem;color:var(--muted);display:none;
+  border-top:1px solid var(--bdr);}
+.source-section-body.open{display:block;}
+
+/* ── Agent activity cards ── */
+.ag-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;}
+.ag-card{border:1px solid var(--bdr);border-radius:8px;padding:14px;background:#fff;}
+.ag-card.offline{opacity:.6;}
+.ag-name{font-weight:700;font-size:.85rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.hb-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.hb-online{background:#22c55e;animation:pulse 2s ease-in-out infinite;}
+.hb-idle{background:#f59e0b;}
+.hb-offline{background:#94a3b8;}
+.hb-error{background:#ef4444;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.ag-meta{font-size:.72rem;color:var(--muted);line-height:1.6;}
+.ag-err{margin-top:6px;font-size:.7rem;color:#dc2626;background:#fef2f2;border-radius:4px;
+  padding:4px 8px;word-break:break-word;}
+.ag-no-run{font-size:.72rem;color:var(--muted);font-style:italic;margin-top:4px;}
+
+/* ── Responses ── */
+.resp-card{border:1px solid var(--bdr);border-radius:8px;padding:12px;background:#fff;
+  margin-bottom:10px;display:flex;gap:12px;align-items:flex-start;}
+.resp-icon{font-size:1.3rem;flex-shrink:0;}
+.resp-body{flex:1;min-width:0;}
+.resp-from{font-weight:600;font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.resp-subject{font-size:.75rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.resp-snippet{font-size:.72rem;color:#475569;margin-top:3px;white-space:pre-wrap;word-break:break-word;}
+.resp-meta{font-size:.65rem;color:var(--muted);margin-top:4px;}
+
+/* ── Worker pulse ── */
+.worker-bar{display:flex;align-items:center;gap:10px;font-size:.78rem;padding:8px 12px;
+  border-radius:6px;margin-bottom:12px;border:1px solid var(--bdr);background:#f8fafc;}
+.loader{display:inline-block;width:14px;height:14px;border:2px solid #e2e8f0;
+  border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Import tab ── */
+.import-drop{border:2px dashed var(--bdr);border-radius:10px;padding:30px 20px;
+  text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:#fafafa;}
+.import-drop.dragover{border-color:var(--accent);background:#eff6ff;}
+.import-drop input[type=file]{display:none;}
+.import-drop-icon{font-size:2rem;margin-bottom:8px;opacity:.5;}
+.import-drop-label{font-size:.85rem;color:var(--muted);}
+.import-drop-hint{font-size:.72rem;color:var(--muted);margin-top:4px;}
+.import-file-list{margin-top:10px;display:flex;flex-direction:column;gap:4px;}
+.import-file-item{display:flex;align-items:center;gap:8px;font-size:.75rem;
+  background:#f1f5f9;border-radius:6px;padding:5px 10px;}
+.import-file-name{flex:1;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.import-file-rm{cursor:pointer;color:var(--muted);border:none;background:none;font-size:.9rem;padding:0 2px;}
+.imp-result-table{width:100%;border-collapse:collapse;font-size:.75rem;margin-top:8px;}
+.imp-result-table th{background:#f8fafc;color:var(--muted);font-weight:700;font-size:.65rem;
+  text-transform:uppercase;padding:6px 8px;border-bottom:2px solid var(--bdr);white-space:nowrap;}
+.imp-result-table td{padding:5px 8px;border-bottom:1px solid var(--bdr);vertical-align:top;}
+.imp-ok{color:#166534;font-weight:700;}.imp-dup{color:#b45309;}.imp-desc{color:#991b1b;}
+.imp-history{margin-top:20px;}
+.imp-history-title{font-size:.82rem;font-weight:700;color:#1e293b;margin-bottom:8px;
+  display:flex;align-items:center;gap:8px;}
+</style>
+{% endblock %}
 {% block content %}
-<div style="padding:16px 20px;max-width:900px;margin:0 auto;">
-  <div style="background:#0D1B2A;border-radius:10px;padding:14px 20px;margin-bottom:18px;
-    display:flex;justify-content:space-between;align-items:center;">
-    <div style="font-size:1.1rem;font-weight:800;color:#fff;">
-      <i class="bi bi-person-lines-fill me-2"></i>Métricas de Prospección
+<div style="padding:16px 20px;max-width:1200px;margin:0 auto;">
+
+  <!-- Header -->
+  <div class="ps-header">
+    <div class="ps-title"><i class="bi bi-person-lines-fill me-2"></i>Prospección</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <div class="ps-tabs" role="tablist">
+        <button class="ps-tab active" data-tab="contactos" onclick="showTab('contactos',this)">
+          <i class="bi bi-table me-1"></i>Contactos
+        </button>
+        <button class="ps-tab" data-tab="actividad" onclick="showTab('actividad',this)">
+          <i class="bi bi-activity me-1"></i>Actividad
+        </button>
+        <button class="ps-tab" data-tab="respuestas" onclick="showTab('respuestas',this)">
+          <i class="bi bi-inbox me-1"></i>Respuestas
+          <span id="badge-resp" style="display:none;background:#ef4444;color:#fff;
+            border-radius:10px;padding:0 5px;font-size:.6rem;margin-left:3px;"></span>
+        </button>
+        <button class="ps-tab" data-tab="importar" onclick="showTab('importar',this)">
+          <i class="bi bi-upload me-1"></i>Importar
+        </button>
+      </div>
+      <a href="{{ url_for('agentes.mission_control') }}" class="btn btn-sm btn-outline-secondary">
+        Mission Control
+      </a>
     </div>
-    <a href="{{ url_for('agentes.mission_control') }}" class="btn btn-sm btn-outline-light">Mission Control</a>
   </div>
-  <div class="row g-3 mb-4">
-    {% for key, val, lbl, color in [
-      ('total', stats.total, 'Prospectos Totales', '#16a34a'),
-      ('contactados', stats.contactados, 'Contactados', '#2563eb'),
-      ('sin_contacto', stats.sin_contacto, 'Sin Contactar', '#d97706'),
-      ('clientes', stats.clientes, 'Clientes', '#16a34a'),
-      ('negociando', stats.negociando, 'Negociando', '#7c3aed'),
-      ('rebotes', stats.rebotes, 'Rebotes', '#dc2626'),
-      ('no_contactar', stats.no_contactar, 'No Contactar', '#64748b'),
-      ('emails_hoy', stats.emails_hoy, 'Emails Enviados Hoy', '#2563eb'),
-    ] %}
-    <div class="col-6 col-md-3">
-      <div style="background:#fff;border:1px solid #e8ecf0;border-radius:10px;padding:14px 16px;">
-        <div style="font-size:1.8rem;font-weight:800;color:{{ color }};line-height:1;">{{ val }}</div>
-        <div style="font-size:.72rem;color:#64748b;font-weight:600;margin-top:4px;">{{ lbl }}</div>
+
+  <!-- ══ TAB: CONTACTOS ══ -->
+  <div class="ps-pane active" id="pane-contactos">
+
+    <!-- Stats bar -->
+    <div id="stats-loading" style="font-size:.75rem;color:var(--muted);margin-bottom:8px;display:none;">
+      <span class="loader"></span> Cargando estadísticas…
+    </div>
+    <div id="partial-badge" style="display:none;">
+      <span class="partial-badge"><i class="bi bi-exclamation-circle me-1"></i>Historial parcialmente importado — puede haber campañas adicionales no cargadas.</span>
+    </div>
+    <div class="stats-bar" id="stats-bar" style="display:none;">
+      <div class="stat-item">
+        <div class="stat-val" id="st-unicos">—</div>
+        <div class="stat-lbl">Contactos únicos</div>
+        <div class="stat-sub">emails distintos en historial</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="st-intentos">—</div>
+        <div class="stat-lbl">Intentos de envío</div>
+        <div class="stat-sub" id="st-intentos-sub">registros en logs importados</div>
+      </div>
+      <div class="stat-item" id="st-rebote-item">
+        <div class="stat-val" id="st-rebotes">—</div>
+        <div class="stat-lbl">Con rebote detectado</div>
+        <div class="stat-sub" id="st-rebotes-sub">contactos en historial</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="st-periodo">—</div>
+        <div class="stat-lbl">Período en historial</div>
+        <div class="stat-sub" id="st-periodo-sub">rango de envíos importados</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="st-ult-envio">—</div>
+        <div class="stat-lbl">Último envío registrado</div>
+        <div class="stat-sub">fecha del log más reciente</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="st-importacion">—</div>
+        <div class="stat-lbl">Última importación</div>
+        <div class="stat-sub" id="st-importacion-sub">cuándo se cargaron los archivos</div>
       </div>
     </div>
-    {% endfor %}
+    <!-- Info bar: source details (collapsed by default) -->
+    <div id="info-bar" class="source-section" style="display:none;margin-bottom:10px;">
+      <div class="source-section-header" onclick="toggleSourceDetail()">
+        <span><i class="bi bi-info-circle me-1"></i>Detalles de la fuente</span>
+        <span id="source-toggle-icon">▼</span>
+      </div>
+      <div class="source-section-body" id="source-detail-body"></div>
+    </div>
+    <!-- Important note for manual import -->
+    <div id="manual-import-note" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;
+      border-radius:6px;padding:8px 14px;font-size:.75rem;color:#1e40af;margin-bottom:10px;">
+      <i class="bi bi-info-circle me-1"></i>Los nuevos envíos no se incorporan automáticamente.
+      Para actualizar el historial, importa los archivos de log desde la pestaña
+      <a href="#" onclick="document.querySelector('[data-tab=importar]').click();return false;" style="color:#1d4ed8;font-weight:600;">Importar</a>.
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-group">
+        <span class="filter-label">Buscar</span>
+        <input type="search" id="f-busq" placeholder="Empresa, email, contacto, tel…" style="min-width:200px;"
+               onkeydown="if(event.key==='Enter')loadContactos()">
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Desde</span>
+        <input type="date" id="f-desde">
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Hasta</span>
+        <input type="date" id="f-hasta">
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Bandeja</span>
+        <select id="f-bandeja">
+          <option value="">Todas</option>
+          <option value="ggarcia">ggarcia</option>
+          <option value="gerencia">gerencia</option>
+          <option value="info">info</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Campaña</span>
+        <select id="f-campana">
+          <option value="">Todas</option>
+          <option value="campana_150">150 prospectos</option>
+          <option value="campana_nuevos">Nuevos prospectos</option>
+          <option value="campana_prospeccion">Prospección</option>
+          <option value="campana_precios">Precios / LFC</option>
+          <option value="campana_master">Master</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Rubro</span>
+        <input type="text" id="f-rubro" placeholder="Ej: importador…" style="min-width:130px;"
+               onkeydown="if(event.key==='Enter')loadContactos()">
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Estado</span>
+        <select id="f-resultado">
+          <option value="">Todos</option>
+          <option value="OK">Enviado OK</option>
+          <option value="rebotado">Con rebote</option>
+          <option value="FAIL">Error de envío</option>
+        </select>
+      </div>
+      <div class="filter-actions">
+        <button class="btn btn-primary btn-sm-icon" onclick="loadContactos()">
+          <i class="bi bi-search"></i> Buscar
+        </button>
+        <button class="btn btn-outline-secondary btn-sm-icon" onclick="clearFilters()" title="Limpiar filtros">
+          <i class="bi bi-x-lg"></i> Limpiar filtros
+        </button>
+      </div>
+      <span id="ct-source" class="source-tag" style="display:none;align-self:center;"></span>
+    </div>
+
+    <div id="ct-status" class="no-data" style="padding:8px 0;display:none;"></div>
+    <div id="ct-loading" style="display:none;color:var(--muted);font-size:.8rem;padding:8px 0;">
+      <span class="loader"></span> Cargando…
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table class="ct-table" id="ct-table" style="display:none;">
+        <thead>
+          <tr>
+            <th>Empresa / Rubro</th>
+            <th>Contacto / Teléfono</th>
+            <th>Email</th>
+            <th title="Número de veces que se intentó contactar este email">Intentos</th>
+            <th>Último envío</th>
+            <th>Bandeja</th>
+            <th>Campaña</th>
+            <th>Rebote detectado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="ct-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="pgn" id="ct-pgn" style="display:none;">
+      <button id="pgn-prev" onclick="changePage(-1)" disabled><i class="bi bi-chevron-left"></i></button>
+      <span id="pgn-info" style="color:var(--muted);font-size:.78rem;"></span>
+      <button id="pgn-next" onclick="changePage(1)"><i class="bi bi-chevron-right"></i></button>
+    </div>
   </div>
-  <div style="text-align:center;margin-top:24px;">
-    <a href="{{ url_for('prospeccion.lista') }}" class="btn btn-primary">
-      <i class="bi bi-arrow-right me-1"></i>Ver base completa de prospectos
-    </a>
+
+  <!-- ══ TAB: ACTIVIDAD ══ -->
+  <div class="ps-pane" id="pane-actividad">
+    <div class="worker-bar" id="worker-bar">
+      <span class="loader"></span> Cargando estado del worker…
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+      <button class="btn btn-outline-secondary btn-sm-icon" onclick="loadActividad()">
+        <i class="bi bi-arrow-clockwise"></i> Actualizar
+      </button>
+    </div>
+    <div class="ag-grid" id="ag-grid">
+      <div class="no-data">Cargando agentes…</div>
+    </div>
   </div>
-</div>
+
+  <!-- ══ TAB: RESPUESTAS ══ -->
+  <div class="ps-pane" id="pane-respuestas">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="font-size:.85rem;font-weight:700;color:#1e293b;">
+        Sin procesar · <span id="resp-count" style="color:var(--muted);">…</span>
+      </div>
+      <button class="btn btn-outline-secondary btn-sm-icon" onclick="loadRespuestas()">
+        <i class="bi bi-arrow-clockwise"></i> Actualizar
+      </button>
+    </div>
+    <div id="resp-loading" style="display:none;color:var(--muted);font-size:.8rem;padding:8px 0;">
+      <span class="loader"></span> Cargando…
+    </div>
+    <div id="resp-content">
+      <div class="no-data">Selecciona la pestaña para cargar.</div>
+    </div>
+  </div>
+
+  <!-- ══ TAB: IMPORTAR ══ -->
+  <div class="ps-pane" id="pane-importar">
+    <div style="max-width:700px;">
+      <p style="font-size:.8rem;color:#475569;margin-bottom:16px;">
+        Importa archivos de log de campaña (<code>.log</code>) o resultados de limpieza de bandejas
+        (<code>limpiar_bandejas_*_resultado.json</code>) a la base de datos. La importación es
+        idempotente: importar el mismo archivo dos veces no genera duplicados.
+        Los nuevos envíos <strong>no se incorporan automáticamente</strong>; deben importarse manualmente aquí.
+      </p>
+
+      <div class="import-drop" id="import-drop" onclick="document.getElementById('import-input').click()"
+           ondragover="event.preventDefault();this.classList.add('dragover')"
+           ondragleave="this.classList.remove('dragover')"
+           ondrop="handleDrop(event)">
+        <input type="file" id="import-input" accept=".log,.json" multiple onchange="addFiles(this.files)">
+        <div class="import-drop-icon"><i class="bi bi-cloud-upload"></i></div>
+        <div class="import-drop-label">Arrastra archivos aquí o haz clic para seleccionar</div>
+        <div class="import-drop-hint">Solo archivos <code>.log</code> y <code>.json</code></div>
+      </div>
+
+      <div class="import-file-list" id="import-file-list"></div>
+
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-primary btn-sm-icon" id="import-btn" onclick="runImport()" disabled>
+          <i class="bi bi-upload"></i> Importar
+        </button>
+        <button class="btn btn-outline-secondary btn-sm-icon" onclick="clearImportFiles()">
+          <i class="bi bi-x-lg"></i> Limpiar
+        </button>
+        <div id="import-progress" style="display:none;font-size:.78rem;color:var(--muted);">
+          <span class="loader"></span> Importando…
+        </div>
+      </div>
+
+      <div id="import-results" style="margin-top:16px;display:none;">
+        <div style="font-size:.82rem;font-weight:700;color:#1e293b;margin-bottom:6px;">
+          Resultado
+        </div>
+        <div id="import-summary" style="font-size:.78rem;margin-bottom:8px;"></div>
+        <table class="imp-result-table">
+          <thead>
+            <tr>
+              <th>Archivo</th><th>Tipo</th><th>Parseados</th>
+              <th class="imp-ok">Importados</th><th class="imp-dup">Duplicados</th>
+              <th class="imp-desc">Descartados</th><th>Detalle</th>
+            </tr>
+          </thead>
+          <tbody id="import-result-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="imp-history">
+      <div class="imp-history-title">
+        <i class="bi bi-clock-history"></i> Historial de importaciones
+        <button class="btn btn-outline-secondary btn-sm-icon" onclick="loadImportaciones()">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+      </div>
+      <div id="import-history-loading" style="display:none;font-size:.78rem;color:var(--muted);">
+        <span class="loader"></span> Cargando…
+      </div>
+      <div id="import-history-content">
+        <div class="no-data">Selecciona la pestaña para cargar el historial.</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// Endpoints
+// ═══════════════════════════════════════════════════════════════════════
+const URL_CONTACTOS     = "{{ url_for('agentes.api_contactos') }}";
+const URL_TIMELINE      = "{{ url_for('agentes.api_contacto_timeline', email='__EMAIL__') }}";
+const URL_CAMP_STATS    = "{{ url_for('agentes.api_camp_stats') }}";
+const URL_IMPORTACIONES = "{{ url_for('agentes.api_importaciones') }}";
+const URL_IMPORTAR      = "{{ url_for('agentes.api_importar') }}";
+const URL_ACTIVIDAD     = "{{ url_for('agentes.api_actividad_real') }}";
+const URL_RESPUESTAS    = "{{ url_for('agentes.api_respuestas') }}";
+
+// Campaign display names
+const CAMP_NAMES = {
+  'campana_150':         '150 prospectos',
+  'campana_nuevos':      'Nuevos prospectos',
+  'campana_prospeccion': 'Prospección',
+  'campana_precios':     'Precios / LFC',
+  'campana_master':      'Master',
+  'campana':             'Campaña',
+};
+
+// Short bandeja names (strip domain)
+function shortBandeja(b) {
+  if (!b) return '—';
+  return b.replace('@qoricash.pe','').replace('@gmail.com','');
+}
+
+function campNombre(p) {
+  if (!p) return '—';
+  // Try exact match first, then prefix
+  if (CAMP_NAMES[p]) return CAMP_NAMES[p];
+  for (const [k,v] of Object.entries(CAMP_NAMES)) {
+    if (p.startsWith(k)) return v;
+  }
+  return p.replace('campana_','').replace(/_/g,' ');
+}
+
+function fmtDate(s) {
+  if (!s) return '—';
+  // "2026-06-10 09:30:00" → "10 jun · 9:30 AM"
+  try {
+    const d = new Date(s.replace(' ','T'));
+    if (isNaN(d)) return s;
+    const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    const h = d.getHours(), m = String(d.getMinutes()).padStart(2,'0');
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return `${d.getDate()} ${meses[d.getMonth()]} · ${h12}:${m} ${ampm}`;
+  } catch { return s; }
+}
+
+function fmtDateOnly(s) {
+  if (!s) return '—';
+  try {
+    const d = new Date(s.replace(' ','T'));
+    if (isNaN(d)) return s.slice(0,10);
+    const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    return `${d.getDate()} ${meses[d.getMonth()]} ${d.getFullYear()}`;
+  } catch { return s.slice(0,10); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════════════════════════
+let currentPage      = 1;
+let totalPages       = 1;
+let openDetailEmail  = null;
+let actividadLoaded  = false;
+let respuestasLoaded = false;
+let importarLoaded   = false;
+let importFiles      = [];
+
+// ═══════════════════════════════════════════════════════════════════════
+// Tabs
+// ═══════════════════════════════════════════════════════════════════════
+function showTab(name, btn) {
+  document.querySelectorAll('.ps-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.ps-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('pane-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'actividad'  && !actividadLoaded)  loadActividad();
+  if (name === 'respuestas' && !respuestasLoaded) loadRespuestas();
+  if (name === 'importar'   && !importarLoaded)   loadImportaciones();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Fetch helpers
+// ═══════════════════════════════════════════════════════════════════════
+async function apiFetch(url) {
+  const r = await fetch(url, {credentials: 'same-origin'});
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const ct = r.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) throw new Error('Sesión expirada — recarga la página');
+  return r.json();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TAB 1: CONTACTOS
+// ═══════════════════════════════════════════════════════════════════════
+function toggleSourceDetail() {
+  const body = document.getElementById('source-detail-body');
+  const icon = document.getElementById('source-toggle-icon');
+  body.classList.toggle('open');
+  icon.textContent = body.classList.contains('open') ? '▲' : '▼';
+}
+
+async function loadStats() {
+  document.getElementById('stats-loading').style.display = '';
+  let data;
+  try { data = await apiFetch(URL_CAMP_STATS); }
+  catch(e) { document.getElementById('stats-loading').style.display='none'; return; }
+  document.getElementById('stats-loading').style.display = 'none';
+  if (!data.disponible) return;
+
+  document.getElementById('stats-bar').style.display = 'flex';
+  document.getElementById('manual-import-note').style.display = '';
+  document.getElementById('info-bar').style.display = '';
+
+  const unicos = data.contactos_unicos || 0;
+  document.getElementById('st-unicos').textContent   = unicos.toLocaleString('es');
+  document.getElementById('st-intentos').textContent = (data.total_intentos || 0).toLocaleString('es');
+  document.getElementById('st-intentos-sub').textContent =
+    `${(data.archivos_fuente||0)} archivos · ${unicos > 0 ? ((data.total_intentos/unicos).toFixed(1)) : '0'} intentos/contacto`;
+
+  // Rebotes: solo los que tienen envío en el historial
+  const rebH = data.rebotes_en_historial || 0;
+  const rebSE = data.rebotes_sin_envio || 0;
+  document.getElementById('st-rebotes').textContent = rebH.toLocaleString('es');
+  document.getElementById('st-rebotes-sub').textContent =
+    `de ${(data.emails_rebotados||0).toLocaleString('es')} únicos · +${rebSE} sin envío en historial`;
+
+  // Período
+  if (data.primer_envio && data.ultimo_envio) {
+    const desde = fmtDateOnly(data.primer_envio);
+    const hasta = fmtDateOnly(data.ultimo_envio);
+    document.getElementById('st-periodo').textContent = desde === hasta ? desde : desde + ' →';
+    document.getElementById('st-periodo-sub').textContent = 'hasta ' + hasta;
+  }
+
+  // Último envío registrado
+  document.getElementById('st-ult-envio').textContent = data.ultimo_envio
+    ? fmtDate(data.ultimo_envio) : '—';
+
+  // Última importación (separada del último envío)
+  if (data.ultima_importacion) {
+    document.getElementById('st-importacion').textContent = fmtDate(data.ultima_importacion);
+    const fname = data.ultimo_archivo_imp || '';
+    document.getElementById('st-importacion-sub').textContent =
+      fname ? fname.length > 30 ? '…' + fname.slice(-28) : fname : 'ver historial en Importar';
+  }
+
+  // "Parcialmente importado" badge (simple heuristic: always show when using DB)
+  document.getElementById('partial-badge').style.display = '';
+
+  // Source details (collapsed)
+  document.getElementById('source-detail-body').innerHTML =
+    `<div style="display:flex;gap:16px;flex-wrap:wrap;">
+      <span>Fuente: <b>camp_envio</b> (SQLite local)</span>
+      <span>Archivos importados: <b>${data.archivos_fuente}</b> logs de envío</span>
+      <span>Rebotes con envío: <b>${data.rebotes_con_envio}</b> · sin envío: <b>${data.rebotes_sin_envio}</b></span>
+      <span style="color:var(--muted);">Los nuevos envíos requieren importación manual.</span>
+    </div>`;
+}
+
+function clearFilters() {
+  ['f-busq','f-desde','f-hasta','f-bandeja','f-campana','f-rubro','f-resultado'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  currentPage = 1;
+  loadContactos();
+}
+
+function changePage(delta) {
+  const np = currentPage + delta;
+  if (np < 1 || np > totalPages) return;
+  currentPage = np;
+  loadContactos(false);
+}
+
+async function loadContactos(resetPage = true) {
+  if (resetPage) currentPage = 1;
+  const params = new URLSearchParams({page: currentPage, per_page: 50});
+  const q       = document.getElementById('f-busq').value.trim();
+  const desde   = document.getElementById('f-desde').value;
+  const hasta   = document.getElementById('f-hasta').value;
+  const bandeja = document.getElementById('f-bandeja').value;
+  const campana = document.getElementById('f-campana').value;
+  const rubro   = document.getElementById('f-rubro').value.trim();
+  const result  = document.getElementById('f-resultado').value;
+  if (q)       params.set('q', q);
+  if (desde)   params.set('fecha_desde', desde);
+  if (hasta)   params.set('fecha_hasta', hasta);
+  if (bandeja) params.set('bandeja', bandeja);
+  if (campana) params.set('campana', campana);
+  if (rubro)   params.set('rubro', rubro);
+  if (result)  params.set('resultado', result);
+
+  const tbl    = document.getElementById('ct-table');
+  const status = document.getElementById('ct-status');
+  const loading= document.getElementById('ct-loading');
+  const pgn    = document.getElementById('ct-pgn');
+  tbl.style.display = 'none'; pgn.style.display = 'none';
+  status.style.display = 'none'; loading.style.display = '';
+
+  const t0 = Date.now();
+  let data;
+  try { data = await apiFetch(URL_CONTACTOS + '?' + params); }
+  catch(e) {
+    loading.style.display = 'none';
+    status.style.display = ''; status.textContent = '⚠ ' + e.message;
+    return;
+  }
+  loading.style.display = 'none';
+  const ms = Date.now() - t0;
+
+  const src = document.getElementById('ct-source');
+  if (!data.disponible) {
+    status.style.display = '';
+    status.textContent = data.error
+      ? `Fuente no disponible: ${data.error}`
+      : 'Sin datos importados. Usa la pestaña Importar para cargar archivos de campaña.';
+    src.style.display = 'none'; return;
+  }
+
+  src.style.display = '';
+  const fuenteMap = {'camp_envio':'camp_envio·DB','logs_locales':'logs locales','outreach_log':'outreach_log·PG'};
+  src.textContent = `${fuenteMap[data.fuente]||data.fuente} · ${ms}ms`;
+
+  totalPages = data.pages || 1;
+  renderContactos(data.rows, data.fuente);
+  renderPgn(data.page, data.pages, data.total);
+  tbl.style.display = ''; pgn.style.display = 'flex';
+}
+
+function renderContactos(rows, fuente) {
+  const tbody = document.getElementById('ct-tbody');
+  if (!rows || !rows.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="no-data" style="text-align:center;padding:20px;">Sin registros para este filtro</td></tr>';
+    return;
+  }
+  if (fuente === 'camp_envio') {
+    tbody.innerHTML = rows.map(r => {
+      const empresa = esc(r.empresa || r.email.split('@')[1] || '—');
+      const rubro   = r.rubro ? `<div class="emp-rubro">${esc(r.rubro)}</div>` : '';
+      const contNom = r.nombre_contacto ? esc(r.nombre_contacto) + (r.cargo ? ` <span style="font-size:.62rem;color:var(--muted);">(${esc(r.cargo)})</span>` : '') : '<span class="no-registrado">No registrado</span>';
+      const contTel = r.telefono ? `<div class="cont-tel">${esc(r.telefono)}</div>` : '';
+      const intentos = r.total_intentos > 1
+        ? `<span class="badge-count">${r.total_intentos}</span>`
+        : `<span style="font-size:.72rem;color:var(--muted);">1</span>`;
+      const ultEnvio  = r.ultimo_contacto ? fmtDate(r.ultimo_contacto) : '—';
+      const bandeja   = shortBandeja(r.bandeja);
+      const campLabel = campNombre(r.proceso);
+      const rebote    = r.rebote_tipo
+        ? `<span class="pill pill-rebotado">${esc(r.rebote_tipo)}</span>`
+        : `<span style="font-size:.72rem;color:var(--muted);">—</span>`;
+      const emailFull = esc(r.email);
+      return `<tr data-email="${emailFull}">
+        <td class="emp-cell" title="${esc(r.empresa||'')}">
+          <div class="emp-name">${empresa}</div>${rubro}
+        </td>
+        <td class="contact-cell">
+          <div class="cont-name">${contNom}</div>${contTel}
+        </td>
+        <td class="email-cell" title="${emailFull}">${emailFull}</td>
+        <td style="text-align:center;">${intentos}</td>
+        <td style="font-size:.72rem;white-space:nowrap;">${ultEnvio}</td>
+        <td style="font-size:.72rem;">${esc(bandeja)}</td>
+        <td style="font-size:.72rem;">${esc(campLabel)}</td>
+        <td>${rebote}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn-hist" onclick="toggleDetail('${emailFull}',this.closest('tr'))">
+            <i class="bi bi-clock-history"></i> Ver
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+  } else {
+    // Legacy format
+    tbody.innerHTML = rows.map(r => {
+      const empresa = esc(r.razon_social || r.nombre_contacto || '—');
+      const resPill = r.status ? `<span class="pill ${statusPillClass(r.status)}">${esc(r.status)}</span>` : '—';
+      return `<tr data-email="${esc(r.email)}">
+        <td class="emp-cell"><div class="emp-name">${empresa}</div></td>
+        <td class="contact-cell"><span class="no-registrado">No disponible</span></td>
+        <td class="email-cell">${esc(r.email)}</td>
+        <td style="text-align:center;"><span style="color:var(--muted);font-size:.72rem;">—</span></td>
+        <td style="font-size:.72rem;">${fmtDate(r.sent_at_lima||'')}</td>
+        <td style="font-size:.72rem;">${shortBandeja(r.bandeja)}</td>
+        <td style="font-size:.72rem;">${campNombre(r.stage||r.proceso)}</td>
+        <td>${resPill}</td>
+        <td><button class="btn-hist" onclick="toggleDetail('${esc(r.email)}',this.closest('tr'))"><i class="bi bi-clock-history"></i> Ver</button></td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+function statusPillClass(s) {
+  if (!s) return 'pill-unknown';
+  const u = s.toUpperCase();
+  if (u === 'OK' || s === 'enviado' || s === 'sent') return 'pill-ok';
+  if (s === 'rebotado') return 'pill-rebotado';
+  if (u === 'FAIL' || s === 'failed' || s === 'error') return 'pill-fail';
+  if (s === 'skipped' || s === 'skip') return 'pill-skip';
+  return 'pill-unknown';
+}
+
+function renderPgn(page, pages, total) {
+  document.getElementById('pgn-info').textContent =
+    `Página ${page} de ${pages} · ${total.toLocaleString('es')} contactos únicos`;
+  document.getElementById('pgn-prev').disabled = page <= 1;
+  document.getElementById('pgn-next').disabled = page >= pages;
+}
+
+// ─── Detail drawer ────────────────────────────────────────────────────────────
+async function toggleDetail(email, row) {
+  const existing = document.querySelector('.detail-row');
+  if (existing) {
+    existing.remove();
+    document.querySelectorAll('.ct-table tr').forEach(r => r.classList.remove('detail-open'));
+    if (openDetailEmail === email) { openDetailEmail = null; return; }
+  }
+  openDetailEmail = email;
+  row.classList.add('detail-open');
+
+  const cols = row.cells.length;
+  const dr   = row.parentNode.insertRow(row.rowIndex);
+  dr.className = 'detail-row';
+  const td   = dr.insertCell(0);
+  td.colSpan  = cols;
+  td.innerHTML = `<div class="detail-inner"><span class="loader"></span> Cargando historial…</div>`;
+
+  let data;
+  try {
+    const url = URL_TIMELINE.replace('__EMAIL__', encodeURIComponent(email));
+    data = await apiFetch(url);
+  } catch(e) {
+    td.innerHTML = `<div class="detail-inner"><span class="no-data">⚠ ${esc(e.message)}</span></div>`;
+    return;
+  }
+
+  if (!data.disponible) {
+    td.innerHTML = `<div class="detail-inner"><span class="no-data">Fuente no disponible${data.error ? ': '+esc(data.error):''}</span></div>`;
+    return;
+  }
+
+  let html = '<div class="detail-inner">';
+
+  // ── Datos del contacto (empresa + datos comerciales) ──
+  const p = data.prospecto || {};
+  const empresa = data.empresa || (p.razon_social) || '';
+  html += `<div class="prosp-bar">`;
+  if (empresa) html += `<span><b>Empresa:</b> ${esc(empresa)}</span>`;
+  html += `<span><b>Email:</b> ${esc(data.email)}</span>`;
+  if (p) {
+    if (p.ruc)              html += `<span><b>RUC:</b> ${esc(p.ruc)}</span>`;
+    if (p.nombre_contacto)  html += `<span><b>Contacto:</b> ${esc(p.nombre_contacto)}${p.cargo?` (${esc(p.cargo)})`:''}</span>`;
+    if (p.telefono)         html += `<span><b>Tel:</b> ${esc(p.telefono)}</span>`;
+    if (p.rubro)            html += `<span><b>Rubro:</b> ${esc(p.rubro)}</span>`;
+    if (p.provincia)        html += `<span><b>Prov:</b> ${esc(p.provincia)}</span>`;
+    if (!p.ruc && !p.nombre_contacto && !p.telefono && !p.rubro) {
+      html += `<span class="no-registrado">Datos comerciales: No registrado en esta fuente</span>`;
+    }
+  }
+  html += `</div>`;
+
+  // ── Nota rebote (solo si hay rebotes) ──
+  if (data.nota_rebote) {
+    html += `<div class="nota-rebote"><i class="bi bi-exclamation-triangle me-1"></i>${esc(data.nota_rebote)}</div>`;
+  }
+
+  // ── Envíos registrados ──
+  const envios  = data.envios  || [];
+  const rebotes = data.rebotes || [];
+
+  html += `<div style="font-weight:700;font-size:.78rem;margin-bottom:8px;color:#1e293b;">
+    Envíos registrados <span style="font-size:.65rem;font-weight:400;color:var(--muted);">— el script confirma el intento, no la entrega real</span>
+    <span class="source-tag">camp_envio</span>
+  </div>`;
+  if (!envios.length) {
+    html += '<div class="no-data" style="margin-bottom:12px;">Sin envíos registrados para este email.</div>';
+  } else {
+    html += '<div style="border-left:2px solid #e2e8f0;padding-left:14px;margin-left:4px;margin-bottom:16px;">';
+    envios.forEach(e => {
+      const ts  = fmtDate(e.enviado_at || '');
+      const res = e.resultado_log || 'OK';
+      html += `<div class="tl-item">
+        <div class="tl-dot tl-dot-send" style="margin-left:-19px;"></div>
+        <div class="tl-body">
+          <div style="font-weight:600;font-size:.78rem;">
+            ${esc(campNombre(e.proceso))} · ${esc(shortBandeja(e.bandeja))}
+            <span class="pill ${statusPillClass(res)}" style="margin-left:4px;">${esc(res)}</span>
+          </div>
+          <div class="tl-ts">${ts} · <span style="font-family:monospace;font-size:.62rem;">${esc(e.fuente_archivo||'')}</span></div>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  // ── Rebotes ──
+  html += `<div style="font-weight:700;font-size:.78rem;margin-bottom:8px;color:#1e293b;">
+    Rebotes detectados <span class="source-tag">camp_rebote · limpiar_bandejas_resultado.json</span>
+  </div>`;
+  if (!rebotes.length) {
+    html += '<div class="no-data">Sin rebotes detectados en limpiar_bandejas.</div>';
+  } else {
+    html += '<div style="border-left:2px solid #fca5a5;padding-left:14px;margin-left:4px;">';
+    rebotes.forEach(rb => {
+      const ts = fmtDate(rb.detectado_at || '');
+      html += `<div class="tl-item">
+        <div class="tl-dot tl-dot-bounce" style="margin-left:-19px;"></div>
+        <div class="tl-body">
+          <div style="font-weight:600;font-size:.78rem;">
+            <span class="pill pill-rebotado">${esc(rb.tipo||'hard')}</span>
+            ${rb.motivo ? `<span style="font-size:.72rem;font-weight:400;margin-left:6px;color:#475569;">${esc(rb.motivo)}</span>` : ''}
+          </div>
+          <div style="font-size:.7rem;color:var(--muted);">
+            ${rb.bandeja_detectora ? `Detectado en: ${esc(shortBandeja(rb.bandeja_detectora))} · ` : ''}
+            ${rb.msg_id ? `msg_id: ${esc(rb.msg_id.slice(0,40))}` : ''}
+          </div>
+          <div class="tl-ts">${ts} · <span style="font-family:monospace;font-size:.62rem;">${esc(rb.fuente_archivo||'')}</span></div>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  html += '</div>';
+  td.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TAB 2: ACTIVIDAD
+// ═══════════════════════════════════════════════════════════════════════
+async function loadActividad() {
+  actividadLoaded = true;
+  const grid = document.getElementById('ag-grid');
+  const bar  = document.getElementById('worker-bar');
+  grid.innerHTML = '<div class="no-data"><span class="loader"></span> Cargando…</div>';
+  let data;
+  try { data = await apiFetch(URL_ACTIVIDAD); }
+  catch(e) { grid.innerHTML=`<div class="no-data">⚠ ${esc(e.message)}</div>`; bar.innerHTML='⚠ Error'; return; }
+
+  const w = data.worker || {};
+  const envLabel = '<span style="background:#fef9c3;color:#713f12;font-size:.65rem;padding:1px 6px;border-radius:4px;margin-left:4px;">entorno: local · no es Render</span>';
+  if (w.online) {
+    bar.innerHTML = `<span class="hb-dot hb-online"></span><span style="font-weight:600;">Worker activo</span>
+      <span style="color:var(--muted);">${esc(w.hostname||'')} · ultima señal: ${esc(w.last_seen||'—')}</span>${envLabel}`;
+  } else {
+    bar.innerHTML = `<span class="hb-dot hb-offline"></span><span style="font-weight:600;color:#dc2626;">Worker sin señal en este entorno</span>
+      <span style="color:var(--muted);">${w.last_seen?`Último heartbeat local: ${esc(w.last_seen)}`:'Sin heartbeat'}</span>${envLabel}`;
+  }
+
+  const agents = data.agents || [];
+  if (!agents.length) { grid.innerHTML='<div class="no-data">Sin agentes registrados.</div>'; return; }
+  grid.innerHTML = agents.map(a => {
+    const hbStatus = a.heartbeat_status || 'offline';
+    const hbDotClass = {running:'hb-online',idle:'hb-idle',paused:'hb-idle',error:'hb-error'}[hbStatus]||'hb-offline';
+    const run = a.ultima_run;
+    let runHtml = a.sin_registro
+      ? '<div class="ag-no-run">Sin ejecución registrada.</div>'
+      : !run ? '<div class="ag-no-run">Sin datos.</div>'
+      : `<div class="ag-meta">
+          <div><b>Inicio:</b> ${esc(run.started_at||'—')}</div>
+          <div><b>Fin:</b> ${esc(run.finished_at||'en curso')}</div>
+          <div><b>Estado:</b> ${esc(run.status||'—')}</div>
+          <div><b>Registros:</b> e:${run.records_in??'—'} · s:${run.records_out??'—'}</div>
+          ${run.error_msg?`<div class="ag-err">${esc(run.error_msg)}</div>`:''}
+        </div>`;
+    const age = a.age_seconds!=null ? (a.age_seconds<120?`${a.age_seconds}s`:a.age_seconds<3600?`${Math.round(a.age_seconds/60)}m`:`${Math.round(a.age_seconds/3600)}h`) : null;
+    return `<div class="ag-card ${hbStatus==='offline'?'offline':''}">
+      <div class="ag-name"><span class="hb-dot ${hbDotClass}"></span>${esc(a.agent)}
+        <span style="font-size:.65rem;color:var(--muted);font-weight:400;">${esc(hbStatus)}${age?' · '+age:''}</span>
+      </div>${runHtml}</div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TAB 3: RESPUESTAS
+// ═══════════════════════════════════════════════════════════════════════
+async function loadRespuestas() {
+  respuestasLoaded = true;
+  const cont = document.getElementById('resp-content');
+  const load = document.getElementById('resp-loading');
+  cont.innerHTML = ''; load.style.display = '';
+  let data;
+  try { data = await apiFetch(URL_RESPUESTAS); }
+  catch(e) { load.style.display='none'; cont.innerHTML=`<div class="no-data">⚠ ${esc(e.message)}</div>`; return; }
+  load.style.display = 'none';
+
+  const totalPend = (data.total_respuestas||0) + (data.total_leads||0);
+  document.getElementById('resp-count').textContent = `${totalPend} pendientes`;
+  const badge = document.getElementById('badge-resp');
+  if (totalPend > 0) { badge.textContent = totalPend; badge.style.display = ''; }
+
+  if (!data.disponible) {
+    cont.innerHTML = '<div class="no-data">Recepción de respuestas no verificada — response_log no activo en este entorno local.</div>';
+    return;
+  }
+  let html = '';
+  const resps = data.respuestas_sin_procesar || [];
+  html += `<div style="font-weight:700;font-size:.82rem;margin-bottom:8px;">Respuestas sin clasificar · ${resps.length} <span class="source-tag">response_log</span></div>`;
+  if (!resps.length) html += '<div class="no-data" style="margin-bottom:16px;">Sin respuestas.</div>';
+  else resps.forEach(r => {
+    html += `<div class="resp-card">
+      <div class="resp-icon">${r.clasificacion?.includes('bounce')?'⚠️':r.clasificacion?.includes('positiv')?'✅':'📩'}</div>
+      <div class="resp-body">
+        <div class="resp-from">${r.razon_social?esc(r.razon_social)+' · ':''}${esc(r.email)}</div>
+        <div class="resp-subject">${esc(r.subject_original||'(sin asunto)')}</div>
+        ${r.snippet?`<div class="resp-snippet">${esc(r.snippet)}</div>`:'<div class="no-data" style="font-size:.7rem;">Sin snippet</div>'}
+        <div class="resp-meta">${r.clasificacion?`<b>${esc(r.clasificacion)}</b> · `:'Sin clasificar · '}${r.bandeja_receptora?`Bandeja: ${esc(r.bandeja_receptora)} · `:''}${esc(r.recibido_lima||'—')}</div>
+      </div></div>`;
+  });
+  const leads = data.leads_pendientes || [];
+  html += `<div style="font-weight:700;font-size:.82rem;margin:16px 0 8px;">Leads pendientes · ${leads.length} <span class="source-tag">lead_pipeline</span></div>`;
+  if (!leads.length) html += '<div class="no-data">Sin leads.</div>';
+  else leads.forEach(l => {
+    html += `<div class="resp-card">
+      <div class="resp-icon">🎯</div>
+      <div class="resp-body">
+        <div class="resp-from">${l.razon_social?esc(l.razon_social)+' · ':''}${esc(l.email)}</div>
+        <div class="resp-meta">Tipo: <b>${esc(l.tipo||'—')}</b> · webhook: ${l.webhook_ok?'✓':'✗'} · ${esc(l.ts_lima||'—')}</div>
+        ${l.notas?`<div style="font-size:.7rem;color:#475569;margin-top:4px;">${esc(l.notas)}</div>`:''}
+      </div></div>`;
+  });
+  cont.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TAB 4: IMPORTAR
+// ═══════════════════════════════════════════════════════════════════════
+function handleDrop(event) {
+  event.preventDefault();
+  document.getElementById('import-drop').classList.remove('dragover');
+  addFiles(event.dataTransfer.files);
+}
+function addFiles(fileList) {
+  Array.from(fileList).forEach(f => {
+    if (!f.name.endsWith('.log') && !f.name.endsWith('.json')) return;
+    if (importFiles.find(x => x.name === f.name)) return;
+    importFiles.push({name: f.name, file: f});
+  });
+  renderImportFileList();
+}
+function removeImportFile(name) { importFiles=importFiles.filter(x=>x.name!==name); renderImportFileList(); }
+function clearImportFiles() { importFiles=[]; renderImportFileList(); document.getElementById('import-results').style.display='none'; }
+function renderImportFileList() {
+  const el  = document.getElementById('import-file-list');
+  const btn = document.getElementById('import-btn');
+  btn.disabled = !importFiles.length;
+  el.innerHTML = importFiles.map(f =>
+    `<div class="import-file-item">
+      <i class="bi bi-file-earmark-text" style="color:var(--muted);flex-shrink:0;"></i>
+      <span class="import-file-name" title="${esc(f.name)}">${esc(f.name)}</span>
+      <button class="import-file-rm" onclick="removeImportFile('${esc(f.name)}')" title="Quitar">×</button>
+    </div>`
+  ).join('');
+}
+async function runImport() {
+  if (!importFiles.length) return;
+  const btn=document.getElementById('import-btn'), progress=document.getElementById('import-progress');
+  const results=document.getElementById('import-results');
+  btn.disabled=true; progress.style.display=''; results.style.display='none';
+  const formData = new FormData();
+  importFiles.forEach(f => formData.append('files', f.file, f.name));
+  let data;
+  try {
+    const r = await fetch(URL_IMPORTAR,{method:'POST',credentials:'same-origin',body:formData});
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    data = await r.json();
+  } catch(e) { progress.style.display='none'; btn.disabled=false; alert('Error al importar: '+e.message); return; }
+  progress.style.display='none'; btn.disabled=false;
+  results.style.display='';
+  document.getElementById('import-summary').innerHTML =
+    `<span class="imp-ok">+${data.total_importados||0} importados</span> · ` +
+    `<span class="imp-dup">${data.total_duplicados||0} duplicados</span> · ` +
+    `<span class="imp-desc">${data.total_descartados||0} descartados</span>`;
+  document.getElementById('import-result-tbody').innerHTML = (data.resultados||[]).map(r =>
+    `<tr>
+      <td style="font-family:monospace;font-size:.68rem;">${esc(r.filename)}</td>
+      <td>${esc(r.tipo)}</td>
+      <td style="text-align:right;">${r.parseados}</td>
+      <td style="text-align:right;" class="imp-ok">${r.importados}</td>
+      <td style="text-align:right;" class="imp-dup">${r.duplicados}</td>
+      <td style="text-align:right;" class="imp-desc">${r.descartados}</td>
+      <td style="font-size:.68rem;color:var(--muted);">${esc((r.discard_reasons||[]).join('; ')||'—')}</td>
+    </tr>`
+  ).join('');
+  if ((data.total_importados||0) > 0) { loadStats(); loadContactos(); }
+  loadImportaciones();
+}
+async function loadImportaciones() {
+  importarLoaded = true;
+  const cont=document.getElementById('import-history-content'), load=document.getElementById('import-history-loading');
+  cont.innerHTML=''; load.style.display='';
+  let data;
+  try { data = await apiFetch(URL_IMPORTACIONES); }
+  catch(e) { load.style.display='none'; cont.innerHTML=`<div class="no-data">⚠ ${esc(e.message)}</div>`; return; }
+  load.style.display='none';
+  const rows = data.importaciones || data.rows || [];
+  if (!rows.length) { cont.innerHTML='<div class="no-data">Sin historial de importaciones.</div>'; return; }
+  let html=`<table class="imp-result-table"><thead><tr>
+    <th>Importado el</th><th>Archivo</th><th>Tipo</th>
+    <th>Parseados</th><th class="imp-ok">Importados</th><th class="imp-dup">Duplicados</th><th class="imp-desc">Descartados</th>
+  </tr></thead><tbody>`;
+  rows.forEach(r => {
+    const ts = r.importado_at ? fmtDate(r.importado_at) : '—';
+    const fname = r.filename||'';
+    html += `<tr>
+      <td style="white-space:nowrap;font-size:.72rem;">${esc(ts)}</td>
+      <td style="font-family:monospace;font-size:.68rem;" title="${esc(fname)}">${esc(fname.length>40?'…'+fname.slice(-37):fname)}</td>
+      <td>${esc(r.tipo)}</td>
+      <td style="text-align:right;">${r.total_parseados??'—'}</td>
+      <td style="text-align:right;" class="imp-ok">${r.total_importados??'—'}</td>
+      <td style="text-align:right;" class="imp-dup">${r.total_duplicados??'—'}</td>
+      <td style="text-align:right;" class="imp-desc">${r.total_descartados??'—'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  cont.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Utils
+// ═══════════════════════════════════════════════════════════════════════
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  loadStats();
+  loadContactos();
+});
+</script>
 {% endblock %}

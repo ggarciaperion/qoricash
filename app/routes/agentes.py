@@ -27,6 +27,7 @@ APIs:
   POST /agentes/api/alerts/<id>/resolve — Resolver alerta
 """
 import logging
+import os
 from functools import wraps
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, current_app
 from flask_login import login_required, current_user
@@ -134,31 +135,10 @@ def actividad():
 
 
 @agentes_bp.route('/prospeccion')
-@login_required
-@_require_agent_access
 def prospeccion():
-    from app.models.prospecto import Prospecto
-    from app.models.agent import AgentMetric
-    from sqlalchemy import func
-    import datetime
-
-    stats = {
-        'total': Prospecto.query.count(),
-        'contactados': Prospecto.query.filter(Prospecto.num_contactos > 0).count(),
-        'sin_contacto': Prospecto.query.filter(Prospecto.num_contactos == 0).count(),
-        'rebotes': Prospecto.query.filter(Prospecto.estado_email == 'REBOTE').count(),
-        'no_contactar': Prospecto.query.filter(Prospecto.estado_comercial == 'NO CONTACTAR').count(),
-        'clientes': Prospecto.query.filter(Prospecto.estado_comercial.in_(['cliente','P4'])).count(),
-        'negociando': Prospecto.query.filter(Prospecto.estado_comercial.in_(['negociando','negociacion','P3'])).count(),
-    }
-
-    # Métricas de emails de hoy
-    today = datetime.date.today()
-    emails_hoy = (db.session.query(func.sum(AgentMetric.emails_sent))
-                  .filter(AgentMetric.date == today).scalar() or 0)
-    stats['emails_hoy'] = emails_hoy
-
-    return render_template('agentes/prospeccion.html', stats=stats)
+    # Carga mínima — todos los datos se obtienen bajo demanda vía API JS.
+    # Se evita hacer COUNT(*) masivos en el render sincrónico.
+    return render_template('agentes/prospeccion.html')
 
 
 @agentes_bp.route('/correos')
@@ -271,6 +251,161 @@ def configuracion():
 # ─────────────────────────────────────────────────────────────────────────────
 # APIs JSON
 # ─────────────────────────────────────────────────────────────────────────────
+
+@agentes_bp.route('/api/prospeccion/camp-stats')
+def api_camp_stats():
+    """KPIs de campanas importadas: contactos unicos, intentos, rebotes, ultima importacion."""
+    from app.services.prospeccion_repo import get_camp_stats
+    return jsonify(get_camp_stats())
+
+
+@agentes_bp.route('/api/prospeccion/importaciones')
+def api_importaciones():
+    """Historial de importaciones realizadas."""
+    from app.services.prospeccion_repo import get_camp_importaciones
+    return jsonify(get_camp_importaciones())
+
+
+@agentes_bp.route('/api/prospeccion/sync-prospectos', methods=['POST'])
+@csrf.exempt
+def api_sync_prospectos():
+    """Sincroniza camp_prospecto desde la tabla prospectos local."""
+    from app.services.prospeccion_repo import sync_camp_prospecto_from_prospectos
+    return jsonify(sync_camp_prospecto_from_prospectos())
+
+
+@agentes_bp.route('/api/prospeccion/cobertura')
+def api_cobertura():
+    """Cobertura de datos comerciales: cuantos contactos tienen datos en camp_prospecto."""
+    from app.services.prospeccion_repo import get_camp_prospeccion_cobertura
+    return jsonify(get_camp_prospeccion_cobertura())
+
+
+def _sync_auth_ok() -> bool:
+    """
+    Verifica que la petición lleve la clave X-Sync-Key correcta.
+    Si SYNC_API_KEY no está configurada en el entorno, permite el acceso
+    sin clave (modo dev local). Nunca registra el valor de la clave.
+    """
+    expected = os.environ.get('SYNC_API_KEY', '').strip()
+    if not expected:
+        return True   # Modo dev: sin clave configurada → aceptar
+    provided = request.headers.get('X-Sync-Key', '')
+    return provided == expected
+
+
+@agentes_bp.route('/api/prospeccion/importar', methods=['POST'])
+@csrf.exempt
+def api_importar():
+    """
+    Recibe uno o varios archivos de campana (.log o _resultado.json),
+    los parsea e inserta en camp_envio / camp_rebote de forma idempotente.
+    Los archivos se tratan como datos; nunca se ejecutan.
+    Requiere X-Sync-Key si SYNC_API_KEY está configurada en el entorno.
+    """
+    if not _sync_auth_ok():
+        _log.warning('api_importar: clave de sincronización inválida desde %s',
+                     request.remote_addr)
+        return jsonify({'error': 'No autorizado'}), 401
+
+    from app.services.camp_importer import import_file, init_camp_tables
+
+    files = request.files.getlist('files')
+    if not files or all(f.filename == '' for f in files):
+        return jsonify({'error': 'No se recibieron archivos'}), 400
+
+    # Inicializar tablas si aun no existen
+    try:
+        init_camp_tables()
+    except Exception as exc:
+        return jsonify({'error': f'Error inicializando tablas: {exc}'}), 500
+
+    resultados = []
+    for f in files:
+        name = f.filename
+        # Solo aceptar .log o .json; rechazar cualquier otra extension
+        if not (name.endswith('.log') or name.endswith('.json')):
+            resultados.append({'filename': name, 'error': 'Extension no permitida. Solo .log y .json'})
+            continue
+        try:
+            content = f.read().decode('utf-8', errors='replace')
+        except Exception as exc:
+            resultados.append({'filename': name, 'error': f'Error leyendo archivo: {exc}'})
+            continue
+        resultados.append(import_file(name, content))
+
+    total_imp = sum(r.get('importados', 0) for r in resultados)
+    total_dup = sum(r.get('duplicados', 0) for r in resultados)
+    total_desc = sum(r.get('descartados', 0) for r in resultados)
+    return jsonify({
+        'ok': True,
+        'archivos': len(resultados),
+        'total_importados': total_imp,
+        'total_duplicados': total_dup,
+        'total_descartados': total_desc,
+        'resultados': resultados,
+    })
+
+
+@agentes_bp.route('/api/prospeccion/contactos')
+def api_contactos():
+    """
+    Tabla de CONTACTOS UNICOS.
+    Prioridad: camp_envio (importados) > logs_locales > outreach_log.
+    """
+    from app.services.prospeccion_repo import (
+        get_camp_contactos_page, _camp_has_data, get_contactos_page
+    )
+    page     = max(1, int(request.args.get('page', 1)))
+    per_page = min(int(request.args.get('per_page', 50)), 200)
+    kwargs   = dict(
+        page        = page,
+        per_page    = per_page,
+        fecha_desde = request.args.get('fecha_desde') or None,
+        fecha_hasta = request.args.get('fecha_hasta') or None,
+        bandeja     = request.args.get('bandeja') or None,
+        campana     = request.args.get('campana') or None,
+        resultado   = request.args.get('resultado') or None,
+        busqueda    = request.args.get('q') or None,
+        rubro       = request.args.get('rubro') or None,
+    )
+
+    if _camp_has_data():
+        return jsonify(get_camp_contactos_page(**kwargs))
+    # Fallback: logs locales o outreach_log (no soporta filtro campana/rubro)
+    kwargs.pop('campana', None)
+    kwargs.pop('rubro', None)
+    return jsonify(get_contactos_page(**kwargs))
+
+
+@agentes_bp.route('/api/prospeccion/contacto/<path:email>')
+def api_contacto_timeline(email):
+    """Historial de un contacto. Usa camp_* si hay datos importados."""
+    from app.services.prospeccion_repo import (
+        get_camp_contacto_historial, _camp_has_data, get_contacto_timeline
+    )
+    if _camp_has_data():
+        return jsonify(get_camp_contacto_historial(email))
+    return jsonify(get_contacto_timeline(email))
+
+
+@agentes_bp.route('/api/prospeccion/actividad-real')
+def api_actividad_real():
+    """Última ejecución real por agente + señal de vida del worker."""
+    from app.services.prospeccion_repo import get_actividad_real, get_worker_status
+    return jsonify({
+        'worker': get_worker_status(),
+        'agents': get_actividad_real(),
+    })
+
+
+@agentes_bp.route('/api/prospeccion/respuestas')
+def api_respuestas():
+    """Respuestas sin procesar y leads pendientes de atención."""
+    from app.services.prospeccion_repo import get_respuestas_pendientes
+    limit = min(int(request.args.get('limit', 50)), 200)
+    return jsonify(get_respuestas_pendientes(limit))
+
 
 @agentes_bp.route('/api/prospeccion/kpis')
 @login_required
