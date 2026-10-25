@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Plantilla LaunchAgent para sincronizador_prospeccion.py (Mac local).
+
+  INSTALACIÓN:
+    1. Copia este archivo a ~/Library/LaunchAgents/pe.qoricash.sincronizador.plist
+    2. Reemplaza /Users/TU_USUARIO con tu path real
+    3. Genera la clave: python3 -c "import secrets; print(secrets.token_hex(32))"
+       y guárdala en ~/.config/qoricash/sync_key  (chmod 600)
+    4. Añade SYNC_API_KEY=<misma_clave> al .env del servidor Flask
+    5. Concede Full Disk Access a python3:
+       Sistema > Privacy & Security > Full Disk Access > "+" > /usr/bin/python3
+    6. launchctl load ~/Library/LaunchAgents/pe.qoricash.sincronizador.plist
+
+  DEPENDENCIA: requiere Mac encendida y Flask corriendo en localhost.
+  NO almacena credenciales en este archivo; las lee de ~/.config/qoricash/sync_key.
+
+  CONTROL:
+    Detener:  launchctl unload ~/Library/LaunchAgents/pe.qoricash.sincronizador.plist
+    Reanudar: launchctl load   ~/Library/LaunchAgents/pe.qoricash.sincronizador.plist
+    Estado:   launchctl list pe.qoricash.sincronizador
+    Log:      tail -f ~/Desktop/Prospeccion/sincronizador.log
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>pe.qoricash.sincronizador</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>/Users/TU_USUARIO/Desktop/Prospeccion/sincronizador_prospeccion.py</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>/Users/TU_USUARIO</string>
+    <key>PATH</key>
+    <string>/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+
+  <!-- 900 segundos = 15 minutos -->
+  <key>StartInterval</key>
+  <integer>900</integer>
+
+  <key>RunAtLoad</key>
+  <false/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/TU_USUARIO/Desktop/Prospeccion/sincronizador.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/TU_USUARIO/Desktop/Prospeccion/sincronizador.log</string>
+
+  <key>ThrottleInterval</key>
+  <integer>60</integer>
+</dict>
+</plist>
