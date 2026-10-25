@@ -72,9 +72,20 @@ def try_generate_today(force=False):
 
     log.info(f'[ESTUDIO-SCHED] Iniciando entrega {today} (pipeline #{pipeline.id})')
 
-    # Ejecutar en OS thread para no bloquear el hub de eventlet
+    # Ejecutar en OS thread para no bloquear el hub de eventlet.
+    # IMPORTANTE: _tpool corre en un OS thread que NO hereda el app context de Flask.
+    # Capturamos el objeto app ANTES de entrar al tpool y lo pasamos explícitamente.
+    from flask import current_app as _flask_app
+    _app     = _flask_app._get_current_object()
+    _pip_id  = pipeline.id
+
+    def _run_in_thread():
+        with _app.app_context():
+            from app.services.content.pipeline_coordinator import run_pipeline_auto as _rpa
+            return _rpa(_pip_id)
+
     try:
-        result = _tpool.execute(lambda: run_pipeline_auto(pipeline.id))
+        result = _tpool.execute(_run_in_thread)
     except Exception as e:
         entrega.status = 'error'
         entrega.notas  = str(e)
