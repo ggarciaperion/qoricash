@@ -231,23 +231,49 @@ def _run_diario(stage, pipeline):
             'flow_prompt_base': prop.get('flow_prompt', ''),
         })
 
-    SYSTEM_DV = """Eres el Director Visual de Qoricash.
-Tu tarea es escribir prompts detallados para generar imágenes con Gemini Imagen o Google Flow.
-Paleta de marca: Teal #00DEA8, Navy #0D1B2A, blanco.
-Logotipo: "Qoricash" en tipografía moderna, color teal sobre fondo navy.
-Estilo: limpio, profesional, fintech latinoamericano, sin elementos genéricos de banco.
-Cada prompt debe tener 80-120 palabras: composición, colores, elementos, atmósfera, texto en imagen si aplica."""
+    SYSTEM_DV = """Eres el Director Visual de Qoricash, marca financiera contemporánea, humana y aspiracional.
+
+DIRECCIÓN VISUAL:
+- Las piezas comerciales son fotografía publicitaria o composición conceptual fotorrealista.
+  No son ilustraciones corporativas ni infografías.
+- Cada pieza tiene un protagonista claro (persona, detalle de producto, escena cotidiana).
+- Las escenas son pertinentes para clientes en Perú: barrios reales, negocios locales,
+  aeropuerto Jorge Chávez, espacios cotidianos.
+- El azul #196BFE puede aparecer en un objeto, prenda, iluminación o detalle gráfico.
+  No tiñas toda la imagen. Permite colores naturales y materiales neutros.
+- Las piezas de noticias usan dirección editorial: imagen relacionada con el tema,
+  composición clara, sin construir supuestas fotografías documentales de hechos reales;
+  si el recurso es sintético, plantea una ilustración conceptual.
+
+ESTRUCTURA DE CADA flow_prompt (≥100 palabras, autónomo para Gemini Imagen):
+1. Tipo de pieza.
+2. Sujeto, acción y entorno (específico).
+3. Encuadre y distribución del espacio.
+4. Iluminación y materiales.
+5. Uso específico del color de marca.
+6. Logo: marca de agua discreta, esquina inferior derecha; el usuario proporciona el archivo.
+7. Formato y márgenes.
+8. Texto en imagen en español (si aporta) o indicar que va en el copy.
+9. Exclusiones relevantes para esta pieza.
+
+PROHIBIDO: diagramas de flujo, íconos conectados, dashboards, tarjetas flotantes,
+monedas/billetes flotantes, neón, hologramas, fondos circuit-board, piel plástica,
+sonrisas forzadas, texto en inglés, frases vagas ("premium, moderno") sin descripción concreta."""
 
     piezas_json = json.dumps(piezas_para_prompt, ensure_ascii=False)
     prompt_dv = f"""Genera prompts visuales para estas {len(piezas_para_prompt)} piezas de Qoricash:
 
 {piezas_json}
 
+Para las piezas comerciales: fotografía publicitaria con escenas diferentes entre sí
+(alterna persona en negocio, persona con teléfono, viajero, composición conceptual).
+Para las noticias: imagen editorial conceptual relacionada con el tema.
+
 Para cada pieza devuelve:
 {{
   "tipo": "noticia|comercial",
   "idx": numero,
-  "flow_prompt": "prompt completo 80-120 palabras para Gemini Imagen/Flow",
+  "flow_prompt": "prompt autónomo ≥100 palabras siguiendo la estructura de Director Visual",
   "formato": "1200x628 LinkedIn" o "1080x1080 cuadrado"
 }}
 

@@ -112,15 +112,56 @@ curl -s -X POST https://<app>.onrender.com/contenido/api/generar-diario-sync \
 
 ## Estado al cierre de la etapa local
 - Panel disponible en `http://localhost:5002/contenido/hoy` para revisión editorial.
-- Pipeline #28 en DB: 2 noticias mercados + 1 internacional, sin nacional — artefacto de la prueba inicial (bug ya corregido en código).
-- El próximo pipeline diario generará exactamente 1 noticia por categoría con su fuente real.
+- Pipeline #28: descartado (`cancelled`), conservado en DB como historial.
+  - Props 31, 32, 33 conservadas con prompts visuales actualizados (ver sección abajo).
+- Pipeline #33: en `error` (etapa 2, sin propuestas) — se puede descartar o reintentar.
 - No se hizo push ni deploy.
 
-## Próximos pasos (pendientes de decisión)
-1. Revisión editorial: textos, fuentes, prompts y presentación del paquete diario.
-2. Ajustes puntuales según revisión.
-3. Decisión de deploy: scheduler interno en Render **o** Cron Job ($1/mes).
-4. Variables de entorno a configurar antes del deploy:
+## Dirección visual actualizada (25 Oct 2026)
+
+### Archivos modificados
+| Archivo | Cambio |
+|---------|--------|
+| `app/services/content/agents/creativo.py` | Instrucciones de flow_prompt con estructura fotográfica obligatoria, prohibiciones explícitas, variedad entre piezas |
+| `app/services/content/agents/productor.py` | `SYSTEM_DV` con nueva dirección fotográfica; `prompt_dv` actualizado |
+| `app/services/content/agents/revisor.py` | `SYSTEM` con checklist visual; prompt `_run_diario` con 9 criterios visuales |
+
+### Nueva dirección — resumen
+- Fotografía publicitaria o composición conceptual fotorrealista (NO ilustración corporativa).
+- Un protagonista claro por pieza: persona en negocio, teléfono en uso, viajero, escena nocturna.
+- Azul #196BFE como acento en un objeto o detalle, no tinte de toda la imagen.
+- Logo como marca de agua, el usuario proporciona el archivo oficial.
+- Tres piezas comerciales del día con escenarios y composiciones distintos.
+- Texto en español en imagen solo si aporta valor; desarrollo en el copy del post.
+
+### Propuestas de prueba — enlaces directos (25 Oct 2026)
+| ID | Tema | URL | Estado |
+|----|------|-----|--------|
+| **45** | Operar por WhatsApp | `http://localhost:5002/contenido/propuesta/45` | `pendiente_aprobacion` |
+| **32** | Tipo de cambio para negocios | `http://localhost:5002/contenido/propuesta/32` | `pendiente_aprobacion` (aprobación anterior invalidada) |
+| **39** | Cambio de divisas para viajes | `http://localhost:5002/contenido/propuesta/39` | `pendiente_aprobacion` |
+
+### Historial de propuestas comerciales (pipeline 28 — conservado)
+| ID | Tema | Notas |
+|----|------|-------|
+| 31 | Spread cambiario: por qué varía el tipo de cambio | Prop original; flow_prompt actualizado a estilo fotográfico (cafetería Miraflores) |
+| 32 | Tipo de cambio para negocios | Aprobación anterior invalidada; nuevo prompt: taller textil La Victoria/Gamarra |
+| 33 | Comercio exterior — horario extendido | Texto corregido: distingue recepción de mensajes de ejecución operativa; NO es viajes |
+| 39 | Cambio de divisas para viajes *(creado manualmente)* | Aeropuerto Jorge Chávez, viajero con mochila y pasaporte |
+| 45 | Operar por WhatsApp *(creado manualmente)* | Dueño de ferretería/negocio revisando WhatsApp detrás del mostrador |
+
+### Prop 33 — corrección aplicada
+**Problema**: el texto podía insinuar operaciones disponibles a cualquier hora.
+**Corrección**: distingue que WhatsApp recibe mensajes fuera de horario, pero las operaciones
+se atienden "en la próxima ventana operativa disponible". Horario explícito: L-S en horario extendido.
+
+## Próximos pasos
+1. **Validación visual — EN PAUSA**: el usuario probará los 3 prompts en Gemini/Flow.
+2. Según resultado: aprobar la nueva dirección visual o ajustar los prompts.
+3. Los 3 agentes (creativo, productor, revisor) ya reflejan la nueva dirección para futuros pipelines.
+4. Revisión editorial: textos de los posts de las 3 noticias del pipeline 28.
+5. Decisión de deploy: scheduler interno en Render **o** Cron Job ($1/mes).
+6. Variables antes del deploy:
    - `ESTUDIO_CRON_TOKEN` (obligatoria si se usa el endpoint cron)
    - `ESTUDIO_DIARIO_AUTO=false` solo si se quiere desactivar el scheduler interno
 
