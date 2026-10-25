@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+{% block title %}Pipeline #{{ pipeline.id }} — Estudio Creativo{% endblock %}
+
+{% block content %}
+<div class="contenido-wrap">
+
+  {# ── Header ─────────────────────────────────────────────────────────────── #}
+  <div class="d-flex align-items-center gap-2 mb-1">
+    <a href="{{ url_for('contenido.agentes') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i>
+    </a>
+    <h1 class="page-title mb-0">
+      {{ pipeline.title or (pipeline.type | title) }}
+    </h1>
+    {% set sc, sl = pipeline.status_badge %}
+    <span class="badge bg-{{ sc }} fs-6">{{ sl }}</span>
+    <span class="badge {% if pipeline.type == 'actualidad' %}bg-info{% else %}bg-warning text-dark{% endif %}">
+      {{ pipeline.type | title }}
+    </span>
+  </div>
+  <p class="text-muted small mb-4">
+    Pipeline #{{ pipeline.id }} ·
+    Creado {{ pipeline.created_at.strftime('%d/%m/%Y %H:%M') if pipeline.created_at }} ·
+    Etapa {{ pipeline.current_stage_seq }}/{{ pipeline.total_stages }}
+    {% if pipeline.notes %}· {{ pipeline.notes[:100] }}{% endif %}
+  </p>
+
+  {# ── Barra de progreso ───────────────────────────────────────────────────── #}
+  <div class="progress mb-4" style="height:8px;border-radius:4px;">
+    <div class="progress-bar" role="progressbar"
+         style="width:{{ pipeline.progress_pct }}%;background:#00DEA8;"
+         aria-valuenow="{{ pipeline.progress_pct }}" aria-valuemin="0" aria-valuemax="100"></div>
+  </div>
+
+  {# ── Error general ───────────────────────────────────────────────────────── #}
+  {% if pipeline.error_msg %}
+  <div class="alert alert-danger d-flex gap-2 mb-4">
+    <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+    <div>
+      <strong>Error en pipeline:</strong> {{ pipeline.error_msg }}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Timeline de etapas ──────────────────────────────────────────────────── #}
+  <div class="row g-4">
+    <div class="col-lg-8">
+      {% for stage in stages %}
+      {% set is_active = (stage.seq == pipeline.current_stage_seq) %}
+      <div class="card stage-card border-0 shadow-sm mb-3
+                  {% if stage.status == 'done'         %}stage-done
+                  {% elif stage.status == 'running'    %}stage-running
+                  {% elif stage.status == 'error'      %}stage-error
+                  {% elif stage.status == 'needs_review'%}stage-review
+                  {% else %}stage-pending{% endif %}">
+        <div class="card-body">
+          <div class="d-flex align-items-start justify-content-between">
+            <div class="d-flex align-items-center gap-3">
+              {# Número de etapa #}
+              <div class="stage-seq-badge
+                {% if stage.status == 'done'    %}bg-success
+                {% elif stage.status == 'running'%}bg-primary
+                {% elif stage.status == 'error' %}bg-danger
+                {% else %}bg-secondary{% endif %}">
+                {% if stage.status == 'done' %}
+                  <i class="bi bi-check-lg"></i>
+                {% elif stage.status == 'running' %}
+                  <div class="spinner-border spinner-border-sm text-white" style="width:1rem;height:1rem;"></div>
+                {% elif stage.status == 'error' %}
+                  <i class="bi bi-x-lg"></i>
+                {% else %}
+                  {{ stage.seq }}
+                {% endif %}
+              </div>
+              <div>
+                <h6 class="mb-0 fw-semibold">{{ stage.agent_label }}</h6>
+                <small class="text-muted">
+                  {% set sc2, sl2 = stage.status_badge %}
+                  <span class="badge bg-{{ sc2 }} me-1">{{ sl2 }}</span>
+                  {% if stage.completed_at %}
+                    completado {{ stage.completed_at.strftime('%d/%m %H:%M') }}
+                    {% if stage.version and stage.version > 1 %}· v{{ stage.version }}{% endif %}
+                  {% elif stage.started_at %}
+                    iniciado {{ stage.started_at.strftime('%d/%m %H:%M') }}
+                  {% endif %}
+                </small>
+              </div>
+            </div>
+
+            {# Acciones de etapa #}
+            <div class="d-flex gap-1 flex-shrink-0">
+              {% if stage.status == 'done' and pipeline.status == 'waiting_user' and stage.seq == pipeline.current_stage_seq %}
+              <button class="btn btn-sm btn-success" onclick="aprobarEtapa({{ pipeline.id }}, {{ stage.id }})">
+                <i class="bi bi-check-lg me-1"></i>Aprobar
+              </button>
+              {% endif %}
+              {% if stage.status == 'error' %}
+              <button class="btn btn-sm btn-warning" onclick="reintentarEtapa({{ pipeline.id }}, {{ stage.id }})">
+                <i class="bi bi-arrow-clockwise me-1"></i>Reintentar
+              </button>
+              {% endif %}
+              {% if stage.status in ('pending', 'error', 'needs_review') and stage.seq == pipeline.current_stage_seq %}
+              <button class="btn btn-sm btn-primary" onclick="ejecutarEtapa({{ pipeline.id }}, {{ stage.seq }})">
+                <i class="bi bi-play-fill me-1"></i>Ejecutar
+              </button>
+              {% endif %}
+            </div>
+          </div>
+
+          {# Error de etapa #}
+          {% if stage.error_msg %}
+          <div class="alert alert-danger alert-sm mt-2 mb-1 py-1 px-2">
+            <i class="bi bi-bug me-1"></i>{{ stage.error_msg[:200] }}
+          </div>
+          {% endif %}
+
+          {# Instrucción del usuario #}
+          {% if stage.user_instruction %}
+          <div class="mt-2 p-2 rounded bg-light border small">
+            <i class="bi bi-chat-left-text me-1 text-muted"></i>
+            <em class="text-muted">Instrucción:</em> {{ stage.user_instruction[:200] }}
+          </div>
+          {% endif %}
+
+          {# Output resumen (collapsible) #}
+          {% if stage.output_data and stage.status in ('done', 'needs_review') %}
+          <div class="mt-2">
+            <button class="btn btn-link btn-sm text-muted p-0 collapsed"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#output-{{ stage.id }}">
+              <i class="bi bi-chevron-down me-1"></i>Ver resultado
+            </button>
+            <div class="collapse mt-2" id="output-{{ stage.id }}">
+              {% set out = stage.output_dict %}
+              {% if stage.agent_role == 'investigador' %}
+                <div class="small text-muted">
+                  {{ out.get('count', 0) }} fuentes recopiladas
+                  {% if out.get('blocks') %}· {{ out.blocks | length }} bloques{% endif %}
+                </div>
+              {% elif stage.agent_role == 'analista' %}
+                {% if out.get('resumen_ejecutivo') %}
+                <p class="small mb-1"><strong>Resumen:</strong> {{ out.resumen_ejecutivo[:300] }}…</p>
+                {% endif %}
+              {% elif stage.agent_role == 'creativo' %}
+                {% if out.get('ideas') %}
+                <ul class="small mb-0">
+                  {% for idea in out.ideas[:3] %}
+                  <li><strong>[{{ idea.get('red','') | upper }}]</strong> {{ idea.get('titular','') }}</li>
+                  {% endfor %}
+                </ul>
+                {% endif %}
+              {% elif stage.agent_role == 'editor' %}
+                {% if out.get('piezas') %}
+                <div class="small text-muted">{{ out.piezas | length }} piezas: {{ out.piezas | map(attribute='network') | join(', ') }}</div>
+                {% endif %}
+              {% elif stage.agent_role == 'productor' %}
+                {% if out.get('proposals') %}
+                <div class="small text-muted">{{ out.proposals | length }} propuestas creadas</div>
+                {% endif %}
+                {% if out.get('carousel_zip') %}
+                <a href="/static/{{ out.carousel_zip }}" class="btn btn-xs btn-outline-primary mt-1" download>
+                  <i class="bi bi-download me-1"></i>Descargar carrusel (ZIP)
+                </a>
+                {% endif %}
+              {% elif stage.agent_role == 'revisor' %}
+                {% if out.get('aprobacion_global') %}
+                <span class="badge bg-success">Aprobado globalmente</span>
+                {% else %}
+                <span class="badge bg-warning text-dark">Requiere correcciones</span>
+                {% endif %}
+                {% if out.get('nota_revision') %}
+                <p class="small mt-1 mb-0 text-muted">{{ out.nota_revision[:250] }}</p>
+                {% endif %}
+              {% else %}
+                <pre class="small bg-light p-2 rounded" style="max-height:200px;overflow:auto;">{{ stage.output_data[:600] }}</pre>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+
+          {# Video pack (si es productor con reels) #}
+          {% if stage.agent_role == 'productor' and stage.output_dict.get('packs') %}
+          <div class="mt-2">
+            {% for pack in stage.output_dict.packs %}
+            <div class="card bg-light border-0 p-2 mt-1">
+              <div class="d-flex align-items-center justify-content-between">
+                <div class="small fw-semibold"><i class="bi bi-camera-video me-1 text-danger"></i>Pack Reel — {{ pack.tool }}</div>
+                <a href="{{ url_for('contenido.detail', pid=pack.proposal_id) }}" class="btn btn-xs btn-outline-danger">Ver</a>
+              </div>
+              <div class="small text-muted mt-1">{{ pack.format }} · {{ pack.duration }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {# Notas de revisión / aprobación #}
+          {% if stage.review_notes %}
+          <div class="mt-2 p-2 rounded bg-success bg-opacity-10 border-start border-success border-2 small">
+            <i class="bi bi-check-circle me-1 text-success"></i>
+            {{ stage.review_notes[:200] }}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+
+      {# Si el pipeline está en waiting_user (revisor) — acción global de aprobación #}
+      {% if pipeline.status == 'waiting_user' %}
+      <div class="card border-success border-2 shadow-sm mb-3">
+        <div class="card-body text-center py-4">
+          <i class="bi bi-shield-check display-6 text-success mb-2"></i>
+          <h6 class="fw-semibold">El Revisor ha completado su análisis</h6>
+          <p class="text-muted small mb-3">Revisa las observaciones y aprueba el contenido para planificación.</p>
+          {% set last_stage = stages[-1] %}
+          <button class="btn btn-success" onclick="aprobarEtapa({{ pipeline.id }}, {{ last_stage.id }})">
+            <i class="bi bi-check-circle me-1"></i>Aprobar y marcar como listo
+          </button>
+          <button class="btn btn-outline-secondary ms-2" onclick="reintentarEtapa({{ pipeline.id }}, {{ last_stage.id }})">
+            <i class="bi bi-arrow-clockwise me-1"></i>Reintentar revisión
+          </button>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    {# ── Panel lateral: fuentes ─────────────────────────────────────────────── #}
+    <div class="col-lg-4">
+      {% if sources %}
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <h6 class="fw-semibold mb-0">
+            <i class="bi bi-link-45deg me-1 text-primary"></i>
+            Fuentes recopiladas ({{ sources | length }})
+          </h6>
+        </div>
+        <div class="card-body pt-2">
+          {% for src in sources %}
+          <div class="source-item border-bottom pb-2 mb-2 {% if loop.last %}border-0 pb-0 mb-0{% endif %}">
+            <div class="d-flex align-items-start gap-2">
+              <span class="badge badge-src-type bg-{{ 'primary' if src.source_type == 'oficial' else 'secondary' if src.source_type == 'market_feed' else 'info text-dark' }} mt-1 flex-shrink-0">
+                {{ src.source_type or 'web' }}
+              </span>
+              <div>
+                <div class="small fw-semibold line-clamp-2">
+                  {% if src.url %}
+                  <a href="{{ src.url }}" target="_blank" rel="noopener" class="text-decoration-none text-dark">
+                    {{ src.title or src.url[:50] }}<i class="bi bi-box-arrow-up-right ms-1 small"></i>
+                  </a>
+                  {% else %}
+                  {{ src.title or '(sin título)' }}
+                  {% endif %}
+                </div>
+                {% if src.published_at %}
+                <div class="text-muted" style="font-size:.7rem;">{{ src.published_at }}</div>
+                {% endif %}
+                {% if src.excerpt %}
+                <div class="text-muted line-clamp-2" style="font-size:.72rem;">{{ src.excerpt[:120] }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {# Propuestas generadas #}
+      {% set prod = stages | selectattr('agent_role','equalto','productor') | first | default(none) %}
+      {% if prod and prod.output_dict.get('proposals') %}
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <h6 class="fw-semibold mb-0">
+            <i class="bi bi-images me-1 text-success"></i>
+            Propuestas generadas
+          </h6>
+        </div>
+        <div class="card-body pt-2">
+          {% for prop in prod.output_dict.proposals %}
+          <div class="d-flex align-items-center justify-content-between py-1 border-bottom small">
+            <span>
+              <span class="badge net-badge net-{{ prop.network }}">{{ prop.network }}</span>
+              {{ prop.topic[:50] if prop.topic }}
+            </span>
+            {% if prop.proposal_id %}
+            <a href="{{ url_for('contenido.detail', pid=prop.proposal_id) }}"
+               class="btn btn-xs btn-outline-secondary">Ver</a>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# ── Modal: Aprobar etapa ─────────────────────────────────────────────────── #}
+<div class="modal fade" id="modalAprobar" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header border-0">
+        <h6 class="modal-title fw-semibold">Aprobar etapa</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label small fw-semibold">Notas de revisión <span class="text-muted fw-normal">(opcional)</span></label>
+        <textarea class="form-control" id="approveNotes" rows="3"
+                  placeholder="Observaciones, instrucciones para etapas posteriores…"></textarea>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-success btn-sm" id="btnConfirmarAprobacion">
+          <i class="bi bi-check-lg me-1"></i>Aprobar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Modal: Reintentar etapa ──────────────────────────────────────────────── #}
+<div class="modal fade" id="modalReintentar" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header border-0">
+        <h6 class="modal-title fw-semibold">Reintentar etapa</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label small fw-semibold">Nueva instrucción <span class="text-muted fw-normal">(opcional)</span></label>
+        <textarea class="form-control" id="retryInstruction" rows="3"
+                  placeholder="Agrega contexto o correcciones para este reintento…"></textarea>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-warning btn-sm" id="btnConfirmarReintento">
+          <i class="bi bi-arrow-clockwise me-1"></i>Reintentar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Modal: Ejecutando ────────────────────────────────────────────────────── #}
+<div class="modal fade" id="modalEjecutando" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0">
+      <div class="modal-body text-center py-5">
+        <div class="spinner-grow mb-3" style="color:#00DEA8;width:3rem;height:3rem;"></div>
+        <h5 class="fw-semibold mb-1" id="execTitle">Agente trabajando…</h5>
+        <p class="text-muted small" id="execStatus">Esto puede tomar unos segundos.</p>
+        <div class="progress mt-3" style="height:4px;">
+          <div class="progress-bar progress-bar-striped progress-bar-animated"
+               style="width:100%;background:#00DEA8"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = document.querySelector('meta[name=csrf-token]')?.content || '';
+let _stagePid = null, _stageSid = null;
+
+const PIPELINE_ID = {{ pipeline.id }};
+
+function showExec(title, status) {
+  document.getElementById('execTitle').textContent  = title;
+  document.getElementById('execStatus').textContent = status;
+  return new bootstrap.Modal(document.getElementById('modalEjecutando'));
+}
+
+// ── Ejecutar etapa ────────────────────────────────────────────────────────────
+async function ejecutarEtapa(pid, seq) {
+  const m = showExec('Ejecutando etapa ' + seq + '…', 'Agente procesando…');
+  m.show();
+  try {
+    const r = await fetch(`/contenido/api/pipeline/${pid}/ejecutar`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+      body: JSON.stringify({seq})
+    });
+    const d = await r.json();
+    m.hide();
+    if (d.ok) {
+      showToast('Etapa ' + seq + ' completada', 'success');
+    } else {
+      showToast('Error: ' + (d.output?.reason || d.reason || 'desconocido'), 'danger');
+    }
+    location.reload();
+  } catch(e) { m.hide(); showToast('Error de red: '+e.message,'danger'); }
+}
+
+// ── Aprobar etapa ─────────────────────────────────────────────────────────────
+function aprobarEtapa(pid, sid) {
+  _stagePid = pid; _stageSid = sid;
+  document.getElementById('approveNotes').value = '';
+  new bootstrap.Modal(document.getElementById('modalAprobar')).show();
+}
+document.getElementById('btnConfirmarAprobacion')?.addEventListener('click', async () => {
+  const notes = document.getElementById('approveNotes').value;
+  bootstrap.Modal.getInstance(document.getElementById('modalAprobar'))?.hide();
+  const m = showExec('Aprobando…','');
+  m.show();
+  try {
+    const r = await fetch(`/contenido/api/pipeline/${_stagePid}/stage/${_stageSid}/aprobar`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+      body: JSON.stringify({notes})
+    });
+    const d = await r.json();
+    m.hide();
+    if (d.ok) { showToast('Etapa aprobada','success'); } else { showToast(d.reason||'Error','danger'); }
+    location.reload();
+  } catch(e) { m.hide(); showToast('Error: '+e.message,'danger'); }
+});
+
+// ── Reintentar etapa ──────────────────────────────────────────────────────────
+function reintentarEtapa(pid, sid) {
+  _stagePid = pid; _stageSid = sid;
+  document.getElementById('retryInstruction').value = '';
+  new bootstrap.Modal(document.getElementById('modalReintentar')).show();
+}
+document.getElementById('btnConfirmarReintento')?.addEventListener('click', async () => {
+  const instr = document.getElementById('retryInstruction').value;
+  bootstrap.Modal.getInstance(document.getElementById('modalReintentar'))?.hide();
+  const m = showExec('Reintentando etapa…','El agente vuelve a ejecutar…');
+  m.show();
+  try {
+    const r = await fetch(`/contenido/api/pipeline/${_stagePid}/stage/${_stageSid}/reintentar`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+      body: JSON.stringify({user_instruction: instr})
+    });
+    const d = await r.json();
+    m.hide();
+    if (d.ok) { showToast('Reintento exitoso','success'); } else { showToast(d.output?.reason||'Error','danger'); }
+    location.reload();
+  } catch(e) { m.hide(); showToast('Error: '+e.message,'danger'); }
+});
+
+function showToast(msg, type='info') {
+  const c = document.getElementById('toastContainer') || (() => {
+    const el = document.createElement('div');
+    el.id = 'toastContainer';
+    el.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+    el.style.zIndex = 9999;
+    document.body.appendChild(el);
+    return el;
+  })();
+  const t = document.createElement('div');
+  t.className = `toast align-items-center text-bg-${type} border-0 show`;
+  t.innerHTML = `<div class="d-flex"><div class="toast-body">${msg}</div>
+    <button class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 5000);
+}
+</script>
+<style>
+.contenido-wrap { padding: 1.5rem; }
+.page-title { font-size: 1.4rem; font-weight: 700; color: #0D1B2A; }
+.stage-card { border-left: 4px solid #dee2e6 !important; }
+.stage-done    { border-left-color: #198754 !important; }
+.stage-running { border-left-color: #0d6efd !important; }
+.stage-error   { border-left-color: #dc3545 !important; }
+.stage-review  { border-left-color: #ffc107 !important; }
+.stage-seq-badge { width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.85rem;flex-shrink:0; }
+.source-item { }
+.line-clamp-2 { display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden; }
+.net-badge { font-size:.7rem; font-weight:600; }
+.net-linkedin  { background:#0077b5; color:#fff; }
+.net-instagram { background:linear-gradient(45deg,#f09433,#dc2743); color:#fff; }
+.net-facebook  { background:#1877f2; color:#fff; }
+.net-reel      { background:#111; color:#fff; }
+.btn-xs { padding:.15rem .4rem; font-size:.75rem; }
+.alert-sm { font-size:.78rem; }
+.badge-src-type { font-size:.65rem; }
+</style>
+{% endblock %}

@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Configuración de marca — Estudio Creativo{% endblock %}
+
+{% block content %}
+<div class="contenido-wrap">
+
+  <div class="page-header-bar d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h1 class="page-title mb-0">
+        <i class="bi bi-stars me-2" style="color:#00DEA8"></i>Estudio Creativo
+      </h1>
+      <p class="text-muted small mb-0">Pipeline editorial · 6 agentes especializados</p>
+    </div>
+  </div>
+
+  <ul class="nav nav-tabs estudio-tabs mb-4">
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('contenido.agentes') }}"><i class="bi bi-cpu me-1"></i>Agentes</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('contenido.index') }}"><i class="bi bi-grid-3x3-gap me-1"></i>Contenidos</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('contenido.calendario') }}"><i class="bi bi-calendar3 me-1"></i>Calendario</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link active" href="{{ url_for('contenido.configuracion') }}"><i class="bi bi-sliders me-1"></i>Configuración</a>
+    </li>
+  </ul>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent border-0 pb-0 pt-3">
+          <h6 class="fw-semibold mb-0">
+            <i class="bi bi-shield-check me-1 text-success"></i>Ficha de marca
+          </h6>
+          <p class="text-muted small mb-0">
+            Los agentes Creativo y Revisor usan esta ficha.
+            Solo los beneficios listados aquí pueden aparecer en el contenido generado.
+          </p>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">
+              Beneficios verificados
+              <span class="text-muted fw-normal">(uno por línea — solo estos pueden usarse en campañas)</span>
+            </label>
+            <textarea class="form-control font-monospace" id="fldBenefits" rows="10"
+                      placeholder="Tipo de cambio competitivo vs banca tradicional&#10;Proceso 100% digital, sin ir a oficina&#10;Registro en el padrón SBS de casas de cambio&#10;…">{{ brand.benefits_list | join('\n') }}</textarea>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">
+              Afirmaciones prohibidas
+              <span class="text-muted fw-normal">(el Creativo y Revisor las bloquean activamente)</span>
+            </label>
+            <textarea class="form-control font-monospace" id="fldClaims" rows="6"
+                      placeholder="Mejor tipo de cambio del mercado (sin datos del día)&#10;Miles de clientes satisfechos (sin cifra verificable)&#10;…">{{ brand.claims_list | join('\n') }}</textarea>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">
+              Guía de tono
+              <span class="text-muted fw-normal">(voz y estilo de comunicación de la marca)</span>
+            </label>
+            <textarea class="form-control" id="fldTone" rows="4"
+                      placeholder="Natural, profesional, español peruano. Sin jerga financiera compleja. Cercano con empresas, directo con personas.">{{ brand.tone_guide or '' }}</textarea>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary" id="btnGuardar">
+              <i class="bi bi-floppy me-1"></i>Guardar ficha
+            </button>
+            <span class="text-muted small align-self-center" id="saveStatus"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm mb-3 border-start border-warning border-3">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-2"><i class="bi bi-exclamation-triangle me-1 text-warning"></i>Importante</h6>
+          <ul class="small text-muted mb-0 ps-3">
+            <li class="mb-1">Los beneficios deben ser <strong>verificables y actuales</strong>.</li>
+            <li class="mb-1">No incluir cifras de clientes sin respaldo (ej. "3,000 clientes" requiere dato real).</li>
+            <li class="mb-1">No incluir comparaciones competitivas sin datos del día.</li>
+            <li class="mb-1">Estar registrado en el padrón SBS es un hecho verificable — se puede usar.</li>
+            <li>"Mejor precio" sin comparación verificada del día no es un beneficio válido.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-2"><i class="bi bi-info-circle me-1 text-info"></i>Estado de la ficha</h6>
+          <div class="small">
+            <div class="d-flex justify-content-between mb-1">
+              <span class="text-muted">Beneficios cargados:</span>
+              <strong>{{ brand.benefits_list | length }}</strong>
+            </div>
+            <div class="d-flex justify-content-between mb-1">
+              <span class="text-muted">Afirmaciones bloqueadas:</span>
+              <strong>{{ brand.claims_list | length }}</strong>
+            </div>
+            <div class="d-flex justify-content-between">
+              <span class="text-muted">Última actualización:</span>
+              <span>{{ brand.updated_at.strftime('%d/%m/%Y') if brand.updated_at else 'Nunca' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = document.querySelector('meta[name=csrf-token]')?.content || '';
+
+document.getElementById('btnGuardar')?.addEventListener('click', async () => {
+  const btn = document.getElementById('btnGuardar');
+  const status = document.getElementById('saveStatus');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando…';
+
+  const benefits = document.getElementById('fldBenefits').value;
+  const claims   = document.getElementById('fldClaims').value;
+  const tone     = document.getElementById('fldTone').value;
+
+  try {
+    const r = await fetch('/contenido/api/configuracion/guardar', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+      body: JSON.stringify({verified_benefits: benefits, prohibited_claims: claims, tone_guide: tone})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      status.textContent = `Guardado — ${d.benefits_count} beneficios, ${d.claims_count} afirmaciones bloqueadas`;
+      status.className = 'text-success small align-self-center';
+    } else {
+      status.textContent = d.msg || 'Error al guardar';
+      status.className = 'text-danger small align-self-center';
+    }
+  } catch(e) {
+    status.textContent = 'Error de red: ' + e.message;
+    status.className = 'text-danger small align-self-center';
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-floppy me-1"></i>Guardar ficha';
+});
+</script>
+<style>
+.contenido-wrap { padding: 1.5rem; }
+.page-title { font-size: 1.4rem; font-weight: 700; color: #0D1B2A; }
+.estudio-tabs .nav-link { color:#6c757d; border:none; border-bottom:2px solid transparent; border-radius:0; padding:.5rem 1rem; }
+.estudio-tabs .nav-link.active { color:#00DEA8; border-bottom-color:#00DEA8; background:none; font-weight:600; }
+.estudio-tabs .nav-link:hover { color:#0D1B2A; border-bottom-color:#dee2e6; }
+</style>
+{% endblock %}

@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Calendario — Estudio Creativo{% endblock %}
+
+{% block content %}
+<div class="contenido-wrap">
+
+  <div class="page-header-bar d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h1 class="page-title mb-0">
+        <i class="bi bi-stars me-2" style="color:#00DEA8"></i>Estudio Creativo
+      </h1>
+      <p class="text-muted small mb-0">Pipeline editorial · 6 agentes especializados</p>
+    </div>
+  </div>
+
+  <ul class="nav nav-tabs estudio-tabs mb-4">
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('contenido.agentes') }}"><i class="bi bi-cpu me-1"></i>Agentes</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('contenido.index') }}"><i class="bi bi-grid-3x3-gap me-1"></i>Contenidos</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link active" href="{{ url_for('contenido.calendario') }}"><i class="bi bi-calendar3 me-1"></i>Calendario</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('contenido.configuracion') }}"><i class="bi bi-sliders me-1"></i>Configuración</a>
+    </li>
+  </ul>
+
+  {# ── Aviso de planificación manual ────────────────────────────────────────── #}
+  <div class="alert alert-info d-flex gap-2 mb-4">
+    <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+    <div class="small">
+      <strong>Planificación manual.</strong>
+      Este calendario registra las fechas planificadas para publicación manual.
+      No existe integración automática con ninguna plataforma social —
+      descarga la imagen, copia el texto y publica directamente en cada red.
+    </div>
+  </div>
+
+  {% if not programados %}
+  <div class="empty-state text-center py-5">
+    <i class="bi bi-calendar3 display-4 text-muted"></i>
+    <p class="mt-3 text-muted">No hay contenidos programados todavía.</p>
+    <p class="text-muted small">
+      Genera contenido en el <a href="{{ url_for('contenido.agentes') }}">Estudio Creativo</a>,
+      aprueba las propuestas y asígnales una fecha de publicación.
+    </p>
+  </div>
+  {% else %}
+
+  {# ── Agrupar por fecha ────────────────────────────────────────────────────── #}
+  {% set ns = namespace(current_date=none) %}
+  {% for p in programados %}
+    {% set pdate = p.scheduled_at.strftime('%Y-%m-%d') if p.scheduled_at %}
+    {% if pdate != ns.current_date %}
+      {% if not loop.first %}</div>{% endif %}
+      {% set ns.current_date = pdate %}
+      <div class="cal-day-group mb-4">
+        <h6 class="cal-day-header fw-semibold mb-2">
+          <i class="bi bi-calendar-event me-1" style="color:#00DEA8"></i>
+          {{ p.scheduled_at.strftime('%A %d de %B, %Y') if p.scheduled_at }}
+        </h6>
+    {% endif %}
+
+    <div class="card border-0 shadow-sm mb-2 cal-item
+                {% if p.status == 'publicado' %}cal-published{% endif %}">
+      <div class="card-body py-2 px-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="cal-time text-muted small fw-semibold" style="min-width:44px;">
+            {{ p.scheduled_at.strftime('%H:%M') if p.scheduled_at else '--:--' }}
+          </div>
+          <span class="badge net-badge net-{{ p.network }}">
+            <i class="bi {{ p.network_icon }} me-1"></i>{{ p.network | upper }}
+          </span>
+          <div class="flex-grow-1">
+            <div class="fw-semibold small line-clamp-1">{{ p.topic }}</div>
+            {% if p.text_body %}
+            <div class="text-muted line-clamp-1" style="font-size:.75rem;">{{ p.text_body[:100] }}</div>
+            {% endif %}
+          </div>
+          <div class="d-flex gap-1 flex-shrink-0">
+            {% set sc, sl = p.status_badge %}
+            <span class="badge bg-{{ sc }}">{{ sl }}</span>
+            <a href="{{ url_for('contenido.detail', pid=p.id) }}"
+               class="btn btn-xs btn-outline-secondary">Ver</a>
+            {% if p.image_path %}
+            <a href="{{ url_for('contenido.api_imagen', pid=p.id) }}"
+               class="btn btn-xs btn-outline-primary" title="Descargar imagen" download>
+              <i class="bi bi-download"></i>
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+  </div>{# close last group #}
+
+  <div class="mt-4 p-3 bg-light rounded small text-muted">
+    <strong>{{ programados | length }}</strong> piezas planificadas ·
+    <strong>{{ programados | selectattr('status','equalto','publicado') | list | length }}</strong> publicadas manualmente
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+.contenido-wrap { padding: 1.5rem; }
+.page-title { font-size: 1.4rem; font-weight: 700; color: #0D1B2A; }
+.estudio-tabs .nav-link { color:#6c757d; border:none; border-bottom:2px solid transparent; border-radius:0; padding:.5rem 1rem; }
+.estudio-tabs .nav-link.active { color:#00DEA8; border-bottom-color:#00DEA8; background:none; font-weight:600; }
+.estudio-tabs .nav-link:hover { color:#0D1B2A; border-bottom-color:#dee2e6; }
+.cal-day-header { color:#0D1B2A; text-transform: capitalize; }
+.cal-item { border-left:3px solid #dee2e6 !important; }
+.cal-published { border-left-color:#198754 !important; opacity:.75; }
+.net-badge { font-size:.7rem; font-weight:600; }
+.net-linkedin  { background:#0077b5; color:#fff; }
+.net-instagram { background:linear-gradient(45deg,#f09433,#dc2743); color:#fff; }
+.net-facebook  { background:#1877f2; color:#fff; }
+.net-reel      { background:#111; color:#fff; }
+.line-clamp-1 { display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden; }
+.btn-xs { padding:.15rem .4rem; font-size:.75rem; }
+</style>
+{% endblock %}

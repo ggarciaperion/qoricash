@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+{% block title %}Estudio Creativo — Agentes{% endblock %}
+
+{% block content %}
+<div class="contenido-wrap">
+
+  <div class="page-header-bar d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h1 class="page-title mb-0">
+        <i class="bi bi-stars me-2" style="color:#00DEA8"></i>Estudio Creativo
+      </h1>
+      <p class="text-muted small mb-0">Pipeline editorial · 6 agentes especializados</p>
+    </div>
+  </div>
+
+  {# ── Tabs ────────────────────────────────────────────────────────────────── #}
+  <ul class="nav nav-tabs estudio-tabs mb-4">
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('contenido.hoy') }}">
+        <i class="bi bi-sun me-1"></i>Entrega de Hoy
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link active" href="{{ url_for('contenido.agentes') }}">
+        <i class="bi bi-cpu me-1"></i>Agentes
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('contenido.index') }}">
+        <i class="bi bi-grid-3x3-gap me-1"></i>Contenidos
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('contenido.calendario') }}">
+        <i class="bi bi-calendar3 me-1"></i>Calendario
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('contenido.configuracion') }}">
+        <i class="bi bi-sliders me-1"></i>Configuración
+      </a>
+    </li>
+  </ul>
+
+  {# ── Iniciar pipeline ─────────────────────────────────────────────────────── #}
+  <div class="row g-3 mb-4">
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #0ea5e9 !important;">
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-2">
+            <i class="bi bi-newspaper fs-4 me-2" style="color:#0ea5e9"></i>
+            <div>
+              <h6 class="mb-0 fw-semibold">Pipeline de Actualidad</h6>
+              <small class="text-muted">Investigador → Analista → Editor → Productor → Revisor</small>
+            </div>
+          </div>
+          <p class="text-muted small mb-3">
+            Parte de fuentes reales (noticias, TC, datos BCRP) y produce contenido
+            informativo verificado para redes sociales.
+          </p>
+          <button class="btn btn-primary btn-sm" onclick="iniciarPipeline('actualidad')">
+            <i class="bi bi-play-circle me-1"></i>Iniciar pipeline
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #f59e0b !important;">
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-2">
+            <i class="bi bi-megaphone fs-4 me-2" style="color:#f59e0b"></i>
+            <div>
+              <h6 class="mb-0 fw-semibold">Pipeline Comercial</h6>
+              <small class="text-muted">Creativo → Editor → Productor → Revisor</small>
+            </div>
+          </div>
+          <p class="text-muted small mb-3">
+            Genera campañas usando únicamente los beneficios verificados de la
+            ficha de marca. Sin datos inventados.
+          </p>
+          <button class="btn btn-warning btn-sm text-dark" onclick="iniciarPipeline('comercial')">
+            <i class="bi bi-play-circle me-1"></i>Iniciar pipeline
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Cards de agentes ─────────────────────────────────────────────────────── #}
+  <h6 class="fw-semibold text-muted text-uppercase small mb-3 letter-spacing-1">Estado de agentes</h6>
+  <div class="row g-3 mb-5">
+    {% for ag in agents %}
+    <div class="col-12 col-md-6 col-xl-4">
+      <div class="card agent-card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex align-items-start justify-content-between mb-3">
+            <div class="d-flex align-items-center gap-2">
+              <div class="agent-icon-wrap" style="background:{{ ag.color }}22; color:{{ ag.color }};">
+                <i class="bi {{ ag.icon }} fs-5"></i>
+              </div>
+              <div>
+                <h6 class="mb-0 fw-semibold">{{ ag.label }}</h6>
+                <small class="text-muted">{{ ag.role }}</small>
+              </div>
+            </div>
+            <span class="badge agent-status-badge
+              {% if ag.last_status == 'done'         %}bg-success
+              {% elif ag.last_status == 'running'    %}bg-primary
+              {% elif ag.last_status == 'error'      %}bg-danger
+              {% elif ag.last_status == 'needs_review'%}bg-warning text-dark
+              {% else %}bg-secondary{% endif %}">
+              {{ ag.last_status | replace('_', ' ') | title }}
+            </span>
+          </div>
+
+          <p class="text-muted small mb-3">{{ ag.description }}</p>
+
+          <div class="d-flex gap-3 small text-muted">
+            <span><i class="bi bi-clock me-1"></i>{{ ag.last_activity }}</span>
+            {% if ag.pending_tasks > 0 %}
+            <span class="text-warning fw-semibold">
+              <i class="bi bi-exclamation-circle me-1"></i>{{ ag.pending_tasks }} pendiente{{ 's' if ag.pending_tasks != 1 }}
+            </span>
+            {% endif %}
+          </div>
+
+          {% if ag.active_pipeline_id %}
+          <div class="mt-2">
+            <a href="{{ url_for('contenido.pipeline_detail', pid=ag.active_pipeline_id) }}"
+               class="btn btn-outline-primary btn-sm">
+              <i class="bi bi-arrow-right-circle me-1"></i>Ver pipeline activo
+            </a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {# ── Pipelines recientes ──────────────────────────────────────────────────── #}
+  {% if recents %}
+  <h6 class="fw-semibold text-muted text-uppercase small mb-3 letter-spacing-1">Pipelines recientes</h6>
+  <div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>#</th>
+            <th>Título</th>
+            <th>Tipo</th>
+            <th>Estado</th>
+            <th>Etapa</th>
+            <th>Creado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in recents %}
+          <tr>
+            <td class="text-muted small">{{ p.id }}</td>
+            <td class="fw-semibold small">{{ p.title or p.type | title }}</td>
+            <td>
+              <span class="badge {% if p.type == 'actualidad' %}bg-info{% else %}bg-warning text-dark{% endif %}">
+                {{ p.type | title }}
+              </span>
+            </td>
+            <td>
+              {% set sc, sl = p.status_badge %}
+              <span class="badge bg-{{ sc }}">{{ sl }}</span>
+            </td>
+            <td class="small text-muted">{{ p.current_stage_seq }}/{{ p.total_stages }}</td>
+            <td class="small text-muted">{{ p.created_at.strftime('%d/%m %H:%M') if p.created_at }}</td>
+            <td>
+              <a href="{{ url_for('contenido.pipeline_detail', pid=p.id) }}"
+                 class="btn btn-xs btn-outline-secondary">Ver</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Modal: nuevo pipeline ─────────────────────────────────────────────────── #}
+<div class="modal fade" id="modalNuevoPipeline" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header border-0">
+        <h6 class="modal-title fw-semibold" id="modalPipelineTitle">Nuevo pipeline</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="pipelineType">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Título del contenido <span class="text-muted fw-normal">(opcional)</span></label>
+          <input type="text" class="form-control" id="pipelineTitle"
+                 placeholder="Ej: Análisis TC oct 2026, Campaña cambio digital…">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Notas iniciales <span class="text-muted fw-normal">(opcional)</span></label>
+          <textarea class="form-control" id="pipelineNotes" rows="3"
+                    placeholder="Contexto, ángulo deseado, instrucciones especiales…"></textarea>
+        </div>
+        <div id="pipelineURLsWrap" class="mb-3 d-none">
+          <label class="form-label small fw-semibold">URLs de fuentes <span class="text-muted fw-normal">(una por línea, opcional)</span></label>
+          <textarea class="form-control" id="pipelineURLs" rows="3"
+                    placeholder="https://…&#10;https://…"></textarea>
+          <small class="text-muted">El Investigador intentará leer el contenido de estas URLs.</small>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary btn-sm" id="btnConfirmarPipeline">
+          <i class="bi bi-play-circle me-1"></i>Crear y ejecutar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Modal: ejecutando ─────────────────────────────────────────────────────── #}
+<div class="modal fade" id="modalEjecutando" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0">
+      <div class="modal-body text-center py-5">
+        <div class="spinner-grow mb-3" style="color:#00DEA8;width:3rem;height:3rem;"></div>
+        <h5 class="fw-semibold mb-1" id="execTitle">Pipeline iniciando…</h5>
+        <p class="text-muted small" id="execStatus">Creando pipeline y etapas…</p>
+        <div class="progress mt-3" style="height:4px;">
+          <div class="progress-bar progress-bar-striped progress-bar-animated"
+               style="width:100%;background:#00DEA8"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = document.querySelector('meta[name=csrf-token]')?.content || '';
+
+function iniciarPipeline(tipo) {
+  document.getElementById('pipelineType').value = tipo;
+  document.getElementById('modalPipelineTitle').textContent =
+    tipo === 'actualidad' ? 'Pipeline de Actualidad' : 'Pipeline Comercial';
+  document.getElementById('pipelineURLsWrap').classList.toggle('d-none', tipo !== 'actualidad');
+  document.getElementById('pipelineTitle').value = '';
+  document.getElementById('pipelineNotes').value = '';
+  new bootstrap.Modal(document.getElementById('modalNuevoPipeline')).show();
+}
+
+document.getElementById('btnConfirmarPipeline')?.addEventListener('click', async () => {
+  const tipo  = document.getElementById('pipelineType').value;
+  const title = document.getElementById('pipelineTitle').value.trim();
+  const notes = document.getElementById('pipelineNotes').value.trim();
+  const urlsRaw = document.getElementById('pipelineURLs')?.value || '';
+  const userUrls = urlsRaw.split('\n').map(u => u.trim()).filter(Boolean);
+
+  bootstrap.Modal.getInstance(document.getElementById('modalNuevoPipeline'))?.hide();
+
+  const execModal = new bootstrap.Modal(document.getElementById('modalEjecutando'));
+  execModal.show();
+  document.getElementById('execTitle').textContent =
+    tipo === 'actualidad' ? 'Investigando fuentes…' : 'Generando ideas de campaña…';
+  document.getElementById('execStatus').textContent =
+    'Los agentes se pasan la información automáticamente. Esto puede tomar 1-2 minutos.';
+
+  try {
+    // 1. Crear pipeline
+    const r1 = await fetch('/contenido/api/pipeline/crear', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+      body: JSON.stringify({type: tipo, title, notes})
+    });
+    const d1 = await r1.json();
+    if (!d1.ok) { execModal.hide(); showToast(d1.msg || 'Error creando pipeline', 'danger'); return; }
+
+    const pid = d1.pipeline_id;
+
+    // 2. Labels de progreso durante la espera
+    const labels = tipo === 'actualidad'
+      ? ['Investigando fuentes…','Analizando contexto económico…','Adaptando para redes…','Generando imágenes y paquetes…','Revisando y verificando…']
+      : ['Generando ideas de campaña…','Adaptando para redes…','Generando imágenes y paquetes…','Revisando y verificando…'];
+    let labelIdx = 0;
+    const labelInterval = setInterval(() => {
+      labelIdx = Math.min(labelIdx + 1, labels.length - 1);
+      document.getElementById('execTitle').textContent = labels[labelIdx];
+    }, 12000);
+
+    // 3. Ejecutar TODAS las etapas automáticamente
+    const r2 = await fetch(`/contenido/api/pipeline/${pid}/ejecutar-todo`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+      body: JSON.stringify({user_instruction: notes, user_urls: userUrls})
+    });
+    clearInterval(labelInterval);
+    const d2 = await r2.json();
+    execModal.hide();
+
+    if (d2.ok) {
+      showToast('Pipeline completado — revisa el resultado', 'success');
+    } else if (d2.duplicate) {
+      showToast('El pipeline ya está en ejecución', 'warning');
+    } else {
+      const failReason = d2.reason || 'Error desconocido';
+      showToast(`Error en etapa ${d2.failed_seq || '?'}: ${failReason}`, 'danger');
+    }
+    setTimeout(() => location.href = `/contenido/pipeline/${pid}`, 800);
+  } catch(e) {
+    execModal.hide();
+    showToast('Error de red: ' + e.message, 'danger');
+  }
+});
+
+function showToast(msg, type='info') {
+  const c = document.getElementById('toastContainer') || (() => {
+    const el = document.createElement('div');
+    el.id = 'toastContainer';
+    el.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+    el.style.zIndex = 9999;
+    document.body.appendChild(el);
+    return el;
+  })();
+  const t = document.createElement('div');
+  t.className = `toast align-items-center text-bg-${type} border-0 show`;
+  t.innerHTML = `<div class="d-flex"><div class="toast-body">${msg}</div>
+    <button class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 5000);
+}
+</script>
+<style>
+.contenido-wrap { padding: 1.5rem; }
+.page-title { font-size: 1.4rem; font-weight: 700; color: #0D1B2A; }
+.estudio-tabs .nav-link { color:#6c757d; border:none; border-bottom:2px solid transparent; border-radius:0; padding:.5rem 1rem; }
+.estudio-tabs .nav-link.active { color:#00DEA8; border-bottom-color:#00DEA8; background:none; font-weight:600; }
+.estudio-tabs .nav-link:hover { color:#0D1B2A; border-bottom-color:#dee2e6; }
+.agent-icon-wrap { width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+.agent-card { transition: box-shadow .2s; }
+.agent-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.1) !important; }
+.letter-spacing-1 { letter-spacing:.05rem; }
+.btn-xs { padding:.15rem .4rem; font-size:.75rem; }
+</style>
+{% endblock %}

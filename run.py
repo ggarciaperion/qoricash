@@ -543,10 +543,25 @@ def start_operation_expiry_scheduler():
         # Esperar 60 segundos antes de la próxima verificación
         eventlet.sleep(60)
 
-if __name__ == '__main__':
-    # Iniciar scheduler de expiración en un greenlet separado
-    print("[RUN.PY] Iniciando scheduler de expiracion de operaciones...")
+
+def start_all_schedulers():
+    """Inicia todos los schedulers en greenlets separados."""
+    print("[RUN.PY] Iniciando scheduler de expiración de operaciones...")
     eventlet.spawn(start_operation_expiry_scheduler)
+    print("[RUN.PY] Iniciando scheduler diario del Estudio Creativo...")
+    from app.services.content.daily_scheduler import spawn as _spawn_daily
+    _spawn_daily(app)
+
+
+# Iniciar schedulers cuando el worker esté listo.
+# eventlet.spawn_after asegura que el hub esté activo antes de lanzar los greenlets.
+# En gunicorn+eventlet: corre en cada worker (preload_app=False, módulo se importa por worker).
+# En flask run / python run.py: se llama explícitamente en __main__.
+eventlet.spawn_after(2, start_all_schedulers)
+
+
+if __name__ == '__main__':
+    start_all_schedulers()
 
     # Solo para desarrollo local
     socketio.run(

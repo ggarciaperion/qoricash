@@ -1,0 +1,542 @@
+{% extends "base.html" %}
+{% block title %}Entrega de Hoy — Estudio Creativo{% endblock %}
+
+{% block content %}
+<div class="contenido-wrap">
+
+  <div class="page-header-bar d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h1 class="page-title mb-0">
+        <i class="bi bi-stars me-2" style="color:#00DEA8"></i>Estudio Creativo
+      </h1>
+      <p class="text-muted small mb-0">Entrega diaria · {{ hoy_str }}</p>
+    </div>
+  </div>
+
+  {# ── Tabs ─────────────────────────────────────────────────────────────────── #}
+  <ul class="nav nav-tabs estudio-tabs mb-4">
+    <li class="nav-item">
+      <a class="nav-link {% if active_tab=='hoy' %}active{% endif %}"
+         href="{{ url_for('contenido.hoy') }}">
+        <i class="bi bi-sun me-1"></i>Entrega de Hoy
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if active_tab=='agentes' %}active{% endif %}"
+         href="{{ url_for('contenido.agentes') }}">
+        <i class="bi bi-cpu me-1"></i>Agentes
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if active_tab=='index' %}active{% endif %}"
+         href="{{ url_for('contenido.index') }}">
+        <i class="bi bi-grid-3x3-gap me-1"></i>Contenidos
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if active_tab=='calendario' %}active{% endif %}"
+         href="{{ url_for('contenido.calendario') }}">
+        <i class="bi bi-calendar3 me-1"></i>Calendario
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if active_tab=='configuracion' %}active{% endif %}"
+         href="{{ url_for('contenido.configuracion') }}">
+        <i class="bi bi-sliders me-1"></i>Configuración
+      </a>
+    </li>
+  </ul>
+
+  {# ── Estado de la entrega ─────────────────────────────────────────────────── #}
+  {% if not entrega %}
+  <div class="card border-0 shadow-sm mb-4" style="border-left:4px solid #00DEA8 !important;">
+    <div class="card-body text-center py-5">
+      <i class="bi bi-calendar-plus fs-1 mb-3 d-block" style="color:#00DEA8"></i>
+      <h5 class="fw-semibold mb-2">Sin entrega para hoy</h5>
+      <p class="text-muted mb-4">
+        La entrega diaria se puede generar manualmente o se programa automáticamente a las 5–6 AM Lima.
+      </p>
+      <button class="btn btn-success btn-lg px-4" onclick="generarDiario()">
+        <i class="bi bi-play-circle me-2"></i>Generar ahora
+      </button>
+    </div>
+  </div>
+
+  {% else %}
+  {# ── Resumen de estado ──────────────────────────────────────────────────── #}
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center py-3">
+        <div class="fs-2 fw-bold" style="color:#0ea5e9">
+          {{ noticias|length }}/3
+        </div>
+        <div class="text-muted small">Noticias</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center py-3">
+        <div class="fs-2 fw-bold" style="color:#f59e0b">
+          {{ comercial|length }}/3
+        </div>
+        <div class="text-muted small">Comercial</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center py-3">
+        {% set prompts_ok = (noticias + comercial)|selectattr('flow_prompt')|list|length %}
+        <div class="fs-2 fw-bold" style="color:#8b5cf6">{{ prompts_ok }}/6</div>
+        <div class="text-muted small">Prompts listos</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center py-3">
+        {% set status_color = {'listo':'#00DEA8','parcial':'#f59e0b','generando':'#0ea5e9','error':'#ef4444'} %}
+        <div class="fw-bold" style="color:{{ status_color.get(entrega.status,'#6b7280') }};font-size:.78rem;line-height:1.3">
+          {% if entrega.status == 'generando' %}
+            <i class="bi bi-hourglass-split d-block fs-4 mb-1"></i>Generando…
+          {% elif entrega.status == 'listo' %}
+            <i class="bi bi-file-earmark-text d-block fs-4 mb-1"></i>Textos y prompts<br>listos
+          {% elif entrega.status == 'parcial' %}
+            <i class="bi bi-exclamation-circle-fill d-block fs-4 mb-1"></i>Incompleta
+          {% else %}
+            <i class="bi bi-x-circle-fill d-block fs-4 mb-1"></i>Error
+          {% endif %}
+        </div>
+        <div class="text-muted small">
+          {% if entrega.generado_at %}{{ entrega.generado_at.strftime('%H:%M') }}{% else %}—{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Advertencia: categorías faltantes ─────────────────────────────────── #}
+  {% if cats_faltantes %}
+  <div class="alert alert-warning d-flex align-items-start gap-2 mb-4">
+    <i class="bi bi-exclamation-triangle-fill fs-5 mt-1 flex-shrink-0"></i>
+    <div>
+      <strong>Entrega incompleta</strong> — faltan noticias de:
+      {% for cat in cats_faltantes %}
+        <span class="badge bg-warning text-dark ms-1">{{ cat }}</span>
+      {% endfor %}
+      <div class="mt-1 small text-muted">
+        El Investigador no encontró noticias para estas categorías en las últimas 48 h.
+        Podés regenerar la entrega completa cuando haya más fuentes disponibles.
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Nota de estado: recursos visuales pendientes ─────────────────────── #}
+  {% if entrega.status in ('listo', 'parcial') %}
+  <div class="alert alert-info d-flex align-items-start gap-2 mb-4 py-2">
+    <i class="bi bi-info-circle fs-5 mt-1 flex-shrink-0"></i>
+    <div class="small">
+      <strong>Textos y prompts editoriales listos.</strong>
+      Los recursos visuales (imagen/video) deben generarse externamente con los prompts de Gemini/Flow
+      y cargarse en cada pieza. La aprobación final requiere el recurso cargado.
+    </div>
+  </div>
+  {% endif %}
+
+  {# Estado generando — polling #}
+  {% if entrega.status == 'generando' %}
+  <div class="alert alert-info d-flex align-items-center mb-4" id="pollingAlert">
+    <div class="spinner-border spinner-border-sm me-3" role="status"></div>
+    <div>Generando la entrega… la página se actualizará automáticamente.</div>
+  </div>
+  <script>
+    setTimeout(() => location.reload(), 15000);
+  </script>
+  {% endif %}
+
+  {# Acciones globales #}
+  <div class="d-flex gap-2 mb-4 flex-wrap">
+    {% if pipeline %}
+    <a href="{{ url_for('contenido.pipeline_detail', pid=pipeline.id) }}"
+       class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-diagram-3 me-1"></i>Ver pipeline #{{ pipeline.id }}
+    </a>
+    {% endif %}
+    {% if entrega.status in ('listo','parcial','error') %}
+    <button class="btn btn-outline-success btn-sm" onclick="generarDiario(true)">
+      <i class="bi bi-arrow-repeat me-1"></i>Regenerar
+    </button>
+    {% endif %}
+  </div>
+
+  {# ── Noticias ─────────────────────────────────────────────────────────────── #}
+  <h5 class="fw-semibold mb-3">
+    <i class="bi bi-newspaper me-2" style="color:#0ea5e9"></i>Noticias
+    <span class="badge bg-primary ms-1">{{ noticias|length }}</span>
+  </h5>
+
+  {% if noticias %}
+  <div class="row g-3 mb-5">
+    {% for p in noticias %}
+    <div class="col-md-4" id="card-{{ p.id }}">
+      <div class="card border-0 shadow-sm h-100 pieza-card"
+           style="border-top:3px solid #0ea5e9 !important;">
+        <div class="card-body d-flex flex-column">
+
+          {# Header #}
+          <div class="d-flex align-items-start justify-content-between mb-2">
+            <div>
+              <span class="badge me-1"
+                    style="background:{% if p.noticia_category=='nacional' %}#0ea5e9{% elif p.noticia_category=='mercados' %}#8b5cf6{% else %}#10b981{% endif %}">
+                {{ p.noticia_category|title if p.noticia_category else 'Internacional' }}
+              </span>
+              {% set rs_color = {'prompt_listo':'secondary','recurso_pendiente':'warning','recurso_cargado':'primary','pendiente_aprobacion':'warning','aprobado':'success','planificado':'info'} %}
+              <span class="badge bg-{{ rs_color.get(p.resource_status or 'prompt_listo','secondary') }}">
+                {{ p.resource_status_badge[1] }}
+              </span>
+            </div>
+            <span class="text-muted small">#{{ p.id }}</span>
+          </div>
+
+          <h6 class="fw-semibold mb-2" style="font-size:.875rem">{{ p.topic }}</h6>
+
+          <p class="text-muted small mb-2" style="flex:1; overflow:hidden;
+             display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">
+            {{ p.text_body|truncate(200) }}
+          </p>
+
+          {# Fuente noticia #}
+          {% set fuente = fuentes_by_cat.get(p.noticia_category, {}) %}
+          {% if fuente and fuente.fuente_nombre %}
+          <div class="text-muted mb-2" style="font-size:.72rem">
+            <i class="bi bi-link-45deg"></i>
+            {% if fuente.fuente_url %}
+              <a href="{{ fuente.fuente_url }}" target="_blank" rel="noopener"
+                 class="text-muted text-decoration-none">{{ fuente.fuente_nombre }}</a>
+            {% else %}
+              {{ fuente.fuente_nombre }}
+            {% endif %}
+            {% if fuente.fecha %} · {{ fuente.fecha }}{% endif %}
+            {% if p.noticia_category == 'mercados' %}
+              <span class="text-warning ms-1" title="Precio del último cierre de sesión">
+                <i class="bi bi-clock-history"></i> último cierre
+              </span>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {# Correcciones del Revisor #}
+          {% if p.correcciones_list %}
+          <div class="alert alert-warning py-1 px-2 mb-2" style="font-size:.78rem">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            {% for c in p.correcciones_list[:2] %}{{ c }}{% if not loop.last %} · {% endif %}{% endfor %}
+          </div>
+          {% endif %}
+
+          {# Acciones #}
+          <div class="d-flex gap-1 flex-wrap mt-auto">
+            <button class="btn btn-outline-secondary btn-xs"
+                    onclick="verPieza({{ p.id }})"
+                    title="Ver texto completo">
+              <i class="bi bi-eye"></i>
+            </button>
+            {% if p.flow_prompt %}
+            <button class="btn btn-outline-purple btn-xs"
+                    onclick="copiarPrompt({{ p.id }}, this)"
+                    title="Copiar prompt visual">
+              <i class="bi bi-clipboard"></i> Prompt
+            </button>
+            {% endif %}
+            <label class="btn btn-outline-primary btn-xs mb-0"
+                   title="Adjuntar resultado (imagen/video)">
+              <i class="bi bi-upload"></i>
+              <input type="file" class="d-none"
+                     accept=".png,.jpg,.jpeg,.mp4,.mov,.webp"
+                     onchange="cargarRecurso({{ p.id }}, this)">
+            </label>
+            {% if p.resource_status in ('recurso_cargado','pendiente_aprobacion','prompt_listo','aprobado') %}
+            <button class="btn btn-success btn-xs"
+                    onclick="aprobarPieza({{ p.id }}, this)"
+                    {% if p.resource_status == 'aprobado' %}disabled{% endif %}>
+              <i class="bi bi-check-lg"></i>
+              {% if p.resource_status == 'aprobado' %}Aprobado{% else %}Aprobar{% endif %}
+            </button>
+            {% endif %}
+          </div>
+
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-muted mb-5">
+    <i class="bi bi-hourglass me-1"></i>
+    Las noticias se generarán cuando el pipeline complete las etapas del Director Visual.
+  </p>
+  {% endif %}
+
+  {# ── Comercial ────────────────────────────────────────────────────────────── #}
+  <h5 class="fw-semibold mb-3">
+    <i class="bi bi-megaphone me-2" style="color:#f59e0b"></i>Comercial
+    <span class="badge bg-warning text-dark ms-1">{{ comercial|length }}</span>
+  </h5>
+
+  {% if comercial %}
+  <div class="row g-3 mb-4">
+    {% for p in comercial %}
+    <div class="col-md-4" id="card-{{ p.id }}">
+      <div class="card border-0 shadow-sm h-100 pieza-card"
+           style="border-top:3px solid #f59e0b !important;">
+        <div class="card-body d-flex flex-column">
+
+          <div class="d-flex align-items-start justify-content-between mb-2">
+            <div>
+              <span class="badge bg-warning text-dark me-1">Comercial</span>
+              {% set rs_color = {'prompt_listo':'secondary','recurso_pendiente':'warning','recurso_cargado':'primary','pendiente_aprobacion':'warning','aprobado':'success','planificado':'info'} %}
+              <span class="badge bg-{{ rs_color.get(p.resource_status or 'prompt_listo','secondary') }}">
+                {{ p.resource_status_badge[1] }}
+              </span>
+            </div>
+            <span class="text-muted small">#{{ p.id }}</span>
+          </div>
+
+          <h6 class="fw-semibold mb-1" style="font-size:.875rem">{{ p.topic }}</h6>
+          <p class="text-muted small mb-2" style="font-size:.78rem">{{ p.audience }}</p>
+
+          <p class="text-muted small mb-3" style="flex:1;overflow:hidden;
+             display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">
+            {{ p.text_body|truncate(200) }}
+          </p>
+
+          {% if p.correcciones_list %}
+          <div class="alert alert-warning py-1 px-2 mb-2" style="font-size:.78rem">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            {% for c in p.correcciones_list[:2] %}{{ c }}{% if not loop.last %} · {% endif %}{% endfor %}
+          </div>
+          {% endif %}
+
+          <div class="d-flex gap-1 flex-wrap mt-auto">
+            <button class="btn btn-outline-secondary btn-xs"
+                    onclick="verPieza({{ p.id }})" title="Ver texto completo">
+              <i class="bi bi-eye"></i>
+            </button>
+            {% if p.flow_prompt %}
+            <button class="btn btn-outline-purple btn-xs"
+                    onclick="copiarPrompt({{ p.id }}, this)" title="Copiar prompt visual">
+              <i class="bi bi-clipboard"></i> Prompt
+            </button>
+            {% endif %}
+            <label class="btn btn-outline-primary btn-xs mb-0"
+                   title="Adjuntar resultado">
+              <i class="bi bi-upload"></i>
+              <input type="file" class="d-none"
+                     accept=".png,.jpg,.jpeg,.mp4,.mov,.webp"
+                     onchange="cargarRecurso({{ p.id }}, this)">
+            </label>
+            {% if p.resource_status in ('recurso_cargado','pendiente_aprobacion','prompt_listo','aprobado') %}
+            <button class="btn btn-success btn-xs"
+                    onclick="aprobarPieza({{ p.id }}, this)"
+                    {% if p.resource_status == 'aprobado' %}disabled{% endif %}>
+              <i class="bi bi-check-lg"></i>
+              {% if p.resource_status == 'aprobado' %}Aprobado{% else %}Aprobar{% endif %}
+            </button>
+            {% endif %}
+          </div>
+
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-muted">
+    <i class="bi bi-hourglass me-1"></i>Las propuestas comerciales se generarán con el pipeline.
+  </p>
+  {% endif %}
+
+  {% endif %}{# /if entrega #}
+
+</div>{# /contenido-wrap #}
+
+
+{# ── Modal: Ver texto completo ────────────────────────────────────────────── #}
+<div class="modal fade" id="modalPieza" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalPiezaTitulo">Pieza</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="modalPiezaTexto" class="mb-3" style="white-space:pre-wrap;font-size:.9rem"></div>
+        <div id="modalPiezaPrompt" class="d-none">
+          <h6 class="fw-semibold">Prompt visual (Gemini / Flow)</h6>
+          <div class="bg-dark text-light rounded p-3 mb-2"
+               style="font-size:.8rem;white-space:pre-wrap;max-height:200px;overflow-y:auto"
+               id="modalPromptTexto"></div>
+          <button class="btn btn-outline-light btn-sm"
+                  onclick="copiarTexto(document.getElementById('modalPromptTexto').innerText)">
+            <i class="bi bi-clipboard me-1"></i>Copiar prompt
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<style>
+.btn-xs { padding:.2rem .5rem; font-size:.75rem; }
+.btn-outline-purple { color:#8b5cf6; border-color:#8b5cf6; }
+.btn-outline-purple:hover { background:#8b5cf6; color:#fff; }
+.pieza-card { transition:box-shadow .15s; }
+.pieza-card:hover { box-shadow:0 4px 20px rgba(0,0,0,.1) !important; }
+</style>
+
+
+<script>
+// ── Datos de propuestas (inyectados desde servidor) ───────────────────────────
+const PIEZAS = {
+  {% for p in (noticias + comercial) %}
+  {{ p.id }}: {
+    id: {{ p.id }},
+    topic: {{ p.topic|tojson }},
+    text_body: {{ (p.text_body or '')|tojson }},
+    flow_prompt: {{ (p.flow_prompt or '')|tojson }},
+    resource_status: {{ (p.resource_status or 'prompt_listo')|tojson }},
+  },
+  {% endfor %}
+};
+
+// ── Generar entrega diaria ────────────────────────────────────────────────────
+function generarDiario(force=false) {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Iniciando…';
+
+  fetch('/contenido/api/generar-diario', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({force}),
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      location.reload();
+    } else if (d.duplicate) {
+      btn.disabled = false;
+      btn.innerHTML = 'Generar ahora';
+      alert('Ya existe una entrega para hoy. Usa Regenerar si quieres volver a generar.');
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = 'Generar ahora';
+      alert('Error: ' + (d.msg || 'desconocido'));
+    }
+  })
+  .catch(e => {
+    btn.disabled = false;
+    btn.innerHTML = 'Generar ahora';
+    alert('Error de red: ' + e);
+  });
+}
+
+// ── Ver pieza completa ────────────────────────────────────────────────────────
+function verPieza(id) {
+  const p = PIEZAS[id];
+  if (!p) return;
+  document.getElementById('modalPiezaTitulo').textContent = p.topic;
+  document.getElementById('modalPiezaTexto').textContent  = p.text_body;
+  const promptDiv   = document.getElementById('modalPiezaPrompt');
+  const promptTexto = document.getElementById('modalPromptTexto');
+  if (p.flow_prompt) {
+    promptDiv.classList.remove('d-none');
+    promptTexto.textContent = p.flow_prompt;
+  } else {
+    promptDiv.classList.add('d-none');
+  }
+  new bootstrap.Modal(document.getElementById('modalPieza')).show();
+}
+
+// ── Copiar prompt visual ──────────────────────────────────────────────────────
+function copiarPrompt(id, btn) {
+  const p = PIEZAS[id];
+  if (!p || !p.flow_prompt) return;
+  navigator.clipboard.writeText(p.flow_prompt)
+    .then(() => {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Copiado';
+      btn.classList.add('btn-purple');
+      setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('btn-purple'); }, 2000);
+    });
+}
+
+function copiarTexto(text) {
+  navigator.clipboard.writeText(text);
+}
+
+// ── Cargar recurso (imagen/video) ─────────────────────────────────────────────
+function cargarRecurso(id, input) {
+  if (!input.files.length) return;
+  const file     = input.files[0];
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const card = document.getElementById('card-' + id);
+  const label = input.closest('label');
+  label.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+  fetch(`/contenido/api/propuesta/${id}/cargar-recurso-diario`, {
+    method: 'POST',
+    body: formData,
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      location.reload();
+    } else {
+      label.innerHTML = '<i class="bi bi-upload"></i>';
+      alert('Error al cargar: ' + (d.msg || 'desconocido'));
+    }
+  })
+  .catch(e => {
+    label.innerHTML = '<i class="bi bi-upload"></i>';
+    alert('Error de red: ' + e);
+  });
+}
+
+// ── Aprobar pieza ─────────────────────────────────────────────────────────────
+function aprobarPieza(id, btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+  fetch(`/contenido/api/propuesta/${id}/aprobar-diario`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      btn.innerHTML = '<i class="bi bi-check-lg"></i> Aprobado';
+      btn.classList.remove('btn-success');
+      btn.classList.add('btn-outline-success');
+      btn.disabled = true;
+      // Actualizar badge de estado
+      const card = btn.closest('.pieza-card');
+      if (card) {
+        const badges = card.querySelectorAll('.badge');
+        badges.forEach(b => {
+          if (['Pendiente aprobación','Prompt listo','Recurso cargado'].includes(b.textContent.trim())) {
+            b.className = 'badge bg-success';
+            b.textContent = 'Aprobado';
+          }
+        });
+      }
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-check-lg"></i> Aprobar';
+      alert('Error: ' + (d.msg || 'desconocido'));
+    }
+  });
+}
+</script>
+
+{% endblock %}
