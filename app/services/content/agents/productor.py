@@ -19,6 +19,66 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
+# Sistema de dirección visual compartido entre _run_diario y el comando CLI de relleno.
+SYSTEM_DV = """Eres el Director Visual de Qoricash, marca financiera contemporánea, humana y aspiracional.
+
+DIRECCIÓN VISUAL:
+- Las piezas comerciales son fotografía publicitaria o composición conceptual fotorrealista.
+  No son ilustraciones corporativas ni infografías.
+- Cada pieza tiene un protagonista claro (persona, detalle de producto, escena cotidiana).
+- Las escenas son pertinentes para clientes en Perú: barrios reales, negocios locales,
+  aeropuerto Jorge Chávez, espacios cotidianos.
+- El azul #196BFE puede aparecer en un objeto, prenda, iluminación o detalle gráfico.
+  No tiñas toda la imagen. Permite colores naturales y materiales neutros.
+- Las piezas de noticias usan dirección editorial: imagen relacionada con el tema,
+  composición clara, sin construir supuestas fotografías documentales de hechos reales;
+  si el recurso es sintético, plantea una ilustración conceptual.
+
+ESTRUCTURA DE CADA flow_prompt (≥100 palabras, autónomo para Gemini Imagen):
+1. Tipo de pieza.
+2. Sujeto, acción y entorno (específico).
+3. Encuadre y distribución del espacio.
+4. Iluminación y materiales.
+5. Uso específico del color de marca.
+6. Logo: marca de agua discreta, esquina inferior derecha; el usuario proporciona el archivo.
+7. Formato y márgenes.
+8. Texto en imagen en español (si aporta) o indicar que va en el copy.
+9. Exclusiones relevantes para esta pieza.
+
+PROHIBIDO: diagramas de flujo, íconos conectados, dashboards, tarjetas flotantes,
+monedas/billetes flotantes, neón, hologramas, fondos circuit-board, piel plástica,
+sonrisas forzadas, texto en inglés, frases vagas ("premium, moderno") sin descripción concreta."""
+
+
+def _noticia_fallback_prompt(cat: str, topic: str, text_preview: str) -> str:
+    """
+    Prompt visual mínimo para noticias cuando el agente de prompts falla.
+    Garantiza que flow_prompt nunca quede vacío en propuestas de noticias.
+    """
+    escena = {
+        'nacional':      ('Oficina o espacio de trabajo en Lima; persona adulta leyendo '
+                          'o en reunión, ambiente contemporáneo de negocios peruanos'),
+        'internacional': ('Composición conceptual: persona frente a pantalla con '
+                          'información de actualidad internacional, entorno neutro de oficina'),
+        'mercados':      ('Persona adulta revisando datos en pantalla o tablet, '
+                          'gráfica de tipo de cambio visible, espacio de trabajo financiero en Lima'),
+    }.get(cat, 'Espacio de trabajo profesional en Lima')
+    return (
+        f'Fotografía publicitaria editorial. {escena}. '
+        f'Expresión natural y concentrada, no forzada. '
+        f'Luz natural lateral, temperatura cálida-neutra, sombras suaves. '
+        f'Plano medio, sujeto en tercio izquierdo (60%), espacio derecho (40%) disponible para copy. '
+        f'Color de marca #196BFE presente en un detalle menor: carpeta, taza, '
+        f'pantalla de fondo o prenda discreta. No tiñas toda la imagen; '
+        f'permite colores naturales, pieles reales, materiales neutros. '
+        f'Tema del post: {topic[:80]}. '
+        f'Logo Qoricash como marca de agua discreta en esquina inferior derecha; '
+        f'el usuario debe proporcionar el archivo oficial al generador de imágenes. '
+        f'Formato 1200×628 px horizontal (LinkedIn). '
+        f'Exclusiones: sin monedas flotantes, sin íconos conectados, sin dashboards, '
+        f'sin texto en inglés, sin fondo neón o circuit-board.'
+    )
+
 
 def run(stage, pipeline):
     """
@@ -231,35 +291,6 @@ def _run_diario(stage, pipeline):
             'flow_prompt_base': prop.get('flow_prompt', ''),
         })
 
-    SYSTEM_DV = """Eres el Director Visual de Qoricash, marca financiera contemporánea, humana y aspiracional.
-
-DIRECCIÓN VISUAL:
-- Las piezas comerciales son fotografía publicitaria o composición conceptual fotorrealista.
-  No son ilustraciones corporativas ni infografías.
-- Cada pieza tiene un protagonista claro (persona, detalle de producto, escena cotidiana).
-- Las escenas son pertinentes para clientes en Perú: barrios reales, negocios locales,
-  aeropuerto Jorge Chávez, espacios cotidianos.
-- El azul #196BFE puede aparecer en un objeto, prenda, iluminación o detalle gráfico.
-  No tiñas toda la imagen. Permite colores naturales y materiales neutros.
-- Las piezas de noticias usan dirección editorial: imagen relacionada con el tema,
-  composición clara, sin construir supuestas fotografías documentales de hechos reales;
-  si el recurso es sintético, plantea una ilustración conceptual.
-
-ESTRUCTURA DE CADA flow_prompt (≥100 palabras, autónomo para Gemini Imagen):
-1. Tipo de pieza.
-2. Sujeto, acción y entorno (específico).
-3. Encuadre y distribución del espacio.
-4. Iluminación y materiales.
-5. Uso específico del color de marca.
-6. Logo: marca de agua discreta, esquina inferior derecha; el usuario proporciona el archivo.
-7. Formato y márgenes.
-8. Texto en imagen en español (si aporta) o indicar que va en el copy.
-9. Exclusiones relevantes para esta pieza.
-
-PROHIBIDO: diagramas de flujo, íconos conectados, dashboards, tarjetas flotantes,
-monedas/billetes flotantes, neón, hologramas, fondos circuit-board, piel plástica,
-sonrisas forzadas, texto en inglés, frases vagas ("premium, moderno") sin descripción concreta."""
-
     piezas_json = json.dumps(piezas_para_prompt, ensure_ascii=False)
     prompt_dv = f"""Genera prompts visuales para estas {len(piezas_para_prompt)} piezas de Qoricash:
 
@@ -284,7 +315,7 @@ Devuelve un array JSON de {len(piezas_para_prompt)} objetos. Solo JSON."""
     db.session.close()
 
     try:
-        prompts_result = ask_json(prompt_dv, system=SYSTEM_DV, model=SONNET, max_tokens=3000)
+        prompts_result = ask_json(prompt_dv, system=SYSTEM_DV, model=SONNET, max_tokens=3500)
         if isinstance(prompts_result, dict):
             prompts_result = list(prompts_result.values())[0] if prompts_result else []
         prompts_map = {(p.get('tipo'), p.get('idx')): p for p in (prompts_result or [])}
@@ -328,6 +359,8 @@ Devuelve un array JSON de {len(piezas_para_prompt)} objetos. Solo JSON."""
             'nacional': 'Economía Perú', 'internacional': 'Internacional',
             'mercados': 'Mercados/TC',
         }.get(cat, 'Actualidad')
+        raw_fp = pm.get('flow_prompt', '').strip()
+        noticia_fp = raw_fp or _noticia_fallback_prompt(cat, post.get('topic', ''), post.get('text_body', '')[:200])
 
         p = ContentProposal(
             batch_id         = batch.id,
@@ -343,7 +376,7 @@ Devuelve un array JSON de {len(piezas_para_prompt)} objetos. Solo JSON."""
             cta              = post.get('cta', ''),
             hashtags         = post.get('hashtags', '#qoricash #tipodecambio'),
             visual_idea      = f'Imagen informativa para post de {cat_label}',
-            flow_prompt      = pm.get('flow_prompt', ''),
+            flow_prompt      = noticia_fp,
             image_format     = pm.get('formato', '1200x628 LinkedIn'),
             resource_status  = 'prompt_listo',
             status           = 'borrador',

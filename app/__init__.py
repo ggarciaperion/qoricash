@@ -3390,3 +3390,136 @@ def register_cli_commands(app):
 
         if not ok and not detail:
             sys.exit(1)
+
+    @app.cli.command("estudio-completar-prompts")
+    @click.argument('pipeline_id', type=int)
+    def estudio_completar_prompts(pipeline_id):
+        """
+        Genera y guarda flow_prompts faltantes en noticias de un pipeline diario.
+        Recalcula el estado de la entrega con los criterios existentes.
+
+        Uso: flask estudio-completar-prompts <pipeline_id>
+        Ejemplo: flask estudio-completar-prompts 3
+        """
+        import json as _json
+        from app.models.content_pipeline import ContentPipeline, PipelineStage, EntregaDiaria
+        from app.models.content_proposal import ContentProposal
+        from app.extensions import db
+        from app.utils.formatters import now_peru
+        from app.services.content.agents.productor import SYSTEM_DV, _noticia_fallback_prompt
+
+        pipeline = ContentPipeline.query.get(pipeline_id)
+        if not pipeline:
+            print(f'ERROR: Pipeline #{pipeline_id} no encontrado')
+            return
+
+        vacias = [
+            p for p in ContentProposal.query.filter_by(
+                pipeline_id=pipeline_id, delivery_type='noticia'
+            ).order_by(ContentProposal.id).all()
+            if not (p.flow_prompt or '').strip()
+        ]
+
+        if not vacias:
+            print(f'Todas las noticias del pipeline #{pipeline_id} ya tienen flow_prompt')
+        else:
+            print(f'Generando flow_prompts para {len(vacias)} noticias...')
+
+            # Construir contexto desde la etapa del editor
+            editor_stage = PipelineStage.query.filter_by(
+                pipeline_id=pipeline_id, agent_role='editor'
+            ).first()
+            posts_by_cat = {}
+            if editor_stage and editor_stage.output_data:
+                ed_out = editor_stage.output_dict
+                for post in ed_out.get('posts', []):
+                    posts_by_cat[post.get('categoria', '')] = post
+
+            piezas = []
+            for i, p in enumerate(vacias):
+                post = posts_by_cat.get(p.noticia_category, {})
+                piezas.append({
+                    'tipo': 'noticia',
+                    'idx': i,
+                    'categoria': p.noticia_category or 'internacional',
+                    'topic': p.topic or '',
+                    'text_body': (p.text_body or post.get('text_body', ''))[:200],
+                })
+
+            prompt_fill = (
+                f'Genera prompts visuales para estas {len(piezas)} noticias de Qoricash:\n\n'
+                f'{_json.dumps(piezas, ensure_ascii=False)}\n\n'
+                f'Cada prompt ≥100 palabras, fotografía editorial conceptual, '
+                f'autónomo para Gemini Imagen.\n\n'
+                f'Devuelve array JSON de {len(piezas)} objetos:\n'
+                f'{{"tipo":"noticia","idx":numero,"flow_prompt":"...","formato":"1200x628 LinkedIn"}}\n\n'
+                f'Solo JSON.'
+            )
+
+            from app.services.ai.client import ask_json, SONNET
+            generated = 0
+            try:
+                result = ask_json(prompt_fill, system=SYSTEM_DV, model=SONNET, max_tokens=2500)
+                if isinstance(result, dict):
+                    result = list(result.values())[0] if result else []
+                for item in (result or []):
+                    idx = item.get('idx')
+                    if idx is None:
+                        continue
+                    try:
+                        idx = int(idx)
+                    except (TypeError, ValueError):
+                        continue
+                    fp = (item.get('flow_prompt') or '').strip()
+                    if 0 <= idx < len(vacias) and fp:
+                        vacias[idx].flow_prompt = fp
+                        print(f'  ✓ Propuesta #{vacias[idx].id} ({vacias[idx].noticia_category}): {len(fp)} chars')
+                        generated += 1
+                    else:
+                        print(f'  ✗ idx={idx}: respuesta vacía — aplicando fallback')
+            except Exception as e:
+                print(f'  Claude error: {e} — aplicando fallback a todas')
+
+            # Fallback para las que siguen vacías tras la llamada AI
+            for p in vacias:
+                if not (p.flow_prompt or '').strip():
+                    p.flow_prompt = _noticia_fallback_prompt(
+                        p.noticia_category or 'internacional',
+                        p.topic or '',
+                        (p.text_body or '')[:200],
+                    )
+                    print(f'  → Propuesta #{p.id} ({p.noticia_category}): fallback aplicado')
+                    generated += 1
+
+            db.session.commit()
+            print(f'✓ {generated} prompts guardados')
+
+        # Recalcular estado de la entrega con los criterios existentes
+        from datetime import date as _date
+        entrega = EntregaDiaria.query.filter_by(pipeline_id=pipeline_id).first()
+        if not entrega:
+            print('INFO: No hay EntregaDiaria para este pipeline — sin recálculo')
+            return
+
+        nok = ContentProposal.query.filter_by(pipeline_id=pipeline_id, delivery_type='noticia').count()
+        cok = ContentProposal.query.filter_by(pipeline_id=pipeline_id, delivery_type='comercial').count()
+        proposals = ContentProposal.query.filter_by(pipeline_id=pipeline_id).all()
+        all_texts   = all(bool((p.text_body   or '').strip()) for p in proposals) if proposals else False
+        all_prompts = all(bool((p.flow_prompt or '').strip()) for p in proposals) if proposals else False
+        noticia_cats = {p.noticia_category for p in proposals if p.delivery_type == 'noticia'}
+        has_cats = {'nacional', 'internacional', 'mercados'}.issubset(noticia_cats)
+        revisor_st = PipelineStage.query.filter_by(
+            pipeline_id=pipeline_id, agent_role='revisor'
+        ).first()
+        revisor_ok = revisor_st and revisor_st.status == 'done'
+
+        listo = (nok >= 3 and cok >= 3 and len(proposals) >= 6
+                 and all_texts and all_prompts and has_cats and revisor_ok)
+        entrega.status       = 'listo' if listo else 'parcial'
+        entrega.noticias_ok  = nok
+        entrega.comercial_ok = cok
+        entrega.generado_at  = now_peru()
+        db.session.commit()
+
+        print(f'\nEntrega {entrega.fecha}: status={entrega.status} ({nok}n+{cok}c)')
+        print(f'  all_texts={all_texts}  all_prompts={all_prompts}  has_cats={has_cats}  revisor_ok={revisor_ok}')
