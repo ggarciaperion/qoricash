@@ -110,12 +110,12 @@
   </div>
 
   {# ── Advertencia: categorías faltantes ─────────────────────────────────── #}
-  {% if cats_faltantes %}
+  {% if cats_faltantes|default([]) %}
   <div class="alert alert-warning d-flex align-items-start gap-2 mb-4">
     <i class="bi bi-exclamation-triangle-fill fs-5 mt-1 flex-shrink-0"></i>
     <div>
       <strong>Entrega incompleta</strong> — faltan noticias de:
-      {% for cat in cats_faltantes %}
+      {% for cat in cats_faltantes|default([]) %}
         <span class="badge bg-warning text-dark ms-1">{{ cat }}</span>
       {% endfor %}
       <div class="mt-1 small text-muted">
@@ -201,7 +201,7 @@
           </p>
 
           {# Fuente noticia #}
-          {% set fuente = fuentes_by_cat.get(p.noticia_category, {}) %}
+          {% set fuente = (fuentes_by_cat|default({})).get(p.noticia_category, {}) %}
           {% if fuente and fuente.fuente_nombre %}
           <div class="text-muted mb-2" style="font-size:.72rem">
             <i class="bi bi-link-45deg"></i>
