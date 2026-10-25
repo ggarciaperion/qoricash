@@ -176,13 +176,10 @@ def run_stage(pipeline_id: int, seq: int = None,
         log.error(f'[Pipeline] etapa {agent_role} error: {e}', exc_info=True)
         output = {'ok': False, 'reason': str(e)}
 
-    # Liberar conexión potencialmente obsoleta tras el agente y recargar para persistir.
-    db.session.close()
-    stage    = PipelineStage.query.filter_by(pipeline_id=pipeline_id, seq=target_seq).first()
-    pipeline = ContentPipeline.query.get(pipeline_id)
-    if not stage or not pipeline:
-        log.error(f'[Pipeline] pipeline {pipeline_id} etapa {target_seq} no encontrada al persistir')
-        return {'ok': False, 'reason': 'Pipeline/etapa no encontrada al persistir resultado'}
+    # NO se cierra la sesión aquí: agentes como investigador dejan ContentSources en flush()
+    # sin commit propio; cerrar la sesión descartaría esos writes pendientes.
+    # Si la conexión fue interrumpida durante el agente, commit() fallará con OperationalError
+    # y el bloque de retry a continuación persiste el estado de error con sesión nueva.
 
     # Persistir resultado
     stage.output_data   = json.dumps(output, ensure_ascii=False, default=str)
