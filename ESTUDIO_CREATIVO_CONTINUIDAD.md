@@ -1,4 +1,5 @@
-# Estudio Creativo — Nota de Continuidad (25 Oct 2026, rev. correcciones)
+# Estudio Creativo — Nota de Continuidad (25 Oct 2026)
+## Estado: implementación local cerrada — pendiente revisión editorial y decisión de deploy
 
 ## Estado del servidor
 - **Puerto**: 5002
@@ -103,13 +104,28 @@ curl -s -X POST https://<app>.onrender.com/contenido/api/generar-diario-sync \
 | `/contenido/api/generar-diario` (async, manual) | Sesión + rol + CSRF — nunca expone el token cron |
 | `/contenido/api/generar-diario-sync` (cron externo) | `X-Cron-Token` requerido; 503 si `ESTUDIO_CRON_TOKEN` no está configurado; 401 si token ausente o incorrecto |
 
-## Entrega original (pipeline #28) — nota
-Pipeline #28 tenía dos noticias de mercados y una internacional, sin nacional.
-Las correcciones de código garantizan que el próximo pipeline diario tenga exactamente
-una noticia por categoría (nacional/internacional/mercados), con su fuente real sin reclasificación.
+## Commits de esta etapa
+| Hash | Descripción |
+|------|-------------|
+| `92e93341` | feat: módulo Estudio Creativo completo (pipeline diario, 5 agentes, vistas, migraciones) |
+| `2b74e6c1` | fix: auth obligatoria en cron, categorías sin forzado posicional, scheduler tardío |
+
+## Estado al cierre de la etapa local
+- Panel disponible en `http://localhost:5002/contenido/hoy` para revisión editorial.
+- Pipeline #28 en DB: 2 noticias mercados + 1 internacional, sin nacional — artefacto de la prueba inicial (bug ya corregido en código).
+- El próximo pipeline diario generará exactamente 1 noticia por categoría con su fuente real.
+- No se hizo push ni deploy.
+
+## Próximos pasos (pendientes de decisión)
+1. Revisión editorial: textos, fuentes, prompts y presentación del paquete diario.
+2. Ajustes puntuales según revisión.
+3. Decisión de deploy: scheduler interno en Render **o** Cron Job ($1/mes).
+4. Variables de entorno a configurar antes del deploy:
+   - `ESTUDIO_CRON_TOKEN` (obligatoria si se usa el endpoint cron)
+   - `ESTUDIO_DIARIO_AUTO=false` solo si se quiere desactivar el scheduler interno
 
 ## Para deploy a Render
-1. `ESTUDIO_CRON_TOKEN` es variable de entorno obligatoria si se usa el Cron Job.
+1. `ESTUDIO_CRON_TOKEN` obligatorio si se usa el Cron Job (endpoint sync).
 2. `ESTUDIO_DIARIO_AUTO` no debe estar en `false` si se usa el scheduler interno.
 3. La migración `d1a2r3i4o5d6` usa `batch_alter_table` (compatible SQLite y PostgreSQL).
-4. Commits incluidos: `92e93341` (feat inicial) + siguiente (correcciones).
+4. Hacer push del branch una vez aprobada la revisión editorial.
