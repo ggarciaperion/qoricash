@@ -1343,6 +1343,9 @@ def register_blueprints(app):
     from app.routes.agentes import agentes_bp
     app.register_blueprint(agentes_bp)             # Agentes IA / Mission Control: /agentes/*
 
+    from app.routes.contenido import contenido_bp
+    app.register_blueprint(contenido_bp, url_prefix='/contenido')  # Módulo Contenido Social
+
 # Service Worker debe servirse desde la raíz del dominio (scope /)
     import os
     from flask import send_from_directory
