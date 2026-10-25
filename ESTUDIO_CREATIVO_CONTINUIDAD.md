@@ -105,17 +105,38 @@ curl -s -X POST https://<app>.onrender.com/contenido/api/generar-diario-sync \
 | `/contenido/api/generar-diario-sync` (cron externo) | `X-Cron-Token` requerido; 503 si `ESTUDIO_CRON_TOKEN` no está configurado; 401 si token ausente o incorrecto |
 
 ## Commits de esta etapa
-| Hash | Descripción |
-|------|-------------|
-| `92e93341` | feat: módulo Estudio Creativo completo (pipeline diario, 5 agentes, vistas, migraciones) |
-| `2b74e6c1` | fix: auth obligatoria en cron, categorías sin forzado posicional, scheduler tardío |
+| Hash | Rama | Descripción |
+|------|------|-------------|
+| `92e93341` | master | feat: módulo Estudio Creativo completo (pipeline diario, 5 agentes, vistas, migraciones) |
+| `2b74e6c1` | master | fix: auth obligatoria en cron, categorías sin forzado posicional, scheduler tardío |
+| `2bb5818d` | cleanup/prospeccion-inventario | fix: app context en OS threads, subprocess para llamadas Claude (infra compartida) |
+| `1c6b8d24` | cleanup/prospeccion-inventario | feat: nueva dirección visual fotográfica + propuestas WhatsApp y viajes |
+| `f37cb165` | **feature/estudio-creativo** | cherry-pick de `1c6b8d24` — rama propia de Estudio Creativo |
 
-## Estado al cierre de la etapa local
+## Coordinación de ramas
+- **`feature/estudio-creativo`**: rama propia del módulo. Contiene solo `f37cb165` (cherry-pick de la dirección visual) sobre master. Usar esta rama para futuros cambios de Estudio Creativo y para el deploy.
+- **`cleanup/prospeccion-inventario`**: rama de Terminal 2 (Prospección). Tiene `1c6b8d24` también, pero es secundario — no se modificó mientras Terminal 2 trabajaba y no arrastra cambios de Prospección.
+- **Regla**: próximos cambios de Estudio Creativo van a `feature/estudio-creativo`, no a la rama de Prospección.
+
+## Estado al cierre de la sesión de correcciones (25 Oct 2026)
+- **Pipeline #36**: `parcial` — 5 etapas completadas, 2 noticias + 3 comerciales.
+  - `mercados` faltó por DNS timeouts en feeds de Yahoo Finance/noticias ese momento.
+  - Código correcto; `parcial` es estado esperado cuando una categoría no tiene feed disponible.
 - Panel disponible en `http://localhost:5002/contenido/hoy` para revisión editorial.
-- Pipeline #28: descartado (`cancelled`), conservado en DB como historial.
-  - Props 31, 32, 33 conservadas con prompts visuales actualizados (ver sección abajo).
-- Pipeline #33: en `error` (etapa 2, sin propuestas) — se puede descartar o reintentar.
 - No se hizo push ni deploy.
+
+## Fix técnico crítico aplicado en esta sesión
+
+### Problema 1: `Working outside of application context` en scheduler
+`try_generate_today` usaba `_tpool.execute(lambda: run_pipeline_auto(...))`. Los OS threads de tpool NO heredan el app context de Flask.
+**Fix**: capturar `current_app._get_current_object()` antes de entrar al tpool y envolver `run_pipeline_auto` en `with _app.app_context()`. Aplicado también en `api_generar_diario_sync`.
+
+### Problema 2: DNS/red falla al llamar Claude desde greenlet
+`_call` caía a `_anthropic_urllib` que usa sockets monkey-patched por eventlet. Eventlet parchea `urllib` para usar tpool internamente → **deadlock** si ya estamos en un tpool OS thread.
+**Fix**: usar `_anthropic_subprocess` como fallback. Lanza un proceso Python limpio (sin monkey-patch). `subprocess.communicate()` es cooperativo en greenlets gracias al parche de `os.read()` de eventlet.
+
+### Regla permanente
+En producción (gunicorn+eventlet): el SDK Anthropic SIEMPRE falla ("Trio primitives monkey-patched") → subprocess es el fallback definitivo. No usar `_anthropic_urllib` ni tpool anidado.
 
 ## Dirección visual actualizada (25 Oct 2026)
 
@@ -150,20 +171,29 @@ curl -s -X POST https://<app>.onrender.com/contenido/api/generar-diario-sync \
 | 39 | Cambio de divisas para viajes *(creado manualmente)* | Aeropuerto Jorge Chávez, viajero con mochila y pasaporte |
 | 45 | Operar por WhatsApp *(creado manualmente)* | Dueño de ferretería/negocio revisando WhatsApp detrás del mostrador |
 
-### Prop 33 — corrección aplicada
-**Problema**: el texto podía insinuar operaciones disponibles a cualquier hora.
+### Prop 33 — corrección y verificación de horario
+**Problema original**: el texto podía insinuar operaciones disponibles a cualquier hora.
 **Corrección**: distingue que WhatsApp recibe mensajes fuera de horario, pero las operaciones
-se atienden "en la próxima ventana operativa disponible". Horario explícito: L-S en horario extendido.
+se atienden "en la próxima ventana operativa disponible".
+**Verificación de horario**: "lunes a sábado en horario extendido" está respaldado por el
+beneficio verificado #3 de brand_configs: *"Operaciones disponibles de lunes a sábado en horario
+extendido"*. El texto es correcto y no requiere reemplazarse por frases genéricas.
+
+## Estado de la dirección visual (25 Oct 2026)
+- **Probada por el usuario** en Gemini/Flow — resultado mejoró respecto a la versión anterior.
+- **Dirección confirmada como base** para futuras propuestas, con variedad de escenas.
+- **NO implica aprobación automática**: cada pieza sigue sujeta a aprobación individual antes de publicar.
+- Muestras 45 (WhatsApp), 32 (Negocios) y 39 (Viajes) conservadas en `pendiente_aprobacion`.
 
 ## Próximos pasos
-1. **Validación visual — EN PAUSA**: el usuario probará los 3 prompts en Gemini/Flow.
-2. Según resultado: aprobar la nueva dirección visual o ajustar los prompts.
-3. Los 3 agentes (creativo, productor, revisor) ya reflejan la nueva dirección para futuros pipelines.
-4. Revisión editorial: textos de los posts de las 3 noticias del pipeline 28.
-5. Decisión de deploy: scheduler interno en Render **o** Cron Job ($1/mes).
-6. Variables antes del deploy:
+1. Aprobación individual de las piezas cuando corresponda — dirección visual no aprueba el contenido.
+2. Los 3 agentes ya reflejan la nueva dirección para futuros pipelines.
+3. Revisión editorial: textos de los posts de las 3 noticias del pipeline 28.
+4. Decisión de deploy: scheduler interno en Render **o** Cron Job ($1/mes).
+5. Variables antes del deploy:
    - `ESTUDIO_CRON_TOKEN` (obligatoria si se usa el endpoint cron)
    - `ESTUDIO_DIARIO_AUTO=false` solo si se quiere desactivar el scheduler interno
+6. Para el deploy: usar rama `feature/estudio-creativo`, no `cleanup/prospeccion-inventario`.
 
 ## Para deploy a Render
 1. `ESTUDIO_CRON_TOKEN` obligatorio si se usa el Cron Job (endpoint sync).
