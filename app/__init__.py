@@ -3523,3 +3523,149 @@ def register_cli_commands(app):
 
         print(f'\nEntrega {entrega.fecha}: status={entrega.status} ({nok}n+{cok}c)')
         print(f'  all_texts={all_texts}  all_prompts={all_prompts}  has_cats={has_cats}  revisor_ok={revisor_ok}')
+
+    @app.cli.command("estudio-prompts-v2")
+    @click.argument('pipeline_id', type=int)
+    def estudio_prompts_v2(pipeline_id):
+        """
+        Genera prompts visuales v2 (nueva dirección) para 3 propuestas del pipeline:
+        una noticia, un comercial WhatsApp y un comercial empresas.
+        Marca cada una como 'pendiente_aprobacion'. Conserva textos y fuentes.
+
+        Uso: flask estudio-prompts-v2 <pipeline_id>
+        Ejemplo: flask estudio-prompts-v2 3
+        """
+        import json as _json
+        from app.models.content_pipeline import ContentPipeline, PipelineStage
+        from app.models.content_proposal import ContentProposal
+        from app.extensions import db
+        from app.utils.formatters import now_peru
+        from app.services.content.agents.productor import SYSTEM_DV
+
+        pipeline = ContentPipeline.query.get(pipeline_id)
+        if not pipeline:
+            print(f'ERROR: Pipeline #{pipeline_id} no encontrado')
+            return
+
+        all_props = ContentProposal.query.filter_by(pipeline_id=pipeline_id).order_by(ContentProposal.id).all()
+        if not all_props:
+            print(f'ERROR: sin propuestas en pipeline #{pipeline_id}')
+            return
+
+        # Seleccionar 3 candidatos: 1 noticia + 2 comerciales (WhatsApp y empresas)
+        noticia_p = next((p for p in all_props if p.delivery_type == 'noticia'), None)
+
+        def _es_whatsapp(p):
+            t = ((p.topic or '') + (p.audience or '') + (p.objective or '')).lower()
+            return any(w in t for w in ('whatsapp', 'personas naturales', 'natural', 'cotiz'))
+
+        def _es_empresa(p):
+            t = ((p.topic or '') + (p.audience or '') + (p.objective or '')).lower()
+            return any(w in t for w in ('empresa', 'pyme', 'proveedor', 'importa', 'export'))
+
+        comerciales = [p for p in all_props if p.delivery_type == 'comercial']
+        wa_p  = next((p for p in comerciales if _es_whatsapp(p)), None) or (comerciales[0] if comerciales else None)
+        emp_p = next((p for p in comerciales if _es_empresa(p) and p is not wa_p), None) or (
+                comerciales[1] if len(comerciales) > 1 and comerciales[1] is not wa_p else
+                (comerciales[0] if comerciales and comerciales[0] is not wa_p else wa_p))
+
+        targets = [t for t in [noticia_p, wa_p, emp_p] if t is not None]
+        targets = list({p.id: p for p in targets}.values())  # deduplicate by id
+
+        if not targets:
+            print('ERROR: no se encontraron propuestas para generar v2')
+            return
+
+        print(f'Generando prompts v2 para {len(targets)} propuestas...\n')
+
+        # Cargar contexto del editor e investigador para las noticias
+        editor_stage = PipelineStage.query.filter_by(pipeline_id=pipeline_id, agent_role='editor').first()
+        posts_by_cat = {}
+        if editor_stage and editor_stage.output_data:
+            for post in (editor_stage.output_dict or {}).get('posts', []):
+                posts_by_cat[post.get('categoria', '')] = post
+
+        # Construir piezas para Claude
+        piezas_v2 = []
+        for i, p in enumerate(targets):
+            if p.delivery_type == 'noticia':
+                post_ctx = posts_by_cat.get(p.noticia_category, {})
+                piezas_v2.append({
+                    'idx': i,
+                    'tipo': 'noticia',
+                    'categoria': p.noticia_category,
+                    'topic': p.topic or '',
+                    'text_body': (p.text_body or post_ctx.get('text_body', ''))[:300],
+                    'instruccion': (
+                        'Imagen editorial que represente el acontecimiento específico, '
+                        'no un símbolo genérico. Titular breve y factual en español.'
+                    ),
+                })
+            else:
+                accion = 'WhatsApp' if _es_whatsapp(p) else 'empresas/proveedores'
+                piezas_v2.append({
+                    'idx': i,
+                    'tipo': 'comercial',
+                    'accion_financiera': accion,
+                    'audience': p.audience or '',
+                    'topic': p.topic or '',
+                    'text_body': (p.text_body or '')[:300],
+                    'instruccion': (
+                        f'Mostrar la acción concreta: {accion}. '
+                        'Teléfono como protagonista si aplica. '
+                        'Si la pantalla necesita interfaz legible, '
+                        'escribir: «Pantalla reservada — adjuntar captura aprobada en Canva».'
+                    ),
+                })
+
+        prompt_v2 = (
+            f'Genera prompts visuales v2 para estas {len(piezas_v2)} piezas de Qoricash.\n\n'
+            f'PIEZAS:\n{_json.dumps(piezas_v2, ensure_ascii=False, indent=2)}\n\n'
+            f'REQUISITO POR PIEZA:\n'
+            f'- La imagen debe transmitir la ACCIÓN FINANCIERA CONCRETA en 3 segundos.\n'
+            f'- Describir: protagonista + posición/proporción + titular exacto en español\n'
+            f'  con tipografía/posición/color + logo + márgenes + instrucción Canva si aplica.\n'
+            f'- Mínimo 120 palabras por prompt, autónomo para Gemini Imagen.\n\n'
+            f'Devuelve array JSON de {len(piezas_v2)} objetos:\n'
+            f'{{"idx":numero,"tipo":"noticia|comercial","flow_prompt":"...","mensaje_clave":"lo que debe entender el espectador en 3 segundos"}}\n\n'
+            f'Solo JSON.'
+        )
+
+        from app.services.ai.client import ask_json, SONNET
+        try:
+            result = ask_json(prompt_v2, system=SYSTEM_DV, model=SONNET, max_tokens=3500)
+            if isinstance(result, dict):
+                result = list(result.values())[0] if result else []
+            items = {int(item.get('idx', -1)): item for item in (result or []) if item.get('idx') is not None}
+        except Exception as e:
+            print(f'ERROR: Claude falló — {e}')
+            return
+
+        updated = []
+        for i, p in enumerate(targets):
+            item = items.get(i, {})
+            fp = (item.get('flow_prompt') or '').strip()
+            msg = (item.get('mensaje_clave') or '').strip()
+            if not fp:
+                print(f'  ✗ Propuesta #{p.id}: Claude no devolvió prompt para idx={i}')
+                continue
+            # Conservar el prompt anterior en revisor_notas (no borrar texto ni fuentes)
+            if p.flow_prompt and p.flow_prompt.strip():
+                p.revisor_notas = f'[Prompt anterior v1]\n{p.flow_prompt}\n\n{p.revisor_notas or ""}'.strip()
+            p.flow_prompt       = fp
+            p.resource_status   = 'pendiente_aprobacion'
+            updated.append({'proposal_id': p.id, 'tipo': p.delivery_type,
+                             'topic': p.topic, 'mensaje_clave': msg, 'prompt': fp})
+
+        db.session.commit()
+        print(f'✓ {len(updated)} prompts v2 guardados (resource_status=pendiente_aprobacion)\n')
+        print('=' * 70)
+        for u in updated:
+            tipo_label = '📰 Noticia' if u['tipo'] == 'noticia' else '💼 Comercial'
+            print(f'\n{tipo_label} — #{u["proposal_id"]}: {u["topic"]}')
+            if u['mensaje_clave']:
+                print(f'Mensaje clave: {u["mensaje_clave"]}')
+            print(f'\nPROMPT:\n{u["prompt"]}')
+            print('-' * 70)
+        print(f'\nVerifica estas {len(updated)} propuestas en el panel con badge "Pendiente aprobación".')
+        print('Cuando las apruebe, usa flask estudio-completar-prompts para recalcular el estado.')

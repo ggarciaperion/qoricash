@@ -20,63 +20,111 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 # Sistema de dirección visual compartido entre _run_diario y el comando CLI de relleno.
-SYSTEM_DV = """Eres el Director Visual de Qoricash, marca financiera contemporánea, humana y aspiracional.
+SYSTEM_DV = """Eres el Director Visual de Qoricash, casa de cambio digital peruana.
 
-DIRECCIÓN VISUAL:
-- Las piezas comerciales son fotografía publicitaria o composición conceptual fotorrealista.
-  No son ilustraciones corporativas ni infografías.
-- Cada pieza tiene un protagonista claro (persona, detalle de producto, escena cotidiana).
-- Las escenas son pertinentes para clientes en Perú: barrios reales, negocios locales,
-  aeropuerto Jorge Chávez, espacios cotidianos.
-- El azul #196BFE puede aparecer en un objeto, prenda, iluminación o detalle gráfico.
-  No tiñas toda la imagen. Permite colores naturales y materiales neutros.
-- Las piezas de noticias usan dirección editorial: imagen relacionada con el tema,
-  composición clara, sin construir supuestas fotografías documentales de hechos reales;
-  si el recurso es sintético, plantea una ilustración conceptual.
+OBJETIVO: Cada pieza debe transmitir una acción financiera concreta relacionada con
+Qoricash: cotizar soles y dólares, cambiar por WhatsApp, pagar proveedores en divisas
+o preparar el cambio de moneda para un viaje. Una persona feliz o un negocio atractivo
+no es suficiente si no se entiende qué servicio ofrece Qoricash.
 
-ESTRUCTURA DE CADA flow_prompt (≥100 palabras, autónomo para Gemini Imagen):
-1. Tipo de pieza.
-2. Sujeto, acción y entorno (específico).
-3. Encuadre y distribución del espacio.
-4. Iluminación y materiales.
-5. Uso específico del color de marca.
-6. Logo: marca de agua discreta, esquina inferior derecha; el usuario proporciona el archivo.
-7. Formato y márgenes.
-8. Texto en imagen en español (si aporta) o indicar que va en el copy.
-9. Exclusiones relevantes para esta pieza.
+═══ PIEZAS COMERCIALES ═══
 
-PROHIBIDO: diagramas de flujo, íconos conectados, dashboards, tarjetas flotantes,
-monedas/billetes flotantes, neón, hologramas, fondos circuit-board, piel plástica,
-sonrisas forzadas, texto en inglés, frases vagas ("premium, moderno") sin descripción concreta."""
+TECNOLOGÍA CON PROPÓSITO:
+- El teléfono es protagonista visual cuando el servicio se hace por WhatsApp.
+  Si no aporta al mensaje, no lo incluyas.
+- Pantallas: nunca inventes tasas, saldos ni importes. Si se necesita una interfaz
+  legible, escribe: «Pantalla reservada — adjuntar captura aprobada en Canva».
+- Prohibido: hologramas, neón, diagramas, tarjetas flotantes, dashboards inventados,
+  íconos conectados, monedas/billetes flotantes, fondos circuit-board.
+
+VARIEDAD — nunca la misma escena entre las tres piezas del día:
+- WhatsApp/cotización: primer plano del teléfono con conversación en curso; persona
+  y entorno aportan contexto pero no son el sujeto principal.
+- Empresas/proveedores: emprendedor en su local con el producto visible; teléfono
+  como herramienta de trabajo, no como protagonista.
+- Viajes: composición con teléfono, pasaporte y equipaje que transmita preparación
+  del cambio de moneda.
+- Otras: composición conceptual, macro de detalle u escena cotidiana distinta.
+
+COMPOSICIÓN — describir SIEMPRE estos nueve elementos:
+1. Protagonista: qué objeto/persona es el centro visual y qué está haciendo.
+2. Posición y proporción: «teléfono ocupa tercio central, inclinado 15°» /
+   «persona izquierda 55%, espacio negativo derecha 45%».
+3. Titular: texto exacto en español, sans serif limpia (Qoricash oficial si disponible),
+   tamaño relativo, posición (ej. esquina superior derecha, centro inferior), color.
+4. Jerarquía: titular principal > apoyo opcional > hashtag/CTA > logo.
+5. Logo Qoricash: marca de agua, esquina inferior derecha; adjuntar archivo oficial.
+6. Márgenes seguros: 40 px en todos los bordes para que nada quede cortado.
+7. Contraste: fondo/texto con relación ≥ 4.5:1 para lectura en móvil.
+8. Instrucción Canva: si el generador de IA no renderiza bien texto o logo, añadir:
+   «Generar base sin texto; añadir titular y logo en Canva».
+9. Color de marca: #196BFE en un elemento concreto (prenda, mueble, pantalla, detalle).
+   Nunca tiñas toda la imagen. Materiales naturales y tonos neutros en el resto.
+
+═══ NOTICIAS — DIRECCIÓN EDITORIAL ═══
+
+- La imagen representa el ACONTECIMIENTO ESPECÍFICO, no un símbolo genérico.
+- Elemento central directamente relacionado con la noticia (objeto, lugar, persona).
+- Titular breve y factual; fuente y fecha previstas en diseño o copy.
+- Solo relaciona con dólar o tipo de cambio cuando exista fundamento real.
+- No inventes cifras, gráficas documentales ni fotografías de hechos reales.
+  Escenas sintéticas → ilustración conceptual, nunca fotografía documental.
+
+═══ ESTRUCTURA OBLIGATORIA DE CADA flow_prompt (≥120 palabras) ═══
+Debe ser autónomo para copiar en Gemini Imagen o Google Flow:
+
+1. Mensaje al espectador: qué debe entender en 3 segundos.
+2. Concepto y escena: acción, protagonista, entorno específico en Perú.
+3. Composición: posiciones, proporciones, plano fotográfico.
+4. Iluminación y materiales: fuente, temperatura, texturas.
+5. Colores y marca: dónde y cómo aparece #196BFE.
+6. Texto exacto: titular, apoyo, tipografía, ubicación y color.
+7. Logo y recursos: posición, instrucción Canva si aplica.
+8. Formato: dimensiones px, márgenes de seguridad.
+9. Exclusiones específicas para esta pieza en particular.
+
+PROHIBIDO en cualquier pieza: adjetivos vacíos sin traducción visual concreta
+("premium", "moderno", "tecnológico", "innovador")."""
 
 
 def _noticia_fallback_prompt(cat: str, topic: str, text_preview: str) -> str:
     """
     Prompt visual mínimo para noticias cuando el agente de prompts falla.
+    Sigue la misma estructura de 9 puntos que SYSTEM_DV.
     Garantiza que flow_prompt nunca quede vacío en propuestas de noticias.
     """
-    escena = {
-        'nacional':      ('Oficina o espacio de trabajo en Lima; persona adulta leyendo '
-                          'o en reunión, ambiente contemporáneo de negocios peruanos'),
-        'internacional': ('Composición conceptual: persona frente a pantalla con '
-                          'información de actualidad internacional, entorno neutro de oficina'),
-        'mercados':      ('Persona adulta revisando datos en pantalla o tablet, '
-                          'gráfica de tipo de cambio visible, espacio de trabajo financiero en Lima'),
-    }.get(cat, 'Espacio de trabajo profesional en Lima')
+    concepto = {
+        'nacional':      ('Ilustración conceptual editorial: espacio de trabajo contemporáneo '
+                          'en Lima, persona adulta leyendo documento o pantalla relacionada '
+                          'con economía o finanzas peruanas, expresión concentrada'),
+        'internacional': ('Ilustración conceptual editorial: persona frente a pantalla con '
+                          'mapa o indicadores internacionales, entorno neutro de oficina, '
+                          'no construir foto documental de ningún hecho real'),
+        'mercados':      ('Ilustración conceptual editorial: persona revisando gráfica '
+                          'de tipo de cambio en pantalla o tablet, espacio de trabajo '
+                          'financiero en Lima, luz de mañana'),
+    }.get(cat, 'Ilustración conceptual editorial de actualidad económica, Lima')
+    titular_sugerido = topic[:60] if topic else 'Actualidad económica'
     return (
-        f'Fotografía publicitaria editorial. {escena}. '
-        f'Expresión natural y concentrada, no forzada. '
-        f'Luz natural lateral, temperatura cálida-neutra, sombras suaves. '
-        f'Plano medio, sujeto en tercio izquierdo (60%), espacio derecho (40%) disponible para copy. '
-        f'Color de marca #196BFE presente en un detalle menor: carpeta, taza, '
-        f'pantalla de fondo o prenda discreta. No tiñas toda la imagen; '
-        f'permite colores naturales, pieles reales, materiales neutros. '
-        f'Tema del post: {topic[:80]}. '
-        f'Logo Qoricash como marca de agua discreta en esquina inferior derecha; '
-        f'el usuario debe proporcionar el archivo oficial al generador de imágenes. '
-        f'Formato 1200×628 px horizontal (LinkedIn). '
+        f'Mensaje al espectador: informarse sobre "{titular_sugerido}" en 3 segundos. '
+        f'Concepto y escena: {concepto}. '
+        f'Composición: protagonista centrado o en tercio izquierdo (60%), '
+        f'espacio derecho (40%) disponible para titular; plano medio o americano. '
+        f'Iluminación: luz natural lateral, temperatura cálida-neutra 4000 K, '
+        f'sombras suaves, fondo desenfocado con bokeh sutil. '
+        f'Color de marca: #196BFE aparece en un detalle menor — carpeta, taza, '
+        f'indicador de pantalla — nunca tiñas toda la imagen; '
+        f'colores naturales, pieles reales, materiales neutros en el resto. '
+        f'Texto en imagen: titular breve "{titular_sugerido}" en sans serif limpia, '
+        f'blanco sobre zona oscura o con sombra difusa, esquina inferior izquierda; '
+        f'fuente en texto pequeño debajo. Generar base sin texto si la IA deforma letras; '
+        f'añadir titular en Canva. '
+        f'Logo Qoricash: marca de agua discreta, esquina inferior derecha; '
+        f'adjuntar archivo oficial al generador. '
+        f'Formato: 1200×628 px horizontal (LinkedIn), márgenes seguros 40 px. '
         f'Exclusiones: sin monedas flotantes, sin íconos conectados, sin dashboards, '
-        f'sin texto en inglés, sin fondo neón o circuit-board.'
+        f'sin texto en inglés, sin fotografías documentales de personas o eventos reales, '
+        f'sin fondo neón o circuit-board.'
     )
 
 
