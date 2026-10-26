@@ -156,6 +156,14 @@
             </a>
             {% endif %}
 
+            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office'] %}
+            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('contenido') %}active{% endif %}"
+               href="{{ url_for('contenido.hoy') }}">
+                <i class="bi bi-pencil-square"></i>
+                <span class="sidebar-link-text">Estudio Creativo</span>
+            </a>
+            {% endif %}
+
 
             {# Alertas TC oculto #}
 
