@@ -3,7 +3,7 @@ services:
     name: qoricash
     env: python
     region: oregon
-    branch: deploy/estudio-creativo
+    branch: main
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn -c gunicorn_config.py run:app
     preDeployCommand: bash migrate.sh
