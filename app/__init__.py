@@ -1207,19 +1207,6 @@ def create_app(config_name=None):
             db.session.commit()
             logging.info("[Migration] completed_at octubre ops corregido")
 
-            # 2. Sincronizar AccountingMatch.created_at con buy_operation.completed_at
-            #    para que rutas que filtren por match.created_at también sean correctas.
-            db.session.execute(text("""
-                UPDATE accounting_matches am
-                SET created_at = op.completed_at
-                FROM operations op
-                WHERE am.buy_operation_id = op.id
-                  AND op.completed_at IS NOT NULL
-                  AND DATE(am.created_at) != DATE(op.completed_at)
-            """))
-            db.session.commit()
-            logging.info("[Migration] AccountingMatch.created_at sincronizado con buy_operation.completed_at")
-
     except Exception as e:
         logging.warning(f"[Migration] fix_accounting_match_dates: {e}")
 
