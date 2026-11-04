@@ -1179,6 +1179,50 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Migration] invoices journal_entry_id: {e}")
 
+    # Corrección de datos: sincronizar AccountingMatch.created_at con la fecha
+    # de la operación de compra (completed_at), para que la utilidad se
+    # contabilice en el mes correcto (octubre) y no en el mes del amarre (noviembre).
+    # También verifica que las operaciones de octubre tengan completed_at en octubre.
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            from datetime import datetime
+
+            # 1. Forzar completed_at correcto para operaciones de octubre
+            #    (por si el script de ajuste las dejó con fecha en noviembre)
+            octubre_ops = {
+                'EXP-1235': datetime(2026, 10, 31, 12, 0, 0),
+                'EXP-1231': datetime(2026, 10, 29, 12, 0, 0),
+                'EXP-1226': datetime(2026, 10, 27, 12, 0, 0),
+                'EXP-1222': datetime(2026, 10, 27, 12, 0, 0),
+                'EXP-1218': datetime(2026, 10, 26, 12, 0, 0),
+            }
+            for exp_id, oct_date in octubre_ops.items():
+                db.session.execute(text(
+                    "UPDATE operations SET completed_at = :dt "
+                    "WHERE exp_id = :eid "
+                    "AND (completed_at IS NULL OR DATE(completed_at) > '2026-10-31')"
+                ), {'dt': oct_date, 'eid': exp_id})
+            db.session.commit()
+            logging.info("[Migration] completed_at octubre ops corregido")
+
+            # 2. Sincronizar AccountingMatch.created_at con buy_operation.completed_at
+            #    para que rutas que filtren por match.created_at también sean correctas.
+            db.session.execute(text("""
+                UPDATE accounting_matches am
+                SET created_at = op.completed_at
+                FROM operations op
+                WHERE am.buy_operation_id = op.id
+                  AND op.completed_at IS NOT NULL
+                  AND DATE(am.created_at) != DATE(op.completed_at)
+            """))
+            db.session.commit()
+            logging.info("[Migration] AccountingMatch.created_at sincronizado con buy_operation.completed_at")
+
+    except Exception as e:
+        logging.warning(f"[Migration] fix_accounting_match_dates: {e}")
+
     return app
 
 
