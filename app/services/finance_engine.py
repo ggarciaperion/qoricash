@@ -207,18 +207,24 @@ class FinanceEngine:
             trader_total_pen, match_count
         """
         from app.models import AccountingMatch
+        from app.models.operation import Operation as _Op
+        from sqlalchemy.orm import aliased
 
-        q = AccountingMatch.query.filter(AccountingMatch.status == 'Activo')
+        # La utilidad pertenece a la fecha en que ocurrió la operación (completed_at
+        # de la pierna compra), NO a cuando se creó el amarre. Así un amarre de
+        # operaciones de octubre creado en noviembre cae en octubre.
+        _BuyOp = aliased(_Op)
+        q = (AccountingMatch.query
+             .join(_BuyOp, AccountingMatch.buy_operation_id == _BuyOp.id)
+             .filter(AccountingMatch.status == 'Activo'))
 
         if fecha_ini is not None:
-            start = (datetime.combine(fecha_ini, datetime.min.time())
-                     if isinstance(fecha_ini, date) else fecha_ini)
-            q = q.filter(AccountingMatch.created_at >= start)
+            d_ini = fecha_ini if isinstance(fecha_ini, date) else fecha_ini.date()
+            q = q.filter(func.date(_BuyOp.completed_at) >= d_ini)
 
         if fecha_fin is not None:
-            end = (datetime.combine(fecha_fin, datetime.max.time())
-                   if isinstance(fecha_fin, date) else fecha_fin)
-            q = q.filter(AccountingMatch.created_at <= end)
+            d_fin = fecha_fin if isinstance(fecha_fin, date) else fecha_fin.date()
+            q = q.filter(func.date(_BuyOp.completed_at) <= d_fin)
 
         row = q.with_entities(
             func.sum(AccountingMatch.profit_pen),
