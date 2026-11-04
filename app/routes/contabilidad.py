@@ -4341,11 +4341,9 @@ def amarres_operaciones_disponibles():
             db.create_all()
 
         from app.models.user import User
-        # Por defecto, limitar al mes en curso
-        hoy = now_peru().date()
-        primer_dia_mes = hoy.replace(day=1).isoformat()
+        # Sin filtro de fecha por defecto — muestra todas las ops con monto disponible.
         ops = AccountingService.get_available_operations(
-            fecha_inicio=request.args.get('fecha_inicio', primer_dia_mes),
+            fecha_inicio=request.args.get('fecha_inicio'),
             fecha_fin=request.args.get('fecha_fin'),
             operation_type=request.args.get('operation_type'),
             exclude_user_id=User.get_demo_user_id()

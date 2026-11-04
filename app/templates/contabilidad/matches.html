@@ -936,6 +936,12 @@ function exportarExcel() {
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  const hoy = new Date();
+  const ini = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+  const fin = new Date(hoy.getFullYear(), hoy.getMonth(), 0);
+  const fmt = d => d.toLocaleDateString('en-CA');
+  document.getElementById('fInicio').value = fmt(ini);
+  document.getElementById('fFin').value    = fmt(fin);
   cargarAmarres();
   document.querySelector('[data-bs-target="#tabLotes"]').addEventListener('shown.bs.tab', () => {
     if (document.getElementById('tbodyLotes').querySelector('td')?.textContent === 'Cargando...') {
