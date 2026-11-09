@@ -328,6 +328,84 @@ def get_lead_pipeline_stats() -> dict:
     }
 
 
+# ── Agent Guide Status ─────────────────────────────────────────────────────────
+
+def get_agent_guide_status() -> dict:
+    """
+    Contadores en tiempo real para la vista 'Agentes de Guía'.
+
+    Lee exclusivamente desde las tablas del worker (ec_prospectos, agent_runs,
+    runtime_config). No toca Google Drive, no toca tablas financieras ni
+    operaciones de cambio de divisas.
+
+    Retorna:
+        leads_nuevo             — Prospectos válidos sin contacto previo
+        leads_enviados_paso1    — Primer contacto completado (presentado)
+        leads_enviados_paso2    — Segunda etapa (precio enviado / seguimiento)
+        leads_interesado        — Respuestas positivas y escalaciones activas
+        last_activity_timestamp — ISO timestamp de la última ejecución exitosa
+        worker_online           — True si el orchestrator tiene heartbeat reciente
+        disponible              — False si las tablas del worker no están presentes
+    """
+    # ── Contadores de estado en un solo scan ─────────────────────────────────
+    counters = _row("""
+        SELECT
+            SUM(CASE WHEN estado_com = 'nuevo'
+                      AND estado_email = 'valido'
+                 THEN 1 ELSE 0 END)                             AS leads_nuevo,
+
+            SUM(CASE WHEN estado_com IN ('presentado', 'P1', 'seguimiento')
+                 THEN 1 ELSE 0 END)                             AS leads_enviados_paso1,
+
+            SUM(CASE WHEN estado_com IN (
+                    'precio_enviado', 'P2', 'seguimiento_precio'
+                ) THEN 1 ELSE 0 END)                            AS leads_enviados_paso2,
+
+            SUM(CASE WHEN estado_com IN (
+                    'interesado',
+                    'solicita_cotizacion',
+                    'solicita_informacion',
+                    'solicita_llamada',
+                    'solicita_whatsapp',
+                    'negociando',
+                    'negociacion',
+                    'P3'
+                ) THEN 1 ELSE 0 END)                            AS leads_interesado
+        FROM ec_prospectos
+    """)
+
+    if not counters or counters.get('leads_nuevo') is None:
+        return {
+            'disponible':              False,
+            'leads_nuevo':             0,
+            'leads_enviados_paso1':    0,
+            'leads_enviados_paso2':    0,
+            'leads_interesado':        0,
+            'last_activity_timestamp': None,
+            'worker_online':           False,
+        }
+
+    # ── Timestamp de última actividad del worker ──────────────────────────────
+    last_ts = _scalar("""
+        SELECT MAX(COALESCE(finished_at, started_at))
+        FROM agent_runs
+        WHERE status IN ('ok', 'partial')
+    """)
+
+    # ── Estado del worker (heartbeat) ─────────────────────────────────────────
+    worker = get_worker_status()
+
+    return {
+        'disponible':              True,
+        'leads_nuevo':             int(counters.get('leads_nuevo')          or 0),
+        'leads_enviados_paso1':    int(counters.get('leads_enviados_paso1') or 0),
+        'leads_enviados_paso2':    int(counters.get('leads_enviados_paso2') or 0),
+        'leads_interesado':        int(counters.get('leads_interesado')     or 0),
+        'last_activity_timestamp': last_ts.isoformat() if last_ts and hasattr(last_ts, 'isoformat') else str(last_ts) if last_ts else None,
+        'worker_online':           worker.get('online', False),
+    }
+
+
 # ── KPIs consolidados ──────────────────────────────────────────────────────────
 
 def get_prospeccion_kpis() -> dict:

@@ -1,845 +1,1272 @@
 {% extends "base.html" %}
-{% block title %}Mission Control — Agentes IA{% endblock %}
+{% block title %}Centro de Operaciones — QoriCash{% endblock %}
 
 {% block head %}
 <style>
-/* ═══════════════════════════════════════════════════════════════════
-   MISSION CONTROL — Light Theme
-═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════
+   CENTRO DE OPERACIONES · v4 — 3 Agentes en Acción
+   QoriCash · Automatización Comercial
+═══════════════════════════════════════════════════════════════════════ */
+
 :root {
-  --mc-bg:      #f1f5f9;
-  --mc-surface: #ffffff;
-  --mc-card:    #ffffff;
-  --mc-border:  rgba(0,0,0,.08);
-  --mc-border2: rgba(0,0,0,.12);
-  --mc-text:    #1e293b;
-  --mc-muted:   #64748b;
-  --mc-green:   #16a34a;
-  --mc-blue:    #2563eb;
-  --mc-teal:    #0d9488;
-  --mc-purple:  #7c3aed;
-  --mc-amber:   #d97706;
-  --mc-red:     #dc2626;
-  --mc-navy:    #1e40af;
+  --fondo:        #f1f5f9;
+  --superficie:   #ffffff;
+  --borde:        rgba(0,0,0,.08);
+  --borde-hi:     rgba(0,0,0,.14);
+
+  --verde:        #16a34a;
+  --verde-cl:     rgba(22,163,74,.10);
+  --verde-b:      rgba(22,163,74,.28);
+
+  --azul:         #1d4ed8;
+  --azul-cl:      rgba(29,78,216,.10);
+  --azul-b:       rgba(29,78,216,.24);
+
+  --violeta:      #6d28d9;
+  --violeta-cl:   rgba(109,40,217,.10);
+  --violeta-b:    rgba(109,40,217,.24);
+
+  --ambar:        #d97706;
+  --ambar-cl:     rgba(217,119,6,.10);
+  --ambar-b:      rgba(217,119,6,.26);
+
+  --esmer:        #059669;
+  --esmer-cl:     rgba(5,150,105,.10);
+  --esmer-b:      rgba(5,150,105,.28);
+
+  --rojo:         #dc2626;
+  --rojo-cl:      rgba(220,38,38,.10);
+
+  --txt1: #0f172a;
+  --txt2: #334155;
+  --txt3: #64748b;
+  --txt4: #94a3b8;
+  --txt5: #cbd5e1;
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
 }
 
-@keyframes mc-pulse   { 0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.6)} 50%{box-shadow:0 0 0 7px rgba(34,197,94,0)} }
-@keyframes sdpulse    { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.6);opacity:.4} }
-@keyframes cflow      { from{stroke-dashoffset:160} to{stroke-dashoffset:0} }
-@keyframes glow-run   { 0%,100%{box-shadow:0 2px 8px rgba(22,163,74,.12),0 0 0 1px rgba(22,163,74,.25)} 50%{box-shadow:0 4px 16px rgba(22,163,74,.22),0 0 0 1px rgba(22,163,74,.45)} }
-@keyframes glow-err   { 0%,100%{box-shadow:0 2px 8px rgba(220,38,38,.12),0 0 0 1px rgba(220,38,38,.25)} 50%{box-shadow:0 4px 16px rgba(220,38,38,.22),0 0 0 1px rgba(220,38,38,.45)} }
-@keyframes node-in    { from{opacity:0;transform:translateY(14px) scale(.96)} to{opacity:1;transform:none} }
-@keyframes log-in     { from{opacity:0;transform:translateX(10px)} to{opacity:1;transform:none} }
-@keyframes shimmer    { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+*, *::before, *::after { box-sizing: border-box; }
 
-.mc-root {
-  background: var(--mc-bg);
+.co-wrap {
+  background: var(--fondo);
   min-height: calc(100vh - 56px);
-  display: flex; flex-direction: column;
-  color: var(--mc-text); overflow: hidden;
+  color: var(--txt1);
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
 }
 
-/* ── Header ─────────────────────────────────────────────────────── */
-.mc-header {
-  background: var(--mc-surface);
-  border-bottom: 1px solid var(--mc-border);
-  padding: 10px 20px;
-  display: flex; align-items: center;
-  justify-content: space-between; flex-shrink: 0; gap: 16px;
-  backdrop-filter: blur(12px);
+/* ══ Animaciones ══════════════════════════════════════════════════════ */
+@keyframes pulso {
+  0%,100% { transform: scale(1); opacity: 1; }
+  50%     { transform: scale(1.8); opacity: .25; }
 }
-.mc-brand {
-  display: flex; align-items: center; gap: 10px;
-  font-size: .82rem; font-weight: 800;
-  color: var(--mc-text); letter-spacing: .08em; text-transform: uppercase;
-  font-family: system-ui;
+@keyframes ring-verde {
+  0%,100% { box-shadow: 0 0 0 0 rgba(22,163,74,.35); }
+  50%     { box-shadow: 0 0 0 9px rgba(22,163,74,0); }
 }
-.mc-brand-dot {
-  width: 8px; height: 8px; border-radius: 50%; background: var(--mc-green);
-  animation: mc-pulse 2s ease-in-out infinite;
-  box-shadow: 0 0 8px rgba(34,197,94,.5);
+@keyframes ring-ambar {
+  0%,100% { box-shadow: 0 0 0 0 rgba(217,119,6,.35); }
+  50%     { box-shadow: 0 0 0 9px rgba(217,119,6,0); }
 }
-.mc-header-stats { display: flex; gap: 28px; align-items: center; }
-.mc-hstat { display: flex; flex-direction: column; align-items: center; }
-.mc-hstat-val {
-  font-size: 1rem; font-weight: 800; color: var(--mc-green);
-  line-height: 1; font-family: 'Courier New', monospace;
+@keyframes ring-violeta {
+  0%,100% { box-shadow: 0 0 0 0 rgba(109,40,217,.35); }
+  50%     { box-shadow: 0 0 0 9px rgba(109,40,217,0); }
 }
-.mc-hstat-lbl {
-  font-size: .55rem; color: var(--mc-muted);
-  text-transform: uppercase; letter-spacing: .1em;
-  font-family: system-ui; margin-top: 3px;
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
 }
-.mc-header-actions { display: flex; gap: 7px; align-items: center; }
-.mc-btn {
-  background: rgba(0,0,0,.04); border: 1px solid var(--mc-border2);
-  color: var(--mc-muted); border-radius: 7px; padding: 5px 12px;
-  font-size: .72rem; font-weight: 600; cursor: pointer; text-decoration: none;
-  display: flex; align-items: center; gap: 5px; transition: all .18s;
-  font-family: system-ui;
+@keyframes deslizar {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: none; }
 }
-.mc-btn:hover { background: rgba(0,0,0,.07); color: var(--mc-text); border-color: rgba(0,0,0,.2); text-decoration: none; }
-.mc-clock { font-size: .7rem; color: var(--mc-muted); font-family: 'Courier New', monospace; letter-spacing: .05em; }
-
-/* ── Body ────────────────────────────────────────────────────────── */
-.mc-body { flex: 1; display: flex; overflow: hidden; min-height: 0; }
-
-/* ── Canvas ──────────────────────────────────────────────────────── */
-.n8n-canvas-wrapper {
-  flex: 1; overflow: auto; background: var(--mc-bg); position: relative;
-  background-image:
-    radial-gradient(rgba(0,0,0,.08) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
-.n8n-canvas-wrapper::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
-  background-image:
-    linear-gradient(rgba(0,0,0,.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,0,0,.04) 1px, transparent 1px);
-  background-size: 96px 96px;
-}
-.n8n-canvas-wrapper::after {
-  content: ''; position: absolute; pointer-events: none; z-index: 0;
-  width: 500px; height: 300px; top: 20%; left: 30%;
-  background: radial-gradient(ellipse at center, rgba(22,163,74,.05) 0%, transparent 70%);
-}
-.n8n-canvas {
-  position: relative; width: 1100px; height: 480px;
-  margin: 36px; z-index: 1;
+@keyframes escaneo {
+  0%   { top: 0;    opacity: .4; }
+  100% { top: 100%; opacity: 0; }
 }
 
-/* ── SVG connections ─────────────────────────────────────────────── */
-.n8n-svg {
-  position: absolute; top: 0; left: 0;
-  width: 1100px; height: 480px;
-  pointer-events: none; overflow: visible; z-index: 2;
+/* ══ Cabecera ══════════════════════════════════════════════════════════ */
+.co-cab {
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(255,255,255,.95);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border-bottom: 1px solid var(--borde);
+  padding: 10px 28px;
+  display: flex; align-items: center; gap: 20px;
 }
-.conn-base { fill: none; stroke: rgba(0,0,0,.1); stroke-width: 1.5; }
-.conn-glow { fill: none; stroke-width: 4; filter: blur(3px); opacity: .35; }
-.conn-flow {
-  fill: none; stroke-width: 2;
-  stroke-dasharray: 7 16; stroke-linecap: round;
-}
-.conn-flow.c-blue   { stroke: rgba(96,165,250,.7);  animation: cflow 2.2s linear infinite; }
-.conn-flow.c-green  { stroke: rgba(34,197,94,.7);   animation: cflow 2.2s linear infinite .4s; }
-.conn-flow.c-teal   { stroke: rgba(45,212,191,.7);  animation: cflow 2.2s linear infinite .8s; }
-.conn-flow.c-purple { stroke: rgba(167,139,250,.7); animation: cflow 2.2s linear infinite 1.2s; }
-.conn-flow.c-amber  { stroke: rgba(251,191,36,.7);  animation: cflow 2.2s linear infinite 1.6s; }
-.conn-flow.c-navy   { stroke: rgba(147,197,253,.7); animation: cflow 2.2s linear infinite 2.0s; }
-.conn-glow.c-blue   { stroke: #60a5fa; }
-.conn-glow.c-green  { stroke: #22c55e; }
-.conn-glow.c-teal   { stroke: #2dd4bf; }
-.conn-glow.c-purple { stroke: #a78bfa; }
-.conn-glow.c-amber  { stroke: #fbbf24; }
-.conn-glow.c-navy   { stroke: #93c5fd; }
-.conn-tip { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-/* ── Node ────────────────────────────────────────────────────────── */
-.n8n-node {
-  position: absolute; width: 200px;
-  background: var(--mc-card);
-  border: 1px solid var(--mc-border2);
-  border-radius: 12px; overflow: visible;
-  box-shadow: 0 2px 8px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
-  transition: transform .22s cubic-bezier(.34,1.56,.64,1), border-color .2s, box-shadow .2s;
-  z-index: 10;
-  animation: node-in .45s cubic-bezier(.34,1.56,.64,1) both;
-}
-{% for i in range(7) %}.n8n-node:nth-child({{ i+1 }}){animation-delay:{{ i * 0.07 }}s}{% endfor %}
-.n8n-node:hover {
-  transform: translateY(-3px) scale(1.015);
-  border-color: rgba(0,0,0,.2);
-  box-shadow: 0 8px 24px rgba(0,0,0,.12);
-  z-index: 20;
-}
-.n8n-node.status-idle {
-  border-color: rgba(34,197,94,.25);
-}
-.n8n-node.status-running {
-  border-color: rgba(34,197,94,.55);
-  animation: node-in .45s cubic-bezier(.34,1.56,.64,1) both, glow-run 2.5s ease-in-out infinite;
-}
-.n8n-node.status-error {
-  border-color: rgba(248,113,113,.45);
-  animation: node-in .45s cubic-bezier(.34,1.56,.64,1) both, glow-err 2s ease-in-out infinite;
-}
-.n8n-node.status-warning { border-color: rgba(251,191,36,.35); }
-.n8n-node.status-stopped { border-color: rgba(100,116,139,.2); opacity: .7; }
-
-/* Node head */
-.n8n-head {
-  display: flex; align-items: center; gap: 9px;
-  padding: 11px 12px 9px;
-  border-bottom: 1px solid var(--mc-border);
-}
-.n8n-icon {
-  width: 30px; height: 30px; border-radius: 8px;
+.señal-wrap { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; }
+.señal-anillo {
+  width: 34px; height: 34px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: .88rem; flex-shrink: 0;
+  animation: ring-verde 2.4s ease-in-out infinite; transition: all .5s;
 }
-.ic-blue   { background: rgba(96,165,250,.15);  color: var(--mc-blue);   box-shadow: 0 0 12px rgba(96,165,250,.15); }
-.ic-green  { background: rgba(34,197,94,.15);   color: var(--mc-green);  box-shadow: 0 0 12px rgba(34,197,94,.15); }
-.ic-teal   { background: rgba(45,212,191,.15);  color: var(--mc-teal);   box-shadow: 0 0 12px rgba(45,212,191,.15); }
-.ic-purple { background: rgba(167,139,250,.15); color: var(--mc-purple); box-shadow: 0 0 12px rgba(167,139,250,.15); }
-.ic-amber  { background: rgba(251,191,36,.15);  color: var(--mc-amber);  box-shadow: 0 0 12px rgba(251,191,36,.15); }
-.ic-red    { background: rgba(248,113,113,.15); color: var(--mc-red);    box-shadow: 0 0 12px rgba(248,113,113,.15); }
-.ic-navy   { background: rgba(147,197,253,.15); color: var(--mc-navy);   box-shadow: 0 0 12px rgba(147,197,253,.15); }
+.señal-anillo.activo  { background: var(--verde-cl);  animation-name: ring-verde; }
+.señal-anillo.pausado { background: var(--ambar-cl);  animation-name: ring-ambar; }
+.señal-anillo.inactivo{ background: rgba(100,116,139,.1); animation: none; }
+.señal-punto {
+  width: 12px; height: 12px; border-radius: 50%;
+  animation: pulso 2.4s ease-in-out infinite; transition: background .5s, box-shadow .5s;
+}
+.señal-punto.activo  { background: var(--verde);  box-shadow: 0 0 10px rgba(22,163,74,.5); }
+.señal-punto.pausado { background: var(--ambar);  box-shadow: 0 0 10px rgba(217,119,6,.5); animation-duration: 1.4s; }
+.señal-punto.inactivo{ background: var(--txt4);   box-shadow: none; animation: none; }
 
-.n8n-name {
-  font-size: .74rem; font-weight: 700; color: var(--mc-text);
-  font-family: system-ui; flex: 1;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.n8n-sdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.sdot-idle    { background: var(--mc-green); box-shadow: 0 0 5px rgba(22,163,74,.4); }
-.sdot-running { background: var(--mc-green); box-shadow: 0 0 7px rgba(22,163,74,.7); animation: sdpulse 1.2s ease-in-out infinite; }
-.sdot-error   { background: var(--mc-red);   box-shadow: 0 0 6px rgba(220,38,38,.6); animation: sdpulse .8s ease-in-out infinite; }
-.sdot-warning { background: var(--mc-amber); box-shadow: 0 0 6px rgba(217,119,6,.6); animation: sdpulse 1s ease-in-out infinite; }
-.sdot-stopped { background: #94a3b8; }
-.sdot-paused  { background: #94a3b8; }
+.co-marca { flex-shrink: 0; }
+.co-marca-nom { font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--txt1); line-height: 1.2; }
+.co-marca-sub { font-size: .54rem; color: var(--txt4); letter-spacing: .05em; text-transform: uppercase; margin-top: 1px; }
 
-/* Node metrics */
-.n8n-metrics {
-  display: flex; padding: 8px 12px;
-  border-bottom: 1px solid var(--mc-border);
-  background: rgba(0,0,0,.02);
+/* KPI strip en cabecera */
+.co-kpis {
+  flex: 1; display: flex; align-items: stretch;
+  max-width: 640px; gap: 0;
 }
-.n8n-metric { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.n8n-metric + .n8n-metric { border-left: 1px solid var(--mc-border); }
-.n8n-mval {
-  font-size: .82rem; font-weight: 700; color: var(--mc-text);
-  font-family: 'Courier New', monospace; line-height: 1;
+.co-kpi {
+  flex: 1; text-align: center; padding: 4px 10px;
+  border-left: 1px solid var(--borde);
 }
-.n8n-mlbl {
-  font-size: .54rem; color: var(--mc-muted);
-  text-transform: uppercase; letter-spacing: .07em; font-family: system-ui;
+.co-kpi:first-child { border-left: none; }
+.co-kpi-val {
+  font-size: .95rem; font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums; transition: color .4s;
 }
+.kv-verde   { color: var(--verde);  }
+.kv-azul    { color: var(--azul);   }
+.kv-rojo    { color: var(--rojo);   }
+.kv-esmer   { color: var(--esmer);  }
+.kv-violeta { color: var(--violeta);}
+.co-kpi-eti { font-size: .49rem; color: var(--txt4); text-transform: uppercase; letter-spacing: .1em; margin-top: 3px; }
 
-/* Node actions */
-.n8n-actions { display: flex; gap: 4px; padding: 7px 8px; }
-.n8n-btn {
-  flex: 1; background: rgba(0,0,0,.04); border: 1px solid var(--mc-border2);
-  color: var(--mc-muted); border-radius: 6px; padding: 4px 3px;
-  font-size: .61rem; font-weight: 600; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; gap: 3px;
-  transition: all .15s; font-family: system-ui; white-space: nowrap;
+/* Controles cabecera */
+.co-ctrl { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
+.co-reloj {
+  font-size: .68rem; color: var(--txt3); font-variant-numeric: tabular-nums;
+  padding: 4px 10px; border: 1px solid var(--borde);
+  border-radius: var(--r-sm); background: var(--fondo);
 }
-.n8n-btn:hover { background: rgba(0,0,0,.08); color: var(--mc-text); border-color: rgba(0,0,0,.2); }
-.n8n-btn:disabled { opacity: .35; cursor: not-allowed; }
-.n8n-btn.run   { background: rgba(34,197,94,.1); border-color: rgba(34,197,94,.3); color: var(--mc-green); }
-.n8n-btn.run:hover { background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.5); }
-.n8n-btn.pause { background: rgba(251,191,36,.1); border-color: rgba(251,191,36,.3); color: var(--mc-amber); }
-.n8n-btn.pause:hover { background: rgba(251,191,36,.18); }
-
-/* Ports */
-.n8n-port {
-  position: absolute; width: 10px; height: 10px; border-radius: 50%;
-  background: #e2e8f0; border: 2px solid rgba(0,0,0,.15); z-index: 15;
-  box-shadow: 0 0 4px rgba(37,99,235,.15);
-}
-.port-left   { left: -6px;  top: 50%; transform: translateY(-50%); }
-.port-right  { right: -6px; top: 50%; transform: translateY(-50%); }
-.port-bottom { bottom: -6px; left: 50%; transform: translateX(-50%); }
-.port-top    { top: -6px;   left: 50%; transform: translateX(-50%); }
-
-/* ── Sidebar ─────────────────────────────────────────────────────── */
-.mc-sidebar {
-  width: 288px; flex-shrink: 0;
-  background: var(--mc-surface);
-  border-left: 1px solid var(--mc-border);
-  display: flex; flex-direction: column; overflow: hidden;
-}
-
-/* KPIs */
-.mc-kpis {
-  padding: 12px 12px 10px;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 7px;
-  border-bottom: 1px solid var(--mc-border); flex-shrink: 0;
-}
-.kpi-tile {
-  background: var(--mc-card); border: 1px solid var(--mc-border2);
-  border-radius: 9px; padding: 9px 11px;
-  transition: border-color .2s;
-}
-.kpi-tile:hover { border-color: rgba(255,255,255,.2); }
-.kpi-v {
-  font-size: 1.2rem; font-weight: 800; color: var(--mc-green);
-  line-height: 1; font-family: 'Courier New', monospace;
-}
-.kpi-l {
-  font-size: .56rem; color: var(--mc-muted);
-  text-transform: uppercase; letter-spacing: .08em;
-  font-family: system-ui; margin-top: 4px;
-}
-
-/* Alerts */
-.mc-alerts-sec {
-  padding: 9px 12px; border-bottom: 1px solid var(--mc-border); flex-shrink: 0;
-}
-.mc-sec-title {
-  font-size: .57rem; font-weight: 700; color: var(--mc-muted);
-  text-transform: uppercase; letter-spacing: .12em; font-family: system-ui;
-  margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;
-}
-.mc-sec-title a { color: var(--mc-muted); text-decoration: none; font-size: .57rem; transition: color .15s; }
-.mc-sec-title a:hover { color: var(--mc-text); }
-.al-row {
-  background: rgba(248,113,113,.06); border: 1px solid rgba(248,113,113,.18);
-  border-radius: 7px; padding: 7px 9px; margin-bottom: 5px; font-family: system-ui;
-  border-left: 3px solid rgba(248,113,113,.5);
-}
-.al-row.warn { background: rgba(251,191,36,.06); border-color: rgba(251,191,36,.18); border-left-color: rgba(251,191,36,.5); }
-.al-title { font-size: .68rem; font-weight: 700; color: var(--mc-red); }
-.al-row.warn .al-title { color: var(--mc-amber); }
-.al-msg { font-size: .62rem; color: var(--mc-muted); margin-top: 3px; line-height: 1.4; }
-.ok-badge {
-  font-size: .68rem; color: var(--mc-green); display: flex; align-items: center; gap: 6px;
-  font-family: system-ui; padding: 4px 0;
-}
-
-/* Console */
-.mc-console { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.mc-console-head {
-  padding: 8px 12px 5px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: space-between;
-  border-bottom: 1px solid var(--mc-border);
-}
-.live-badge {
+.co-pill {
   display: flex; align-items: center; gap: 5px;
-  font-size: .58rem; color: var(--mc-green); font-family: system-ui; font-weight: 600;
+  padding: 4px 11px; border-radius: 20px; font-size: .6rem;
+  font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  border: 1px solid var(--borde); transition: all .4s;
 }
-.live-dot {
-  width: 6px; height: 6px; border-radius: 50%; background: var(--mc-green);
-  animation: mc-pulse 1.2s ease-in-out infinite;
-  box-shadow: 0 0 5px rgba(34,197,94,.6);
+.co-pill.activo  { background: var(--verde-cl); border-color: var(--verde-b); color: var(--verde); }
+.co-pill.inactivo{ background: var(--rojo-cl);  border-color: rgba(220,38,38,.26); color: var(--rojo); }
+.co-pill .puntito { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulso 1.4s ease-in-out infinite; }
+.co-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: var(--r-sm);
+  border: 1px solid var(--borde-hi); background: var(--fondo);
+  color: var(--txt2); font-size: .67rem; font-weight: 600;
+  cursor: pointer; text-decoration: none; transition: all .18s; white-space: nowrap;
 }
-.console-body {
-  flex: 1; overflow-y: auto; padding: 6px 12px 10px;
-  scrollbar-width: thin; scrollbar-color: rgba(0,0,0,.12) transparent;
-}
-.console-body::-webkit-scrollbar { width: 3px; }
-.console-body::-webkit-scrollbar-thumb { background: rgba(0,0,0,.12); border-radius: 2px; }
-.log-row {
-  display: flex; gap: 7px; padding: 4px 0;
-  font-size: .62rem; font-family: 'Courier New', monospace;
-  border-bottom: 1px solid rgba(0,0,0,.05); line-height: 1.5;
-  animation: log-in .2s ease both;
-}
-.log-t  { color: var(--mc-muted); flex-shrink: 0; width: 50px; }
-.log-a  { color: #475569; flex-shrink: 0; width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: system-ui; font-size: .6rem; }
-.log-m  { color: #64748b; flex: 1; word-break: break-all; }
-.log-m.SUCCESS { color: var(--mc-green); }
-.log-m.ERROR   { color: var(--mc-red); }
-.log-m.WARNING { color: var(--mc-amber); }
+.co-btn:hover { background: #e2e8f0; color: var(--txt1); text-decoration: none; }
 
-@media (max-width: 1080px) {
-  .mc-body { flex-direction: column; }
-  .mc-sidebar { width: 100%; height: 280px; border-left: none; border-top: 1px solid var(--mc-border); }
+/* ══ Faro ═════════════════════════════════════════════════════════════ */
+.co-faro {
+  background: var(--superficie);
+  border-bottom: 1px solid var(--borde);
+  padding: 9px 28px;
+  display: flex; align-items: center; gap: 14px;
+}
+.faro-icono {
+  width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .95rem; transition: all .4s;
+}
+.faro-icono.activo  { background: var(--verde-cl); color: var(--verde); }
+.faro-icono.pausado { background: var(--ambar-cl); color: var(--ambar); }
+.faro-icono.inactivo{ background: rgba(100,116,139,.1); color: var(--txt3); }
+.faro-txt { flex: 1; }
+.faro-accion  { font-size: .82rem; font-weight: 700; color: var(--txt1); line-height: 1.3; transition: color .4s; }
+.faro-detalle { font-size: .6rem;  color: var(--txt3); margin-top: 2px; }
+.faro-ts      { font-size: .56rem; color: var(--txt4); flex-shrink: 0; text-align: right; }
+.faro-ts-lbl  { text-transform: uppercase; letter-spacing: .08em; display: block; }
+.faro-ts-val  { font-weight: 700; color: var(--txt3); }
+
+/* Banner simulación */
+#banner-sim {
+  display: none;
+  background: linear-gradient(90deg,rgba(217,119,6,.07),rgba(251,191,36,.04));
+  border-bottom: 1px solid rgba(217,119,6,.18);
+  padding: 7px 28px; align-items: center; justify-content: space-between;
+  font-size: .68rem;
 }
 
-/* Overrides de base.html que interfieren con el fondo claro del Mission Control */
-.mc-root, .mc-root * { box-sizing: border-box; }
+/* ══ Principal ════════════════════════════════════════════════════════ */
+.co-main {
+  padding: 22px 28px 40px;
+  max-width: 1700px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 20px;
+}
 
+/* ══ Grid 3 agentes ═══════════════════════════════════════════════════ */
+.agentes-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+/* ── Tarjeta agente ─────────────────────────────────────────────────── */
+.agente-card {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  animation: aparecer .5s cubic-bezier(.34,1.4,.64,1) both;
+  transition: box-shadow .25s, transform .2s, border-color .25s;
+}
+.agente-card:nth-child(1) { animation-delay: .05s; }
+.agente-card:nth-child(2) { animation-delay: .12s; }
+.agente-card:nth-child(3) { animation-delay: .19s; }
+.agente-card:hover {
+  box-shadow: 0 10px 30px rgba(0,0,0,.09);
+  transform: translateY(-2px);
+  border-color: var(--borde-hi);
+}
+
+/* Acento superior */
+.agente-card .acento-top {
+  height: 3px; width: 100%;
+}
+.agente-card.ag-azul    .acento-top { background: linear-gradient(90deg, var(--azul), #60a5fa); }
+.agente-card.ag-ambar   .acento-top { background: linear-gradient(90deg, var(--ambar), #fbbf24); }
+.agente-card.ag-violeta .acento-top { background: linear-gradient(90deg, var(--violeta), #a78bfa); }
+
+/* Cabecera del agente */
+.agente-perfil {
+  padding: 20px 22px 16px;
+  display: flex; align-items: center; gap: 16px;
+  border-bottom: 1px solid var(--borde);
+}
+.agente-avatar {
+  width: 56px; height: 56px; border-radius: 15px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem;
+  position: relative;
+}
+.ag-azul    .agente-avatar { background: var(--azul-cl);    color: var(--azul);    box-shadow: 0 0 0 4px rgba(29,78,216,.08); }
+.ag-ambar   .agente-avatar { background: var(--ambar-cl);   color: var(--ambar);   box-shadow: 0 0 0 4px rgba(217,119,6,.08); }
+.ag-violeta .agente-avatar { background: var(--violeta-cl); color: var(--violeta); box-shadow: 0 0 0 4px rgba(109,40,217,.08); }
+
+/* Anillo de estado sobre el avatar */
+.agente-avatar::after {
+  content: '';
+  position: absolute; bottom: -3px; right: -3px;
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid var(--superficie);
+  transition: background .4s;
+}
+.agente-avatar.activo::after  { background: var(--verde);  box-shadow: 0 0 6px rgba(22,163,74,.5); }
+.agente-avatar.pausado::after { background: var(--ambar);  box-shadow: 0 0 6px rgba(217,119,6,.5); }
+.agente-avatar.inactivo::after{ background: var(--txt5); }
+.agente-avatar.activo {
+  animation: ring-verde 2.4s ease-in-out infinite;
+}
+.ag-ambar .agente-avatar.activo { animation-name: ring-ambar; }
+.ag-violeta .agente-avatar.activo { animation-name: ring-violeta; }
+
+.agente-id { flex: 1; }
+.agente-nombre { font-size: .95rem; font-weight: 800; color: var(--txt1); line-height: 1.2; }
+.agente-rol    { font-size: .56rem; color: var(--txt4); text-transform: uppercase; letter-spacing: .08em; margin-top: 3px; }
+.agente-badge  {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
+  padding: 3px 10px; border-radius: 20px; font-size: .56rem;
+  font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  border: 1px solid;
+}
+.badge-activo  { background: var(--verde-cl);  border-color: var(--verde-b);  color: var(--verde);  }
+.badge-pausado { background: var(--ambar-cl);  border-color: var(--ambar-b);  color: var(--ambar);  }
+.badge-reposo  { background: rgba(100,116,139,.08); border-color: rgba(100,116,139,.2); color: var(--txt3); }
+.badge-puntito { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: pulso 1.5s ease-in-out infinite; }
+
+/* Cifra principal del agente */
+.agente-cifra-bloque {
+  padding: 18px 22px 0;
+  text-align: center;
+}
+.agente-cifra {
+  font-size: 3.4rem; font-weight: 800; line-height: 1;
+  letter-spacing: -.04em; font-variant-numeric: tabular-nums;
+  transition: color .4s;
+}
+.ag-azul    .agente-cifra { color: var(--azul);    }
+.ag-ambar   .agente-cifra { color: var(--ambar);   }
+.ag-violeta .agente-cifra { color: var(--violeta); }
+.agente-cifra-eti {
+  font-size: .56rem; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--txt4); margin-top: 5px;
+}
+
+/* Sub-métricas 3-col */
+.agente-subs {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 8px; padding: 14px 22px 0;
+}
+.ag-sub {
+  background: var(--fondo); border: 1px solid var(--borde);
+  border-radius: var(--r-sm); padding: 8px 10px;
+}
+.ag-sub-val {
+  font-size: .88rem; font-weight: 700; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ag-sub-eti {
+  font-size: .48rem; color: var(--txt4);
+  text-transform: uppercase; letter-spacing: .08em; margin-top: 3px;
+}
+
+/* Lista específica de cada agente */
+.agente-lista {
+  padding: 12px 22px 20px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.ag-fila {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px; background: var(--fondo);
+  border: 1px solid var(--borde); border-radius: 7px; font-size: .6rem;
+}
+.ag-fila-nom { color: var(--txt2); font-weight: 600; }
+.ag-fila-val { font-weight: 700; font-variant-numeric: tabular-nums; }
+.af-verde  { color: var(--verde);  }
+.af-ambar  { color: var(--ambar);  }
+.af-rojo   { color: var(--rojo);   }
+.af-azul   { color: var(--azul);   }
+.af-violeta{ color: var(--violeta);}
+.af-txt3   { color: var(--txt3);   }
+
+/* Pie del agente: timestamp */
+.agente-pie {
+  padding: 10px 22px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-top: 1px solid var(--borde); margin-top: auto;
+}
+.agente-pie-lbl { font-size: .52rem; color: var(--txt4); text-transform: uppercase; letter-spacing: .08em; }
+.agente-pie-val { font-size: .6rem; font-weight: 600; color: var(--txt3); font-variant-numeric: tabular-nums; }
+
+/* ══ Fila inferior: TC + Sistema + Interesados ════════════════════════ */
+.co-fila-inf {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr;
+  gap: 18px;
+}
+
+/* Tarjeta genérica */
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-xl);
+  padding: 22px 24px;
+  position: relative; overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  animation: aparecer .5s cubic-bezier(.34,1.4,.64,1) .22s both;
+  transition: box-shadow .25s, transform .2s, border-color .25s;
+}
+.tarjeta:hover { box-shadow: 0 8px 28px rgba(0,0,0,.09); transform: translateY(-2px); border-color: var(--borde-hi); }
+.tarjeta::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  border-radius: 0;
+}
+.t-verde::before   { background: linear-gradient(90deg, var(--verde), #4ade80); }
+.t-azul::before    { background: linear-gradient(90deg, var(--azul), #60a5fa); }
+.t-esmer::before   { background: linear-gradient(90deg, var(--esmer), var(--verde)); }
+
+.t-eti {
+  font-size: .54rem; font-weight: 700; letter-spacing: .15em;
+  text-transform: uppercase; color: var(--txt4);
+  display: flex; align-items: center; gap: 6px; margin-bottom: 14px;
+}
+.t-eti .linea { width: 14px; height: 1.5px; background: currentColor; opacity: .4; }
+
+/* TC */
+.tc-par { display: flex; flex-direction: column; gap: 8px; }
+.tc-fila {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 13px; background: var(--fondo);
+  border: 1px solid var(--borde); border-radius: var(--r-sm);
+}
+.tc-clave { font-size: .56rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--txt4); }
+.tc-valor { font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.tc-compra .tc-valor { color: var(--azul); }
+.tc-venta  .tc-valor { color: var(--verde); }
+.tc-frescura { display: flex; align-items: center; gap: 5px; font-size: .57rem; font-weight: 600; margin-top: 10px; }
+
+/* Sistema */
+.sis-fila { display: flex; align-items: center; gap: 11px; margin-bottom: 14px; }
+.sis-icono {
+  width: 44px; height: 44px; border-radius: 11px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; transition: all .4s;
+}
+.sis-icono.activo  { background: var(--verde-cl); color: var(--verde); box-shadow: 0 0 16px rgba(22,163,74,.12); }
+.sis-icono.inactivo{ background: var(--rojo-cl);  color: var(--rojo); }
+.sis-estado-lbl { font-size: .6rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; transition: color .4s; }
+.sis-estado-lbl.activo  { color: var(--verde); }
+.sis-estado-lbl.inactivo{ color: var(--rojo);  }
+.sis-host  { font-size: .54rem; color: var(--txt4); margin-top: 2px; }
+.sis-ultima {
+  font-size: .58rem; color: var(--txt3); line-height: 1.6;
+  padding: 8px 10px; background: var(--fondo);
+  border: 1px solid var(--borde); border-radius: 7px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tarjeta Oportunidades */
+.tarjeta-oport {
+  background: linear-gradient(145deg,
+    rgba(5,150,105,.07) 0%,
+    rgba(22,163,74,.04) 50%,
+    #fff 100%);
+  border-color: rgba(5,150,105,.22);
+}
+.cifra-oport {
+  font-size: 3.6rem; font-weight: 800; line-height: 1;
+  letter-spacing: -.04em; margin-bottom: 5px; font-variant-numeric: tabular-nums;
+  background: linear-gradient(130deg, var(--esmer) 0%, var(--verde) 60%, #b45309 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.oport-eti {
+  font-size: .58rem; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; margin-bottom: 18px; color: var(--esmer);
+}
+.oport-subs { display: flex; gap: 10px; }
+.oport-sub {
+  flex: 1; padding: 10px 12px;
+  background: rgba(0,0,0,.03); border: 1px solid rgba(0,0,0,.07);
+  border-radius: var(--r-sm);
+}
+.oport-sub-val { font-size: 1.1rem; font-weight: 800; color: var(--txt1); font-variant-numeric: tabular-nums; line-height: 1; }
+.oport-sub-eti { font-size: .49rem; color: var(--txt4); text-transform: uppercase; letter-spacing: .08em; margin-top: 3px; }
+
+/* ══ Bitácora ══════════════════════════════════════════════════════════ */
+.bitacora-panel {
+  border: 1px solid var(--borde); border-radius: var(--r-xl);
+  background: var(--superficie);
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  overflow: hidden;
+  animation: aparecer .5s cubic-bezier(.34,1.4,.64,1) .28s both;
+  position: relative;
+}
+.bitacora-panel::after {
+  content: ''; position: absolute; left: 0; right: 0; height: 48px;
+  background: linear-gradient(to bottom, transparent, rgba(22,163,74,.014), transparent);
+  animation: escaneo 7s linear infinite; pointer-events: none; z-index: 1;
+}
+.bit-cab {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px;
+  background: var(--fondo); border-bottom: 1px solid var(--borde);
+  position: relative; z-index: 2;
+}
+.bit-titulo { display: flex; align-items: center; gap: 10px; }
+.bit-icono-panel {
+  width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+  background: var(--verde-cl); color: var(--verde);
+  display: flex; align-items: center; justify-content: center; font-size: .88rem;
+}
+.bit-titulo-txt { font-size: .72rem; font-weight: 800; color: var(--txt1); letter-spacing: .04em; }
+.bit-titulo-sub { font-size: .54rem; color: var(--txt4); text-transform: uppercase; letter-spacing: .1em; margin-top: 1px; }
+.vivo-badge {
+  display: flex; align-items: center; gap: 6px;
+  font-size: .58rem; font-weight: 700; color: var(--verde);
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.vivo-punto { width: 7px; height: 7px; border-radius: 50%; background: var(--verde); animation: pulso 1.3s ease-in-out infinite; box-shadow: 0 0 5px rgba(22,163,74,.5); }
+.bit-cuerpo {
+  height: 220px; overflow-y: auto; padding: 10px 20px;
+  position: relative; z-index: 2;
+  scrollbar-width: thin; scrollbar-color: rgba(0,0,0,.1) transparent;
+}
+.bit-cuerpo::-webkit-scrollbar { width: 3px; }
+.bit-cuerpo::-webkit-scrollbar-thumb { background: rgba(0,0,0,.1); border-radius: 2px; }
+.entrada-bit {
+  display: flex; gap: 12px; padding: 5px 0;
+  border-bottom: 1px solid rgba(0,0,0,.04);
+  animation: deslizar .2s ease both; line-height: 1.5;
+}
+.entrada-bit:last-child { border-bottom: none; }
+.bit-hora    { font-size: .6rem;  color: var(--txt4); flex-shrink: 0; min-width: 68px; font-variant-numeric: tabular-nums; }
+.bit-agente  { font-size: .6rem;  font-weight: 700; color: var(--azul); flex-shrink: 0; min-width: 108px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bit-sep     { font-size: .6rem;  color: var(--txt5); flex-shrink: 0; }
+.bit-msj     { font-size: .6rem;  flex: 1; word-break: break-word; color: var(--txt2); }
+.bit-msj.exito   { color: var(--verde);  }
+.bit-msj.error   { color: var(--rojo);   }
+.bit-msj.parcial { color: var(--ambar);  }
+.bit-msj.proceso { color: var(--azul);   }
+.bit-msj.sistema { color: var(--txt4);   font-style: italic; }
+
+/* ══ Responsivo ═══════════════════════════════════════════════════════ */
+@media (max-width: 1200px) {
+  .agentes-grid { grid-template-columns: repeat(2, 1fr); }
+  .co-fila-inf  { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 860px) {
+  .agentes-grid, .co-fila-inf { grid-template-columns: 1fr; }
+  .co-cab { flex-wrap: wrap; gap: 10px; }
+  .co-kpis { order: 3; width: 100%; max-width: none; }
+  .co-main { padding: 14px 16px 28px; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-{# ── Node configuration ────────────────────────────────────────── #}
-{% set NODE_ORDER = ['data_quality','mail_agent','email_intelligence','outreach','supervisor','executive'] %}
-{% set NODE_POS = {
-  'lead_discovery':    {'x': 40,  'y': 50},
-  'data_quality':      {'x': 300, 'y': 50},
-  'mail_agent':        {'x': 560, 'y': 50},
-  'email_intelligence':{'x': 820, 'y': 50},
-  'outreach':          {'x': 820, 'y': 280},
-  'supervisor':        {'x': 560, 'y': 280},
-  'executive':         {'x': 300, 'y': 280}
-} %}
-{% set NODE_COLOR = {
-  'lead_discovery':'blue','data_quality':'green','mail_agent':'teal',
-  'email_intelligence':'purple','outreach':'amber','supervisor':'red','executive':'navy'
-} %}
-{% set NODE_ICON = {
-  'lead_discovery':'bi-search-heart','data_quality':'bi-database-check',
-  'mail_agent':'bi-envelope-arrow-up','email_intelligence':'bi-envelope-open-heart',
-  'outreach':'bi-calendar-check','supervisor':'bi-shield-check','executive':'bi-graph-up-arrow'
-} %}
+<div class="co-wrap">
 
-{% set agent_map = {} %}
-{% for a in agents %}{% set _ = agent_map.update({a.agent_id: a}) %}{% endfor %}
+  <!-- ══════════════════════════════════════════════════════════
+       CABECERA
+  ══════════════════════════════════════════════════════════ -->
+  <header class="co-cab">
 
-<div class="mc-root">
-
-  <!-- HEADER ────────────────────────────────────────────────────── -->
-  <div class="mc-header">
-    <div class="mc-brand">
-      <div class="mc-brand-dot"></div>
-      <i class="bi bi-cpu-fill"></i>
-      Mission Control
-      <span style="color:#94a3b8;font-size:.68rem;font-weight:400;letter-spacing:0;text-transform:none;">— Pipeline IA</span>
-    </div>
-    <div class="mc-header-stats">
-      <div class="mc-hstat">
-        <div class="mc-hstat-val" id="hdr-prospectos">{{ (prospeccion.master.total if prospeccion and prospeccion.db_disponible else kpis.total_prospectos) or 0 }}</div>
-        <div class="mc-hstat-lbl">Master</div>
+    <div style="display:flex;align-items:center;gap:13px;flex-shrink:0;">
+      <div class="señal-wrap">
+        <div class="señal-anillo inactivo" id="señal-anillo">
+          <div class="señal-punto inactivo" id="señal-punto"></div>
+        </div>
       </div>
-      <div class="mc-hstat">
-        <div class="mc-hstat-val" id="hdr-emails">{{ kpis.emails_sent_hoy or 0 }}</div>
-        <div class="mc-hstat-lbl">Emails hoy</div>
-      </div>
-      <div class="mc-hstat">
-        <div class="mc-hstat-val" id="hdr-opps">{{ kpis.oportunidades_semana or 0 }}</div>
-        <div class="mc-hstat-lbl">Oportunidades</div>
-      </div>
-      {% set active_count = agents|selectattr('status','in',['running','idle'])|selectattr('enabled')|list|length %}
-      <div class="mc-hstat">
-        <div class="mc-hstat-val" id="hdr-running"
-             style="color:{{ '#16a34a' if active_count > 0 else '#94a3b8' }};">{{ active_count }}</div>
-        <div class="mc-hstat-lbl">Activos</div>
+      <div class="co-marca">
+        <div class="co-marca-nom"><i class="bi bi-broadcast me-1"></i>Centro de Operaciones</div>
+        <div class="co-marca-sub">QoriCash · Automatización Comercial</div>
       </div>
     </div>
-    <div class="mc-header-actions">
-      <div class="mc-clock" id="mc-clock">—</div>
-      <a href="{{ url_for('agentes.index') }}" class="mc-btn">
-        <i class="bi bi-grid-3x3-gap"></i> Cards
+
+    <!-- 5 KPIs clave del negocio -->
+    <div class="co-kpis">
+      <div class="co-kpi">
+        <div class="co-kpi-val kv-azul" id="kpi-contactados">—</div>
+        <div class="co-kpi-eti">Prospectos Contactados</div>
+      </div>
+      <div class="co-kpi">
+        <div class="co-kpi-val kv-ambar" id="kpi-enviados">—</div>
+        <div class="co-kpi-eti">Correos Enviados Hoy</div>
+      </div>
+      <div class="co-kpi">
+        <div class="co-kpi-val kv-rojo" id="kpi-rebotes">—</div>
+        <div class="co-kpi-eti">Rebotes Detectados</div>
+      </div>
+      <div class="co-kpi">
+        <div class="co-kpi-val kv-violeta" id="kpi-respuestas">—</div>
+        <div class="co-kpi-eti">Respuestas Capturadas</div>
+      </div>
+      <div class="co-kpi">
+        <div class="co-kpi-val kv-esmer" id="kpi-oportunidades">—</div>
+        <div class="co-kpi-eti">Oportunidades Comerciales</div>
+      </div>
+    </div>
+
+    <!-- Controles -->
+    <div class="co-ctrl">
+      <div class="co-reloj" id="co-reloj">00:00:00</div>
+      <div class="co-pill inactivo" id="co-pill">
+        <div class="puntito"></div>
+        <span id="co-pill-txt">Sin conexión</span>
+      </div>
+      <a href="{{ url_for('agentes.index') }}" class="co-btn">
+        <i class="bi bi-grid-3x3-gap"></i> Resumen
       </a>
-      <a href="{{ url_for('agentes.dashboard') }}" class="mc-btn">
-        <i class="bi bi-bar-chart-line"></i> Dashboard
+      <a href="{{ url_for('agentes.dashboard') }}" class="co-btn">
+        <i class="bi bi-bar-chart-line"></i> Reportes
       </a>
       {% if alerts|length > 0 %}
-      <a href="{{ url_for('agentes.alertas') }}" class="mc-btn" style="border-color:#fecaca;color:#dc2626;background:#fef2f2;">
-        <i class="bi bi-bell-fill"></i> {{ alerts|length }}
+      <a href="{{ url_for('agentes.alertas') }}" class="co-btn" style="border-color:rgba(220,38,38,.3);background:var(--rojo-cl);color:var(--rojo);">
+        <i class="bi bi-bell-fill"></i> {{ alerts|length }} alerta{{ 's' if alerts|length != 1 else '' }}
       </a>
       {% endif %}
     </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════════
+       FARO DE ESTADO
+  ══════════════════════════════════════════════════════════ -->
+  <div class="co-faro">
+    <div class="faro-icono inactivo" id="faro-icono">
+      <i class="bi bi-broadcast" id="faro-icono-i"></i>
+    </div>
+    <div class="faro-txt">
+      <div class="faro-accion" id="faro-accion">Estableciendo conexión con el sistema...</div>
+      <div class="faro-detalle" id="faro-detalle">Actualización automática cada 30 segundos · Panel de control en tiempo real</div>
+    </div>
+    <div class="faro-ts">
+      <span class="faro-ts-lbl">Última actualización</span>
+      <span class="faro-ts-val" id="faro-ts">—</span>
+    </div>
   </div>
 
-  <!-- DRY RUN BANNER ────────────────────────────────────────────── -->
-  {% if prospeccion and prospeccion.dry_run %}
-  <div style="background:linear-gradient(90deg,#fefce8,#fef9c3);border-bottom:1px solid #fde68a;
-              padding:6px 20px;display:flex;align-items:center;justify-content:space-between;
-              font-size:.72rem;font-family:system-ui;">
-    <span style="display:flex;align-items:center;gap:8px;">
-      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d97706;
-                   box-shadow:0 0 6px rgba(217,119,6,.7);"></span>
-      <strong style="color:#92400e;">MODO DRY RUN</strong>
-      <span style="color:#78350f;">— El ecosistema procesa y simula. Los envíos comerciales reales están desactivados.</span>
+  <!-- BANNER MODO SIMULACIÓN -->
+  <div id="banner-sim"
+       style="display:none;background:linear-gradient(90deg,rgba(217,119,6,.07),rgba(251,191,36,.04));
+              border-bottom:1px solid rgba(217,119,6,.18);padding:7px 28px;
+              align-items:center;justify-content:space-between;font-size:.68rem;">
+    <span style="display:flex;align-items:center;gap:9px;">
+      <span style="width:7px;height:7px;border-radius:50%;background:#d97706;
+                   box-shadow:0 0 7px rgba(217,119,6,.9);display:inline-block;"></span>
+      <strong style="color:#b45309;">MODO SIMULACIÓN ACTIVO</strong>
+      <span style="color:#78716c;">— El sistema procesa y valida internamente. Los envíos comerciales reales están suspendidos temporalmente.</span>
     </span>
-    <span style="color:#b45309;font-weight:700;letter-spacing:.04em;">DRY_RUN=true</span>
+    <span style="color:#d97706;font-weight:700;letter-spacing:.06em;">SIMULACIÓN</span>
   </div>
-  {% endif %}
 
-  <!-- BODY ──────────────────────────────────────────────────────── -->
-  <div class="mc-body">
+  <!-- ══════════════════════════════════════════════════════════
+       CONTENIDO PRINCIPAL
+  ══════════════════════════════════════════════════════════ -->
+  <main class="co-main">
 
-    <!-- N8N CANVAS ─────────────────────────────────────────────── -->
-    <div class="n8n-canvas-wrapper">
-      <div class="n8n-canvas">
+    <!-- ── GRID DE 3 AGENTES ─────────────────────────────── -->
+    <div class="agentes-grid">
 
-        <!-- Canvas label -->
-        <div style="position:absolute;left:0;top:-24px;font-size:.58rem;
-                    color:rgba(100,130,160,.6);text-transform:uppercase;
-                    letter-spacing:.12em;font-family:system-ui;font-weight:700;">
-          Pipeline de Automatización — {{ agents|length }} agentes activos
-        </div>
-        <div style="position:absolute;left:830px;top:248px;font-size:.56rem;
-                    color:rgba(100,130,160,.4);font-family:system-ui;font-style:italic;">
-          ↩ ciclo de retorno
-        </div>
+      <!-- ═══════════════════════════════════════════════════
+           AGENTE 1 · EL ANALIZADOR — Análisis de Base
+      ═══════════════════════════════════════════════════ -->
+      <div class="agente-card ag-azul">
+        <div class="acento-top"></div>
 
-        <!-- SVG connections ──────────────────────────────────── -->
-        <svg class="n8n-svg" viewBox="0 0 1100 480">
-          <defs>
-            <filter id="glow-f"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-          </defs>
-          <!-- Base wires -->
-          <path class="conn-base" d="M 240 116 C 270 116, 270 116, 300 116"/>
-          <path class="conn-base" d="M 500 116 C 530 116, 530 116, 560 116"/>
-          <path class="conn-base" d="M 760 116 C 790 116, 790 116, 820 116"/>
-          <path class="conn-base" d="M 920 182 C 920 231, 920 231, 920 280"/>
-          <path class="conn-base" d="M 820 346 C 790 346, 790 346, 760 346"/>
-          <path class="conn-base" d="M 560 346 C 530 346, 530 346, 500 346"/>
-
-          <!-- Glow layers -->
-          <path class="conn-glow c-blue"   d="M 240 116 C 270 116, 270 116, 300 116"/>
-          <path class="conn-glow c-green"  d="M 500 116 C 530 116, 530 116, 560 116"/>
-          <path class="conn-glow c-teal"   d="M 760 116 C 790 116, 790 116, 820 116"/>
-          <path class="conn-glow c-purple" d="M 920 182 C 920 231, 920 231, 920 280"/>
-          <path class="conn-glow c-amber"  d="M 820 346 C 790 346, 790 346, 760 346"/>
-          <path class="conn-glow c-navy"   d="M 560 346 C 530 346, 530 346, 500 346"/>
-
-          <!-- Animated flowing dashes -->
-          <path class="conn-flow c-blue"   d="M 240 116 C 270 116, 270 116, 300 116"/>
-          <path class="conn-flow c-green"  d="M 500 116 C 530 116, 530 116, 560 116"/>
-          <path class="conn-flow c-teal"   d="M 760 116 C 790 116, 790 116, 820 116"/>
-          <path class="conn-flow c-purple" d="M 920 182 C 920 231, 920 231, 920 280"/>
-          <path class="conn-flow c-amber"  d="M 820 346 C 790 346, 790 346, 760 346"/>
-          <path class="conn-flow c-navy"   d="M 560 346 C 530 346, 530 346, 500 346"/>
-
-          <!-- Arrow tips -->
-          <polyline class="conn-tip" points="296,112 303,116 296,120" stroke="rgba(96,165,250,.8)"/>
-          <polyline class="conn-tip" points="556,112 563,116 556,120" stroke="rgba(34,197,94,.8)"/>
-          <polyline class="conn-tip" points="816,112 823,116 816,120" stroke="rgba(45,212,191,.8)"/>
-          <polyline class="conn-tip" points="916,278 920,284 924,278" stroke="rgba(167,139,250,.8)"/>
-          <polyline class="conn-tip" points="763,342 757,346 763,350" stroke="rgba(251,191,36,.8)"/>
-          <polyline class="conn-tip" points="503,342 497,346 503,350" stroke="rgba(147,197,253,.8)"/>
-        </svg>
-
-        <!-- Agent nodes ──────────────────────────────────────── -->
-        {% for agent_id in NODE_ORDER %}
-          {% set pos   = NODE_POS[agent_id] %}
-          {% set color = NODE_COLOR[agent_id] %}
-          {% set icon  = NODE_ICON[agent_id] %}
-          {% set a     = agent_map.get(agent_id) %}
-          {% set st    = a.status if a else 'stopped' %}
-
-        <div class="n8n-node status-{{ st }}"
-             id="node-{{ agent_id }}"
-             data-agent="{{ agent_id }}"
-             style="left:{{ pos.x }}px; top:{{ pos.y }}px;">
-
-          {# Ports #}
-          {% if agent_id == 'lead_discovery' %}
-            <div class="n8n-port port-right"></div>
-          {% elif agent_id == 'data_quality' %}
-            <div class="n8n-port port-left"></div>
-            <div class="n8n-port port-right"></div>
-          {% elif agent_id == 'mail_agent' %}
-            <div class="n8n-port port-left"></div>
-            <div class="n8n-port port-right"></div>
-          {% elif agent_id == 'email_intelligence' %}
-            <div class="n8n-port port-left"></div>
-            <div class="n8n-port port-bottom"></div>
-          {% elif agent_id == 'outreach' %}
-            <div class="n8n-port port-top"></div>
-            <div class="n8n-port port-left"></div>
-          {% elif agent_id == 'supervisor' %}
-            <div class="n8n-port port-right"></div>
-            <div class="n8n-port port-left"></div>
-          {% elif agent_id == 'executive' %}
-            <div class="n8n-port port-right"></div>
-          {% endif %}
-
-          <!-- Head -->
-          <div class="n8n-head">
-            <div class="n8n-icon ic-{{ color }}">
-              <i class="bi {{ a.icon if a else icon }}"></i>
-            </div>
-            <div class="n8n-name">{{ a.name if a else agent_id.replace('_',' ').title() }}</div>
-            <div class="n8n-sdot sdot-{{ st }}"></div>
+        <div class="agente-perfil">
+          <div class="agente-avatar inactivo" id="av-analizador">
+            <i class="bi bi-database-fill-check"></i>
           </div>
-
-          <!-- Metrics -->
-          <div class="n8n-metrics">
-            <div class="n8n-metric">
-              <div class="n8n-mval tasks-val">{{ a.tasks_today if a else 0 }}</div>
-              <div class="n8n-mlbl">Tareas</div>
-            </div>
-            <div class="n8n-metric">
-              <div class="n8n-mval last-run-val">
-                {{ a.last_run.strftime('%H:%M') if a and a.last_run else '—' }}
-              </div>
-              <div class="n8n-mlbl">Último</div>
-            </div>
-            <div class="n8n-metric">
-              <div class="n8n-mval perf-val"
-                   style="{{ 'color:#dc2626;' if a and (a.errors_today or 0) > 2 else '' }}">
-                {{ (a.performance|round(0)|int)|string ~ '%' if a else '—' }}
-              </div>
-              <div class="n8n-mlbl">Perf.</div>
+          <div class="agente-id">
+            <div class="agente-nombre">El Analizador</div>
+            <div class="agente-rol">Análisis y calificación de base</div>
+            <div class="agente-badge badge-reposo" id="badge-analizador">
+              <span class="badge-puntito"></span>
+              <span id="badge-analizador-txt">En espera</span>
             </div>
           </div>
+        </div>
 
-          <!-- Actions -->
-          <div class="n8n-actions">
-            <button class="n8n-btn run" onclick="triggerAgent('{{ agent_id }}', this)">
-              <i class="bi bi-play-fill"></i> Run
-            </button>
-            {% if a and a.enabled %}
-            <button class="n8n-btn pause" onclick="pauseAgent('{{ agent_id }}', this)">
-              <i class="bi bi-pause-fill"></i> Pause
-            </button>
-            {% else %}
-            <button class="n8n-btn" style="border-color:rgba(74,222,128,.25);color:#4ade80;"
-                    onclick="resumeAgent('{{ agent_id }}', this)">
-              <i class="bi bi-play-circle"></i> Resume
-            </button>
-            {% endif %}
-            <button class="n8n-btn" onclick="resetAgent('{{ agent_id }}', this)" title="Reset">
-              <i class="bi bi-arrow-counterclockwise"></i>
-            </button>
+        <div class="agente-cifra-bloque">
+          <div class="agente-cifra" id="an-total">—</div>
+          <div class="agente-cifra-eti">Empresas en base de datos</div>
+        </div>
+
+        <div class="agente-subs">
+          <div class="ag-sub">
+            <div class="ag-sub-val af-verde" id="an-validos">—</div>
+            <div class="ag-sub-eti">Verificados</div>
+          </div>
+          <div class="ag-sub">
+            <div class="ag-sub-val af-ambar" id="an-pendientes">—</div>
+            <div class="ag-sub-eti">Pendientes</div>
+          </div>
+          <div class="ag-sub">
+            <div class="ag-sub-val af-azul" id="an-prioridad">—</div>
+            <div class="ag-sub-eti">Alta Prioridad</div>
           </div>
         </div>
-        {% endfor %}
 
-      </div><!-- /n8n-canvas -->
-    </div><!-- /n8n-canvas-wrapper -->
-
-    <!-- SIDEBAR ────────────────────────────────────────────────── -->
-    <div class="mc-sidebar">
-
-      <!-- KPIs -->
-      <div class="mc-kpis">
-        <div class="kpi-tile">
-          <div class="kpi-v" id="kpi-prospectos">{{ kpis.total_prospectos or 0 }}</div>
-          <div class="kpi-l">Prospectos</div>
-        </div>
-        <div class="kpi-tile">
-          <div class="kpi-v" id="kpi-clientes" style="color:#2563eb;">{{ kpis.clientes or 0 }}</div>
-          <div class="kpi-l">Clientes</div>
-        </div>
-        <div class="kpi-tile">
-          <div class="kpi-v" id="kpi-rebotes" style="color:#dc2626;">{{ kpis.rebotes or 0 }}</div>
-          <div class="kpi-l">Rebotes</div>
-        </div>
-        <div class="kpi-tile">
-          <div class="kpi-v" id="kpi-conv" style="color:#7c3aed;">{{ kpis.tasa_conversion or 0 }}%</div>
-          <div class="kpi-l">Conversión</div>
-        </div>
-        <div class="kpi-tile">
-          <div class="kpi-v" id="kpi-emails">{{ kpis.emails_sent_hoy or 0 }}</div>
-          <div class="kpi-l">Emails hoy</div>
-        </div>
-        <div class="kpi-tile">
-          <div class="kpi-v" id="kpi-opps">{{ kpis.oportunidades_semana or 0 }}</div>
-          <div class="kpi-l">Opor. semana</div>
-        </div>
-      </div>
-
-      <!-- Prospeccion MASTER stats -->
-      {% if prospeccion and prospeccion.db_disponible %}
-      {% set ms = prospeccion.master %}
-      {% set tc = prospeccion.tc %}
-      <div class="mc-sec-title" style="margin:10px 0 6px;padding-top:10px;border-top:1px solid rgba(0,0,0,.07);">
-        <span><i class="bi bi-database me-1"></i>MASTER</span>
-        <a href="{{ url_for('agentes.base_datos') }}">Ver DB →</a>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;">
-          <div style="font-size:1.05rem;font-weight:800;color:#1e293b;line-height:1;">{{ "{:,}".format(ms.total or 0) }}</div>
-          <div style="font-size:.6rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-top:2px;">Total</div>
-        </div>
-        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 10px;">
-          <div style="font-size:1.05rem;font-weight:800;color:#16a34a;line-height:1;" id="mc-ready">{{ "{:,}".format(ms.ready_for_outreach or 0) }}</div>
-          <div style="font-size:.6rem;color:#86efac;text-transform:uppercase;letter-spacing:.05em;margin-top:2px;">Ready</div>
-        </div>
-        <div style="background:#fefce8;border:1px solid #fef08a;border-radius:8px;padding:8px 10px;">
-          <div style="font-size:1.05rem;font-weight:800;color:#d97706;line-height:1;">{{ "{:,}".format(ms.sin_validar or 0) }}</div>
-          <div style="font-size:.6rem;color:#fcd34d;text-transform:uppercase;letter-spacing:.05em;margin-top:2px;">Sin validar</div>
-        </div>
-        <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:8px;padding:8px 10px;">
-          <div style="font-size:1.05rem;font-weight:800;color:#dc2626;line-height:1;">{{ "{:,}".format(ms.rebotados or 0) }}</div>
-          <div style="font-size:.6rem;color:#fca5a5;text-transform:uppercase;letter-spacing:.05em;margin-top:2px;">Rebotados</div>
-        </div>
-      </div>
-
-      <!-- TC -->
-      {% if tc.compra or tc.venta %}
-      <div style="background:{% if tc.fresco %}#f0fdf4{% else %}#fefce8{% endif %};
-                  border:1px solid {% if tc.fresco %}#bbf7d0{% else %}#fde68a{% endif %};
-                  border-radius:8px;padding:8px 10px;margin-bottom:8px;
-                  display:flex;align-items:center;justify-content:space-between;">
-        <div>
-          <div style="font-size:.6rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Tipo de Cambio</div>
-          <div style="font-size:.8rem;font-weight:700;color:#1e293b;">
-            C <strong>{{ tc.compra }}</strong> &nbsp;|&nbsp; V <strong>{{ tc.venta }}</strong>
+        <div class="agente-lista" id="an-sectores">
+          <!-- Renderizado por JS -->
+          <div class="ag-fila">
+            <span class="ag-fila-nom" style="color:var(--txt4);font-style:italic;">Cargando segmentos activos...</span>
           </div>
         </div>
-        <div style="font-size:.6rem;font-weight:700;color:{% if tc.fresco %}#16a34a{% else %}#d97706{% endif %};">
-          {% if tc.fresco %}✓ Fresco{% else %}⚠ Stale{% endif %}
-          {% if tc.age_min is not none %}<br><span style="font-weight:400;">{{ tc.age_min }}min</span>{% endif %}
+
+        <div class="agente-pie">
+          <span class="agente-pie-lbl">Última sincronización</span>
+          <span class="agente-pie-val" id="an-sync">—</span>
         </div>
       </div>
-      {% endif %}
 
-      {% if ms.last_full_sync %}
-      <div style="font-size:.6rem;color:#94a3b8;text-align:center;margin-bottom:6px;">
-        Última sync: {{ ms.last_full_sync[:16] }}
-      </div>
-      {% endif %}
+      <!-- ═══════════════════════════════════════════════════
+           AGENTE 2 · EL CARTERO — Gestión de Envíos
+      ═══════════════════════════════════════════════════ -->
+      <div class="agente-card ag-ambar">
+        <div class="acento-top"></div>
 
-      {% elif prospeccion and not prospeccion.db_disponible %}
-      <div style="font-size:.7rem;color:#94a3b8;padding:8px 0;border-top:1px solid rgba(0,0,0,.07);margin-top:10px;">
-        <i class="bi bi-database-x me-1"></i>ecosistema.db no disponible
-        <div style="font-size:.6rem;margin-top:2px;">Ver <a href="#" style="color:#64748b;">arquitectura</a></div>
-      </div>
-      {% endif %}
-
-      <!-- Alerts -->
-      <div class="mc-alerts-sec">
-        <div class="mc-sec-title">
-          <span><i class="bi bi-exclamation-triangle me-1"></i>Alertas</span>
-          <a href="{{ url_for('agentes.alertas') }}">Ver todas →</a>
-        </div>
-        {% if alerts %}
-          {% for alert in alerts[:3] %}
-          <div class="al-row {{ 'warn' if alert.severity == 'warning' else '' }}" id="alert-{{ alert.id }}">
-            <div class="al-title">{{ alert.title }}</div>
-            <div class="al-msg">{{ alert.message[:80] }}</div>
+        <div class="agente-perfil">
+          <div class="agente-avatar inactivo" id="av-cartero">
+            <i class="bi bi-send-fill"></i>
           </div>
-          {% endfor %}
-        {% else %}
-          <div class="ok-badge"><i class="bi bi-check-circle-fill"></i> Sin alertas activas</div>
-        {% endif %}
+          <div class="agente-id">
+            <div class="agente-nombre">El Cartero</div>
+            <div class="agente-rol">Gestión y envío de propuestas</div>
+            <div class="agente-badge badge-reposo" id="badge-cartero">
+              <span class="badge-puntito"></span>
+              <span id="badge-cartero-txt">Fuera de Horario</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="agente-cifra-bloque">
+          <div class="agente-cifra" id="ca-enviados">—</div>
+          <div class="agente-cifra-eti">Correos entregados hoy</div>
+        </div>
+
+        <div class="agente-subs">
+          <div class="ag-sub">
+            <div class="ag-sub-val af-rojo" id="ca-fallidos">—</div>
+            <div class="ag-sub-eti">No entregados</div>
+          </div>
+          <div class="ag-sub">
+            <div class="ag-sub-val af-txt3" id="ca-total">—</div>
+            <div class="ag-sub-eti">Total intentos</div>
+          </div>
+          <div class="ag-sub">
+            <div class="ag-sub-val af-ambar" id="ca-listos">—</div>
+            <div class="ag-sub-eti">Listos contactar</div>
+          </div>
+        </div>
+
+        <div class="agente-lista" id="ca-bandejas">
+          <!-- Renderizado por JS -->
+          <div class="ag-fila">
+            <span class="ag-fila-nom" style="color:var(--txt4);font-style:italic;">Cargando bandejas de correo...</span>
+          </div>
+        </div>
+
+        <div class="agente-pie">
+          <span class="agente-pie-lbl">Última actividad</span>
+          <span class="agente-pie-val" id="ca-ultima">—</span>
+        </div>
       </div>
 
-      <!-- Console -->
-      <div class="mc-console">
-        <div class="mc-console-head">
-          <span class="mc-sec-title" style="margin:0;"><i class="bi bi-terminal me-1"></i>Actividad</span>
-          <div class="live-badge"><div class="live-dot"></div> LIVE</div>
+      <!-- ═══════════════════════════════════════════════════
+           AGENTE 3 · EL RECEPTOR — Monitor de Respuestas
+      ═══════════════════════════════════════════════════ -->
+      <div class="agente-card ag-violeta">
+        <div class="acento-top"></div>
+
+        <div class="agente-perfil">
+          <div class="agente-avatar inactivo" id="av-receptor">
+            <i class="bi bi-inbox-fill"></i>
+          </div>
+          <div class="agente-id">
+            <div class="agente-nombre">El Receptor</div>
+            <div class="agente-rol">Monitor de respuestas y oportunidades</div>
+            <div class="agente-badge badge-reposo" id="badge-receptor">
+              <span class="badge-puntito"></span>
+              <span id="badge-receptor-txt">En espera</span>
+            </div>
+          </div>
         </div>
-        <div class="console-body" id="console-body">
-          {% for log in recent_logs %}
-          <div class="log-row">
-            <span class="log-t">{{ log.created_at.strftime('%H:%M:%S') if log.created_at else '' }}</span>
-            <span class="log-a">{{ log.agent_id }}</span>
-            <span class="log-m {{ log.level }}">{{ log.message[:100] }}</span>
+
+        <div class="agente-cifra-bloque">
+          <div class="agente-cifra" id="re-oportunidades">—</div>
+          <div class="agente-cifra-eti">Oportunidades comerciales</div>
+        </div>
+
+        <div class="agente-subs">
+          <div class="ag-sub">
+            <div class="ag-sub-val af-rojo" id="re-rebotes">—</div>
+            <div class="ag-sub-eti">Rebotes</div>
           </div>
-          {% else %}
-          <div class="log-row">
-            <span class="log-m" style="color:rgba(255,255,255,.18);">Esperando actividad...</span>
+          <div class="ag-sub">
+            <div class="ag-sub-val af-violeta" id="re-paso1">—</div>
+            <div class="ag-sub-eti">Presentados</div>
           </div>
-          {% endfor %}
+          <div class="ag-sub">
+            <div class="ag-sub-val af-txt3" id="re-paso2">—</div>
+            <div class="ag-sub-eti">En propuesta</div>
+          </div>
+        </div>
+
+        <div class="agente-lista" id="re-buzones">
+          <!-- Renderizado por JS -->
+          <div class="ag-fila">
+            <span class="ag-fila-nom" style="color:var(--txt4);font-style:italic;">Escaneando buzones de entrada...</span>
+          </div>
+        </div>
+
+        <div class="agente-pie">
+          <span class="agente-pie-lbl">Último buzón escaneado</span>
+          <span class="agente-pie-val" id="re-ultimo-buzon">—</span>
         </div>
       </div>
 
-    </div><!-- /mc-sidebar -->
-  </div><!-- /mc-body -->
-</div><!-- /mc-root -->
+    </div><!-- /agentes-grid -->
+
+    <!-- ── FILA INFERIOR: Tipo de Cambio · Sistema · Oportunidades ─── -->
+    <div class="co-fila-inf">
+
+      <!-- Tipo de Cambio Vigente -->
+      <div class="tarjeta t-azul">
+        <div class="t-eti"><span class="linea"></span>Tipo de Cambio Vigente</div>
+        <div class="tc-par">
+          <div class="tc-fila tc-compra">
+            <div class="tc-clave">Compramos a</div>
+            <div class="tc-valor" id="tc-compra">—</div>
+          </div>
+          <div class="tc-fila tc-venta">
+            <div class="tc-clave">Vendemos a</div>
+            <div class="tc-valor" id="tc-venta">—</div>
+          </div>
+        </div>
+        <div class="tc-frescura" id="tc-frescura" style="color:var(--txt4);">
+          <i class="bi bi-clock" style="font-size:.6rem;"></i>
+          <span id="tc-frescura-txt">Verificando vigencia...</span>
+        </div>
+        <div style="margin-top:7px;font-size:.54rem;color:var(--txt4);" id="tc-actualizado"></div>
+      </div>
+
+      <!-- Estado del Sistema Automatizado -->
+      <div class="tarjeta t-verde">
+        <div class="t-eti"><span class="linea"></span>Estado del Sistema</div>
+        <div class="sis-fila">
+          <div class="sis-icono inactivo" id="sis-icono">
+            <i class="bi bi-cpu" id="sis-icono-i"></i>
+          </div>
+          <div>
+            <div class="sis-estado-lbl inactivo" id="sis-estado">Desconectado</div>
+            <div class="sis-host" id="sis-host">—</div>
+          </div>
+        </div>
+        <div class="sis-ultima" id="sis-ultima">
+          Esperando respuesta del servidor automatizado...
+        </div>
+      </div>
+
+      <!-- Oportunidades de Negocio -->
+      <div class="tarjeta tarjeta-oport t-esmer">
+        <div class="t-eti" style="color:var(--esmer);opacity:.8;">
+          <span class="linea"></span>Oportunidades de Negocio · Pipeline Activo
+        </div>
+        <div class="cifra-oport" id="oport-cifra">0</div>
+        <div class="oport-eti">Clientes Interesados · Potencial de Ingresos</div>
+        <div class="oport-subs">
+          <div class="oport-sub">
+            <div class="oport-sub-val" id="oport-paso1">—</div>
+            <div class="oport-sub-eti">En presentación</div>
+          </div>
+          <div class="oport-sub">
+            <div class="oport-sub-val" id="oport-paso2">—</div>
+            <div class="oport-sub-eti">En propuesta TC</div>
+          </div>
+          <div class="oport-sub">
+            <div class="oport-sub-val" id="oport-nuevas">—</div>
+            <div class="oport-sub-eti">Empresas nuevas</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /co-fila-inf -->
+
+    <!-- ── BITÁCORA DE OPERACIONES 24/7 ──────────────────── -->
+    <div class="bitacora-panel">
+      <div class="bit-cab">
+        <div class="bit-titulo">
+          <div class="bit-icono-panel"><i class="bi bi-journal-text"></i></div>
+          <div>
+            <div class="bit-titulo-txt">Bitácora de Operaciones 24/7</div>
+            <div class="bit-titulo-sub">Registro automático · Actualización cada 30 segundos</div>
+          </div>
+        </div>
+        <div class="vivo-badge">
+          <div class="vivo-punto"></div>
+          En vivo
+        </div>
+      </div>
+      <div class="bit-cuerpo" id="bit-cuerpo">
+        <div class="entrada-bit">
+          <span class="bit-hora">--:--:--</span>
+          <span class="bit-agente">Sistema</span>
+          <span class="bit-sep">·</span>
+          <span class="bit-msj sistema">Iniciando registro de operaciones automatizadas...</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-/* Clock */
-function updateClock() {
-  const t = new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  document.getElementById('mc-clock').textContent = t;
-}
-setInterval(updateClock, 1000); updateClock();
+/* ═══════════════════════════════════════════════════════════════════════
+   CENTRO DE OPERACIONES · JavaScript
+   QoriCash — Automatización Comercial
+═══════════════════════════════════════════════════════════════════════ */
 
-/* Socket.IO — envuelto en try/catch para evitar que un fallo de CDN congele el script */
-let _mcSocket;
-try {
-  _mcSocket = io({ transports: ['polling','websocket'] });
-  _mcSocket.on('agent_status_update', updateNode);
-  _mcSocket.on('agent_log', appendLog);
-  _mcSocket.on('executive_kpis', updateKPIs);
-} catch(e) {
-  console.warn('[MC] Socket.IO no disponible:', e);
+const _URL_ESTADO = '{{ url_for("agentes.api_v1_status") }}';
+const _URL_BITAC  = '{{ url_for("agentes.api_prospeccion_runs") }}';
+
+/* ── Reloj ─────────────────────────────────────────────────────────── */
+(function reloj() {
+  const el = document.getElementById('co-reloj');
+  if (el) el.textContent = new Date().toLocaleTimeString('es-PE',
+    { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  setTimeout(reloj, 1000);
+})();
+
+/* ── Utilidades ────────────────────────────────────────────────────── */
+const _el  = id => document.getElementById(id);
+const _fmt = n  => n != null ? Number(n).toLocaleString('es-PE') : '—';
+
+function _animarCifra(el, hasta, dur = 700) {
+  if (!el || hasta == null) return;
+  const desde = parseInt(el.textContent.replace(/[^\d]/g, '')) || 0;
+  const t0    = performance.now();
+  (function paso(ahora) {
+    const p    = Math.min((ahora - t0) / dur, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    el.textContent = _fmt(Math.round(desde + (hasta - desde) * ease));
+    if (p < 1) requestAnimationFrame(paso);
+  })(t0);
 }
 
-/* Update node card */
-function updateNode(d) {
-  const node = document.getElementById('node-' + d.agent_id);
-  if (!node) return;
-  node.className = 'n8n-node status-' + d.status;
-  const dot = node.querySelector('.n8n-sdot');
-  if (dot) dot.className = 'n8n-sdot sdot-' + d.status;
-  const tv = node.querySelector('.tasks-val');  if (tv) tv.textContent = d.tasks_today || 0;
-  const pv = node.querySelector('.perf-val');   if (pv) pv.textContent = (d.performance || 0) + '%';
-  const lv = node.querySelector('.last-run-val');
-  if (lv && d.last_run_iso) {
-    const dt = new Date(d.last_run_iso);
-    lv.textContent = dt.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+/* ── Señal de estado (cabecera) ────────────────────────────────────── */
+function _actualizarSeñal(cls) {
+  const anillo = _el('señal-anillo');
+  const punto  = _el('señal-punto');
+  if (!anillo || !punto) return;
+  ['activo','pausado','inactivo'].forEach(c => { anillo.classList.remove(c); punto.classList.remove(c); });
+  anillo.classList.add(cls);
+  punto.classList.add(cls);
+}
+
+/* ── Pill sistema ──────────────────────────────────────────────────── */
+function _actualizarPill(conectado) {
+  const pill = _el('co-pill');
+  const txt  = _el('co-pill-txt');
+  if (!pill) return;
+  pill.className = `co-pill ${conectado ? 'activo' : 'inactivo'}`;
+  if (txt) txt.textContent = conectado ? 'Sistema Activo' : 'Sin Conexión';
+}
+
+/* ── Faro de Estado ────────────────────────────────────────────────── */
+const _FARO = {
+  Enviando:    { txt:'Enviando Propuestas Comerciales · Presentando tipo de cambio QoriCash',      det:'El Cartero distribuye propuestas de tipo de cambio a empresas seleccionadas',              icono:'bi-send',           cls:'activo'  },
+  Simulando:   { txt:'Simulando Pausas Humanas · Comportamiento natural entre envíos',             det:'El sistema introduce tiempos de espera para evitar patrones automatizados detectables',   icono:'bi-hourglass-split', cls:'pausado' },
+  Reposo:      { txt:'En Reposo Seguro · Fuera de ventana de operación comercial',                 det:'Los agentes están en pausa programada. Se reanudarán automáticamente según calendario',   icono:'bi-moon-stars',      cls:'inactivo'},
+  Desconectado:{ txt:'Sistema Desconectado · Sin señal del servidor automatizado',                 det:'No se detecta actividad. Verificar conexión con la plataforma de operaciones',            icono:'bi-broadcast',       cls:'inactivo'},
+};
+
+function _actualizarFaro(estadoEnvio, online) {
+  const clave = !online ? 'Desconectado'
+              : estadoEnvio === 'sending' ? 'Enviando'
+              : estadoEnvio === 'paused'  ? 'Simulando'
+              : 'Reposo';
+  const cfg = _FARO[clave];
+  const fi  = _el('faro-icono');
+  const fii = _el('faro-icono-i');
+  const fa  = _el('faro-accion');
+  const fd  = _el('faro-detalle');
+  if (fi)  fi.className  = `faro-icono ${cfg.cls}`;
+  if (fii) fii.className = `bi ${cfg.icono}`;
+  if (fa)  fa.textContent  = cfg.txt;
+  if (fd)  fd.textContent  = cfg.det + ' · Actualización cada 30 segundos';
+  _actualizarSeñal(cfg.cls);
+  return cfg.cls;
+}
+
+/* ── Badges de agente ──────────────────────────────────────────────── */
+function _setBadge(id, txtId, cls, lbl) {
+  const b = _el(id);
+  const t = _el(txtId);
+  if (b) b.className = `agente-badge ${cls}`;
+  if (t) t.textContent = lbl;
+}
+
+function _setAvatar(id, cls) {
+  const av = _el(id);
+  if (!av) return;
+  ['activo','pausado','inactivo'].forEach(c => av.classList.remove(c));
+  av.classList.add(cls);
+}
+
+/* ── Tipo de Cambio ────────────────────────────────────────────────── */
+function _actualizarTC(tc) {
+  const c  = _el('tc-compra');
+  const v  = _el('tc-venta');
+  const ft = _el('tc-frescura');
+  const fx = _el('tc-frescura-txt');
+  const ax = _el('tc-actualizado');
+  if (c)  c.textContent = tc.compra ? `S/ ${tc.compra}` : '—';
+  if (v)  v.textContent = tc.venta  ? `S/ ${tc.venta}`  : '—';
+  if (ft) ft.style.color = tc.fresco ? 'var(--verde)' : 'var(--ambar)';
+  if (fx) fx.textContent = tc.fresco
+    ? `Vigente${tc.age_min != null ? ' · actualizado hace ' + tc.age_min + ' min' : ''}`
+    : `Vencido${tc.age_min != null ? ' · hace ' + tc.age_min + ' min' : ''}`;
+  if (ax && tc.updated_at)
+    ax.textContent = 'Registrado: ' + String(tc.updated_at).substring(0, 16).replace('T', ' ');
+}
+
+/* ── Tarjeta Sistema ───────────────────────────────────────────────── */
+function _actualizarSistema(online, ultimaActividad) {
+  const icono  = _el('sis-icono');
+  const iconoI = _el('sis-icono-i');
+  const estado = _el('sis-estado');
+  const hostEl = _el('sis-host');
+  const ultEl  = _el('sis-ultima');
+  if (icono)  icono.className  = `sis-icono ${online ? 'activo' : 'inactivo'}`;
+  if (iconoI) iconoI.className = `bi ${online ? 'bi-cpu-fill' : 'bi-cpu'}`;
+  if (estado) { estado.className = `sis-estado-lbl ${online ? 'activo' : 'inactivo'}`; estado.textContent = online ? 'Sistema Operativo' : 'Sistema Desconectado'; }
+  if (hostEl)  hostEl.textContent = 'Servidor automatizado QoriCash';
+  if (ultEl && ultimaActividad) {
+    try {
+      const d = new Date(ultimaActividad);
+      const h = d.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+      const f = d.toLocaleDateString('es-PE', {weekday:'short', day:'2-digit', month:'short'});
+      ultEl.textContent = `Última operación registrada: ${f} a las ${h}`;
+    } catch(_) { ultEl.textContent = `Última actividad: ${ultimaActividad}`; }
   }
 }
 
-/* Append log line */
-function appendLog(d) {
-  const body = document.getElementById('console-body');
-  if (!body) return;
-  const row = document.createElement('div');
-  row.className = 'log-row';
-  row.innerHTML =
-    `<span class="log-t">${d.time||''}</span>` +
-    `<span class="log-a">${d.agent_id||''}</span>` +
-    `<span class="log-m ${d.level||'INFO'}">${(d.message||'').substring(0,100)}</span>`;
-  body.insertBefore(row, body.firstChild);
-  while (body.children.length > 150) body.removeChild(body.lastChild);
+/* ── Bandejas del Cartero ──────────────────────────────────────────── */
+function _renderizarBandejas(bandejas) {
+  const el = _el('ca-bandejas');
+  if (!el || !Array.isArray(bandejas) || !bandejas.length) return;
+  el.innerHTML = bandejas.map(b => {
+    const nom    = (b.bandeja || b.email || '—').split('@')[0];
+    const pausada = b.is_pausada || b.pausada;
+    const cls    = pausada ? 'af-ambar' : 'af-verde';
+    return `<div class="ag-fila">
+      <span class="ag-fila-nom">${nom}@qoricash.pe</span>
+      <span class="ag-fila-val ${cls}">${_fmt(b.enviados_hoy || 0)} enviados${pausada ? ' · <span style="color:var(--ambar);">Pausa</span>' : ''}</span>
+    </div>`;
+  }).join('');
 }
 
-/* Update KPIs */
-function updateKPIs(k) {
-  const map = {
-    'kpi-prospectos': k.total_prospectos, 'kpi-clientes': k.clientes,
-    'kpi-rebotes': k.rebotes, 'kpi-conv': (k.tasa_conversion||0)+'%',
-    'kpi-emails': k.emails_sent_hoy, 'kpi-opps': k.oportunidades_semana,
-    'hdr-prospectos': k.total_prospectos, 'hdr-emails': k.emails_sent_hoy, 'hdr-opps': k.oportunidades_semana,
-  };
-  for (const [id, val] of Object.entries(map)) {
-    const el = document.getElementById(id);
-    if (el && val !== undefined) el.textContent = val;
-  }
+/* ── Sectores del Analizador ───────────────────────────────────────── */
+function _renderizarSectores(ms) {
+  const el = _el('an-sectores');
+  if (!el) return;
+  const datos = [
+    { nom: 'Alta Prioridad',    val: ms.prioridad_alta, cls: 'af-azul'   },
+    { nom: 'Clientes Activos',  val: ms.clientes,       cls: 'af-verde'  },
+    { nom: 'Sin Validar',       val: ms.sin_validar,    cls: 'af-ambar'  },
+    { nom: 'Rebotados',         val: ms.rebotados,      cls: 'af-rojo'   },
+  ];
+  el.innerHTML = datos.map(d =>
+    `<div class="ag-fila">
+      <span class="ag-fila-nom">${d.nom}</span>
+      <span class="ag-fila-val ${d.cls}">${_fmt(d.val)}</span>
+    </div>`
+  ).join('');
 }
 
-/* CSRF helper */
-function _csrf() {
-  const m = document.querySelector('meta[name="csrf-token"]');
-  return m ? m.getAttribute('content') : '';
+/* ── Buzones del Receptor ──────────────────────────────────────────── */
+function _renderizarBuzones(bandejas) {
+  const el = _el('re-buzones');
+  if (!el || !Array.isArray(bandejas) || !bandejas.length) return;
+  el.innerHTML = bandejas.map(b => {
+    const nom = (b.bandeja || b.email || '—').split('@')[0];
+    return `<div class="ag-fila">
+      <span class="ag-fila-nom">${nom}@qoricash.pe</span>
+      <span class="ag-fila-val af-violeta">${b.worker_online || b.activa ? 'Activa' : 'Inactiva'}</span>
+    </div>`;
+  }).join('');
 }
 
-/* Agent controls */
-async function triggerAgent(id, btn) {
-  btn.disabled = true;
-  const orig = btn.innerHTML;
-  btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+/* ══════════════════════════════════════════════════════════════════════
+   CARGA PRINCIPAL DE ESTADO
+══════════════════════════════════════════════════════════════════════ */
+async function cargarEstado() {
   try {
-    const resp = await fetch(`/agentes/api/trigger/${id}`, {
-      method: 'POST',
-      headers: { 'X-CSRFToken': _csrf() }
-    });
-    const d = await resp.json().catch(() => ({}));
-    if (resp.ok && d.ok) {
-      btn.innerHTML = '<i class="bi bi-check-lg"></i>';
-    } else {
-      btn.innerHTML = '<i class="bi bi-x-lg"></i>';
-      console.warn('[Trigger] error:', d.error || resp.status);
+    const r = await fetch(_URL_ESTADO);
+    if (!r.ok) return;
+    const d = await r.json();
+
+    const ms = d.master_sidebar || {};
+    const tr = d.tracks        || {};
+    const tg = tr.targets      || {};
+    const ib = tr.inbox        || {};
+    const ot = tr.outreach     || {};
+    const cv = tr.conversions  || {};
+
+    /* Timestamp del faro */
+    const faroTs = _el('faro-ts');
+    if (faroTs) faroTs.textContent = new Date().toLocaleTimeString('es-PE',
+      {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+
+    /* Banner simulación */
+    const banner = _el('banner-sim');
+    if (banner) banner.style.display = d.dry_run ? 'flex' : 'none';
+
+    /* Faro + Señal + Pill */
+    const claseFaro = _actualizarFaro(ot.status || 'idle', ot.worker_online);
+    _actualizarPill(ot.worker_online);
+
+    /* ── KPIs de cabecera ─────────────────────────────── */
+    // Prospectos contactados = total en base menos los que nunca se han tocado
+    const totalBase = ms.total || tg.total;
+    const contactados = totalBase && ms.sin_validar != null
+      ? totalBase - (ms.sin_validar || 0) : totalBase;
+    _animarCifra(_el('kpi-contactados'),  contactados,                           500);
+    _animarCifra(_el('kpi-enviados'),     ib.enviados,                           500);
+    _animarCifra(_el('kpi-rebotes'),      ms.rebotados || tg.rebotado_previo,    500);
+    _animarCifra(_el('kpi-respuestas'),   (ot.paso1 || 0) + (ot.paso2 || 0),    500);
+    _animarCifra(_el('kpi-oportunidades'),cv.interesado,                         500);
+
+    /* ── AGENTE 1: El Analizador ──────────────────────── */
+    _animarCifra(_el('an-total'),     ms.total  || tg.total);
+    _animarCifra(_el('an-validos'),   tg.valido);
+    _animarCifra(_el('an-pendientes'),ms.sin_validar);
+    _animarCifra(_el('an-prioridad'), ms.prioridad_alta);
+    _renderizarSectores(ms);
+    if (ms.last_sync) {
+      const el = _el('an-sync');
+      if (el) el.textContent = String(ms.last_sync).substring(0,16).replace('T',' ');
     }
-    setTimeout(() => { btn.disabled=false; btn.innerHTML=orig; }, 3000);
-  } catch(e) {
-    btn.innerHTML = '<i class="bi bi-x-lg"></i>';
-    console.error('[Trigger]', e);
-    setTimeout(() => { btn.disabled=false; btn.innerHTML=orig; }, 2000);
-  }
-}
-async function pauseAgent(id) {
-  try {
-    await fetch(`/agentes/api/pause/${id}`, {
-      method: 'POST',
-      headers: { 'X-CSRFToken': _csrf() }
-    });
-  } catch(e) { console.error('[Pause]', e); }
-  location.reload();
-}
-async function resumeAgent(id) {
-  try {
-    await fetch(`/agentes/api/resume/${id}`, {
-      method: 'POST',
-      headers: { 'X-CSRFToken': _csrf() }
-    });
-  } catch(e) { console.error('[Resume]', e); }
-  location.reload();
-}
-async function resetAgent(id, btn) {
-  const orig = btn.innerHTML;
-  try {
-    await fetch(`/agentes/api/reset/${id}`, {
-      method: 'POST',
-      headers: { 'X-CSRFToken': _csrf() }
-    });
-    btn.innerHTML = '<i class="bi bi-check-lg"></i>';
-  } catch(e) {
-    btn.innerHTML = '<i class="bi bi-x-lg"></i>';
-    console.error('[Reset]', e);
-  }
-  setTimeout(() => btn.innerHTML=orig, 2000);
+    // El Analizador está activo si hay datos recientes
+    const anActivo = ms.total > 0;
+    _setAvatar('av-analizador', anActivo ? 'activo' : 'inactivo');
+    _setBadge('badge-analizador', 'badge-analizador-txt',
+      anActivo ? 'badge-activo' : 'badge-reposo',
+      anActivo ? 'Base Cargada' : 'Sin datos');
+
+    /* ── AGENTE 2: El Cartero ─────────────────────────── */
+    _animarCifra(_el('ca-enviados'), ib.enviados);
+    _animarCifra(_el('ca-fallidos'), ib.fallidos);
+    _animarCifra(_el('ca-total'),    ib.total_hoy);
+    _animarCifra(_el('ca-listos'),   tg.ready_for_outreach || ms.ready);
+    _renderizarBandejas(ot.bandejas || []);
+    // Estado del Cartero
+    const estadoCartero = ot.status || 'idle';
+    const carteroOnline = ot.worker_online;
+    if (carteroOnline && estadoCartero === 'sending') {
+      _setAvatar('av-cartero', 'activo');
+      _setBadge('badge-cartero', 'badge-cartero-txt', 'badge-activo', 'Enviando...');
+    } else if (carteroOnline && estadoCartero === 'paused') {
+      _setAvatar('av-cartero', 'pausado');
+      _setBadge('badge-cartero', 'badge-cartero-txt', 'badge-pausado', 'Pausa Humana Activa');
+    } else if (carteroOnline) {
+      _setAvatar('av-cartero', 'pausado');
+      _setBadge('badge-cartero', 'badge-cartero-txt', 'badge-reposo', 'En Reposo');
+    } else {
+      _setAvatar('av-cartero', 'inactivo');
+      _setBadge('badge-cartero', 'badge-cartero-txt', 'badge-reposo', 'Fuera de Horario');
+    }
+    if (ot.last_activity) {
+      const el = _el('ca-ultima');
+      if (el) {
+        try {
+          const dd = new Date(ot.last_activity);
+          el.textContent = dd.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+        } catch(_) { el.textContent = ot.last_activity; }
+      }
+    }
+
+    /* ── AGENTE 3: El Receptor ────────────────────────── */
+    _animarCifra(_el('re-oportunidades'), cv.interesado);
+    _animarCifra(_el('re-rebotes'),       ms.rebotados || tg.rebotado_previo);
+    _animarCifra(_el('re-paso1'),         ot.paso1);
+    _animarCifra(_el('re-paso2'),         ot.paso2);
+    _renderizarBuzones(ot.bandejas || []);
+    // El receptor siempre está monitoreando si el sistema está online
+    const receptorActivo = carteroOnline;
+    _setAvatar('av-receptor', receptorActivo ? 'activo' : 'inactivo');
+    _setBadge('badge-receptor', 'badge-receptor-txt',
+      receptorActivo ? 'badge-activo' : 'badge-reposo',
+      receptorActivo ? 'Escaneando Buzones' : 'En espera');
+    // "Último buzón escaneado" — usamos bandejas[last] o last_activity
+    if (Array.isArray(ot.bandejas) && ot.bandejas.length) {
+      const el = _el('re-ultimo-buzon');
+      if (el) {
+        const last = ot.bandejas[ot.bandejas.length - 1];
+        el.textContent = ((last.bandeja || last.email || '—').split('@')[0]) + '@qoricash.pe';
+      }
+    }
+
+    /* ── Tarjeta Oportunidades ────────────────────────── */
+    _animarCifra(_el('oport-cifra'),  cv.interesado);
+    _animarCifra(_el('oport-paso1'),  ot.paso1);
+    _animarCifra(_el('oport-paso2'),  ot.paso2);
+    _animarCifra(_el('oport-nuevas'), ot.leads_nuevo);
+
+    /* ── Tipo de Cambio ───────────────────────────────── */
+    if (d.tc) _actualizarTC(d.tc);
+
+    /* ── Sistema ──────────────────────────────────────── */
+    _actualizarSistema(ot.worker_online, ot.last_activity);
+
+  } catch(e) { console.warn('[CO] Error al cargar estado:', e); }
 }
 
-/* Polling fallback every 15s */
-setInterval(async () => {
-  try { (await (await fetch('/agentes/api/status')).json()).forEach(updateNode); }
-  catch {}
-}, 15000);
+/* ══════════════════════════════════════════════════════════════════════
+   BITÁCORA DE OPERACIONES
+══════════════════════════════════════════════════════════════════════ */
+const _NOMBRE_AGENTE = {
+  scout:        'El Explorador',
+  research:     'El Investigador',
+  scoring:      'El Calificador',
+  outreach:     'El Cartero',
+  followup:     'El Seguidor',
+  response:     'El Receptor',
+  crm_bridge:   'El Integrador',
+  intelligence: 'El Analizador',
+  orchestrator: 'El Director',
+};
+
+const _MENSAJE_OP = {
+  ok: r => ({
+    scout:        `${r.records_out || 0} nuevas empresas identificadas y registradas en el sistema`,
+    research:     `Investigación completada para ${r.records_out || 0} empresas · perfiles actualizados`,
+    scoring:      `Calificación comercial actualizada para ${r.records_out || 0} prospectos`,
+    outreach:     `${r.records_out || 0} propuestas de tipo de cambio entregadas a empresas potenciales`,
+    followup:     `Seguimiento comercial realizado a ${r.records_out || 0} clientes en proceso`,
+    response:     `${r.records_out || 0} respuestas de clientes procesadas y clasificadas`,
+    crm_bridge:   `${r.records_out || 0} registros sincronizados con el sistema de gestión comercial`,
+    intelligence: `Análisis de inteligencia comercial completado · ${r.actions_taken || 0} acciones ejecutadas`,
+    orchestrator: `Ciclo de operaciones completado · ${r.records_out || 0} empresas gestionadas`,
+  })[r.agent] || `Operación completada · ${r.records_out || 0} registros procesados`,
+  error:   r => `Interrupción detectada durante la operación${r.error_msg ? ' — ' + r.error_msg : ' — revisar registros del sistema'}`,
+  partial: r => `Operación parcial · ${r.records_out || 0} de ${r.records_in || 0} empresas completadas`,
+  running: r => `Operación en curso · ${r.records_in || 0} empresas en proceso de gestión`,
+};
+
+const _vistos = new Set();
+
+async function cargarBitacora() {
+  try {
+    const r = await fetch(_URL_BITAC + '?limit=30');
+    if (!r.ok) return;
+    const ops = await r.json();
+    if (!Array.isArray(ops) || !ops.length) return;
+
+    const cuerpo = _el('bit-cuerpo');
+    if (!cuerpo) return;
+
+    const nuevas = ops.filter(op => {
+      const id = `${op.agent}:${op.started_at}`;
+      if (_vistos.has(id)) return false;
+      _vistos.add(id); return true;
+    });
+    if (!nuevas.length) return;
+
+    const bienvenida = cuerpo.querySelector('.bit-msj.sistema');
+    if (bienvenida) bienvenida.closest('.entrada-bit')?.remove();
+
+    const frag = document.createDocumentFragment();
+    nuevas.forEach(op => {
+      const ts    = op.started_at ? new Date(op.started_at) : null;
+      const hora  = ts
+        ? ts.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit', second:'2-digit'})
+        : '--:--:--';
+      const nombre = _NOMBRE_AGENTE[op.agent] || op.agent || 'Sistema';
+      const fmtFn  = _MENSAJE_OP[op.status] || (o => `Operación registrada · estado: ${o.status}`);
+      const msj    = fmtFn(op);
+      const cls    = { ok:'exito', error:'error', partial:'parcial', running:'proceso' }[op.status] || 'sistema';
+      const trig   = op.triggered_by && op.triggered_by !== 'schedule' ? ` [${op.triggered_by}]` : '';
+
+      const fila = document.createElement('div');
+      fila.className = 'entrada-bit';
+      fila.innerHTML =
+        `<span class="bit-hora">${hora}</span>` +
+        `<span class="bit-agente">${nombre}</span>` +
+        `<span class="bit-sep">·</span>` +
+        `<span class="bit-msj ${cls}">${msj}${trig}</span>`;
+      frag.appendChild(fila);
+    });
+
+    cuerpo.insertBefore(frag, cuerpo.firstChild);
+    while (cuerpo.children.length > 60) cuerpo.removeChild(cuerpo.lastChild);
+
+  } catch(e) { console.warn('[CO] Error al cargar bitácora:', e); }
+}
+
+/* ── Arranque y ciclo de actualización ─────────────────────────────── */
+cargarEstado();
+cargarBitacora();
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) { cargarEstado(); cargarBitacora(); }
+});
+
+setInterval(cargarEstado,  30000);
+setInterval(cargarBitacora,30000);
 </script>
 {% endblock %}

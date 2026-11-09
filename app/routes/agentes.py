@@ -57,15 +57,9 @@ def _require_agent_access(f):
 @login_required
 @_require_agent_access
 def index():
-    from app.models.agent import AgentStatus, AgentAlert
-    from app.services.agents.executive import ExecutiveAgent
-    agents   = AgentStatus.query.all()
-    alerts_n = AgentAlert.query.filter_by(resolved=False).count()
-    kpis     = ExecutiveAgent.get_kpis()
-    running  = sum(1 for a in agents if a.status == 'running')
-    return render_template('agentes/index.html',
-                           agents=agents, alerts_n=alerts_n,
-                           kpis=kpis, running=running)
+    # No synchronous data-fetching on page load.
+    # All pipeline state is loaded client-side via /agentes/api/v1/status polling.
+    return render_template('agentes/index.html')
 
 
 @agentes_bp.route('/mission-control')
@@ -74,18 +68,17 @@ def index():
 def mission_control():
     from app.models.agent import AgentStatus, AgentLog, AgentAlert
     from app.services.agents.executive import ExecutiveAgent
-    from app.services.prospeccion_repo import get_prospeccion_kpis
 
     agents = AgentStatus.query.order_by(AgentStatus.id).all()
     recent_logs = (AgentLog.query.order_by(AgentLog.created_at.desc()).limit(50).all())
     alerts = AgentAlert.query.filter_by(resolved=False).order_by(AgentAlert.created_at.desc()).limit(10).all()
     kpis = ExecutiveAgent.get_kpis()
-    prospeccion_kpis = get_prospeccion_kpis()
+    # prospeccion_kpis removed from page-load — fetched async via /agentes/api/prospeccion/kpis
 
     return render_template('agentes/mission_control.html',
                            agents=agents, recent_logs=recent_logs,
                            alerts=alerts, kpis=kpis,
-                           prospeccion=prospeccion_kpis)
+                           prospeccion={})
 
 
 @agentes_bp.route('/dashboard')
@@ -321,6 +314,109 @@ def api_status():
     return jsonify([a.to_dict() for a in agents])
 
 
+@agentes_bp.route('/api/v1/status')
+@login_required
+@_require_agent_access
+def api_v1_status():
+    """
+    Lightweight consolidated endpoint for the pipeline status matrix.
+    Four live tracks — pure PostgreSQL, no external I/O, no Sheets calls.
+    """
+    from app.services.prospeccion_repo import (
+        get_master_stats, get_outreach_stats_today,
+        get_bandeja_estado, get_agent_guide_status,
+        get_worker_status, get_tc_status, get_runtime_config,
+    )
+    import datetime
+
+    master   = get_master_stats()
+    outreach = get_outreach_stats_today()
+    bandejas = get_bandeja_estado()
+    guide    = get_agent_guide_status()
+    worker   = get_worker_status()
+    tc       = get_tc_status()
+    config   = get_runtime_config()
+    dry_run  = config.get('dry_run', 'true').lower() in ('true', '1', 'yes')
+
+    # ── Track 1: Verified Targets ───────────────────────────────────────────
+    valido   = master.get('validos', 0) or 0
+    rebotado = master.get('rebotados', 0) or 0
+    total    = master.get('total', 0) or 0
+    ready    = master.get('ready_for_outreach', 0) or 0
+
+    # ── Track 2: Inbox Sweeps ───────────────────────────────────────────────
+    enviados     = outreach.get('enviados', 0) or 0
+    fallidos     = outreach.get('fallidos', 0) or 0
+
+    # ── Track 3: Live Outreach ──────────────────────────────────────────────
+    bandejas_list   = bandejas if isinstance(bandejas, list) else []
+    any_paused      = any(b.get('pausada') for b in bandejas_list)
+    worker_online   = worker.get('online', False)
+    outreach_status = ('paused' if any_paused else
+                       'sending' if worker_online else 'idle')
+
+    # ── Track 4: Conversions ────────────────────────────────────────────────
+    interesado = guide.get('leads_interesado', 0) or 0
+    paso1      = guide.get('leads_enviados_paso1', 0) or 0
+    paso2      = guide.get('leads_enviados_paso2', 0) or 0
+
+    sin_validar    = master.get('sin_validar', 0) or 0
+    prioridad_alta = master.get('prioridad_alta', 0) or 0
+    clientes       = master.get('clientes', 0) or 0
+
+    return jsonify({
+        'ts': datetime.datetime.utcnow().isoformat() + 'Z',
+        'disponible': master.get('disponible', False),
+        'dry_run': dry_run,
+        'tc': {
+            'compra':     tc.get('compra', ''),
+            'venta':      tc.get('venta', ''),
+            'fresco':     tc.get('fresco', False),
+            'age_min':    tc.get('age_min'),
+            'updated_at': tc.get('updated_at'),
+        },
+        'master_sidebar': {
+            'total':          total,
+            'ready':          ready,
+            'sin_validar':    sin_validar,
+            'rebotados':      rebotado,
+            'prioridad_alta': prioridad_alta,
+            'clientes':       clientes,
+            'last_sync':      master.get('last_full_sync'),
+        },
+        'tracks': {
+            'targets': {
+                'label':             'Objetivos Verificados',
+                'valido':            valido,
+                'rebotado_previo':   rebotado,
+                'total':             total,
+                'ready_for_outreach': ready,
+            },
+            'inbox': {
+                'label':     'Barridos de Bandeja',
+                'enviados':  enviados,
+                'fallidos':  fallidos,
+                'total_hoy': outreach.get('total', 0) or 0,
+            },
+            'outreach': {
+                'label':         'Actividad de Envío',
+                'status':        outreach_status,
+                'worker_online': worker_online,
+                'bandejas':      bandejas_list,
+                'paso1':         paso1,
+                'paso2':         paso2,
+                'leads_nuevo':   guide.get('leads_nuevo', 0) or 0,
+                'last_activity': guide.get('last_activity_timestamp'),
+            },
+            'conversions': {
+                'label':      'Conversiones Exitosas',
+                'interesado': interesado,
+                'total':      interesado,
+            },
+        },
+    })
+
+
 @agentes_bp.route('/api/logs')
 @login_required
 @_require_agent_access
@@ -412,6 +508,23 @@ def api_resolve_alert(alert_id):
     alert.resolved_at = now_peru()
     db.session.commit()
     return jsonify({'ok': True})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Blueprint versioned — GET /api/v1/agents/status
+# Isolated from financial/currency pipelines. Reads worker PostgreSQL only.
+# ─────────────────────────────────────────────────────────────────────────────
+
+agents_v1_bp = Blueprint('agents_v1', __name__, url_prefix='/api/v1/agents')
+
+
+@agents_v1_bp.route('/status')
+@login_required
+@_require_agent_access
+def api_v1_agent_guide_status():
+    """GET /api/v1/agents/status — Live counters for the Agentes de Guía view."""
+    from app.services.prospeccion_repo import get_agent_guide_status
+    return jsonify(get_agent_guide_status())
 
 
 @agentes_bp.route('/api/test-gmail', methods=['GET'])

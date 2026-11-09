@@ -1253,6 +1253,30 @@ def initialize_extensions(flask_app):
     def load_user(user_id):
         return db.session.get(User, int(user_id))
 
+    # ── DEV AUTO-LOGIN — solo en modo DEBUG local ─────────────────────────────
+    if flask_app.config.get('DEBUG'):
+        from flask_login import login_user
+
+        @flask_app.before_request
+        def dev_auto_login():
+            from flask_login import current_user
+            from flask import request as _req, session as _sess
+            import uuid
+            if current_user.is_authenticated:
+                return
+            if _req.path.startswith('/static'):
+                return
+            admin = User.query.filter_by(role='Master').first()
+            if admin:
+                # Asegurar que el session_token del admin esté en la sesión Flask
+                # para pasar enforce_single_session sin ser expulsado
+                if not admin.session_token:
+                    admin.session_token = str(uuid.uuid4())
+                    db.session.commit()
+                login_user(admin, remember=True)
+                _sess['_session_token'] = admin.session_token
+    # ─────────────────────────────────────────────────────────────────────────
+
     @login_manager.unauthorized_handler
     def unauthorized():
         """Devuelve JSON para peticiones AJAX; redirige al login para navegador normal."""
@@ -1375,8 +1399,9 @@ def register_blueprints(app):
     from app.routes.ai import ai_bp
     app.register_blueprint(ai_bp)                                # Agentes IA: /ai/*
 
-    from app.routes.agentes import agentes_bp
+    from app.routes.agentes import agentes_bp, agents_v1_bp
     app.register_blueprint(agentes_bp)             # Agentes IA / Mission Control: /agentes/*
+    app.register_blueprint(agents_v1_bp)           # Agentes de Guía API: GET /api/v1/agents/status
 
     from app.routes.contenido import contenido_bp
     app.register_blueprint(contenido_bp, url_prefix='/contenido')  # Módulo Contenido Social

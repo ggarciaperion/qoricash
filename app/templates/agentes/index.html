@@ -1,164 +1,634 @@
 {% extends "base.html" %}
-{% block title %}Agentes de IA — QoriCash{% endblock %}
+{% block title %}Agentes de Guía — QoriCash{% endblock %}
 
 {% block head %}
 <style>
-.ai-landing {
-  background: #f8fafc;
-  padding: 36px 40px 60px;
+/* ═══════════════════════════════════════════════════════════════════
+   AGENTES DE GUÍA — Premium Real-Time Pipeline Dashboard
+═══════════════════════════════════════════════════════════════════ */
+:root {
+  --ag-bg:       #f1f5f9;
+  --ag-surface:  #ffffff;
+  --ag-border:   rgba(0,0,0,.07);
+  --ag-text:     #0f172a;
+  --ag-muted:    #64748b;
+  --ag-green:    #16a34a;
+  --ag-green-lt: #f0fdf4;
+  --ag-blue:     #2563eb;
+  --ag-blue-lt:  #eff6ff;
+  --ag-amber:    #d97706;
+  --ag-amber-lt: #fffbeb;
+  --ag-red:      #dc2626;
+  --ag-red-lt:   #fef2f2;
+  --ag-radius:   16px;
+}
+
+@keyframes ag-pulse {
+  0%,100%{ box-shadow:0 0 0 0 rgba(22,163,74,.5) }
+  50%    { box-shadow:0 0 0 6px rgba(22,163,74,0) }
+}
+@keyframes spin { to{ transform:rotate(360deg) } }
+@keyframes count-up {
+  from{ opacity:0; transform:translateY(6px) }
+  to  { opacity:1; transform:none }
+}
+@keyframes shimmer {
+  0%  { background-position:-400px 0 }
+  100%{ background-position: 400px 0 }
+}
+@keyframes bar-fill {
+  from{ width:0 }
+  to  { width:var(--w) }
+}
+
+/* ── Page shell ─────────────────────────────────────────────────── */
+.ag-root {
+  background: var(--ag-bg);
   min-height: calc(100vh - 56px);
+  padding: 32px 36px 56px;
 }
-.ai-landing-title {
-  font-size: 1.4rem; font-weight: 900; color: #0D1B2A;
-  letter-spacing: -.02em; margin: 0 0 4px;
-}
-.ai-landing-sub {
-  font-size: .82rem; color: #64748b; margin: 0 0 36px;
+@media (max-width:768px){
+  .ag-root{ padding:20px 16px 40px }
 }
 
-/* Cards grid */
-.agents-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
+/* ── Page header ────────────────────────────────────────────────── */
+.ag-header {
+  display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:12px; margin-bottom:28px;
+}
+.ag-title {
+  font-size:1.35rem; font-weight:900; color:var(--ag-text);
+  letter-spacing:-.03em; margin:0;
+  display:flex; align-items:center; gap:10px;
+}
+.ag-pulse-dot {
+  width:9px; height:9px; border-radius:50%;
+  background:var(--ag-green); flex-shrink:0;
+  animation: ag-pulse 2s ease-in-out infinite;
+}
+.ag-subtitle { font-size:.78rem; color:var(--ag-muted); margin:2px 0 0; }
+
+.ag-header-right {
+  display:flex; align-items:center; gap:10px;
+}
+.ag-status-pill {
+  display:inline-flex; align-items:center; gap:6px;
+  font-size:.72rem; font-weight:600; letter-spacing:.03em;
+  padding:5px 12px; border-radius:20px; border:1px solid;
+}
+.ag-status-pill.online  { color:var(--ag-green); background:var(--ag-green-lt); border-color:#bbf7d0; }
+.ag-status-pill.offline { color:var(--ag-muted); background:#f8fafc; border-color:#e2e8f0; }
+.ag-status-pill.loading { color:var(--ag-muted); background:#f8fafc; border-color:#e2e8f0; }
+
+.ag-refresh-btn {
+  background:none; border:1px solid var(--ag-border); border-radius:8px;
+  padding:5px 10px; color:var(--ag-muted); font-size:.8rem; cursor:pointer;
+  display:flex; align-items:center; gap:5px; transition:all .18s;
+}
+.ag-refresh-btn:hover { background:rgba(0,0,0,.04); color:var(--ag-text); }
+.ag-refresh-btn.spinning .bi-arrow-clockwise { animation:spin .6s linear infinite; }
+
+/* ── Last-updated line ──────────────────────────────────────────── */
+.ag-updated {
+  font-size:.7rem; color:var(--ag-muted);
+  margin-bottom:22px; display:flex; align-items:center; gap:5px;
 }
 
-/* Card */
-.agent-card {
-  background: #fff;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 28px 28px 22px;
-  width: 280px;
-  text-decoration: none;
-  color: inherit;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  transition: border-color .18s, box-shadow .18s, transform .18s;
-  position: relative;
-  overflow: hidden;
-}
-.agent-card:hover {
-  border-color: #16a34a;
-  box-shadow: 0 8px 32px rgba(22,163,74,.12), 0 2px 8px rgba(0,0,0,.06);
-  transform: translateY(-3px);
-  text-decoration: none;
-  color: inherit;
-}
-.agent-card:hover .card-arrow { transform: translateX(4px); }
-
-/* Glow */
-.card-glow {
-  position: absolute; top: -50px; right: -50px;
-  width: 140px; height: 140px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(22,163,74,.07) 0%, transparent 70%);
-  opacity: 0; transition: opacity .25s; pointer-events: none;
-}
-.agent-card:hover .card-glow { opacity: 1; }
-
-/* Icon */
-.card-icon {
-  width: 52px; height: 52px; border-radius: 14px;
-  background: #f0fdf4; color: #16a34a;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.4rem;
+/* ── Track grid ─────────────────────────────────────────────────── */
+.ag-tracks {
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap:20px;
+  margin-bottom:36px;
 }
 
-/* Text */
-.card-name {
-  font-size: 1.05rem; font-weight: 800; color: #0D1B2A;
-  letter-spacing: -.01em; margin: 0;
+/* ── Track card ─────────────────────────────────────────────────── */
+.ag-card {
+  background:var(--ag-surface); border-radius:var(--ag-radius);
+  border:1.5px solid var(--ag-border);
+  padding:24px 24px 20px;
+  display:flex; flex-direction:column; gap:14px;
+  transition:box-shadow .2s, border-color .2s;
+  position:relative; overflow:hidden;
 }
-.card-desc {
-  font-size: .78rem; color: #64748b; line-height: 1.55; margin: 0;
-}
-
-/* Footer */
-.card-footer {
-  display: flex; align-items: center; justify-content: space-between;
-  padding-top: 14px; border-top: 1px solid #f1f5f9; margin-top: auto;
-}
-.card-tag {
-  font-size: .68rem; font-weight: 600; color: #16a34a;
-  background: #f0fdf4; border: 1px solid #bbf7d0;
-  border-radius: 20px; padding: 2px 10px;
-}
-.card-arrow {
-  color: #16a34a; font-size: 1rem;
-  transition: transform .18s;
+.ag-card:hover {
+  box-shadow:0 8px 28px rgba(0,0,0,.07);
+  border-color:rgba(0,0,0,.12);
 }
 
-@media (max-width: 640px) {
-  .ai-landing { padding: 20px 16px 40px; }
-  .agent-card { width: 100%; }
+/* stripe accent */
+.ag-card::before {
+  content:''; position:absolute; top:0; left:0; right:0;
+  height:3px; border-radius:var(--ag-radius) var(--ag-radius) 0 0;
+  background:var(--accent-color, #16a34a);
+}
+.ag-card.c-blue   { --accent-color: #2563eb; }
+.ag-card.c-green  { --accent-color: #16a34a; }
+.ag-card.c-amber  { --accent-color: #d97706; }
+.ag-card.c-purple { --accent-color: #7c3aed; }
+
+/* ── Card header ────────────────────────────────────────────────── */
+.ag-card-header { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+.ag-card-icon {
+  width:42px; height:42px; border-radius:12px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.1rem; flex-shrink:0;
+}
+.c-green  .ag-card-icon { background:var(--ag-green-lt); color:var(--ag-green); }
+.c-blue   .ag-card-icon { background:var(--ag-blue-lt);  color:var(--ag-blue);  }
+.c-amber  .ag-card-icon { background:var(--ag-amber-lt); color:var(--ag-amber); }
+.c-purple .ag-card-icon { background:#faf5ff; color:#7c3aed; }
+
+.ag-card-label {
+  font-size:.65rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:.12em; color:var(--ag-muted); margin:0 0 2px;
+}
+.ag-card-title {
+  font-size:.9rem; font-weight:800; color:var(--ag-text);
+  margin:0; letter-spacing:-.01em;
+}
+
+/* ── Primary number ─────────────────────────────────────────────── */
+.ag-number {
+  font-size:2.5rem; font-weight:900; color:var(--ag-text);
+  letter-spacing:-.04em; line-height:1; font-family:'Courier New',monospace;
+  animation: count-up .4s ease-out;
+}
+.ag-number-unit { font-size:.85rem; font-weight:600; color:var(--ag-muted); margin-left:4px; }
+
+/* ── Sub-stats row ──────────────────────────────────────────────── */
+.ag-stats { display:flex; gap:18px; flex-wrap:wrap; }
+.ag-stat  { display:flex; flex-direction:column; gap:1px; }
+.ag-stat-val {
+  font-size:.95rem; font-weight:800; color:var(--ag-text);
+  font-family:'Courier New',monospace;
+}
+.ag-stat-lbl { font-size:.62rem; color:var(--ag-muted); text-transform:uppercase; letter-spacing:.08em; }
+
+/* ── Progress bar ───────────────────────────────────────────────── */
+.ag-bar-wrap { background:#f1f5f9; border-radius:4px; height:5px; overflow:hidden; }
+.ag-bar-fill {
+  height:100%; border-radius:4px;
+  background:var(--accent-color, #16a34a);
+  animation: bar-fill .6s ease-out forwards;
+  transition: width .4s ease;
+}
+
+/* ── Status badge ───────────────────────────────────────────────── */
+.ag-badge {
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:.68rem; font-weight:700; border-radius:20px;
+  padding:3px 10px; border:1px solid;
+}
+.ag-badge.sending { color:var(--ag-green); background:var(--ag-green-lt); border-color:#bbf7d0; }
+.ag-badge.paused  { color:var(--ag-amber); background:var(--ag-amber-lt); border-color:#fcd34d; }
+.ag-badge.idle    { color:var(--ag-muted); background:#f8fafc;             border-color:#e2e8f0; }
+.ag-badge .dot {
+  width:5px; height:5px; border-radius:50%;
+  background:currentColor;
+}
+.ag-badge.sending .dot { animation: ag-pulse 1.5s ease-in-out infinite; }
+
+/* ── Bandeja micro-list ─────────────────────────────────────────── */
+.ag-bandejas { display:flex; flex-direction:column; gap:5px; }
+.ag-bandeja-row {
+  display:flex; align-items:center; justify-content:space-between;
+  font-size:.72rem;
+}
+.ag-bandeja-name { color:var(--ag-muted); font-weight:600; }
+.ag-bandeja-val  { color:var(--ag-text);  font-weight:700; font-family:'Courier New',monospace; }
+.ag-bandeja-paused { color:var(--ag-amber); }
+
+/* ── Skeleton ───────────────────────────────────────────────────── */
+.ag-skeleton {
+  background: linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);
+  background-size:400px 100%;
+  animation:shimmer 1.4s ease-in-out infinite;
+  border-radius:6px;
+}
+.sk-num  { height:3rem; width:120px; margin-bottom:8px; }
+.sk-line { height:.7rem; width:100%; margin:3px 0; }
+.sk-line.w60 { width:60%; }
+.sk-line.w40 { width:40%; }
+
+/* ── Nav cards (bottom) ─────────────────────────────────────────── */
+.ag-nav-grid {
+  display:flex; flex-wrap:wrap; gap:16px;
+}
+.ag-nav-card {
+  background:var(--ag-surface); border:1.5px solid var(--ag-border);
+  border-radius:14px; padding:20px 22px 18px;
+  width:240px; text-decoration:none; color:inherit;
+  display:flex; flex-direction:column; gap:10px;
+  transition:border-color .18s, box-shadow .18s, transform .18s;
+  position:relative; overflow:hidden;
+}
+.ag-nav-card:hover {
+  border-color:var(--ag-green); transform:translateY(-2px);
+  box-shadow:0 6px 24px rgba(22,163,74,.1);
+  text-decoration:none; color:inherit;
+}
+.ag-nav-card:hover .ag-nav-arrow { transform:translateX(3px); }
+.ag-nav-icon {
+  width:40px; height:40px; border-radius:10px;
+  background:var(--ag-green-lt); color:var(--ag-green);
+  display:flex; align-items:center; justify-content:center;
+  font-size:1rem;
+}
+.ag-nav-name { font-size:.9rem; font-weight:800; color:var(--ag-text); margin:0; }
+.ag-nav-desc { font-size:.72rem; color:var(--ag-muted); line-height:1.5; margin:0; }
+.ag-nav-footer {
+  display:flex; align-items:center; justify-content:space-between;
+  padding-top:10px; border-top:1px solid #f1f5f9; margin-top:auto;
+}
+.ag-nav-tag {
+  font-size:.65rem; font-weight:600; color:var(--ag-green);
+  background:var(--ag-green-lt); border:1px solid #bbf7d0;
+  border-radius:20px; padding:2px 9px;
+}
+.ag-nav-arrow { color:var(--ag-green); transition:transform .18s; }
+
+/* ── Section divider ────────────────────────────────────────────── */
+.ag-section-label {
+  font-size:.65rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:.12em; color:var(--ag-muted); margin:0 0 14px;
 }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="ai-landing">
+<div class="ag-root" id="ag-root">
 
-  <h1 class="ai-landing-title">
-    <i class="bi bi-robot me-2" style="color:#16a34a;"></i>Agentes de IA
-  </h1>
-  <p class="ai-landing-sub">Ecosistema de automatización autónoma — operando 24/7</p>
+  <!-- ── Page header ────────────────────────────────────────────── -->
+  <div class="ag-header">
+    <div>
+      <h1 class="ag-title">
+        <span class="ag-pulse-dot" id="ag-pulse-dot"></span>
+        Agentes de Guía
+      </h1>
+      <p class="ag-subtitle">Pipeline autónomo en tiempo real · QoriCash Prospección</p>
+    </div>
+    <div class="ag-header-right">
+      <span class="ag-status-pill loading" id="ag-worker-pill">
+        <i class="bi bi-circle"></i> <span id="ag-worker-label">Conectando…</span>
+      </span>
+      <button class="ag-refresh-btn" id="ag-refresh-btn" onclick="agRefresh()">
+        <i class="bi bi-arrow-clockwise"></i> Actualizar
+      </button>
+    </div>
+  </div>
 
-  <div class="agents-grid">
+  <p class="ag-updated" id="ag-updated">
+    <i class="bi bi-clock" style="font-size:.65rem;"></i>
+    <span id="ag-ts">Cargando estado del pipeline…</span>
+  </p>
 
-    <!-- Agentes de Prospección -->
-    <a href="{{ url_for('agentes.mission_control') }}" class="agent-card">
-      <div class="card-glow"></div>
-      <div class="card-icon">
-        <i class="bi bi-diagram-3-fill"></i>
-      </div>
-      <div>
-        <h3 class="card-name">Agentes de Prospección</h3>
-        <p class="card-desc">
-          Pipeline de 7 agentes autónomos: descubrimiento de leads, calidad de datos,
-          campañas de email, análisis de respuestas, seguimiento y supervisión 24/7.
-        </p>
-      </div>
-      <div class="card-footer">
-        <span class="card-tag">7 agentes activos</span>
-        <i class="bi bi-arrow-right card-arrow"></i>
-      </div>
-    </a>
+  <!-- ── 4-Track status matrix ──────────────────────────────────── -->
+  <p class="ag-section-label">Estado del pipeline · 4 dimensiones en vivo</p>
 
-    <!-- Agentes de Contabilidad -->
-    <a href="{{ url_for('agentes.contabilidad') }}" class="agent-card">
-      <div class="card-glow"></div>
-      <div class="card-icon" style="background:#eff6ff;color:#2563eb;">
-        <i class="bi bi-calculator-fill"></i>
-      </div>
-      <div>
-        <h3 class="card-name">Agentes de Contabilidad</h3>
-        <p class="card-desc">
-          Auditoría contable diaria autónoma: validación de asientos, partida doble,
-          conciliación bancaria, depreciación de activos y estado de resultados.
-        </p>
-      </div>
-      <div class="card-footer">
-        <span class="card-tag" style="background:#eff6ff;border-color:#bfdbfe;color:#2563eb;">Cron 23:00 Lima</span>
-        <i class="bi bi-arrow-right card-arrow"></i>
-      </div>
-    </a>
+  <div class="ag-tracks" id="ag-tracks">
 
-    <!-- Próximamente -->
-    <div class="agent-card" style="opacity:.4;cursor:default;pointer-events:none;">
-      <div class="card-icon" style="background:#f8fafc;color:#cbd5e1;">
-        <i class="bi bi-plus-circle-dotted"></i>
+    <!-- Track 1 — Verified Targets (skeleton) -->
+    <div class="ag-card c-green" id="track-targets">
+      <div class="ag-card-header">
+        <div>
+          <p class="ag-card-label">Track 1</p>
+          <h3 class="ag-card-title">Objetivos Verificados</h3>
+        </div>
+        <div class="ag-card-icon"><i class="bi bi-bullseye"></i></div>
       </div>
-      <div>
-        <h3 class="card-name" style="color:#94a3b8;">Próximamente</h3>
-        <p class="card-desc" style="color:#94a3b8;">Nuevos módulos de agentes autónomos en desarrollo.</p>
-      </div>
-      <div class="card-footer">
-        <span class="card-tag" style="background:#f8fafc;border-color:#e2e8f0;color:#94a3b8;">En desarrollo</span>
-        <i class="bi bi-arrow-right card-arrow" style="color:#cbd5e1;"></i>
+      <div id="t1-body">
+        <div class="ag-skeleton sk-num"></div>
+        <div class="ag-skeleton sk-line"></div>
+        <div class="ag-skeleton sk-line w60"></div>
       </div>
     </div>
 
+    <!-- Track 2 — Inbox Sweeps (skeleton) -->
+    <div class="ag-card c-blue" id="track-inbox">
+      <div class="ag-card-header">
+        <div>
+          <p class="ag-card-label">Track 2</p>
+          <h3 class="ag-card-title">Barridos de Bandeja</h3>
+        </div>
+        <div class="ag-card-icon"><i class="bi bi-envelope-check-fill"></i></div>
+      </div>
+      <div id="t2-body">
+        <div class="ag-skeleton sk-num"></div>
+        <div class="ag-skeleton sk-line w60"></div>
+        <div class="ag-skeleton sk-line w40"></div>
+      </div>
+    </div>
+
+    <!-- Track 3 — Live Outreach (skeleton) -->
+    <div class="ag-card c-amber" id="track-outreach">
+      <div class="ag-card-header">
+        <div>
+          <p class="ag-card-label">Track 3</p>
+          <h3 class="ag-card-title">Actividad de Envío</h3>
+        </div>
+        <div class="ag-card-icon"><i class="bi bi-send-fill"></i></div>
+      </div>
+      <div id="t3-body">
+        <div class="ag-skeleton sk-num"></div>
+        <div class="ag-skeleton sk-line"></div>
+        <div class="ag-skeleton sk-line w60"></div>
+      </div>
+    </div>
+
+    <!-- Track 4 — Conversions (skeleton) -->
+    <div class="ag-card c-purple" id="track-conv">
+      <div class="ag-card-header">
+        <div>
+          <p class="ag-card-label">Track 4</p>
+          <h3 class="ag-card-title">Conversiones Exitosas</h3>
+        </div>
+        <div class="ag-card-icon"><i class="bi bi-trophy-fill"></i></div>
+      </div>
+      <div id="t4-body">
+        <div class="ag-skeleton sk-num"></div>
+        <div class="ag-skeleton sk-line w60"></div>
+        <div class="ag-skeleton sk-line w40"></div>
+      </div>
+    </div>
+
+  </div><!-- /.ag-tracks -->
+
+  <!-- ── Navigation cards ───────────────────────────────────────── -->
+  <p class="ag-section-label" style="margin-top:8px;">Módulos del ecosistema</p>
+  <div class="ag-nav-grid">
+
+    <a href="{{ url_for('agentes.mission_control') }}" class="ag-nav-card">
+      <div class="ag-nav-icon"><i class="bi bi-diagram-3-fill"></i></div>
+      <div>
+        <h3 class="ag-nav-name">Mission Control</h3>
+        <p class="ag-nav-desc">Centro de comando — pipeline visual de 7 agentes autónomos.</p>
+      </div>
+      <div class="ag-nav-footer">
+        <span class="ag-nav-tag">7 agentes activos</span>
+        <i class="bi bi-arrow-right ag-nav-arrow"></i>
+      </div>
+    </a>
+
+    <a href="{{ url_for('agentes.contabilidad') }}" class="ag-nav-card">
+      <div class="ag-nav-icon" style="background:#eff6ff;color:#2563eb;"><i class="bi bi-calculator-fill"></i></div>
+      <div>
+        <h3 class="ag-nav-name">Agente Contabilidad</h3>
+        <p class="ag-nav-desc">Auditoría autónoma diaria: asientos, conciliación, resultados.</p>
+      </div>
+      <div class="ag-nav-footer">
+        <span class="ag-nav-tag" style="background:#eff6ff;border-color:#bfdbfe;color:#2563eb;">Cron 23:00 Lima</span>
+        <i class="bi bi-arrow-right ag-nav-arrow"></i>
+      </div>
+    </a>
+
+    <a href="{{ url_for('agentes.actividad') }}" class="ag-nav-card">
+      <div class="ag-nav-icon" style="background:#faf5ff;color:#7c3aed;"><i class="bi bi-activity"></i></div>
+      <div>
+        <h3 class="ag-nav-name">Consola de Actividad</h3>
+        <p class="ag-nav-desc">Logs en tiempo real de todos los agentes en ejecución.</p>
+      </div>
+      <div class="ag-nav-footer">
+        <span class="ag-nav-tag" style="background:#faf5ff;border-color:#ddd6fe;color:#7c3aed;">En vivo</span>
+        <i class="bi bi-arrow-right ag-nav-arrow"></i>
+      </div>
+    </a>
+
   </div>
-</div>
+
+</div><!-- /.ag-root -->
+
+<script>
+/* ── Agentes de Guía — Async status poller ─────────────────────────── */
+(function () {
+  'use strict';
+
+  const API_URL   = '{{ url_for("agentes.api_v1_status") }}';
+  const POLL_MS   = 20000; // 20-second polling interval
+  let   pollTimer = null;
+  let   firstLoad = true;
+
+  // ── Number formatter ──────────────────────────────────────────────
+  function fmt(n) {
+    if (n === null || n === undefined) return '—';
+    return Number(n).toLocaleString('es-PE');
+  }
+
+  // ── Relative time ─────────────────────────────────────────────────
+  function relTime(isoStr) {
+    if (!isoStr) return '—';
+    try {
+      const diff = Math.round((Date.now() - new Date(isoStr).getTime()) / 1000);
+      if (diff < 60)  return 'hace ' + diff + 's';
+      if (diff < 3600) return 'hace ' + Math.floor(diff / 60) + 'min';
+      return 'hace ' + Math.floor(diff / 3600) + 'h';
+    } catch(e) { return isoStr; }
+  }
+
+  // ── Render Track 1: Verified Targets ─────────────────────────────
+  function renderT1(t) {
+    const total  = t.total      || 0;
+    const valido = t.valido     || 0;
+    const rebota = t.rebotado_previo || 0;
+    const ready  = t.ready_for_outreach || 0;
+    const pct    = total ? Math.round(valido * 100 / total) : 0;
+
+    document.getElementById('t1-body').innerHTML = `
+      <div class="ag-number">${fmt(valido)}
+        <span class="ag-number-unit">válidos</span>
+      </div>
+      <div class="ag-bar-wrap">
+        <div class="ag-bar-fill" style="--w:${pct}%; width:${pct}%;"></div>
+      </div>
+      <div class="ag-stats">
+        <div class="ag-stat">
+          <span class="ag-stat-val">${fmt(total)}</span>
+          <span class="ag-stat-lbl">Total MASTER</span>
+        </div>
+        <div class="ag-stat">
+          <span class="ag-stat-val" style="color:#d97706;">${fmt(rebota)}</span>
+          <span class="ag-stat-lbl">REBOTADO_PREVIO</span>
+        </div>
+        <div class="ag-stat">
+          <span class="ag-stat-val" style="color:#16a34a;">${fmt(ready)}</span>
+          <span class="ag-stat-lbl">Listos para envío</span>
+        </div>
+      </div>`;
+  }
+
+  // ── Render Track 2: Inbox Sweeps ──────────────────────────────────
+  function renderT2(t) {
+    const total    = t.total_hoy  || 0;
+    const enviados = t.enviados   || 0;
+    const fallidos = t.fallidos   || 0;
+
+    document.getElementById('t2-body').innerHTML = `
+      <div class="ag-number">${fmt(total)}
+        <span class="ag-number-unit">procesados hoy</span>
+      </div>
+      <div class="ag-stats">
+        <div class="ag-stat">
+          <span class="ag-stat-val" style="color:#16a34a;">${fmt(enviados)}</span>
+          <span class="ag-stat-lbl">Intentos OK</span>
+        </div>
+        <div class="ag-stat">
+          <span class="ag-stat-val" style="color:#dc2626;">${fmt(fallidos)}</span>
+          <span class="ag-stat-lbl">Fallidos / Rebotes</span>
+        </div>
+      </div>`;
+  }
+
+  // ── Render Track 3: Live Outreach ────────────────────────────────
+  function renderT3(t) {
+    const status   = t.status     || 'idle';
+    const paso1    = t.paso1      || 0;
+    const paso2    = t.paso2      || 0;
+    const lastAct  = relTime(t.last_activity);
+
+    const badgeMap = {
+      sending: '<span class="ag-badge sending"><span class="dot"></span>Enviando</span>',
+      paused:  '<span class="ag-badge paused"><span class="dot"></span>Pausado</span>',
+      idle:    '<span class="ag-badge idle"><span class="dot"></span>En espera</span>',
+    };
+    const badge = badgeMap[status] || badgeMap.idle;
+
+    // bandeja micro-rows
+    let bandejaHTML = '';
+    if (t.bandejas && t.bandejas.length) {
+      bandejaHTML = '<div class="ag-bandejas">' +
+        t.bandejas.map(b => {
+          const cls = b.pausada ? 'ag-bandeja-paused' : '';
+          const icon = b.pausada ? '⏸' : '✉';
+          return `<div class="ag-bandeja-row">
+            <span class="ag-bandeja-name ${cls}">${icon} ${b.bandeja || b.name || '—'}</span>
+            <span class="ag-bandeja-val">${fmt(b.enviados_hoy ?? b.sent_today ?? '—')}</span>
+          </div>`;
+        }).join('') +
+        '</div>';
+    }
+
+    document.getElementById('t3-body').innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <div class="ag-number" style="font-size:1.9rem;">${fmt(paso1 + paso2)}</div>
+        ${badge}
+      </div>
+      <div class="ag-stats" style="margin-bottom:8px;">
+        <div class="ag-stat">
+          <span class="ag-stat-val">${fmt(paso1)}</span>
+          <span class="ag-stat-lbl">Paso 1 enviado</span>
+        </div>
+        <div class="ag-stat">
+          <span class="ag-stat-val">${fmt(paso2)}</span>
+          <span class="ag-stat-lbl">Paso 2 enviado</span>
+        </div>
+        <div class="ag-stat">
+          <span class="ag-stat-val" style="font-size:.8rem;color:#64748b;">${lastAct}</span>
+          <span class="ag-stat-lbl">Última actividad</span>
+        </div>
+      </div>
+      ${bandejaHTML}`;
+  }
+
+  // ── Render Track 4: Conversions ───────────────────────────────────
+  function renderT4(t) {
+    const total      = t.total      || 0;
+    const interesado = t.interesado || 0;
+
+    document.getElementById('t4-body').innerHTML = `
+      <div class="ag-number">${fmt(interesado)}
+        <span class="ag-number-unit">INTERESADO</span>
+      </div>
+      <div class="ag-stats">
+        <div class="ag-stat">
+          <span class="ag-stat-val" style="color:#16a34a;">${fmt(total)}</span>
+          <span class="ag-stat-lbl">Leads activos</span>
+        </div>
+      </div>
+      <div style="font-size:.7rem;color:#64748b;margin-top:4px;">
+        Leads con estado <strong>INTERESADO</strong> detectados por el Gatekeeper —
+        listos para seguimiento comercial.
+      </div>`;
+  }
+
+  // ── Render all tracks from API response ───────────────────────────
+  function render(data) {
+    if (!data || !data.tracks) return;
+    const tr = data.tracks;
+
+    renderT1(tr.targets    || {});
+    renderT2(tr.inbox      || {});
+    renderT3(tr.outreach   || {});
+    renderT4(tr.conversions|| {});
+
+    // Header pill
+    const online  = data.tracks.outreach && data.tracks.outreach.worker_online;
+    const pill    = document.getElementById('ag-worker-pill');
+    const lbl     = document.getElementById('ag-worker-label');
+    const dot     = document.getElementById('ag-pulse-dot');
+    if (online) {
+      pill.className  = 'ag-status-pill online';
+      lbl.textContent = 'Worker Online';
+      dot.style.background = '#16a34a';
+    } else {
+      pill.className  = 'ag-status-pill offline';
+      lbl.textContent = 'Worker Offline';
+      dot.style.background = '#94a3b8';
+    }
+
+    // Last-updated
+    const ts = data.ts ? new Date(data.ts).toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
+    document.getElementById('ag-ts').textContent = 'Actualizado: ' + ts;
+
+    firstLoad = false;
+  }
+
+  // ── Fetch ─────────────────────────────────────────────────────────
+  async function fetchStatus() {
+    const btn = document.getElementById('ag-refresh-btn');
+    btn.classList.add('spinning');
+    try {
+      const resp = await fetch(API_URL, { credentials: 'same-origin' });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      render(data);
+    } catch (err) {
+      console.warn('[AgentesGuia] fetch error:', err);
+      if (firstLoad) {
+        // Replace skeletons with error state
+        ['t1-body','t2-body','t3-body','t4-body'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.innerHTML = '<div style="font-size:.78rem;color:#dc2626;padding:8px 0;"><i class="bi bi-exclamation-circle me-1"></i>No disponible</div>';
+        });
+        document.getElementById('ag-ts').textContent = 'Error de conexión — reintentando…';
+      }
+    } finally {
+      btn.classList.remove('spinning');
+    }
+  }
+
+  // ── Poll ─────────────────────────────────────────────────────────
+  function startPolling() {
+    fetchStatus();
+    pollTimer = setInterval(fetchStatus, POLL_MS);
+  }
+
+  // ── Public refresh ────────────────────────────────────────────────
+  window.agRefresh = function () {
+    clearInterval(pollTimer);
+    startPolling();
+  };
+
+  // ── Pause poll when tab is hidden ────────────────────────────────
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      clearInterval(pollTimer);
+    } else {
+      startPolling();
+    }
+  });
+
+  // ── Boot ──────────────────────────────────────────────────────────
+  startPolling();
+})();
+</script>
 {% endblock %}
