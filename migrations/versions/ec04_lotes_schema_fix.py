@@ -70,10 +70,23 @@ def upgrade():
             ALTER TABLE ec_lotes ADD COLUMN lote_id TEXT;
         EXCEPTION WHEN duplicate_column THEN NULL; END $$
     """)
+    # Poblar lote_id solo si las columnas 'fecha' y 'slot_index' existen
+    # (schema original anterior a ec02 canónico). En una DB nueva o con ec02
+    # canónico aplicado, estas columnas no existen y el UPDATE se omite sin error.
     op.execute("""
-        UPDATE ec_lotes
-        SET lote_id = fecha::text || '-SLOT' || slot_index::text
-        WHERE lote_id IS NULL
+        DO $$ BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'ec_lotes' AND column_name = 'fecha'
+            ) AND EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'ec_lotes' AND column_name = 'slot_index'
+            ) THEN
+                UPDATE ec_lotes
+                SET lote_id = fecha::text || '-SLOT' || slot_index::text
+                WHERE lote_id IS NULL;
+            END IF;
+        END $$
     """)
     # Intentar UNIQUE — puede fallar si ya existe, ignorar
     op.execute("""
@@ -90,8 +103,13 @@ def upgrade():
         EXCEPTION WHEN duplicate_column THEN NULL; END $$
     """)
     op.execute("""
-        UPDATE ec_lotes SET fuente_sheet_id = fuente
-        WHERE fuente_sheet_id IS NULL AND fuente IS NOT NULL
+        DO $$ BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_name='ec_lotes' AND column_name='fuente') THEN
+                UPDATE ec_lotes SET fuente_sheet_id = fuente
+                WHERE fuente_sheet_id IS NULL AND fuente IS NOT NULL;
+            END IF;
+        END $$
     """)
 
     # fuente_tab — información no disponible en datos existentes
@@ -108,8 +126,13 @@ def upgrade():
         EXCEPTION WHEN duplicate_column THEN NULL; END $$
     """)
     op.execute("""
-        UPDATE ec_lotes SET fecha_creacion = creado_at
-        WHERE fecha_creacion IS NULL AND creado_at IS NOT NULL
+        DO $$ BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_name='ec_lotes' AND column_name='creado_at') THEN
+                UPDATE ec_lotes SET fecha_creacion = creado_at
+                WHERE fecha_creacion IS NULL AND creado_at IS NOT NULL;
+            END IF;
+        END $$
     """)
     op.execute("""
         UPDATE ec_lotes SET fecha_creacion = NOW()
@@ -137,8 +160,13 @@ def upgrade():
         EXCEPTION WHEN duplicate_column THEN NULL; END $$
     """)
     op.execute("""
-        UPDATE ec_lotes SET total_candidatos = total_items
-        WHERE total_candidatos = 0 AND total_items > 0
+        DO $$ BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_name='ec_lotes' AND column_name='total_items') THEN
+                UPDATE ec_lotes SET total_candidatos = total_items
+                WHERE total_candidatos = 0 AND total_items > 0;
+            END IF;
+        END $$
     """)
 
     # total_elegibles, total_excluidos
@@ -160,8 +188,13 @@ def upgrade():
         EXCEPTION WHEN duplicate_column THEN NULL; END $$
     """)
     op.execute("""
-        UPDATE ec_lotes SET total_enviados = items_aceptados
-        WHERE total_enviados = 0 AND items_aceptados > 0
+        DO $$ BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_name='ec_lotes' AND column_name='items_aceptados') THEN
+                UPDATE ec_lotes SET total_enviados = items_aceptados
+                WHERE total_enviados = 0 AND items_aceptados > 0;
+            END IF;
+        END $$
     """)
 
     # dry_run — puede que ya exista en schema original
@@ -208,8 +241,13 @@ def upgrade():
         EXCEPTION WHEN duplicate_column THEN NULL; END $$
     """)
     op.execute("""
-        UPDATE ec_lote_items SET bandeja_asignada = bandeja
-        WHERE bandeja_asignada IS NULL AND bandeja IS NOT NULL
+        DO $$ BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_name='ec_lote_items' AND column_name='bandeja') THEN
+                UPDATE ec_lote_items SET bandeja_asignada = bandeja
+                WHERE bandeja_asignada IS NULL AND bandeja IS NOT NULL;
+            END IF;
+        END $$
     """)
 
     # estado_validacion — copia de estado_email original
@@ -219,8 +257,13 @@ def upgrade():
         EXCEPTION WHEN duplicate_column THEN NULL; END $$
     """)
     op.execute("""
-        UPDATE ec_lote_items SET estado_validacion = estado_email
-        WHERE estado_validacion = 'sin_validar' AND estado_email IS NOT NULL
+        DO $$ BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_name='ec_lote_items' AND column_name='estado_email') THEN
+                UPDATE ec_lote_items SET estado_validacion = estado_email
+                WHERE estado_validacion = 'sin_validar' AND estado_email IS NOT NULL;
+            END IF;
+        END $$
     """)
     op.execute("""
         DO $$ BEGIN
@@ -292,8 +335,13 @@ def upgrade():
         EXCEPTION WHEN duplicate_column THEN NULL; END $$
     """)
     op.execute("""
-        UPDATE ec_lote_items SET fecha_seleccion = agregado_at
-        WHERE fecha_seleccion IS NULL AND agregado_at IS NOT NULL
+        DO $$ BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_name='ec_lote_items' AND column_name='agregado_at') THEN
+                UPDATE ec_lote_items SET fecha_seleccion = agregado_at
+                WHERE fecha_seleccion IS NULL AND agregado_at IS NOT NULL;
+            END IF;
+        END $$
     """)
     op.execute("""
         UPDATE ec_lote_items SET fecha_seleccion = NOW()
@@ -307,8 +355,13 @@ def upgrade():
         EXCEPTION WHEN duplicate_column THEN NULL; END $$
     """)
     op.execute("""
-        UPDATE ec_lote_items SET fecha_envio = enviado_at
-        WHERE fecha_envio IS NULL AND enviado_at IS NOT NULL
+        DO $$ BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_name='ec_lote_items' AND column_name='enviado_at') THEN
+                UPDATE ec_lote_items SET fecha_envio = enviado_at
+                WHERE fecha_envio IS NULL AND enviado_at IS NOT NULL;
+            END IF;
+        END $$
     """)
 
     # skip_reason
@@ -342,8 +395,13 @@ def upgrade():
         EXCEPTION WHEN duplicate_column THEN NULL; END $$
     """)
     op.execute("""
-        UPDATE ec_lote_items SET rebote_motivo = rebote_tipo
-        WHERE rebote_motivo IS NULL AND rebote_tipo IS NOT NULL
+        DO $$ BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_name='ec_lote_items' AND column_name='rebote_tipo') THEN
+                UPDATE ec_lote_items SET rebote_motivo = rebote_tipo
+                WHERE rebote_motivo IS NULL AND rebote_tipo IS NOT NULL;
+            END IF;
+        END $$
     """)
 
     # Migración de valores de estado_envio

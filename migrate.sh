@@ -4,6 +4,13 @@
 
 set -e
 
+# FLASK_CLI_ONLY suprime eventlet.monkey_patch(), los schedulers de expiración
+# y el scheduler de Estudio Creativo durante la migración.
+# Solo afecta a este proceso (preDeployCommand). gunicorn arranca en proceso
+# separado sin heredar esta variable, por lo que los schedulers funcionan
+# normalmente en producción.
+export FLASK_CLI_ONLY=true
+
 echo "=========================================="
 echo "   INICIANDO MIGRACIONES DE BASE DE DATOS"
 echo "=========================================="
@@ -397,6 +404,269 @@ flask db upgrade heads
 echo ""
 echo "✅ MIGRACIONES COMPLETADAS"
 echo "=========================================="
+
+# ── Patch directo: tablas del ecosistema worker ec01 ──────────────────────────
+# Alembic puede omitir ec01_worker_tables cuando su down_revision ya está aplicada
+# vía otra rama del grafo. Este patch idempotente garantiza que todas las tablas
+# de ec01 existan, independientemente del comportamiento de Alembic.
+echo "⚡ Garantizando tablas del ecosistema worker (ec01)..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando")
+    sys.exit(0)
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    sys.exit(0)
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS ec_prospectos (
+            id                  BIGSERIAL PRIMARY KEY,
+            sheet_row           INTEGER UNIQUE NOT NULL,
+            ruc                 VARCHAR(20),
+            email               TEXT,
+            razon_social        TEXT,
+            nombre_contacto     TEXT,
+            cargo               TEXT,
+            telefono            TEXT,
+            provincia           TEXT,
+            rubro               TEXT,
+            sector              TEXT,
+            estado_email        TEXT NOT NULL DEFAULT 'sin_validar',
+            estado_com          TEXT NOT NULL DEFAULT 'nuevo',
+            score               SMALLINT DEFAULT 0,
+            prioridad           TEXT DEFAULT 'BAJA',
+            fuente              TEXT,
+            fecha_ult_contacto  TEXT,
+            social_score        SMALLINT DEFAULT 0,
+            synced_at           TIMESTAMPTZ,
+            sheets_dirty        SMALLINT DEFAULT 0,
+            row_hash            TEXT
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_ec_prosp_email ON ec_prospectos(email)")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_ec_prosp_prio  ON ec_prospectos(prioridad, estado_email)")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_ec_prosp_dirty ON ec_prospectos(sheets_dirty) WHERE sheets_dirty = 1")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS outreach_attempt (
+            id               BIGSERIAL PRIMARY KEY,
+            idempotency_key  TEXT UNIQUE NOT NULL,
+            prospecto_id     BIGINT,
+            email            TEXT NOT NULL,
+            bandeja          TEXT,
+            stage            TEXT,
+            status           TEXT NOT NULL DEFAULT 'reserved'
+                             CHECK (status IN ('reserved','sent','failed','retryable','unknown')),
+            gmail_message_id TEXT,
+            reserved_at      TIMESTAMPTZ DEFAULT NOW(),
+            sent_at          TIMESTAMPTZ,
+            error_msg        TEXT,
+            agent_run_id     BIGINT
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_attempt_email  ON outreach_attempt(email, stage)")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_attempt_status ON outreach_attempt(status, reserved_at)")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS outreach_log (
+            id               BIGSERIAL PRIMARY KEY,
+            prospecto_id     BIGINT REFERENCES ec_prospectos(id) ON DELETE SET NULL,
+            email            TEXT NOT NULL,
+            bandeja          TEXT NOT NULL,
+            stage            TEXT NOT NULL,
+            template_sector  TEXT,
+            subject          TEXT,
+            gmail_message_id TEXT,
+            sent_at          TIMESTAMPTZ DEFAULT NOW(),
+            status           TEXT DEFAULT 'enviado',
+            skip_reason      TEXT,
+            tc_compra        TEXT,
+            tc_venta         TEXT,
+            agent_run_id     BIGINT
+        )
+    """)
+    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_outreach_gmail ON outreach_log(gmail_message_id) WHERE gmail_message_id IS NOT NULL")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_outreach_email ON outreach_log(email)")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_outreach_sent  ON outreach_log(sent_at)")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS response_log (
+            id                BIGSERIAL PRIMARY KEY,
+            email             TEXT,
+            bandeja_receptora TEXT,
+            gmail_msg_id      TEXT UNIQUE,
+            clasificacion     TEXT,
+            bounce_type       TEXT,
+            subject_original  TEXT,
+            snippet           TEXT,
+            recibido_at       TIMESTAMPTZ DEFAULT NOW(),
+            procesado         SMALLINT DEFAULT 0,
+            crm_conv_id       BIGINT,
+            agent_run_id      BIGINT
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_response_email     ON response_log(email)")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_response_procesado ON response_log(procesado) WHERE procesado = 0")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS suppression (
+            id           BIGSERIAL PRIMARY KEY,
+            tipo         TEXT NOT NULL CHECK (tipo IN ('email','dominio','telefono','ruc')),
+            valor        TEXT NOT NULL,
+            motivo       TEXT NOT NULL,
+            fuente       TEXT,
+            agregado_at  TIMESTAMPTZ DEFAULT NOW(),
+            agent_run_id BIGINT,
+            notas        TEXT,
+            UNIQUE (tipo, valor)
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS agent_runs (
+            id              BIGSERIAL PRIMARY KEY,
+            agent           TEXT NOT NULL,
+            execution_uuid  TEXT UNIQUE NOT NULL,
+            started_at      TIMESTAMPTZ DEFAULT NOW(),
+            finished_at     TIMESTAMPTZ,
+            status          TEXT DEFAULT 'running',
+            records_in      INTEGER DEFAULT 0,
+            records_out     INTEGER DEFAULT 0,
+            actions_taken   INTEGER DEFAULT 0,
+            actions_skipped INTEGER DEFAULT 0,
+            error_msg       TEXT,
+            summary_json    JSONB,
+            triggered_by    TEXT DEFAULT 'schedule'
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_agent_runs_agent  ON agent_runs(agent, started_at)")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_agent_runs_status ON agent_runs(status)")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS agent_heartbeat (
+            agent          TEXT PRIMARY KEY,
+            last_seen      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            status         TEXT NOT NULL DEFAULT 'offline',
+            current_run_id BIGINT,
+            pid            INTEGER,
+            hostname       TEXT,
+            dry_run        INTEGER DEFAULT NULL,
+            updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS prospect_locks (
+            prospecto_id BIGINT PRIMARY KEY,
+            locked_by    TEXT NOT NULL,
+            locked_at    TIMESTAMPTZ NOT NULL,
+            expires_at   TIMESTAMPTZ NOT NULL
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_locks_expires ON prospect_locks(expires_at)")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS prospect_state_log (
+            id              BIGSERIAL PRIMARY KEY,
+            prospecto_id    BIGINT REFERENCES ec_prospectos(id) ON DELETE CASCADE,
+            estado_anterior TEXT,
+            estado_nuevo    TEXT NOT NULL,
+            motivo          TEXT,
+            agente          TEXT,
+            agent_run_id    BIGINT,
+            created_at      TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_state_log ON prospect_state_log(prospecto_id, created_at)")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS lead_pipeline (
+            id                BIGSERIAL PRIMARY KEY,
+            email             TEXT NOT NULL,
+            prospecto_id      BIGINT REFERENCES ec_prospectos(id) ON DELETE SET NULL,
+            tipo              TEXT NOT NULL,
+            subject           TEXT,
+            bandeja_receptora TEXT,
+            gmail_msg_id      TEXT UNIQUE,
+            contexto_json     JSONB,
+            notificado        SMALLINT DEFAULT 0,
+            webhook_ok        SMALLINT DEFAULT 0,
+            notas             TEXT,
+            created_at        TIMESTAMPTZ DEFAULT NOW(),
+            updated_at        TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_lead_pipeline_email  ON lead_pipeline(email)")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_lead_pipeline_notif  ON lead_pipeline(notificado) WHERE notificado = 0")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS metrics (
+            id          BIGSERIAL PRIMARY KEY,
+            fecha       DATE NOT NULL,
+            metric_key  TEXT NOT NULL,
+            value_num   DOUBLE PRECISION,
+            value_text  TEXT,
+            dimension   TEXT DEFAULT '',
+            UNIQUE (fecha, metric_key, dimension)
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS bandeja_estado (
+            bandeja           TEXT PRIMARY KEY,
+            enviados_hoy      INTEGER DEFAULT 0,
+            bounce_count_24h  INTEGER DEFAULT 0,
+            total_24h         INTEGER DEFAULT 0,
+            pausada_hasta     TIMESTAMPTZ,
+            ultimo_update     TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    cur.execute("INSERT INTO bandeja_estado(bandeja) VALUES ('ggarcia'), ('gerencia'), ('info') ON CONFLICT (bandeja) DO NOTHING")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS alerts_log (
+            id           BIGSERIAL PRIMARY KEY,
+            level        TEXT NOT NULL CHECK (level IN ('CRITICAL','WARNING','INFO')),
+            component    TEXT NOT NULL,
+            message      TEXT NOT NULL,
+            detail       TEXT,
+            agent_run_id BIGINT,
+            created_at   TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_alerts_level ON alerts_log(level, created_at)")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS runtime_config (
+            key        TEXT PRIMARY KEY,
+            value      TEXT,
+            updated_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_by TEXT DEFAULT 'system'
+        )
+    """)
+    cur.execute("INSERT INTO runtime_config(key, value, updated_by) VALUES ('dry_run', 'true', 'migration') ON CONFLICT (key) DO NOTHING")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS sync_state (
+            key        TEXT PRIMARY KEY,
+            value      TEXT NOT NULL,
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+
+    conn.close()
+    print("   ✅ Tablas ec01 (worker ecosystem) confirmadas en PostgreSQL")
+except Exception as e:
+    print(f"   ⚠️  Error en patch tablas ec01: {e}")
+PYEOF
+echo ""
 
 # ── Patch directo: tablas del Centro de Inteligencia Comercial IA ─────────────
 echo "⚡ Garantizando tablas de Inteligencia Comercial IA..."

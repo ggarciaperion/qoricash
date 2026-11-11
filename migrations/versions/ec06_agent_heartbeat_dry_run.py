@@ -27,6 +27,18 @@ depends_on    = None
 
 
 def upgrade():
+    # Safety net: create agent_heartbeat if ec01 didn't run (e.g. graph topology edge case)
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS agent_heartbeat (
+            agent          TEXT PRIMARY KEY,
+            last_seen      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            status         TEXT NOT NULL DEFAULT 'offline',
+            current_run_id BIGINT,
+            pid            INTEGER,
+            hostname       TEXT,
+            updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
     op.execute("""
         ALTER TABLE agent_heartbeat
         ADD COLUMN IF NOT EXISTS dry_run INTEGER DEFAULT NULL
