@@ -574,6 +574,78 @@ def api_prospeccion_bandejas():
     return jsonify(get_bandeja_estado())
 
 
+@agentes_bp.route('/prospeccion/lote-dia')
+@login_required
+@_require_agent_access
+def prospeccion_lote_dia():
+    """Tabla de prospectos del lote — abre en pestaña nueva.
+    ?fecha=YYYY-MM-DD  — pre-selecciona esa fecha (default: hoy Lima).
+    """
+    from app.services.prospeccion_repo import _today_lima
+    fecha_default = request.args.get('fecha') or _today_lima()
+    return render_template('agentes/lote_dia.html', fecha_default=fecha_default)
+
+
+@agentes_bp.route('/api/prospeccion/pipeline-cards')
+@login_required
+@_require_agent_access
+def api_pipeline_cards():
+    """
+    Datos para las 5 tarjetas del panel de monitoreo.
+    Incluye estado del scheduler_lotes (proceso operativo acordado).
+    """
+    from app.services.prospeccion_repo import get_pipeline_card_stats, get_scheduler_status
+    stats     = get_pipeline_card_stats()
+    scheduler = get_scheduler_status()
+    stats['scheduler'] = scheduler
+    return jsonify(stats)
+
+
+@agentes_bp.route('/api/prospeccion/lotes')
+@login_required
+@_require_agent_access
+def api_prospeccion_lotes():
+    """
+    Lista de lotes para una fecha (YYYY-MM-DD, America/Lima).
+    ?fecha=2026-11-09   — por defecto: hoy (Lima)
+    """
+    from app.services.prospeccion_repo import get_lotes_disponibles, _today_lima
+    fecha = request.args.get('fecha') or _today_lima()
+    return jsonify({'fecha': fecha, 'lotes': get_lotes_disponibles(fecha)})
+
+
+@agentes_bp.route('/api/prospeccion/lote')
+@login_required
+@_require_agent_access
+def api_prospeccion_lote():
+    """
+    Items de un lote específico.
+    ?lote_id=123              — requerido
+    ?solo_seleccionados=1|0   — 1 (default): solo los asignados a bandeja; 0: todos
+    ?limit=N                  — máx 500 en modo seleccionados, 2000 en modo todos
+    """
+    from app.services.prospeccion_repo import get_lote_prospectos
+    lote_id = request.args.get('lote_id', type=str)
+    if not lote_id:
+        return jsonify({'error': 'Parámetro lote_id requerido'}), 400
+    solo = request.args.get('solo_seleccionados', '1') != '0'
+    max_limit = 500 if solo else 2000
+    limit = min(int(request.args.get('limit', max_limit)), max_limit)
+    return jsonify(get_lote_prospectos(lote_id, limit, solo_seleccionados=solo))
+
+
+@agentes_bp.route('/api/prospeccion/motor-status')
+@login_required
+@_require_agent_access
+def api_motor_status():
+    """
+    Estado del motor local Mac (heartbeat + última sync de lote).
+    Usa exclusivamente agent='motor_local' — nunca el worker Render.
+    """
+    from app.services.sync_repo import get_motor_local_status
+    return jsonify(get_motor_local_status())
+
+
 @agentes_bp.route('/api/status')
 @login_required
 @_require_agent_access

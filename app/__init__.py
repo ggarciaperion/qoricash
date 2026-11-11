@@ -1218,6 +1218,32 @@ def initialize_extensions(flask_app):
     def load_user(user_id):
         return db.session.get(User, int(user_id))
 
+    # ── DEV AUTO-LOGIN — solo en modo DEBUG local ─────────────────────────────
+    # Desactivar con DEV_AUTO_LOGIN=false en el entorno (ej. .env.sync_test)
+    import os as _os
+    if flask_app.config.get('DEBUG') and _os.environ.get('DEV_AUTO_LOGIN', 'true').lower() != 'false':
+        from flask_login import login_user
+
+        @flask_app.before_request
+        def dev_auto_login():
+            from flask_login import current_user
+            from flask import request as _req, session as _sess
+            import uuid
+            if current_user.is_authenticated:
+                return
+            if _req.path.startswith('/static'):
+                return
+            admin = User.query.filter_by(role='Master').first()
+            if admin:
+                # Asegurar que el session_token del admin esté en la sesión Flask
+                # para pasar enforce_single_session sin ser expulsado
+                if not admin.session_token:
+                    admin.session_token = str(uuid.uuid4())
+                    db.session.commit()
+                login_user(admin, remember=True)
+                _sess['_session_token'] = admin.session_token
+    # ─────────────────────────────────────────────────────────────────────────
+
     @login_manager.unauthorized_handler
     def unauthorized():
         """Devuelve JSON para peticiones AJAX; redirige al login para navegador normal."""
@@ -1254,8 +1280,25 @@ def initialize_extensions(flask_app):
             db.session.commit()
             return
 
+        # Si no hay token en la sesión Flask pero hay uno en DB, el remember_token
+        # reautenticó al usuario sin sesión Flask activa. No podemos verificar que
+        # esta sesión sigue siendo la autorizada → limpiar y pedir login.
+        if token_in_session is None:
+            logout_user()
+            flask_session.clear()
+            if request.is_json or request.headers.get('X-CSRFToken') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({
+                    'success': False,
+                    'session_expired': True,
+                    'message': 'Sesión expirada. Por favor inicia sesión nuevamente.',
+                }), 401
+            resp = redirect(url_for('auth.login'))
+            resp.delete_cookie('remember_token')
+            resp.delete_cookie(flask_app.config.get('REMEMBER_COOKIE_NAME', 'remember_token'))
+            return resp
+
         if token_in_session != token_in_db:
-            # Sesión invalidada por nuevo login en otro lugar
+            # Token presente pero diferente → login desde otro dispositivo → expulsar
             logout_user()
             flask_session.clear()
             if request.is_json or request.headers.get('X-CSRFToken') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -1264,7 +1307,11 @@ def initialize_extensions(flask_app):
                     'session_expired': True,
                     'message': 'Tu sesión fue cerrada porque iniciaste sesión en otro dispositivo.',
                 }), 401
-            return redirect(url_for('auth.login') + '?kicked=1')
+            # Eliminar remember_token explícitamente para cortar el bucle de redirección
+            resp = redirect(url_for('auth.login') + '?kicked=1')
+            resp.delete_cookie('remember_token')
+            resp.delete_cookie(flask_app.config.get('REMEMBER_COOKIE_NAME', 'remember_token'))
+            return resp
 
     # Importar eventos de Socket.IO
     with flask_app.app_context():
@@ -1342,6 +1389,9 @@ def register_blueprints(app):
 
     from app.routes.agentes import agentes_bp
     app.register_blueprint(agentes_bp)             # Agentes IA / Mission Control: /agentes/*
+
+    from app.routes.sync_api import sync_api_bp
+    app.register_blueprint(sync_api_bp)  # Receptor sync motor local: /api/sync/*
 
 # Service Worker debe servirse desde la raíz del dominio (scope /)
     import os

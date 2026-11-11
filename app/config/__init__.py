@@ -32,7 +32,8 @@ class Config:
     # Sesión de navegador: sin expiración por inactividad, muere al cerrar navegador/pestaña
     PERMANENT_SESSION_LIFETIME = timedelta(hours=12)
     SESSION_PERMANENT = False
-    SESSION_COOKIE_NAME = 'session'
+    SESSION_COOKIE_NAME = os.environ.get('SESSION_COOKIE_NAME', 'session')
+    REMEMBER_COOKIE_NAME = os.environ.get('REMEMBER_COOKIE_NAME', 'remember_token')
     SESSION_REFRESH_EACH_REQUEST = True
 
     # File Upload (Cloudinary)
