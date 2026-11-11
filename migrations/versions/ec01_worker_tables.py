@@ -41,7 +41,7 @@ DRY_RUN seeded as 'true' — requires explicit DB UPDATE to enable outreach.
 from alembic import op
 
 revision = 'ec01_worker_tables'
-down_revision = 'z9merge_all_heads'
+down_revision = 'e1s2t3u4d5i6'
 branch_labels = None
 depends_on = None
 
