@@ -150,7 +150,7 @@
 
             {% if current_user.role in ['Master', 'Presidente de Negocios'] %}
             <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('agentes') %}active{% endif %}"
-               href="{{ url_for('agentes.mission_control') }}">
+               href="{{ url_for('agentes.index') }}">
                 <i class="bi bi-cpu"></i>
                 <span class="sidebar-link-text">Agentes IA</span>
             </a>

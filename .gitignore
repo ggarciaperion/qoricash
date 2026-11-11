@@ -105,3 +105,12 @@ seed_local.py
 
 # Google Play service account key (credentials - never commit)
 android-service-account.json
+
+# Entornos de prueba local (contienen SYNC_SECRET y DATABASE_URL reales)
+.env.sync_test
+
+# Scripts de prueba dev — credenciales hardcodeadas, solo para T3 dev
+test_api.py
+scripts/apply_ec_sync_test.py
+scripts/seed_lote_test.py
+scripts/ec06_rebote_detectado_en.py

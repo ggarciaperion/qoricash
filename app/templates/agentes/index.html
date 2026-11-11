@@ -1,10 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Agentes de Guía — QoriCash{% endblock %}
+{% block title %}Agentes IA — QoriCash{% endblock %}
 
 {% block head %}
 <style>
 /* ═══════════════════════════════════════════════════════════════════
-   AGENTES DE GUÍA — Premium Real-Time Pipeline Dashboard
+   AGENTES IA — Pipeline Monitoring · 5 cards
+   QoriCash palette: #196BFE blue, white, dark text
 ═══════════════════════════════════════════════════════════════════ */
 :root {
   --ag-bg:       #f1f5f9;
@@ -12,20 +13,23 @@
   --ag-border:   rgba(0,0,0,.07);
   --ag-text:     #0f172a;
   --ag-muted:    #64748b;
+  --ag-blue:     #196BFE;
+  --ag-blue-lt:  #eff5ff;
+  --ag-blue-mid: #3b82f6;
   --ag-green:    #16a34a;
   --ag-green-lt: #f0fdf4;
-  --ag-blue:     #2563eb;
-  --ag-blue-lt:  #eff6ff;
   --ag-amber:    #d97706;
   --ag-amber-lt: #fffbeb;
   --ag-red:      #dc2626;
   --ag-red-lt:   #fef2f2;
+  --ag-purple:   #7c3aed;
+  --ag-purple-lt:#faf5ff;
   --ag-radius:   16px;
 }
 
 @keyframes ag-pulse {
-  0%,100%{ box-shadow:0 0 0 0 rgba(22,163,74,.5) }
-  50%    { box-shadow:0 0 0 6px rgba(22,163,74,0) }
+  0%,100%{ box-shadow:0 0 0 0 rgba(25,107,254,.45) }
+  50%    { box-shadow:0 0 0 6px rgba(25,107,254,0) }
 }
 @keyframes spin { to{ transform:rotate(360deg) } }
 @keyframes count-up {
@@ -35,10 +39,6 @@
 @keyframes shimmer {
   0%  { background-position:-400px 0 }
   100%{ background-position: 400px 0 }
-}
-@keyframes bar-fill {
-  from{ width:0 }
-  to  { width:var(--w) }
 }
 
 /* ── Page shell ─────────────────────────────────────────────────── */
@@ -54,7 +54,7 @@
 /* ── Page header ────────────────────────────────────────────────── */
 .ag-header {
   display:flex; align-items:center; justify-content:space-between;
-  flex-wrap:wrap; gap:12px; margin-bottom:28px;
+  flex-wrap:wrap; gap:12px; margin-bottom:10px;
 }
 .ag-title {
   font-size:1.35rem; font-weight:900; color:var(--ag-text);
@@ -63,22 +63,23 @@
 }
 .ag-pulse-dot {
   width:9px; height:9px; border-radius:50%;
-  background:var(--ag-green); flex-shrink:0;
-  animation: ag-pulse 2s ease-in-out infinite;
+  background:var(--ag-blue); flex-shrink:0;
 }
+.ag-pulse-dot.live { animation: ag-pulse 2s ease-in-out infinite; }
 .ag-subtitle { font-size:.78rem; color:var(--ag-muted); margin:2px 0 0; }
 
 .ag-header-right {
-  display:flex; align-items:center; gap:10px;
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
 }
 .ag-status-pill {
   display:inline-flex; align-items:center; gap:6px;
   font-size:.72rem; font-weight:600; letter-spacing:.03em;
   padding:5px 12px; border-radius:20px; border:1px solid;
 }
-.ag-status-pill.online  { color:var(--ag-green); background:var(--ag-green-lt); border-color:#bbf7d0; }
-.ag-status-pill.offline { color:var(--ag-muted); background:#f8fafc; border-color:#e2e8f0; }
-.ag-status-pill.loading { color:var(--ag-muted); background:#f8fafc; border-color:#e2e8f0; }
+.ag-status-pill.online  { color:var(--ag-blue);  background:var(--ag-blue-lt);  border-color:#bfdbfe; }
+.ag-status-pill.offline { color:var(--ag-muted); background:#f8fafc;             border-color:#e2e8f0; }
+.ag-status-pill.loading { color:var(--ag-muted); background:#f8fafc;             border-color:#e2e8f0; }
+.ag-status-pill.error   { color:var(--ag-red);   background:var(--ag-red-lt);   border-color:#fecaca; }
 
 .ag-refresh-btn {
   background:none; border:1px solid var(--ag-border); border-radius:8px;
@@ -88,26 +89,58 @@
 .ag-refresh-btn:hover { background:rgba(0,0,0,.04); color:var(--ag-text); }
 .ag-refresh-btn.spinning .bi-arrow-clockwise { animation:spin .6s linear infinite; }
 
-/* ── Last-updated line ──────────────────────────────────────────── */
+.ag-lote-btn {
+  display:inline-flex; align-items:center; gap:6px;
+  background:var(--ag-blue); color:#fff;
+  border:none; border-radius:8px;
+  padding:5px 14px; font-size:.78rem; font-weight:600; cursor:pointer;
+  text-decoration:none; transition:opacity .18s;
+}
+.ag-lote-btn:hover { opacity:.85; color:#fff; text-decoration:none; }
+
+/* ── Updated line ───────────────────────────────────────────────── */
 .ag-updated {
   font-size:.7rem; color:var(--ag-muted);
   margin-bottom:22px; display:flex; align-items:center; gap:5px;
 }
 
-/* ── Track grid ─────────────────────────────────────────────────── */
-.ag-tracks {
+/* ── Resumen compacto ───────────────────────────────────────────── */
+.ag-resumen {
+  display:flex; gap:0; background:var(--ag-surface);
+  border:1.5px solid var(--ag-border); border-radius:12px;
+  margin-bottom:28px; overflow:hidden;
+}
+.ag-resumen-item {
+  flex:1; padding:14px 20px; text-align:center;
+  border-right:1px solid var(--ag-border);
+}
+.ag-resumen-item:last-child { border-right:none; }
+.ag-resumen-num {
+  font-size:1.6rem; font-weight:900; font-family:'Courier New',monospace;
+  color:var(--ag-text); display:block;
+  animation: count-up .4s ease-out;
+}
+.ag-resumen-lbl { font-size:.62rem; color:var(--ag-muted); text-transform:uppercase; letter-spacing:.08em; }
+@media (max-width:600px){
+  .ag-resumen { flex-wrap:wrap; }
+  .ag-resumen-item { flex:0 0 50%; border-bottom:1px solid var(--ag-border); }
+  .ag-resumen-item:nth-child(even) { border-right:none; }
+}
+
+/* ── 5-card grid ─────────────────────────────────────────────────── */
+.ag-cards {
   display:grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap:20px;
   margin-bottom:36px;
 }
 
-/* ── Track card ─────────────────────────────────────────────────── */
+/* ── Card ───────────────────────────────────────────────────────── */
 .ag-card {
   background:var(--ag-surface); border-radius:var(--ag-radius);
   border:1.5px solid var(--ag-border);
   padding:24px 24px 20px;
-  display:flex; flex-direction:column; gap:14px;
+  display:flex; flex-direction:column; gap:12px;
   transition:box-shadow .2s, border-color .2s;
   position:relative; overflow:hidden;
 }
@@ -115,89 +148,63 @@
   box-shadow:0 8px 28px rgba(0,0,0,.07);
   border-color:rgba(0,0,0,.12);
 }
-
-/* stripe accent */
 .ag-card::before {
   content:''; position:absolute; top:0; left:0; right:0;
   height:3px; border-radius:var(--ag-radius) var(--ag-radius) 0 0;
-  background:var(--accent-color, #16a34a);
+  background:var(--accent-color, var(--ag-blue));
 }
-.ag-card.c-blue   { --accent-color: #2563eb; }
+.ag-card.c-blue   { --accent-color: var(--ag-blue); }
 .ag-card.c-green  { --accent-color: #16a34a; }
 .ag-card.c-amber  { --accent-color: #d97706; }
 .ag-card.c-purple { --accent-color: #7c3aed; }
+.ag-card.c-red    { --accent-color: #dc2626; }
 
 /* ── Card header ────────────────────────────────────────────────── */
 .ag-card-header { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
 .ag-card-icon {
-  width:42px; height:42px; border-radius:12px;
+  width:40px; height:40px; border-radius:11px;
   display:flex; align-items:center; justify-content:center;
-  font-size:1.1rem; flex-shrink:0;
+  font-size:1rem; flex-shrink:0;
 }
-.c-green  .ag-card-icon { background:var(--ag-green-lt); color:var(--ag-green); }
-.c-blue   .ag-card-icon { background:var(--ag-blue-lt);  color:var(--ag-blue);  }
-.c-amber  .ag-card-icon { background:var(--ag-amber-lt); color:var(--ag-amber); }
-.c-purple .ag-card-icon { background:#faf5ff; color:#7c3aed; }
+.c-blue   .ag-card-icon { background:var(--ag-blue-lt);   color:var(--ag-blue); }
+.c-green  .ag-card-icon { background:var(--ag-green-lt);  color:var(--ag-green); }
+.c-amber  .ag-card-icon { background:var(--ag-amber-lt);  color:var(--ag-amber); }
+.c-purple .ag-card-icon { background:var(--ag-purple-lt); color:var(--ag-purple); }
+.c-red    .ag-card-icon { background:var(--ag-red-lt);    color:var(--ag-red); }
 
 .ag-card-label {
-  font-size:.65rem; font-weight:700; text-transform:uppercase;
-  letter-spacing:.12em; color:var(--ag-muted); margin:0 0 2px;
+  font-size:.62rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:.12em; color:var(--ag-muted); margin:0 0 1px;
 }
 .ag-card-title {
-  font-size:.9rem; font-weight:800; color:var(--ag-text);
+  font-size:.88rem; font-weight:800; color:var(--ag-text);
   margin:0; letter-spacing:-.01em;
 }
 
 /* ── Primary number ─────────────────────────────────────────────── */
 .ag-number {
-  font-size:2.5rem; font-weight:900; color:var(--ag-text);
+  font-size:2.4rem; font-weight:900; color:var(--ag-text);
   letter-spacing:-.04em; line-height:1; font-family:'Courier New',monospace;
   animation: count-up .4s ease-out;
 }
-.ag-number-unit { font-size:.85rem; font-weight:600; color:var(--ag-muted); margin-left:4px; }
+.ag-number-unit { font-size:.82rem; font-weight:600; color:var(--ag-muted); margin-left:4px; vertical-align:middle; text-decoration:none !important; }
 
 /* ── Sub-stats row ──────────────────────────────────────────────── */
-.ag-stats { display:flex; gap:18px; flex-wrap:wrap; }
+.ag-stats { display:flex; gap:16px; flex-wrap:wrap; }
 .ag-stat  { display:flex; flex-direction:column; gap:1px; }
 .ag-stat-val {
-  font-size:.95rem; font-weight:800; color:var(--ag-text);
+  font-size:.9rem; font-weight:800; color:var(--ag-text);
   font-family:'Courier New',monospace;
 }
-.ag-stat-lbl { font-size:.62rem; color:var(--ag-muted); text-transform:uppercase; letter-spacing:.08em; }
+.ag-stat-lbl { font-size:.6rem; color:var(--ag-muted); text-transform:uppercase; letter-spacing:.06em; }
 
 /* ── Progress bar ───────────────────────────────────────────────── */
 .ag-bar-wrap { background:#f1f5f9; border-radius:4px; height:5px; overflow:hidden; }
 .ag-bar-fill {
   height:100%; border-radius:4px;
-  background:var(--accent-color, #16a34a);
-  animation: bar-fill .6s ease-out forwards;
+  background:var(--accent-color, var(--ag-blue));
   transition: width .4s ease;
 }
-
-/* ── Status badge ───────────────────────────────────────────────── */
-.ag-badge {
-  display:inline-flex; align-items:center; gap:5px;
-  font-size:.68rem; font-weight:700; border-radius:20px;
-  padding:3px 10px; border:1px solid;
-}
-.ag-badge.sending { color:var(--ag-green); background:var(--ag-green-lt); border-color:#bbf7d0; }
-.ag-badge.paused  { color:var(--ag-amber); background:var(--ag-amber-lt); border-color:#fcd34d; }
-.ag-badge.idle    { color:var(--ag-muted); background:#f8fafc;             border-color:#e2e8f0; }
-.ag-badge .dot {
-  width:5px; height:5px; border-radius:50%;
-  background:currentColor;
-}
-.ag-badge.sending .dot { animation: ag-pulse 1.5s ease-in-out infinite; }
-
-/* ── Bandeja micro-list ─────────────────────────────────────────── */
-.ag-bandejas { display:flex; flex-direction:column; gap:5px; }
-.ag-bandeja-row {
-  display:flex; align-items:center; justify-content:space-between;
-  font-size:.72rem;
-}
-.ag-bandeja-name { color:var(--ag-muted); font-weight:600; }
-.ag-bandeja-val  { color:var(--ag-text);  font-weight:700; font-family:'Courier New',monospace; }
-.ag-bandeja-paused { color:var(--ag-amber); }
 
 /* ── Skeleton ───────────────────────────────────────────────────── */
 .ag-skeleton {
@@ -206,15 +213,13 @@
   animation:shimmer 1.4s ease-in-out infinite;
   border-radius:6px;
 }
-.sk-num  { height:3rem; width:120px; margin-bottom:8px; }
-.sk-line { height:.7rem; width:100%; margin:3px 0; }
+.sk-num  { height:2.8rem; width:110px; margin-bottom:8px; }
+.sk-line { height:.65rem; width:100%; margin:3px 0; }
 .sk-line.w60 { width:60%; }
 .sk-line.w40 { width:40%; }
 
 /* ── Nav cards (bottom) ─────────────────────────────────────────── */
-.ag-nav-grid {
-  display:flex; flex-wrap:wrap; gap:16px;
-}
+.ag-nav-grid { display:flex; flex-wrap:wrap; gap:16px; }
 .ag-nav-card {
   background:var(--ag-surface); border:1.5px solid var(--ag-border);
   border-radius:14px; padding:20px 22px 18px;
@@ -224,16 +229,15 @@
   position:relative; overflow:hidden;
 }
 .ag-nav-card:hover {
-  border-color:var(--ag-green); transform:translateY(-2px);
-  box-shadow:0 6px 24px rgba(22,163,74,.1);
+  border-color:var(--ag-blue); transform:translateY(-2px);
+  box-shadow:0 6px 24px rgba(25,107,254,.12);
   text-decoration:none; color:inherit;
 }
 .ag-nav-card:hover .ag-nav-arrow { transform:translateX(3px); }
 .ag-nav-icon {
   width:40px; height:40px; border-radius:10px;
-  background:var(--ag-green-lt); color:var(--ag-green);
-  display:flex; align-items:center; justify-content:center;
-  font-size:1rem;
+  background:var(--ag-blue-lt); color:var(--ag-blue);
+  display:flex; align-items:center; justify-content:center; font-size:1rem;
 }
 .ag-nav-name { font-size:.9rem; font-weight:800; color:var(--ag-text); margin:0; }
 .ag-nav-desc { font-size:.72rem; color:var(--ag-muted); line-height:1.5; margin:0; }
@@ -242,16 +246,23 @@
   padding-top:10px; border-top:1px solid #f1f5f9; margin-top:auto;
 }
 .ag-nav-tag {
-  font-size:.65rem; font-weight:600; color:var(--ag-green);
-  background:var(--ag-green-lt); border:1px solid #bbf7d0;
+  font-size:.65rem; font-weight:600; color:var(--ag-blue);
+  background:var(--ag-blue-lt); border:1px solid #bfdbfe;
   border-radius:20px; padding:2px 9px;
 }
-.ag-nav-arrow { color:var(--ag-green); transition:transform .18s; }
+.ag-nav-arrow { color:var(--ag-blue); transition:transform .18s; }
 
 /* ── Section divider ────────────────────────────────────────────── */
 .ag-section-label {
   font-size:.65rem; font-weight:700; text-transform:uppercase;
   letter-spacing:.12em; color:var(--ag-muted); margin:0 0 14px;
+}
+
+/* ── Disclaimer note ────────────────────────────────────────────── */
+.ag-note {
+  font-size:.68rem; color:var(--ag-muted); background:#f8fafc;
+  border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px;
+  margin-top:4px;
 }
 </style>
 {% endblock %}
@@ -264,14 +275,22 @@
     <div>
       <h1 class="ag-title">
         <span class="ag-pulse-dot" id="ag-pulse-dot"></span>
-        Agentes de Guía
+        Agentes IA
       </h1>
-      <p class="ag-subtitle">Pipeline autónomo en tiempo real · QoriCash Prospección</p>
+      <p class="ag-subtitle">Monitor del pipeline de prospección · QoriCash Ecosistema</p>
     </div>
     <div class="ag-header-right">
       <span class="ag-status-pill loading" id="ag-worker-pill">
-        <i class="bi bi-circle"></i> <span id="ag-worker-label">Conectando…</span>
+        <i class="bi bi-circle"></i>
+        <span id="ag-worker-label">Conectando…</span>
       </span>
+      <span class="ag-status-pill loading" id="ag-motor-pill" title="Motor local Mac">
+        <i class="bi bi-laptop"></i>
+        <span id="ag-motor-label">Motor local…</span>
+      </span>
+      <a href="{{ url_for('agentes.prospeccion_lote_dia') }}" target="_blank" class="ag-lote-btn" id="ag-lote-btn">
+        <i class="bi bi-table"></i> Ver prospectos
+      </a>
       <button class="ag-refresh-btn" id="ag-refresh-btn" onclick="agRefresh()">
         <i class="bi bi-arrow-clockwise"></i> Actualizar
       </button>
@@ -283,89 +302,125 @@
     <span id="ag-ts">Cargando estado del pipeline…</span>
   </p>
 
-  <!-- ── 4-Track status matrix ──────────────────────────────────── -->
-  <p class="ag-section-label">Estado del pipeline · 4 dimensiones en vivo</p>
+  <!-- ── Resumen compacto ────────────────────────────────────────── -->
+  <div class="ag-resumen" id="ag-resumen">
+    <div class="ag-resumen-item">
+      <span class="ag-resumen-num" id="rsm-selec">—</span>
+      <span class="ag-resumen-lbl">Seleccionados</span>
+    </div>
+    <div class="ag-resumen-item">
+      <span class="ag-resumen-num" id="rsm-valid">—</span>
+      <span class="ag-resumen-lbl">Dominio/MX válido</span>
+    </div>
+    <div class="ag-resumen-item">
+      <span class="ag-resumen-num" id="rsm-acept">—</span>
+      <span class="ag-resumen-lbl">Aceptados (proveedor) hoy</span>
+    </div>
+    <div class="ag-resumen-item">
+      <span class="ag-resumen-num" id="rsm-rebote">—</span>
+      <span class="ag-resumen-lbl">Rebotes acum.</span>
+    </div>
+  </div>
 
-  <div class="ag-tracks" id="ag-tracks">
+  <!-- ── 5 Pipeline cards ────────────────────────────────────────── -->
+  <p class="ag-section-label">Estado del pipeline · 5 etapas</p>
 
-    <!-- Track 1 — Verified Targets (skeleton) -->
-    <div class="ag-card c-green" id="track-targets">
+  <div class="ag-cards" id="ag-cards">
+
+    <!-- Card 1 — Selección -->
+    <div class="ag-card c-blue" id="card-seleccion">
       <div class="ag-card-header">
         <div>
-          <p class="ag-card-label">Track 1</p>
-          <h3 class="ag-card-title">Objetivos Verificados</h3>
+          <p class="ag-card-label">Etapa 1</p>
+          <h3 class="ag-card-title">Selección</h3>
         </div>
-        <div class="ag-card-icon"><i class="bi bi-bullseye"></i></div>
+        <div class="ag-card-icon"><i class="bi bi-funnel-fill"></i></div>
       </div>
-      <div id="t1-body">
+      <div id="c1-body">
         <div class="ag-skeleton sk-num"></div>
         <div class="ag-skeleton sk-line"></div>
         <div class="ag-skeleton sk-line w60"></div>
       </div>
     </div>
 
-    <!-- Track 2 — Inbox Sweeps (skeleton) -->
-    <div class="ag-card c-blue" id="track-inbox">
+    <!-- Card 2 — Validación email -->
+    <div class="ag-card c-green" id="card-validacion">
       <div class="ag-card-header">
         <div>
-          <p class="ag-card-label">Track 2</p>
-          <h3 class="ag-card-title">Barridos de Bandeja</h3>
+          <p class="ag-card-label">Etapa 2</p>
+          <h3 class="ag-card-title">Validación email</h3>
         </div>
         <div class="ag-card-icon"><i class="bi bi-envelope-check-fill"></i></div>
       </div>
-      <div id="t2-body">
+      <div id="c2-body">
         <div class="ag-skeleton sk-num"></div>
         <div class="ag-skeleton sk-line w60"></div>
         <div class="ag-skeleton sk-line w40"></div>
       </div>
     </div>
 
-    <!-- Track 3 — Live Outreach (skeleton) -->
-    <div class="ag-card c-amber" id="track-outreach">
+    <!-- Card 3 — Asignación bandeja -->
+    <div class="ag-card c-amber" id="card-asignacion">
       <div class="ag-card-header">
         <div>
-          <p class="ag-card-label">Track 3</p>
-          <h3 class="ag-card-title">Actividad de Envío</h3>
+          <p class="ag-card-label">Etapa 3</p>
+          <h3 class="ag-card-title">Asignación bandeja</h3>
         </div>
-        <div class="ag-card-icon"><i class="bi bi-send-fill"></i></div>
+        <div class="ag-card-icon"><i class="bi bi-inbox-fill"></i></div>
       </div>
-      <div id="t3-body">
+      <div id="c3-body">
         <div class="ag-skeleton sk-num"></div>
         <div class="ag-skeleton sk-line"></div>
         <div class="ag-skeleton sk-line w60"></div>
       </div>
     </div>
 
-    <!-- Track 4 — Conversions (skeleton) -->
-    <div class="ag-card c-purple" id="track-conv">
+    <!-- Card 4 — Envíos (hoy) -->
+    <div class="ag-card c-purple" id="card-envios">
       <div class="ag-card-header">
         <div>
-          <p class="ag-card-label">Track 4</p>
-          <h3 class="ag-card-title">Conversiones Exitosas</h3>
+          <p class="ag-card-label">Etapa 4</p>
+          <h3 class="ag-card-title">Envíos de hoy</h3>
         </div>
-        <div class="ag-card-icon"><i class="bi bi-trophy-fill"></i></div>
+        <div class="ag-card-icon"><i class="bi bi-send-fill"></i></div>
       </div>
-      <div id="t4-body">
+      <div id="c4-body">
         <div class="ag-skeleton sk-num"></div>
         <div class="ag-skeleton sk-line w60"></div>
         <div class="ag-skeleton sk-line w40"></div>
       </div>
     </div>
 
-  </div><!-- /.ag-tracks -->
+    <!-- Card 5 — Rebotes -->
+    <div class="ag-card c-red" id="card-rebotes">
+      <div class="ag-card-header">
+        <div>
+          <p class="ag-card-label">Etapa 5</p>
+          <h3 class="ag-card-title">Rebotes</h3>
+        </div>
+        <div class="ag-card-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+      </div>
+      <div id="c5-body">
+        <div class="ag-skeleton sk-num"></div>
+        <div class="ag-skeleton sk-line w60"></div>
+        <div class="ag-skeleton sk-line w40"></div>
+      </div>
+    </div>
+
+  </div><!-- /.ag-cards -->
 
   <!-- ── Navigation cards ───────────────────────────────────────── -->
-  <p class="ag-section-label" style="margin-top:8px;">Módulos del ecosistema</p>
+  <p class="ag-section-label" style="margin-top:8px;">Otros módulos</p>
   <div class="ag-nav-grid">
 
     <a href="{{ url_for('agentes.mission_control') }}" class="ag-nav-card">
       <div class="ag-nav-icon"><i class="bi bi-diagram-3-fill"></i></div>
       <div>
         <h3 class="ag-nav-name">Mission Control</h3>
-        <p class="ag-nav-desc">Centro de comando — pipeline visual de 7 agentes autónomos.</p>
+        <p class="ag-nav-desc">Centro de comando — pipeline visual de agentes autónomos.</p>
       </div>
       <div class="ag-nav-footer">
-        <span class="ag-nav-tag">7 agentes activos</span>
+        <span class="ag-nav-tag">7 agentes</span>
         <i class="bi bi-arrow-right ag-nav-arrow"></i>
       </div>
     </a>
@@ -399,205 +454,345 @@
 </div><!-- /.ag-root -->
 
 <script>
-/* ── Agentes de Guía — Async status poller ─────────────────────────── */
+/* ── Agentes IA — 5-card pipeline poller ───────────────────────────── */
 (function () {
   'use strict';
 
-  const API_URL   = '{{ url_for("agentes.api_v1_status") }}';
-  const POLL_MS   = 20000; // 20-second polling interval
-  let   pollTimer = null;
-  let   firstLoad = true;
+  const API_URL        = '{{ url_for("agentes.api_pipeline_cards") }}';
+  const MOTOR_API_URL  = '{{ url_for("agentes.api_motor_status") }}';
+  const POLL_MS        = 20000;
+  const MOTOR_POLL_MS  = 30000;
+  let   pollTimer      = null;
+  let   motorTimer     = null;
+  let   firstLoad      = true;
 
-  // ── Number formatter ──────────────────────────────────────────────
   function fmt(n) {
     if (n === null || n === undefined) return '—';
     return Number(n).toLocaleString('es-PE');
   }
 
-  // ── Relative time ─────────────────────────────────────────────────
-  function relTime(isoStr) {
-    if (!isoStr) return '—';
-    try {
-      const diff = Math.round((Date.now() - new Date(isoStr).getTime()) / 1000);
-      if (diff < 60)  return 'hace ' + diff + 's';
-      if (diff < 3600) return 'hace ' + Math.floor(diff / 60) + 'min';
-      return 'hace ' + Math.floor(diff / 3600) + 'h';
-    } catch(e) { return isoStr; }
-  }
+  // ── Scheduler pill (scheduler_lotes — proceso operativo acordado) ──
+  function setWorkerPill(scheduler) {
+    const pill  = document.getElementById('ag-worker-pill');
+    const lbl   = document.getElementById('ag-worker-label');
+    const dot   = document.getElementById('ag-pulse-dot');
 
-  // ── Render Track 1: Verified Targets ─────────────────────────────
-  function renderT1(t) {
-    const total  = t.total      || 0;
-    const valido = t.valido     || 0;
-    const rebota = t.rebotado_previo || 0;
-    const ready  = t.ready_for_outreach || 0;
-    const pct    = total ? Math.round(valido * 100 / total) : 0;
-
-    document.getElementById('t1-body').innerHTML = `
-      <div class="ag-number">${fmt(valido)}
-        <span class="ag-number-unit">válidos</span>
-      </div>
-      <div class="ag-bar-wrap">
-        <div class="ag-bar-fill" style="--w:${pct}%; width:${pct}%;"></div>
-      </div>
-      <div class="ag-stats">
-        <div class="ag-stat">
-          <span class="ag-stat-val">${fmt(total)}</span>
-          <span class="ag-stat-lbl">Total MASTER</span>
-        </div>
-        <div class="ag-stat">
-          <span class="ag-stat-val" style="color:#d97706;">${fmt(rebota)}</span>
-          <span class="ag-stat-lbl">REBOTADO_PREVIO</span>
-        </div>
-        <div class="ag-stat">
-          <span class="ag-stat-val" style="color:#16a34a;">${fmt(ready)}</span>
-          <span class="ag-stat-lbl">Listos para envío</span>
-        </div>
-      </div>`;
-  }
-
-  // ── Render Track 2: Inbox Sweeps ──────────────────────────────────
-  function renderT2(t) {
-    const total    = t.total_hoy  || 0;
-    const enviados = t.enviados   || 0;
-    const fallidos = t.fallidos   || 0;
-
-    document.getElementById('t2-body').innerHTML = `
-      <div class="ag-number">${fmt(total)}
-        <span class="ag-number-unit">procesados hoy</span>
-      </div>
-      <div class="ag-stats">
-        <div class="ag-stat">
-          <span class="ag-stat-val" style="color:#16a34a;">${fmt(enviados)}</span>
-          <span class="ag-stat-lbl">Intentos OK</span>
-        </div>
-        <div class="ag-stat">
-          <span class="ag-stat-val" style="color:#dc2626;">${fmt(fallidos)}</span>
-          <span class="ag-stat-lbl">Fallidos / Rebotes</span>
-        </div>
-      </div>`;
-  }
-
-  // ── Render Track 3: Live Outreach ────────────────────────────────
-  function renderT3(t) {
-    const status   = t.status     || 'idle';
-    const paso1    = t.paso1      || 0;
-    const paso2    = t.paso2      || 0;
-    const lastAct  = relTime(t.last_activity);
-
-    const badgeMap = {
-      sending: '<span class="ag-badge sending"><span class="dot"></span>Enviando</span>',
-      paused:  '<span class="ag-badge paused"><span class="dot"></span>Pausado</span>',
-      idle:    '<span class="ag-badge idle"><span class="dot"></span>En espera</span>',
-    };
-    const badge = badgeMap[status] || badgeMap.idle;
-
-    // bandeja micro-rows
-    let bandejaHTML = '';
-    if (t.bandejas && t.bandejas.length) {
-      bandejaHTML = '<div class="ag-bandejas">' +
-        t.bandejas.map(b => {
-          const cls = b.pausada ? 'ag-bandeja-paused' : '';
-          const icon = b.pausada ? '⏸' : '✉';
-          return `<div class="ag-bandeja-row">
-            <span class="ag-bandeja-name ${cls}">${icon} ${b.bandeja || b.name || '—'}</span>
-            <span class="ag-bandeja-val">${fmt(b.enviados_hoy ?? b.sent_today ?? '—')}</span>
-          </div>`;
-        }).join('') +
-        '</div>';
-    }
-
-    document.getElementById('t3-body').innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-        <div class="ag-number" style="font-size:1.9rem;">${fmt(paso1 + paso2)}</div>
-        ${badge}
-      </div>
-      <div class="ag-stats" style="margin-bottom:8px;">
-        <div class="ag-stat">
-          <span class="ag-stat-val">${fmt(paso1)}</span>
-          <span class="ag-stat-lbl">Paso 1 enviado</span>
-        </div>
-        <div class="ag-stat">
-          <span class="ag-stat-val">${fmt(paso2)}</span>
-          <span class="ag-stat-lbl">Paso 2 enviado</span>
-        </div>
-        <div class="ag-stat">
-          <span class="ag-stat-val" style="font-size:.8rem;color:#64748b;">${lastAct}</span>
-          <span class="ag-stat-lbl">Última actividad</span>
-        </div>
-      </div>
-      ${bandejaHTML}`;
-  }
-
-  // ── Render Track 4: Conversions ───────────────────────────────────
-  function renderT4(t) {
-    const total      = t.total      || 0;
-    const interesado = t.interesado || 0;
-
-    document.getElementById('t4-body').innerHTML = `
-      <div class="ag-number">${fmt(interesado)}
-        <span class="ag-number-unit">INTERESADO</span>
-      </div>
-      <div class="ag-stats">
-        <div class="ag-stat">
-          <span class="ag-stat-val" style="color:#16a34a;">${fmt(total)}</span>
-          <span class="ag-stat-lbl">Leads activos</span>
-        </div>
-      </div>
-      <div style="font-size:.7rem;color:#64748b;margin-top:4px;">
-        Leads con estado <strong>INTERESADO</strong> detectados por el Gatekeeper —
-        listos para seguimiento comercial.
-      </div>`;
-  }
-
-  // ── Render all tracks from API response ───────────────────────────
-  function render(data) {
-    if (!data || !data.tracks) return;
-    const tr = data.tracks;
-
-    renderT1(tr.targets    || {});
-    renderT2(tr.inbox      || {});
-    renderT3(tr.outreach   || {});
-    renderT4(tr.conversions|| {});
-
-    // Header pill
-    const online  = data.tracks.outreach && data.tracks.outreach.worker_online;
-    const pill    = document.getElementById('ag-worker-pill');
-    const lbl     = document.getElementById('ag-worker-label');
-    const dot     = document.getElementById('ag-pulse-dot');
-    if (online) {
-      pill.className  = 'ag-status-pill online';
-      lbl.textContent = 'Worker Online';
-      dot.style.background = '#16a34a';
-    } else {
+    if (!scheduler || !scheduler.online) {
       pill.className  = 'ag-status-pill offline';
-      lbl.textContent = 'Worker Offline';
+      lbl.textContent = 'Scheduler · sin conexión';
+      dot.classList.remove('live');
       dot.style.background = '#94a3b8';
+    } else {
+      pill.className  = 'ag-status-pill online';
+      const status = scheduler.status || 'activo';
+      lbl.textContent = `Scheduler · ${status}`;
+      dot.classList.add('live');
+      dot.style.background = '#196BFE';
+    }
+  }
+
+  function setWorkerError() {
+    const pill = document.getElementById('ag-worker-pill');
+    const lbl  = document.getElementById('ag-worker-label');
+    const dot  = document.getElementById('ag-pulse-dot');
+    pill.className  = 'ag-status-pill error';
+    lbl.textContent = 'Scheduler · sin datos';
+    dot.classList.remove('live');
+    dot.style.background = '#dc2626';
+  }
+
+  // ── Motor local pill ──────────────────────────────────────────────
+  function setMotorPill(m) {
+    const pill = document.getElementById('ag-motor-pill');
+    const lbl  = document.getElementById('ag-motor-label');
+    if (!m || !m.disponible) {
+      pill.className  = 'ag-status-pill offline';
+      lbl.textContent = 'Motor local';
+      return;
+    }
+    if (!m.conectado) {
+      const mins = m.edad_min !== null && m.edad_min !== undefined ? ` · ${m.edad_min} min` : '';
+      pill.className  = 'ag-status-pill offline';
+      lbl.textContent = `Sin conexión${mins}`;
+    } else {
+      const mins = m.edad_min !== null && m.edad_min !== undefined ? ` · ${m.edad_min} min` : '';
+      pill.className  = 'ag-status-pill online';
+      lbl.textContent = `Motor local${mins}`;
+    }
+    if (m.ultimo_lote_id) {
+      pill.title = `Último lote: ${m.ultimo_lote_id}`;
+    }
+  }
+
+  async function fetchMotorStatus() {
+    try {
+      const resp = await fetch(MOTOR_API_URL, { credentials: 'same-origin' });
+      if (!resp.ok) return;
+      setMotorPill(await resp.json());
+    } catch (_) {}
+  }
+
+  // ── Card 1: Selección ─────────────────────────────────────────────
+  // Repo keys: total, elegibles, excluidos, candidatos, pendientes, seleccionados, fuente_activa
+  // Source: ec_lote_items scoped to operative lote (today or most recent pending)
+  function renderC1(d, loteOp) {
+    const total          = d.total          || 0;
+    const seleccionados  = d.seleccionados  || 0;
+    const elegibles      = d.elegibles      || 0;
+    const excluidos      = d.excluidos      || 0;
+    const pendientes     = d.pendientes     || 0;
+    const sheetId   = d.fuente_activa || '—';
+    const fuenteTab = d.fuente_tab    || '';
+    const esPendiente = sheetId === 'pendiente de conectar' || sheetId === '—';
+    const sheetUrl  = (!esPendiente)
+        ? `https://docs.google.com/spreadsheets/d/${sheetId}`
+        : null;
+    const fuenteLabel = fuenteTab ? `Fuente de Datos · ${fuenteTab}` : (esPendiente ? 'Sin fuente' : 'Fuente de Datos');
+    const fuenteHtml  = sheetUrl
+        ? `<a href="${sheetUrl}" target="_blank" rel="noopener noreferrer"
+              style="text-decoration:none;color:#196BFE;">📊 ${fuenteLabel}</a>`
+        : `<span style="color:${esPendiente ? '#c2410c' : '#196BFE'};">${fuenteLabel}</span>`;
+
+    // Badge del lote activo — muestra ID y fecha cuando no es de hoy
+    const loteId    = loteOp && loteOp.lote_id ? loteOp.lote_id : null;
+    const loteFecha = loteOp && loteOp.fecha   ? loteOp.fecha   : null;
+    const loteEsHoy = loteOp && loteOp.es_hoy;
+    const loteLabel = loteId
+        ? (loteEsHoy ? loteId : `${loteId} · ${loteFecha}`)
+        : null;
+    const loteColor = loteEsHoy ? '#16a34a' : '#d97706';
+    const loteBg    = loteEsHoy ? '#f0fdf4'  : '#fffbeb';
+    const loteBdr   = loteEsHoy ? '#bbf7d0'  : '#fde68a';
+    const loteBadge = loteLabel
+        ? `<span style="font-size:.62rem;font-weight:700;padding:2px 8px;border-radius:20px;
+                        background:${loteBg};border:1px solid ${loteBdr};color:${loteColor};
+                        margin-left:6px;">
+             ${loteEsHoy ? '📋' : '⏳'} ${loteLabel}
+           </span>`
+        : '';
+
+    document.getElementById('rsm-selec').textContent = fmt(seleccionados);
+    document.getElementById('c1-body').innerHTML = `
+      <div class="ag-number">${fmt(seleccionados)}
+        <span class="ag-number-unit">seleccionados</span>
+      </div>
+      <div class="ag-stats">
+        <div class="ag-stat">
+          <span class="ag-stat-val" style="color:#64748b;">${fmt(elegibles)}</span>
+          <span class="ag-stat-lbl">Pool evaluado</span>
+        </div>
+        <div class="ag-stat">
+          <span class="ag-stat-val" style="color:#dc2626;">${fmt(excluidos)}</span>
+          <span class="ag-stat-lbl">Excluidos</span>
+        </div>
+        <div class="ag-stat">
+          <span class="ag-stat-val" style="color:#64748b;">${fmt(pendientes)}</span>
+          <span class="ag-stat-lbl">Por enviar</span>
+        </div>
+      </div>
+      <div style="margin-top:6px;">
+        <span style="font-size:.62rem;font-weight:700;padding:2px 8px;border-radius:20px;
+                     background:${esPendiente ? '#fff7ed' : '#eff5ff'};
+                     border:1px solid ${esPendiente ? '#fed7aa' : '#bfdbfe'};">
+          ${fuenteHtml}
+        </span>
+        ${loteBadge}
+      </div>`;
+  }
+
+  // ── Card 2: Validación email ──────────────────────────────────────
+  // Repo keys: validos, sin_validar, riesgo, invalidos
+  // Source: estado_email snapshot en ec_lote_items (no live de ec_prospectos)
+  function renderC2(d) {
+    const validos   = d.validos    || 0;
+    const sinval    = d.sin_validar || 0;
+    const invalidos = (d.invalidos || 0) + (d.riesgo || 0);
+    document.getElementById('rsm-valid').textContent = fmt(validos);
+    document.getElementById('c2-body').innerHTML = `
+      <div class="ag-number">${fmt(validos)}
+        <span class="ag-number-unit">Dominio/MX válido</span>
+      </div>
+      <div class="ag-stats">
+        <div class="ag-stat">
+          <span class="ag-stat-val" style="color:#64748b;">${fmt(sinval)}</span>
+          <span class="ag-stat-lbl">Sin validar</span>
+        </div>
+        <div class="ag-stat">
+          <span class="ag-stat-val" style="color:#d97706;">${fmt(invalidos)}</span>
+          <span class="ag-stat-lbl">Inválido/Riesgo</span>
+        </div>
+      </div>
+      <div style="font-size:.65rem;color:#94a3b8;margin-top:4px;">
+        Verificación de dominio/MX al armar el lote
+      </div>`;
+  }
+
+  // ── Card 3: Asignación ────────────────────────────────────────────
+  // Repo keys: bandejas (from ec_lote_items), bandeja_estado (pause/rate)
+  function renderC3(d) {
+    const asignados = d.bandejas || [];   // {bandeja, asignados}
+    const estado    = d.bandeja_estado || [];  // {bandeja, pausada, enviados_hoy}
+
+    // Merge: bandeja → {asignados, enviados_hoy, pausada}
+    const estadoMap = {};
+    (estado).forEach(b => { estadoMap[b.bandeja || b.name] = b; });
+
+    let rowsHTML = '';
+    if (asignados.length) {
+      rowsHTML = asignados.map(a => {
+        const nombre    = a.bandeja || '—';
+        const es        = estadoMap[nombre] || {};
+        const paused    = es.pausada;
+        const enviados  = es.enviados_hoy ?? '—';
+        return `<div style="display:flex;justify-content:space-between;font-size:.72rem;margin-bottom:3px;align-items:center;">
+          <span style="font-weight:600;color:${paused ? '#d97706' : '#64748b'};">
+            ✉ ${nombre}${paused ? ' ⏸' : ''}
+          </span>
+          <span>
+            <span style="font-family:'Courier New',monospace;font-weight:700;">${fmt(a.asignados)}</span>
+            <span style="color:#94a3b8;font-size:.6rem;margin-left:4px;">asig.</span>
+          </span>
+        </div>`;
+      }).join('');
+    } else if (estado.length) {
+      rowsHTML = estado.map(b => {
+        const nombre = b.bandeja || b.name || '—';
+        const paused = b.pausada;
+        return `<div style="display:flex;justify-content:space-between;font-size:.72rem;margin-bottom:3px;">
+          <span style="font-weight:600;color:${paused ? '#d97706' : '#64748b'};">
+            ✉ ${nombre}${paused ? ' ⏸' : ''}
+          </span>
+          <span style="font-size:.62rem;color:#94a3b8;">sin lote hoy</span>
+        </div>`;
+      }).join('');
     }
 
-    // Last-updated
-    const ts = data.ts ? new Date(data.ts).toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
-    document.getElementById('ag-ts').textContent = 'Actualizado: ' + ts;
+    document.getElementById('c3-body').innerHTML = `
+      <div style="font-size:.82rem;font-weight:700;color:#0f172a;margin-bottom:8px;">
+        ${asignados.length ? asignados.length + ' bandeja(s) asignadas' : 'Sin asignación'}
+      </div>
+      ${rowsHTML || '<div style="font-size:.72rem;color:#94a3b8;">Sin datos</div>'}`;
+  }
 
+  // ── Card 4: Envíos ────────────────────────────────────────────────
+  // Repo keys: enviados, simulados, en_proceso, conciliacion, omitidos, errores, pendientes_lote
+  // enviados/simulados/etc. = eventos con fecha_envio Lima = hoy (cualquier lote)
+  // pendientes_lote = items por enviar en el lote operativo activo
+  // dry_run=TRUE  → contar en 'simulados', nunca en 'enviados'
+  // dry_run=FALSE → 'enviados' = aceptados por proveedor (Gmail 2xx)
+  function renderC4(d, dryRun) {
+    const enviados       = d.enviados       || 0;
+    const simulados      = d.simulados      || 0;
+    const enProceso      = d.en_proceso     || 0;
+    const conciliacion   = d.conciliacion   || 0;
+    const errores        = d.errores        || 0;
+    const omitidos       = d.omitidos       || 0;
+    const pendientesLote = d.pendientes_lote != null ? d.pendientes_lote : (d.pendientes || 0);
+    const inciertas      = enProceso + conciliacion;
+    document.getElementById('rsm-acept').textContent = fmt(enviados);
+    document.getElementById('c4-body').innerHTML = `
+      ${dryRun ? `<div style="font-size:.7rem;font-weight:700;padding:4px 10px;border-radius:8px;
+                               background:#fff7ed;border:1px solid #fed7aa;color:#c2410c;
+                               margin-bottom:8px;display:inline-block;">
+        🚫 Envíos deshabilitados
+      </div>` : ''}
+      <div class="ag-number">${fmt(enviados)}
+        <span class="ag-number-unit">enviados hoy</span>
+      </div>
+      <div class="ag-stats">
+        <div class="ag-stat">
+          <span class="ag-stat-val" style="color:#64748b;font-weight:700;">${fmt(pendientesLote)}</span>
+          <span class="ag-stat-lbl">Pendientes del lote</span>
+        </div>
+        ${simulados > 0 ? `<div class="ag-stat">
+          <span class="ag-stat-val" style="color:#d97706;">${fmt(simulados)}</span>
+          <span class="ag-stat-lbl">Simulados (DRY RUN)</span>
+        </div>` : ''}
+        ${inciertas > 0 ? `<div class="ag-stat">
+          <span class="ag-stat-val" style="color:#d97706;">${fmt(inciertas)}</span>
+          <span class="ag-stat-lbl">Conciliación pendiente</span>
+        </div>` : ''}
+        <div class="ag-stat">
+          <span class="ag-stat-val" style="color:#dc2626;">${fmt(errores)}</span>
+          <span class="ag-stat-lbl">Error hoy</span>
+        </div>
+      </div>
+      <div class="ag-note">
+        Aceptado por Gmail para envío. No confirma entrega ni llegada a la bandeja principal.
+      </div>`;
+  }
+
+  // ── Card 5: Rebotes ───────────────────────────────────────────────
+  // Repo keys: total_acumulado, detectados_hoy
+  // detectados_hoy: por rebote_detectado_en Lima; NULL en registros sin fecha = desconocido
+  function renderC5(d) {
+    const acum = d.total_acumulado || 0;
+    const hoy  = d.detectados_hoy  || 0;
+    document.getElementById('rsm-rebote').textContent = fmt(acum);
+    document.getElementById('c5-body').innerHTML = `
+      <div class="ag-number">${fmt(acum)}
+        <span class="ag-number-unit">acumulados</span>
+      </div>
+      <div class="ag-stats">
+        <div class="ag-stat">
+          <span class="ag-stat-val" style="color:#dc2626;">${fmt(hoy)}</span>
+          <span class="ag-stat-lbl">Detectados hoy</span>
+        </div>
+      </div>
+      <div style="font-size:.65rem;color:#94a3b8;margin-top:4px;">
+        Detectados en response_log posterior al envío
+      </div>`;
+  }
+
+  // ── Render all from API ───────────────────────────────────────────
+  function render(data) {
+    if (!data) return;
+
+    const loteOp = data.lote_op || null;
+
+    setWorkerPill(data.scheduler || null);
+    renderC1(data.seleccion  || {}, loteOp);
+    renderC2(data.validacion || {});
+    renderC3(data.asignacion || {});
+    renderC4(data.envios     || {}, !!data.dry_run);
+    renderC5(data.rebotes    || {});
+
+    // Actualizar href del botón de prospectos con la fecha del lote activo
+    const btn = document.getElementById('ag-lote-btn');
+    if (btn && loteOp && loteOp.fecha) {
+      const base = btn.href.split('?')[0];
+      btn.href = loteOp.es_hoy ? base : `${base}?fecha=${loteOp.fecha}`;
+      btn.title = loteOp.lote_id ? `Lote: ${loteOp.lote_id}` : '';
+    }
+
+    // Si no hay ningún lote operativo, marcar resumen como sin datos
+    if (!data.disponible) {
+      ['rsm-selec','rsm-valid','rsm-acept','rsm-rebote'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.textContent === '—') el.textContent = 'Sin lote';
+      });
+    }
+
+    const ts = new Date().toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    document.getElementById('ag-ts').textContent = 'Actualizado: ' + ts;
     firstLoad = false;
   }
 
   // ── Fetch ─────────────────────────────────────────────────────────
-  async function fetchStatus() {
+  async function fetchCards() {
     const btn = document.getElementById('ag-refresh-btn');
     btn.classList.add('spinning');
     try {
       const resp = await fetch(API_URL, { credentials: 'same-origin' });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const data = await resp.json();
-      render(data);
+      render(await resp.json());
     } catch (err) {
-      console.warn('[AgentesGuia] fetch error:', err);
+      console.warn('[AgentesIA] fetch error:', err);
+      setWorkerError();
       if (firstLoad) {
-        // Replace skeletons with error state
-        ['t1-body','t2-body','t3-body','t4-body'].forEach(id => {
+        ['c1-body','c2-body','c3-body','c4-body','c5-body'].forEach(id => {
           const el = document.getElementById(id);
-          if (el) el.innerHTML = '<div style="font-size:.78rem;color:#dc2626;padding:8px 0;"><i class="bi bi-exclamation-circle me-1"></i>No disponible</div>';
+          if (el) el.innerHTML = '<div style="font-size:.75rem;color:#dc2626;padding:6px 0;"><i class="bi bi-exclamation-circle me-1"></i>No disponible</div>';
         });
         document.getElementById('ag-ts').textContent = 'Error de conexión — reintentando…';
       }
@@ -606,28 +801,28 @@
     }
   }
 
-  // ── Poll ─────────────────────────────────────────────────────────
   function startPolling() {
-    fetchStatus();
-    pollTimer = setInterval(fetchStatus, POLL_MS);
+    fetchCards();
+    pollTimer = setInterval(fetchCards, POLL_MS);
+    fetchMotorStatus();
+    motorTimer = setInterval(fetchMotorStatus, MOTOR_POLL_MS);
   }
 
-  // ── Public refresh ────────────────────────────────────────────────
   window.agRefresh = function () {
     clearInterval(pollTimer);
+    clearInterval(motorTimer);
     startPolling();
   };
 
-  // ── Pause poll when tab is hidden ────────────────────────────────
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) {
       clearInterval(pollTimer);
+      clearInterval(motorTimer);
     } else {
       startPolling();
     }
   });
 
-  // ── Boot ──────────────────────────────────────────────────────────
   startPolling();
 })();
 </script>

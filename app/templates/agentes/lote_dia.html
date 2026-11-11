@@ -1,0 +1,607 @@
+{% extends "base.html" %}
+{% block title %}Prospectos del lote — Agentes IA · QoriCash{% endblock %}
+
+{% block head %}
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   LOTE DÍA — Tabla de prospectos del pipeline de envíos
+   QoriCash palette: #196BFE blue
+═══════════════════════════════════════════════════════════════════ */
+:root {
+  --ld-bg:       #f1f5f9;
+  --ld-surface:  #ffffff;
+  --ld-border:   rgba(0,0,0,.07);
+  --ld-text:     #0f172a;
+  --ld-muted:    #64748b;
+  --ld-blue:     #196BFE;
+  --ld-blue-lt:  #eff5ff;
+  --ld-green:    #16a34a;
+  --ld-green-lt: #f0fdf4;
+  --ld-amber:    #d97706;
+  --ld-amber-lt: #fffbeb;
+  --ld-red:      #dc2626;
+  --ld-red-lt:   #fef2f2;
+  --ld-radius:   14px;
+}
+
+@keyframes spin { to{ transform:rotate(360deg) } }
+@keyframes shimmer {
+  0%  { background-position:-400px 0 }
+  100%{ background-position: 400px 0 }
+}
+
+.ld-root {
+  background: var(--ld-bg);
+  min-height: calc(100vh - 56px);
+  padding: 28px 32px 56px;
+}
+@media (max-width:768px){
+  .ld-root { padding:16px 12px 40px; }
+}
+
+/* ── Header ──────────────────────────────────────────────────────── */
+.ld-header {
+  display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:12px; margin-bottom:24px;
+}
+.ld-title {
+  font-size:1.2rem; font-weight:900; color:var(--ld-text);
+  letter-spacing:-.03em; margin:0;
+  display:flex; align-items:center; gap:8px;
+}
+.ld-title .bi { color:var(--ld-blue); }
+.ld-subtitle { font-size:.76rem; color:var(--ld-muted); margin:2px 0 0; }
+
+/* ── Date bar ─────────────────────────────────────────────────────── */
+.ld-controls {
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  background:var(--ld-surface); border:1.5px solid var(--ld-border);
+  border-radius:var(--ld-radius); padding:14px 20px;
+  margin-bottom:20px;
+}
+.ld-date-label { font-size:.78rem; font-weight:600; color:var(--ld-muted); }
+.ld-date-input {
+  border:1px solid var(--ld-border); border-radius:8px;
+  padding:5px 10px; font-size:.82rem; color:var(--ld-text);
+  background:#f8fafc; cursor:pointer; outline:none;
+}
+.ld-date-input:focus { border-color:var(--ld-blue); background:#fff; }
+.ld-fetch-btn {
+  background:var(--ld-blue); color:#fff;
+  border:none; border-radius:8px; padding:6px 16px;
+  font-size:.8rem; font-weight:600; cursor:pointer;
+  display:flex; align-items:center; gap:5px; transition:opacity .18s;
+}
+.ld-fetch-btn:hover { opacity:.85; }
+.ld-fetch-btn.loading .bi-search { animation:spin .6s linear infinite; }
+
+/* ── Lote list cards ──────────────────────────────────────────────── */
+.ld-lotes-grid {
+  display:flex; flex-wrap:wrap; gap:12px; margin-bottom:24px;
+}
+.ld-lote-card {
+  background:var(--ld-surface); border:1.5px solid var(--ld-border);
+  border-radius:12px; padding:14px 18px;
+  cursor:pointer; transition:border-color .18s, box-shadow .18s;
+  min-width:160px;
+}
+.ld-lote-card:hover {
+  border-color:var(--ld-blue);
+  box-shadow:0 4px 16px rgba(25,107,254,.12);
+}
+.ld-lote-card.active {
+  border-color:var(--ld-blue);
+  background:var(--ld-blue-lt);
+}
+.ld-lote-card.test-data {
+  border-color:#fcd34d;
+  background:#fffbeb;
+}
+.ld-lote-slot {
+  font-size:.6rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:.1em; color:var(--ld-muted); margin-bottom:3px;
+}
+.ld-lote-hora {
+  font-size:1.1rem; font-weight:900; color:var(--ld-text);
+  font-family:'Courier New',monospace; margin-bottom:6px;
+}
+.ld-lote-meta {
+  display:flex; gap:6px; flex-wrap:wrap; align-items:center;
+}
+
+/* ── Estado pills ─────────────────────────────────────────────────── */
+.ld-pill {
+  display:inline-block; font-size:.6rem; font-weight:700;
+  padding:2px 7px; border-radius:20px; border:1px solid;
+  white-space:nowrap;
+}
+.ld-pill.listo      { color:var(--ld-green); background:var(--ld-green-lt); border-color:#bbf7d0; }
+.ld-pill.completo   { color:var(--ld-blue);  background:var(--ld-blue-lt);  border-color:#bfdbfe; }
+.ld-pill.enviando   { color:var(--ld-amber); background:var(--ld-amber-lt); border-color:#fcd34d; }
+.ld-pill.preparando { color:var(--ld-muted); background:#f8fafc;             border-color:#e2e8f0; }
+.ld-pill.cancelado  { color:var(--ld-red);   background:var(--ld-red-lt);   border-color:#fecaca; }
+.ld-pill.dry_run    { color:var(--ld-amber); background:var(--ld-amber-lt); border-color:#fcd34d; }
+.ld-pill.test       { color:#92400e; background:#fffbeb; border-color:#fcd34d; }
+
+/* Estado email */
+.ld-pill.valido      { color:var(--ld-green); background:var(--ld-green-lt); border-color:#bbf7d0; }
+.ld-pill.invalido,
+.ld-pill.correo_rebotado { color:var(--ld-red); background:var(--ld-red-lt); border-color:#fecaca; }
+.ld-pill.sin_validar { color:var(--ld-muted); background:#f8fafc;             border-color:#e2e8f0; }
+.ld-pill.riesgo      { color:var(--ld-amber); background:var(--ld-amber-lt); border-color:#fcd34d; }
+
+/* Estado envío — valores canónicos T1 */
+.ld-pill.pendiente    { color:var(--ld-muted); background:#f1f5f9;             border-color:#e2e8f0; }
+.ld-pill.en_proceso   { color:var(--ld-amber); background:var(--ld-amber-lt); border-color:#fcd34d; }
+.ld-pill.en_envio     { color:var(--ld-amber); background:var(--ld-amber-lt); border-color:#fcd34d; }
+.ld-pill.enviado      { color:var(--ld-blue);  background:var(--ld-blue-lt);  border-color:#bfdbfe; }
+.ld-pill.conciliacion { color:#92400e; background:#fffbeb; border-color:#fcd34d; }
+.ld-pill.omitido      { color:var(--ld-muted); background:#f8fafc;             border-color:#e2e8f0; }
+.ld-pill.rebotado     { color:var(--ld-red);   background:var(--ld-red-lt);   border-color:#fecaca; }
+.ld-pill.error        { color:var(--ld-red);   background:var(--ld-red-lt);   border-color:#fecaca; }
+/* Estado selección */
+.ld-pill.elegible     { color:var(--ld-green); background:var(--ld-green-lt); border-color:#bbf7d0; }
+.ld-pill.excluido     { color:var(--ld-red);   background:var(--ld-red-lt);   border-color:#fecaca; }
+.ld-pill.candidato    { color:var(--ld-muted); background:#f8fafc;             border-color:#e2e8f0; }
+
+/* Rebote badge */
+.ld-rebote-badge {
+  display:inline-flex; align-items:center; gap:3px;
+  font-size:.58rem; font-weight:700; padding:1px 6px;
+  border-radius:20px; border:1px solid;
+  color:var(--ld-red); background:var(--ld-red-lt); border-color:#fecaca;
+}
+
+/* ── Disclaimer ──────────────────────────────────────────────────── */
+.ld-disclaimer {
+  font-size:.7rem; background:#fffbeb; border:1px solid #fcd34d;
+  border-radius:8px; padding:9px 14px; margin-bottom:20px;
+  color:#92400e; line-height:1.6;
+}
+
+/* ── Section headers ─────────────────────────────────────────────── */
+.ld-section-label {
+  font-size:.65rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:.12em; color:var(--ld-muted); margin:0 0 10px;
+}
+
+/* ── Stats strip ─────────────────────────────────────────────────── */
+.ld-stats-strip {
+  display:flex; gap:0; background:var(--ld-surface);
+  border:1.5px solid var(--ld-border); border-radius:10px;
+  overflow:hidden; margin-bottom:16px;
+}
+.ld-stat-item {
+  flex:1; padding:10px 14px; text-align:center;
+  border-right:1px solid var(--ld-border);
+}
+.ld-stat-item:last-child { border-right:none; }
+.ld-stat-num {
+  font-size:1.3rem; font-weight:900; font-family:'Courier New',monospace;
+  color:var(--ld-text); display:block;
+}
+.ld-stat-lbl { font-size:.6rem; color:var(--ld-muted); text-transform:uppercase; letter-spacing:.06em; }
+
+/* ── Table wrapper ───────────────────────────────────────────────── */
+.ld-table-wrap {
+  background:var(--ld-surface); border:1.5px solid var(--ld-border);
+  border-radius:var(--ld-radius); overflow:hidden; margin-bottom:28px;
+  overflow-x:auto;
+}
+.ld-table-wrap table {
+  width:100%; border-collapse:collapse; font-size:.77rem;
+}
+.ld-table-wrap th {
+  background:#f8fafc; color:var(--ld-muted); font-weight:700;
+  font-size:.62rem; text-transform:uppercase; letter-spacing:.08em;
+  padding:9px 12px; border-bottom:1px solid var(--ld-border);
+  text-align:left; white-space:nowrap;
+}
+.ld-table-wrap td {
+  padding:9px 12px; border-bottom:1px solid #f1f5f9; vertical-align:middle;
+  color:var(--ld-text);
+}
+.ld-table-wrap tr:last-child td { border-bottom:none; }
+.ld-table-wrap tr:hover td { background:#f8fafc; }
+
+/* ── Empty state ─────────────────────────────────────────────────── */
+.ld-empty {
+  text-align:center; padding:36px 20px;
+  color:var(--ld-muted); font-size:.82rem;
+}
+.ld-empty .bi { font-size:2rem; display:block; margin-bottom:8px; color:#cbd5e1; }
+
+/* ── Skeleton ────────────────────────────────────────────────────── */
+.ld-skeleton {
+  background: linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);
+  background-size:400px 100%;
+  animation:shimmer 1.4s ease-in-out infinite;
+  border-radius:4px; height:.7rem; display:inline-block;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ld-root">
+
+  <!-- ── Header ───────────────────────────────────────────────────── -->
+  <div class="ld-header">
+    <div>
+      <h1 class="ld-title">
+        <i class="bi bi-table"></i>
+        Prospectos del lote
+      </h1>
+      <p class="ld-subtitle">Tabla por lote · Agentes IA · QoriCash Prospección</p>
+    </div>
+    <a href="{{ url_for('agentes.index') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i> Volver al panel
+    </a>
+  </div>
+
+  <!-- ── Date controls ────────────────────────────────────────────── -->
+  <div class="ld-controls">
+    <span class="ld-date-label">Fecha (Lima):</span>
+    <input type="date" id="ld-date" class="ld-date-input"
+           value="{{ fecha_default }}" max="{{ fecha_default }}">
+    <button class="ld-fetch-btn" id="ld-btn" onclick="ldFetchLotes()">
+      <i class="bi bi-search"></i> Ver lotes
+    </button>
+  </div>
+
+  <!-- ── Lote list ─────────────────────────────────────────────────── -->
+  <p class="ld-section-label" id="label-lotes" style="display:none;">Lotes del día</p>
+  <div class="ld-lotes-grid" id="ld-lotes-grid"></div>
+
+  <!-- ── Disclaimer ───────────────────────────────────────────────── -->
+  <div class="ld-disclaimer" id="ld-disclaimer" style="display:none;">
+    <strong>Estado de envío — definiciones:</strong><br>
+    <strong>En lote</strong> = seleccionado, aún no intentado. &nbsp;
+    <strong>Enviado</strong> = Gmail API 2xx al servidor destino; no garantiza entrega a bandeja principal.<br>
+    <strong>Resultado incierto</strong> = resultado desconocido; <em>nunca</em> se reintenta automáticamente.<br>
+    <strong>Omitido</strong> = saltado por rate limit, dry_run u otro motivo (ver columna skip_reason).<br>
+    <strong>Rebote</strong> = detectado en response_log posterior; estado_envio se conserva.
+  </div>
+
+  <!-- ── Stats strip ───────────────────────────────────────────────── -->
+  <div class="ld-stats-strip" id="ld-stats-strip" style="display:none;">
+    <div class="ld-stat-item">
+      <span class="ld-stat-num" id="ss-total">—</span>
+      <span class="ld-stat-lbl">Total</span>
+    </div>
+    <div class="ld-stat-item">
+      <span class="ld-stat-num" id="ss-en-lote">—</span>
+      <span class="ld-stat-lbl">Por enviar</span>
+    </div>
+    <div class="ld-stat-item">
+      <span class="ld-stat-num" id="ss-aceptados">—</span>
+      <span class="ld-stat-lbl">Enviados</span>
+    </div>
+    <div class="ld-stat-item">
+      <span class="ld-stat-num" id="ss-fallidos">—</span>
+      <span class="ld-stat-lbl">Error/Rebotado</span>
+    </div>
+    <div class="ld-stat-item">
+      <span class="ld-stat-num" id="ss-rebotes">—</span>
+      <span class="ld-stat-lbl">Rebotes</span>
+    </div>
+  </div>
+
+  <!-- ── Seleccionados/Todos toggle ───────────────────────────────── -->
+  <div id="toggle-selec" style="display:none;margin:0 0 8px;align-items:center;gap:10px;">
+    <button id="btn-solo-selec" onclick="setFiltroSelec(true)"
+      style="padding:4px 12px;border-radius:6px;border:1.5px solid #196BFE;background:#196BFE;color:#fff;font-size:.75rem;cursor:pointer;">
+      Seleccionados (300)
+    </button>
+    <button id="btn-todos" onclick="setFiltroSelec(false)"
+      style="padding:4px 12px;border-radius:6px;border:1.5px solid #94a3b8;background:#fff;color:#64748b;font-size:.75rem;cursor:pointer;">
+      Ver todos
+    </button>
+  </div>
+
+  <!-- ── Items table ───────────────────────────────────────────────── -->
+  <p class="ld-section-label" id="label-items" style="display:none;">Prospectos del lote</p>
+  <div id="wrap-items">
+    <div class="ld-empty">
+      <i class="bi bi-calendar3"></i>
+      Selecciona una fecha y elige un lote para ver los prospectos
+    </div>
+  </div>
+
+</div><!-- /.ld-root -->
+
+<script>
+(function () {
+  'use strict';
+
+  const LOTES_API = '{{ url_for("agentes.api_prospeccion_lotes") }}';
+  const LOTE_API  = '{{ url_for("agentes.api_prospeccion_lote") }}';
+
+  let activeLoteId = null;
+  let soloSeleccionados = true;    // default: mostrar solo los 300 asignados
+  let countSeleccionados = null;   // se guarda al primer load con solo=true
+
+  // ── Status label maps (canónico T1) ──────────────────────────────
+  const VALIDACION_LABELS = {
+    'valido':        {cls: 'valido',     text: 'Válido'},
+    'invalido':      {cls: 'invalido',   text: 'Inválido'},
+    'INVALIDO':      {cls: 'invalido',   text: 'Inválido'},
+    'riesgo':        {cls: 'riesgo',     text: 'Riesgo'},
+    'no_verificado': {cls: 'sin_validar',text: 'No verificado'},
+    'sin_validar':   {cls: 'sin_validar',text: 'Sin validar'},
+  };
+
+  const SELECCION_LABELS = {
+    'candidato': {cls: 'candidato', text: 'Candidato'},
+    'elegible':  {cls: 'elegible',  text: 'Elegible'},
+    'excluido':  {cls: 'excluido',  text: 'Excluido'},
+  };
+
+  const ENVIO_LABELS = {
+    'pendiente':    {cls: 'pendiente',    text: 'En lote'},
+    'en_proceso':   {cls: 'en_proceso',   text: 'En proceso'},
+    'en_envio':     {cls: 'en_envio',     text: 'En envío'},
+    'enviado':      {cls: 'enviado',      text: 'Enviado'},
+    'conciliacion': {cls: 'conciliacion', text: 'Resultado incierto'},
+    'omitido':      {cls: 'omitido',      text: 'Omitido'},
+    'rebotado':     {cls: 'rebotado',     text: 'Rebotado'},
+    'error':        {cls: 'error',        text: 'Error'},
+  };
+
+  // Mapeo de estado lote → clase CSS existente
+  const ESTADO_LOTE_CLS = {
+    'pendiente':   'preparando',
+    'en_progreso': 'enviando',
+    'completado':  'completo',
+    'cancelado':   'cancelado',
+  };
+
+  function pill(map, key, overrideCls) {
+    const info = map[key] || {cls: overrideCls || 'incierto', text: key || '—'};
+    return `<span class="ld-pill ${info.cls}">${info.text}</span>`;
+  }
+
+  function fmt(v) { return (v !== null && v !== undefined) ? v : '—'; }
+  function fmtTs(iso) {
+    if (!iso) return '—';
+    try {
+      return new Date(iso).toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
+    } catch(e) { return iso; }
+  }
+
+  // ── Step 1: fetch lotes for a date ───────────────────────────────
+  window.ldFetchLotes = async function () {
+    const fecha = document.getElementById('ld-date').value;
+    if (!fecha) return;
+
+    const btn  = document.getElementById('ld-btn');
+    const grid = document.getElementById('ld-lotes-grid');
+    btn.classList.add('loading');
+    grid.innerHTML = '<span style="font-size:.78rem;color:#94a3b8;padding:4px;">Buscando lotes…</span>';
+    document.getElementById('label-lotes').style.display = 'block';
+
+    // Reset items area
+    document.getElementById('wrap-items').innerHTML = '';
+    document.getElementById('label-items').style.display = 'none';
+    document.getElementById('ld-stats-strip').style.display = 'none';
+    document.getElementById('ld-disclaimer').style.display = 'none';
+    const tEl = document.getElementById('toggle-selec');
+    if (tEl) tEl.style.display = 'none';
+    countSeleccionados = null;
+
+    try {
+      const resp = await fetch(`${LOTES_API}?fecha=${fecha}`, {credentials: 'same-origin'});
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      renderLotes(data.lotes || []);
+    } catch(err) {
+      grid.innerHTML = `<div style="font-size:.78rem;color:#dc2626;padding:4px;">
+        <i class="bi bi-exclamation-circle me-1"></i>Error: ${err.message}</div>`;
+    } finally {
+      btn.classList.remove('loading');
+    }
+  };
+
+  // ── Render lote cards ─────────────────────────────────────────────
+  function renderLotes(lotes) {
+    const grid = document.getElementById('ld-lotes-grid');
+    if (!lotes.length) {
+      grid.innerHTML = '<div style="font-size:.82rem;color:#94a3b8;padding:4px;">Sin lotes para esta fecha.</div>';
+      return;
+    }
+    grid.innerHTML = lotes.map(l => {
+      const isTest  = l.es_prueba === 1 || (l.lote_id || '').includes('TEST');
+      const estadoCls = ESTADO_LOTE_CLS[l.estado] || l.estado;
+      const estadoPill = `<span class="ld-pill ${estadoCls}">${l.estado}</span>`;
+      const testBadge  = isTest ? '<span class="ld-pill test">PRUEBA</span>' : '';
+      // Hora desde fecha_creacion (HH:MM)
+      const hora = l.fecha_creacion
+        ? new Date(l.fecha_creacion).toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'})
+        : '—';
+      return `<div class="ld-lote-card ${isTest ? 'test-data' : ''}"
+                   id="lote-card-${l.id}"
+                   onclick="ldLoadLote(${l.id}, '${l.lote_id}')">
+        <div class="ld-lote-slot">${l.lote_id}</div>
+        <div class="ld-lote-hora">${hora}</div>
+        <div class="ld-lote-meta">
+          ${estadoPill}
+          ${testBadge}
+        </div>
+        <div style="font-size:.68rem;color:#64748b;margin-top:6px;">
+          ${l.total_elegibles || l.total_candidatos || 0} elegible(s) · ${l.total_enviados || 0} enviado(s)
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Step 2: load lote items ───────────────────────────────────────
+  // numId: l.id (integer, used for card DOM id)
+  // loteId: l.lote_id (TEXT, used for API call)
+  window.ldLoadLote = async function (numId, loteId) {
+    activeLoteId = loteId;
+
+    // Mark active card
+    document.querySelectorAll('.ld-lote-card').forEach(c => c.classList.remove('active'));
+    const card = document.getElementById('lote-card-' + numId);
+    if (card) card.classList.add('active');
+
+    const wrap = document.getElementById('wrap-items');
+    wrap.innerHTML = '<div style="padding:28px 20px;text-align:center;color:#94a3b8;font-size:.8rem;">Cargando prospectos…</div>';
+    document.getElementById('label-items').style.display = 'block';
+
+    try {
+      const qs = `lote_id=${encodeURIComponent(loteId)}&solo_seleccionados=${soloSeleccionados ? '1' : '0'}`;
+      const resp = await fetch(`${LOTE_API}?${qs}`, {credentials: 'same-origin'});
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error);
+      renderItems(data);
+    } catch(err) {
+      wrap.innerHTML = `<div class="ld-empty"><i class="bi bi-exclamation-circle"></i>Error: ${err.message}</div>`;
+    }
+  };
+
+  // ── Filtro seleccionados/todos ─────────────────────────────────────
+  window.setFiltroSelec = function(soloSelec) {
+    soloSeleccionados = soloSelec;
+    const btnSelec = document.getElementById('btn-solo-selec');
+    const btnTodos = document.getElementById('btn-todos');
+    if (btnSelec && btnTodos) {
+      btnSelec.style.background = soloSelec ? '#196BFE' : '#fff';
+      btnSelec.style.color      = soloSelec ? '#fff'    : '#64748b';
+      btnSelec.style.borderColor = soloSelec ? '#196BFE' : '#94a3b8';
+      btnTodos.style.background = soloSelec ? '#fff'    : '#196BFE';
+      btnTodos.style.color      = soloSelec ? '#64748b' : '#fff';
+      btnTodos.style.borderColor = soloSelec ? '#94a3b8' : '#196BFE';
+    }
+    if (activeLoteId) loadLote(activeLoteId);
+  };
+
+  // ── Render items table ────────────────────────────────────────────
+  function renderItems(data) {
+    const lote  = data.lote  || {};
+    const items = data.items || [];
+    const tots  = data.totales || {};
+    const isDry = lote.dry_run === true;
+
+    // Show disclaimer + stats strip + toggle
+    document.getElementById('ld-disclaimer').style.display = 'block';
+    document.getElementById('ld-stats-strip').style.display = 'flex';
+    // Track seleccionados count when in filtered mode
+    if (tots.solo_seleccionados) countSeleccionados = tots.total || 0;
+    const toggleEl = document.getElementById('toggle-selec');
+    if (toggleEl) {
+      toggleEl.style.display = 'flex';
+      const btnSelec = document.getElementById('btn-solo-selec');
+      if (btnSelec && countSeleccionados !== null)
+        btnSelec.textContent = `Seleccionados (${countSeleccionados})`;
+    }
+    setFiltroSelec(soloSeleccionados);  // sync button styles
+
+    document.getElementById('ss-total').textContent     = tots.total    || 0;
+    document.getElementById('ss-en-lote').textContent   = tots.pendiente || 0;
+    // dry_run=TRUE: enviados aparecen como 'Simulados', no contar como reales
+    document.getElementById('ss-aceptados').textContent = isDry
+      ? ((tots.enviado || 0) + '⚠')
+      : (tots.enviado || 0);
+    document.getElementById('ss-fallidos').textContent  = (tots.error || 0) + (tots.rebotado || 0);
+    document.getElementById('ss-rebotes').textContent   = tots.rebotes   || 0;
+
+    if (!items.length) {
+      document.getElementById('wrap-items').innerHTML =
+        '<div class="ld-empty"><i class="bi bi-inbox"></i>Este lote no tiene ítems registrados.</div>';
+      return;
+    }
+
+    const thead = `<thead><tr>
+      <th>#</th>
+      <th>Razón social</th>
+      <th>Email</th>
+      <th>Rubro / Sector</th>
+      <th>Validación</th>
+      <th>Selección</th>
+      <th>Estado Envío</th>
+      <th>Bandeja</th>
+      <th>Horario</th>
+      <th>Rebote</th>
+    </tr></thead>`;
+
+    // Banner dry_run en cabecera de tabla
+    const dryBanner = isDry
+      ? `<div style="background:#fffbeb;border-bottom:1px solid #fcd34d;padding:7px 14px;
+                     font-size:.7rem;color:#92400e;">
+           <strong>DRY RUN</strong> — Este lote fue una simulación. Ningún correo fue enviado
+           al proveedor. Los ítems con estado "Enviado" se muestran como <strong>Simulado</strong>.
+         </div>`
+      : '';
+
+    const tbody = items.map((r, i) => {
+      // dry_run: override visual de 'enviado' → 'simulado' (estado_envio no cambia en DB)
+      const envioKey = (isDry && r.estado_envio === 'enviado') ? '_simulado' : r.estado_envio;
+      const ENVIO_EXTENDED = Object.assign({}, ENVIO_LABELS, {
+        '_simulado': {cls: 'conciliacion', text: 'Simulado (DRY RUN)'},
+      });
+      const envioHTML = pill(ENVIO_EXTENDED, envioKey);
+
+      // Conciliación pendiente: item bloqueado con resultado incierto
+      const isConciliacion = r.estado_envio === 'conciliacion'
+                          || r.estado_envio === 'en_proceso'
+                          || r.estado_envio === 'en_envio';
+      const conciliacionNote = (isConciliacion && r.bloqueado_por)
+        ? `<span style="font-size:.58rem;color:#92400e;display:block;">
+             Lock: ${r.bloqueado_por} — no reintento automático
+           </span>`
+        : '';
+
+      // Omitido por dry_run
+      const omitidoNote = (r.estado_envio === 'omitido' && r.skip_reason)
+        ? `<span style="font-size:.58rem;color:#64748b;display:block;">${r.skip_reason}</span>`
+        : '';
+
+      const reboteHTML = r.rebote_motivo
+        ? `<span class="ld-rebote-badge" title="${r.rebote_motivo}">⚠ ${r.rebote_motivo.slice(0,40)}</span>`
+        : '—';
+
+      const horario = r.fecha_envio
+        ? fmtTs(r.fecha_envio)
+        : r.fecha_seleccion
+          ? fmtTs(r.fecha_seleccion) + ' <span style="color:#94a3b8">(lote)</span>'
+          : '—';
+
+      return `<tr>
+        <td style="color:#94a3b8;font-size:.7rem;">${i + 1}</td>
+        <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;"
+            title="${r.razon_social || ''}">${fmt(r.razon_social)}</td>
+        <td style="font-size:.7rem;color:#64748b;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+            title="${r.email || ''}">${fmt(r.email)}</td>
+        <td style="font-size:.7rem;">${fmt(r.rubro)}${r.sector ? ` / <span style="color:#94a3b8">${r.sector}</span>` : ''}</td>
+        <td>${pill(VALIDACION_LABELS, r.estado_validacion)}</td>
+        <td>${pill(SELECCION_LABELS, r.estado_seleccion)}</td>
+        <td>${envioHTML}${conciliacionNote}${omitidoNote}</td>
+        <td style="font-size:.7rem;">${fmt(r.bandeja_asignada)}</td>
+        <td style="font-size:.7rem;">${horario}</td>
+        <td>${reboteHTML}</td>
+      </tr>`;
+    }).join('');
+
+    const isTest = (lote.lote_id || '').includes('TEST');
+    const testBanner = isTest
+      ? `<div style="background:#fffbeb;border-bottom:1px solid #fcd34d;padding:7px 14px;
+                     font-size:.7rem;color:#92400e;">
+           <strong>DATOS DE PRUEBA</strong> — Lote seed. Eliminar:
+           <code>DELETE FROM ec_lote_items WHERE lote_id=(SELECT id FROM ec_lotes WHERE lote_id='${lote.lote_id}');
+DELETE FROM ec_lotes WHERE lote_id='${lote.lote_id}';</code>
+         </div>`
+      : '';
+
+    document.getElementById('wrap-items').innerHTML =
+      `<div class="ld-table-wrap">${testBanner}${dryBanner}<table>${thead}<tbody>${tbody}</tbody></table></div>`;
+  }
+
+  // ── Auto-load today on page open ──────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function () {
+    const dateEl = document.getElementById('ld-date');
+    if (dateEl && dateEl.value) ldFetchLotes();
+  });
+})();
+</script>
+{% endblock %}

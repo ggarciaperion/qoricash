@@ -24,6 +24,62 @@ echo ""
 
 cd "$(dirname "$0")" || exit 1
 
+# ── Verificación de revisión Alembic ─────────────────────────────────────────
+# PRIMERA comprobación: ocurre antes de cualquier parche o escritura.
+# Regla de seguridad:
+#   - DB sin versión (nueva instalación): continuar.
+#   - DB con revisión CONOCIDA en el historial: continuar.
+#   - DB con revisión DESCONOCIDA: ABORTAR con exit 1. No hacer stamp automático.
+#     Una revisión desconocida indica una DB de otra rama, una restauración
+#     incorrecta o un historial manipulado. Continuar silenciosamente podría
+#     ejecutar migraciones sobre un schema incompatible y corromper datos.
+#     Acción requerida: diagnosticar manualmente y, si es seguro, ejecutar
+#     "flask db stamp <revision_conocida>" antes del deploy.
+
+echo "🔍 Verificando revisión Alembic antes de cualquier cambio..."
+
+CURRENT=$(flask db current 2>&1 | grep -E '^[a-f0-9]' | head -1 || true)
+
+if [ -n "$CURRENT" ]; then
+    echo "   Revisión actual en DB: $CURRENT"
+
+    KNOWN=$(flask db history 2>&1 | grep "$CURRENT" || true)
+
+    if [ -z "$KNOWN" ]; then
+        echo ""
+        echo "=========================================="
+        echo "   ERROR: REVISIÓN ALEMBIC DESCONOCIDA"
+        echo "=========================================="
+        echo ""
+        echo "   La DB reporta revisión: '$CURRENT'"
+        echo "   Esta revisión NO existe en el historial de migraciones del"
+        echo "   código que se está desplegando."
+        echo ""
+        echo "   DEPLOY DETENIDO. No se realizó ningún cambio a la DB."
+        echo ""
+        echo "   Causas posibles:"
+        echo "     - La DB fue migrada con una rama de código diferente."
+        echo "     - Se restauró un backup con un historial de migraciones distinto."
+        echo "     - La tabla alembic_version fue modificada manualmente."
+        echo ""
+        echo "   Acción requerida (ejecutar manualmente antes de reintentar):"
+        echo "     1. Identificar a qué revisión conocida corresponde el schema actual."
+        echo "     2. flask db stamp <revision_conocida>"
+        echo "     3. Reintentar el deploy."
+        echo ""
+        echo "   Revisiones conocidas (cabezas de rama):"
+        flask db heads 2>&1 | grep -v "^$" | head -20 || true
+        echo ""
+        exit 1
+    else
+        echo "   ✅ Revisión reconocida — ningún cambio hasta aquí. Continuando con parches."
+        echo ""
+    fi
+else
+    echo "   DB nueva o sin versión — upgrade creará el schema desde cero."
+    echo ""
+fi
+
 # ── Patch directo: is_validated en bank_movements ────────────────────────────
 # Ejecuta SQL puro con psycopg2 ANTES de Alembic.
 # Totalmente idempotente (IF NOT EXISTS). No depende del historial de migraciones.
@@ -282,51 +338,53 @@ except Exception as e:
 PYEOF
 echo ""
 
-# ── Detección de estado actual de la DB ──────────────────────────────────────
-# Si la versión en alembic_version NO existe en nuestro historial,
-# es una DB con migraciones antiguas → stampeamos al baseline sin borrar datos.
-
-echo "🔍 Verificando estado de la base de datos..."
-
-CURRENT=$(flask db current 2>&1 | grep -E '^[a-f0-9]' | head -1 || true)
-
-if [ -n "$CURRENT" ]; then
-    echo "   Revisión actual en DB: $CURRENT"
-
-    KNOWN=$(flask db history 2>&1 | grep "$CURRENT" || true)
-
-    if [ -z "$KNOWN" ]; then
-        echo ""
-        echo "⚠️  Revisión '$CURRENT' no pertenece al historial actual."
-        echo "   DB existente con migraciones antiguas — aplicando baseline seguro..."
-        echo "   (NINGUNA tabla será eliminada ni modificada)"
-        echo ""
-
-        flask db stamp --purge
-        flask db stamp 85a767945dcc
-
-        echo "✅ DB stampeada a baseline 85a767945dcc"
-        echo "   (todas las migraciones hasta p1a2t3c4h5b6 serán marcadas como ya ejecutadas)"
-        echo "   (solo v1a2l3i4d5a6 correrá — agrega is_validated si falta)"
-        echo ""
-
-        # Registrar todas las ramas conocidas para que flask db upgrade heads
-        # pueda arrancar desde el estado correcto en DBs con historial antiguo.
-        echo "🔧 Registrando heads de ramas conocidas (solo para DB con historial antiguo)..."
-        # Nota: b1a2n3k4b5a6 OMITIDO — manejado por patch directo psycopg2 arriba
-        for HEAD_REV in a1b2c3d4e5f6 d2a3t4e5c6r7 l1s2o3u4r5c6 p1r2o3s4p5e6 t1e2m3p4l5a6 z9merge_all_heads w1p2r3o4s5p6 pb1r2e3c4i5o k1y2c3d4e5f6 p1e2r3i4o5d6 a1u2d3i4t5o6 b1c2a3j4a5d6 c1m2e3r4g5e6 p1a2t3c4h5b6 v1a2l3i4d5a6 d1c2a3j4a5d6 aa1s2i3n4w5a6 i1a2i3n4t5e6 a5907b w1a2b3o4t5s6; do
-            flask db stamp "$HEAD_REV" 2>/dev/null || true
-        done
-        echo "   ✅ Heads registrados."
-        echo ""
-    else
-        echo "   ✅ Revisión reconocida — sin stamp (evitar downgrade)."
-        echo ""
-    fi
-else
-    echo "   DB nueva o sin versión — ejecutando migración completa."
-    echo ""
-fi
+# ── Patch directo: rebote_detectado_en en ec_lote_items ──────────────────────
+# Columna añadida por la migración Alembic ec07_rebote_detectado_en.
+# Este patch es una red de seguridad: si Alembic ec07 no puede correr
+# (p.ej. la DB está en el stamp-path y z9merge aún no fue aplicado),
+# la columna se garantiza aquí de forma totalmente idempotente.
+# En el flujo normal, ec07 ya habrá creado la columna y el ADD COLUMN IF NOT
+# EXISTS simplemente no hace nada.
+echo "⚡ Garantizando columna rebote_detectado_en en ec_lote_items..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando patch directo")
+    sys.exit(0)
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    print("   DATABASE_URL no definida — saltando patch directo")
+    sys.exit(0)
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name='ec_lote_items'")
+    if not cur.fetchone():
+        print("   ⏭  ec_lote_items aún no existe — se creará en upgrade ec02")
+        conn.close()
+        sys.exit(0)
+    cur.execute(
+        "ALTER TABLE ec_lote_items "
+        "ADD COLUMN IF NOT EXISTS rebote_detectado_en TIMESTAMP WITH TIME ZONE"
+    )
+    cur.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name='ec_lote_items' AND column_name='rebote_detectado_en'"
+    )
+    exists = cur.fetchone()
+    conn.close()
+    if exists:
+        print("   ✅ rebote_detectado_en: confirmada en ec_lote_items")
+    else:
+        print("   ❌ rebote_detectado_en: NO se pudo crear")
+        sys.exit(1)
+except Exception as e:
+    print(f"   ⚠️  Error en patch rebote_detectado_en: {e}")
+PYEOF
+echo ""
 
 # ── Upgrade ───────────────────────────────────────────────────────────────────
 # Usar "heads" (plural) para correr TODAS las ramas pendientes independientemente.
