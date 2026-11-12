@@ -897,6 +897,8 @@ def _lote_op_activo() -> list[dict]:
             LIMIT 1
         """)
     else:
+        # Schema ec02 puro: bandeja_asignada es la única columna de bandeja
+        # (bandeja no existe — COALESCE causaría error silencioso en _rows)
         return _rows("""
             SELECT l.id,
                    COALESCE(l.lote_id, 'LOT-' || l.id::text) AS lote_id,
@@ -915,7 +917,7 @@ def _lote_op_activo() -> list[dict]:
               AND EXISTS (
                   SELECT 1 FROM ec_lote_items li
                   WHERE li.lote_id = l.id
-                    AND COALESCE(li.bandeja_asignada, li.bandeja) IS NOT NULL
+                    AND li.bandeja_asignada IS NOT NULL
                     AND li.estado_envio = 'pendiente'
               )
             ORDER BY l.fecha_creacion DESC
@@ -953,6 +955,20 @@ def get_pipeline_card_stats() -> dict:
 
     ids_lote = [l['id'] for l in lotes_lote]       # sel/val/asig
 
+    # Detectar si ec_lote_items tiene columnas del schema original (pre-ec02).
+    # Schema ec02 puro solo tiene bandeja_asignada / estado_validacion / fecha_envio.
+    # Referenciar columnas viejas inexistentes causa error silencioso en _rows/_row.
+    _tiene_schema_items_viejo = (_scalar("""
+        SELECT COUNT(*) FROM information_schema.columns
+        WHERE table_name='ec_lote_items' AND column_name='bandeja'
+    """) or 0) > 0
+    # Expresión de bandeja: original tiene 'bandeja'; ec02 puro solo 'bandeja_asignada'
+    _bq = "COALESCE(bandeja_asignada, bandeja)" if _tiene_schema_items_viejo else "bandeja_asignada"
+    # Expresión de validación: original tiene 'estado_email'; ec02 puro solo 'estado_validacion'
+    _vq = "COALESCE(estado_validacion, estado_email,'sin_validar')" if _tiene_schema_items_viejo else "COALESCE(estado_validacion,'sin_validar')"
+    # Expresión de fecha envío: original tiene 'enviado_at'; ec02 puro solo 'fecha_envio'
+    _eq = "COALESCE(li.fecha_envio, li.enviado_at)" if _tiene_schema_items_viejo else "li.fecha_envio"
+
     if ids_lote:
         ids_lote_sql = ','.join(str(i) for i in ids_lote)  # safe: integers from DB
 
@@ -986,7 +1002,7 @@ def get_pipeline_card_stats() -> dict:
                 COUNT(*) FILTER (WHERE estado_envio = 'pendiente'
                                     OR (estado_envio = 'en_lote'
                                         AND estado_envio IS NOT NULL))             AS pendientes,
-                COUNT(*) FILTER (WHERE COALESCE(bandeja_asignada, bandeja)
+                COUNT(*) FILTER (WHERE {_bq}
                                        IS NOT NULL)                                AS seleccionados
             FROM ec_lote_items
             WHERE lote_id IN ({ids_lote_sql})
@@ -998,30 +1014,25 @@ def get_pipeline_card_stats() -> dict:
         # El historial completo (2 000) queda disponible en la vista "Ver todos".
         val = _row(f"""
             SELECT
-                COUNT(*) FILTER (WHERE COALESCE(estado_validacion, estado_email,'sin_validar')
-                                       = 'valido')          AS validos,
-                COUNT(*) FILTER (WHERE COALESCE(estado_validacion, estado_email,'sin_validar')
-                                       = 'sin_validar')     AS sin_validar,
-                COUNT(*) FILTER (WHERE COALESCE(estado_validacion, estado_email,'sin_validar')
-                                       = 'no_verificado')   AS no_verificado,
-                COUNT(*) FILTER (WHERE COALESCE(estado_validacion, estado_email,'sin_validar')
-                                       = 'riesgo')          AS riesgo,
-                COUNT(*) FILTER (WHERE COALESCE(estado_validacion, estado_email,'sin_validar')
-                                       IN ('invalido','INVALIDO')) AS invalidos
+                COUNT(*) FILTER (WHERE {_vq} = 'valido')          AS validos,
+                COUNT(*) FILTER (WHERE {_vq} = 'sin_validar')     AS sin_validar,
+                COUNT(*) FILTER (WHERE {_vq} = 'no_verificado')   AS no_verificado,
+                COUNT(*) FILTER (WHERE {_vq} = 'riesgo')          AS riesgo,
+                COUNT(*) FILTER (WHERE {_vq} IN ('invalido','INVALIDO')) AS invalidos
             FROM ec_lote_items
             WHERE lote_id IN ({ids_lote_sql})
-              AND COALESCE(bandeja_asignada, bandeja) IS NOT NULL
+              AND {_bq} IS NOT NULL
         """)
 
         # ── 3. Asignación — distribución por bandeja ──────────────────────────
-        # COALESCE: bandeja_asignada (post-ec04) o bandeja (original)
+        # _bq: 'bandeja_asignada' (ec02 puro) o 'COALESCE(bandeja_asignada, bandeja)'
         band_rows = _rows(f"""
-            SELECT COALESCE(bandeja_asignada, bandeja) AS bandeja,
+            SELECT {_bq} AS bandeja,
                    COUNT(*) AS asignados
             FROM ec_lote_items
             WHERE lote_id IN ({ids_lote_sql})
-              AND COALESCE(bandeja_asignada, bandeja) IS NOT NULL
-            GROUP BY COALESCE(bandeja_asignada, bandeja)
+              AND {_bq} IS NOT NULL
+            GROUP BY {_bq}
             ORDER BY 1
         """)
 
@@ -1035,29 +1046,23 @@ def get_pipeline_card_stats() -> dict:
         # — cubre lotes de días anteriores cuyos envíos ocurren hoy.
         # "Enviados" = items con fecha_envio set + dry_run=FALSE, independiente de
         # si el estado_envio fue luego marcado como 'rebotado'. El envío ocurrió.
-        env = _row("""
+        env = _row(f"""
             SELECT
-                COUNT(*) FILTER (WHERE DATE(COALESCE(li.fecha_envio, li.enviado_at)
-                                            AT TIME ZONE 'America/Lima') = :0
-                                   AND COALESCE(li.fecha_envio, li.enviado_at) IS NOT NULL
+                COUNT(*) FILTER (WHERE DATE({_eq} AT TIME ZONE 'America/Lima') = :0
+                                   AND {_eq} IS NOT NULL
                                    AND l.dry_run = FALSE)                               AS enviados,
-                COUNT(*) FILTER (WHERE DATE(COALESCE(li.fecha_envio, li.enviado_at)
-                                            AT TIME ZONE 'America/Lima') = :0
-                                   AND COALESCE(li.fecha_envio, li.enviado_at) IS NOT NULL
+                COUNT(*) FILTER (WHERE DATE({_eq} AT TIME ZONE 'America/Lima') = :0
+                                   AND {_eq} IS NOT NULL
                                    AND l.dry_run = TRUE)                                AS simulados,
-                COUNT(*) FILTER (WHERE DATE(COALESCE(li.fecha_envio, li.enviado_at)
-                                            AT TIME ZONE 'America/Lima') = :0
+                COUNT(*) FILTER (WHERE DATE({_eq} AT TIME ZONE 'America/Lima') = :0
                                    AND li.estado_envio
                                        IN ('en_proceso','en_envio','reservado'))        AS en_proceso,
-                COUNT(*) FILTER (WHERE DATE(COALESCE(li.fecha_envio, li.enviado_at)
-                                            AT TIME ZONE 'America/Lima') = :0
+                COUNT(*) FILTER (WHERE DATE({_eq} AT TIME ZONE 'America/Lima') = :0
                                    AND li.estado_envio
                                        IN ('conciliacion','incierto'))                  AS conciliacion,
-                COUNT(*) FILTER (WHERE DATE(COALESCE(li.fecha_envio, li.enviado_at)
-                                            AT TIME ZONE 'America/Lima') = :0
+                COUNT(*) FILTER (WHERE DATE({_eq} AT TIME ZONE 'America/Lima') = :0
                                    AND li.estado_envio = 'omitido')                    AS omitidos,
-                COUNT(*) FILTER (WHERE DATE(COALESCE(li.fecha_envio, li.enviado_at)
-                                            AT TIME ZONE 'America/Lima') = :0
+                COUNT(*) FILTER (WHERE DATE({_eq} AT TIME ZONE 'America/Lima') = :0
                                    AND li.estado_envio
                                        IN ('error','fallido','reintentable'))           AS errores
             FROM ec_lote_items li
