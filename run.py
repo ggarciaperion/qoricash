@@ -6,8 +6,11 @@ Producción: gunicorn -c gunicorn_config.py run:app
 """
 # CRÍTICO: Monkey patch de eventlet DEBE ser lo primero
 # Esto debe ejecutarse antes de cualquier import de threading, SQLAlchemy, etc.
+# FLASK_CLI_ONLY=true → omitir monkey_patch (comandos flask db, estudio-recuperar, etc.)
+import os as _os_pre
 import eventlet
-eventlet.monkey_patch()
+if not _os_pre.environ.get('FLASK_CLI_ONLY'):
+    eventlet.monkey_patch()
 
 # Configurar psycopg2 para eventlet INMEDIATAMENTE después del monkey patch
 try:
@@ -557,7 +560,9 @@ def start_all_schedulers():
 # eventlet.spawn_after asegura que el hub esté activo antes de lanzar los greenlets.
 # En gunicorn+eventlet: corre en cada worker (preload_app=False, módulo se importa por worker).
 # En flask run / python run.py: se llama explícitamente en __main__.
-eventlet.spawn_after(2, start_all_schedulers)
+# FLASK_CLI_ONLY=true → no iniciar schedulers (comandos flask db, estudio-recuperar, etc.)
+if not _os_pre.environ.get('FLASK_CLI_ONLY'):
+    eventlet.spawn_after(2, start_all_schedulers)
 
 
 if __name__ == '__main__':
