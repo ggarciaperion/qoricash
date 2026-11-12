@@ -394,12 +394,30 @@ def get_motor_local_status() -> dict:
     """
     Estado de conectividad del motor local Mac.
 
-    Retorna información del último heartbeat y última sincronización de lote.
-    Nunca usa el heartbeat de Render (agent='orchestrator') para representar
-    el estado de la Mac.
+    Fuente primaria : agent_heartbeat[agent='motor_local']  (POST /api/sync/heartbeat)
+    Fuente fallback : agent_heartbeat[agent='scheduler_lotes'] (POST /api/sync/agent)
+
+    El motor Mac usa POST /api/sync/agent con agent='scheduler_lotes' para sus
+    heartbeats de proceso.  Si motor_local está desconectado pero scheduler_lotes
+    tiene señal reciente (< 5 min), se considera el motor conectado y se muestra
+    la edad del heartbeat más fresco.
+
+    Nunca usa agent='orchestrator' (worker Render).
     """
     from datetime import timedelta
-    _OFFLINE_MIN = 10
+    _OFFLINE_MIN      = 10   # umbral para motor_local
+    _SCHED_OFFLINE_MIN = 5   # umbral para fallback scheduler_lotes
+
+    def _age_min(ls, now_naive):
+        """Devuelve (age_timedelta, edad_min) o (timedelta_grande, None)."""
+        if not ls:
+            return timedelta(seconds=99999), None
+        try:
+            ls_dt = _to_utc_dt(ls) or ls.replace(tzinfo=None)
+            age   = now_naive - ls_dt
+            return age, int(age.total_seconds() / 60)
+        except Exception:
+            return timedelta(seconds=99999), None
 
     try:
         beat = _row("""
@@ -408,31 +426,27 @@ def get_motor_local_status() -> dict:
             WHERE agent = :agent
         """, {'agent': MOTOR_LOCAL_AGENT})
 
-        if not beat:
-            return {
-                'conectado': False,
-                'ultimo_heartbeat': None,
-                'edad_min': None,
-                'hostname': None,
-                'ultimo_sync_lote': None,
-                'ultimo_lote_id': None,
-                'disponible': True,
-            }
+        now      = datetime.now(timezone.utc)
+        now_n    = now.replace(tzinfo=None)
 
-        ls = beat.get('last_seen')
-        now = datetime.now(timezone.utc)
-        if ls:
-            if hasattr(ls, 'replace'):
-                # Normalizar a UTC antes de comparar (ls puede traer offset Lima -05:00)
-                ls_dt = _to_utc_dt(ls) or ls.replace(tzinfo=None)
-                age = now.replace(tzinfo=None) - ls_dt
-            else:
-                age = timedelta(seconds=99999)
-            conectado = age < timedelta(minutes=_OFFLINE_MIN)
-            edad_min  = int(age.total_seconds() / 60)
-        else:
-            conectado = False
-            edad_min  = None
+        ls       = beat.get('last_seen') if beat else None
+        age, edad_min = _age_min(ls, now_n)
+        conectado     = age < timedelta(minutes=_OFFLINE_MIN)
+
+        # Fallback: si motor_local está desconectado, comprobar scheduler_lotes.
+        # El motor Mac emite heartbeats de agente con ese nombre.
+        if not conectado:
+            fb = _row("""
+                SELECT last_seen, hostname
+                FROM agent_heartbeat
+                WHERE agent = 'scheduler_lotes'
+            """)
+            fb_ls = fb.get('last_seen') if fb else None
+            fb_age, fb_edad = _age_min(fb_ls, now_n)
+            if fb_age < timedelta(minutes=_SCHED_OFFLINE_MIN):
+                conectado = True
+                edad_min  = fb_edad
+                ls        = fb_ls
 
         # Última sincronización de lote recibida
         ultimo = _row("""
@@ -447,7 +461,7 @@ def get_motor_local_status() -> dict:
             'conectado':        conectado,
             'ultimo_heartbeat': str(ls) if ls else None,
             'edad_min':         edad_min,
-            'hostname':         beat.get('hostname'),
+            'hostname':         (beat or {}).get('hostname'),
             'ultimo_sync_lote': ultimo.get('ultima_sync_en'),
             'ultimo_lote_id':   ultimo.get('lote_id'),
             'disponible':       True,
