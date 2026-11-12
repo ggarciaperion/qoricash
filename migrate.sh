@@ -393,6 +393,49 @@ except Exception as e:
 PYEOF
 echo ""
 
+# ── Patch directo: rebote_tipo en ec_lote_items ──────────────────────────────
+# Columna añadida por ec08_rebote_tipo. Idempotente: ADD COLUMN IF NOT EXISTS.
+echo "⚡ Garantizando columna rebote_tipo en ec_lote_items..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando patch directo")
+    sys.exit(0)
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    print("   DATABASE_URL no definida — saltando patch directo")
+    sys.exit(0)
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name='ec_lote_items'")
+    if not cur.fetchone():
+        print("   ⏭  ec_lote_items aún no existe — se creará en upgrade ec02")
+        conn.close()
+        sys.exit(0)
+    cur.execute(
+        "ALTER TABLE ec_lote_items "
+        "ADD COLUMN IF NOT EXISTS rebote_tipo TEXT"
+    )
+    cur.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name='ec_lote_items' AND column_name='rebote_tipo'"
+    )
+    exists = cur.fetchone()
+    conn.close()
+    if exists:
+        print("   ✅ rebote_tipo: confirmada en ec_lote_items")
+    else:
+        print("   ❌ rebote_tipo: NO se pudo crear")
+        sys.exit(1)
+except Exception as e:
+    print(f"   ⚠️  Error en patch rebote_tipo: {e}")
+PYEOF
+echo ""
+
 # ── Upgrade ───────────────────────────────────────────────────────────────────
 # Usar "heads" (plural) para correr TODAS las ramas pendientes independientemente.
 # Esto es necesario porque el grafo tiene múltiples heads sin merge.
