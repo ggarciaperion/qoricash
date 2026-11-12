@@ -22,7 +22,6 @@ if [ -z "$DATABASE_URL" ]; then
 fi
 
 echo "✅ DATABASE_URL configurada"
-echo "   ${DATABASE_URL:0:30}..."
 echo ""
 
 echo "📚 Revisiones disponibles:"
@@ -32,35 +31,91 @@ echo ""
 cd "$(dirname "$0")" || exit 1
 
 # ── Verificación de revisión Alembic ─────────────────────────────────────────
-# PRIMERA comprobación: ocurre antes de cualquier parche o escritura.
+# Lee alembic_version directamente vía psycopg2 — sin importar Flask ni env.py.
+# Valida cada revisión contra alembic.script.ScriptDirectory (sólo lee archivos).
 # Regla de seguridad:
-#   - DB sin versión (nueva instalación): continuar.
-#   - DB con revisión CONOCIDA en el historial: continuar.
-#   - DB con revisión DESCONOCIDA: ABORTAR con exit 1. No hacer stamp automático.
-#     Una revisión desconocida indica una DB de otra rama, una restauración
-#     incorrecta o un historial manipulado. Continuar silenciosamente podría
-#     ejecutar migraciones sobre un schema incompatible y corromper datos.
-#     Acción requerida: diagnosticar manualmente y, si es seguro, ejecutar
-#     "flask db stamp <revision_conocida>" antes del deploy.
+#   - DB sin tabla alembic_version (nueva instalación): continuar.
+#   - Todas las revisiones presentes conocidas en el grafo: continuar.
+#   - Cualquier revisión desconocida: ABORTAR con exit 1. Sin stamp automático.
 
-echo "🔍 Verificando revisión Alembic antes de cualquier cambio..."
+echo "🔍 Verificando revisión Alembic (psycopg2 + ScriptDirectory)..."
 
-CURRENT=$(flask db current 2>&1 | grep -E '^[a-f0-9]' | head -1 || true)
+PREFLIGHT=$(python3 - <<'PYEOF'
+import os, sys
 
-if [ -n "$CURRENT" ]; then
-    echo "   Revisión actual en DB: $CURRENT"
+try:
+    import psycopg2
+    from alembic.script import ScriptDirectory
+    from alembic.config import Config
+except ImportError as e:
+    # Dependencias ausentes — dejar que Alembic lo gestione
+    print(f"SKIP:import:{e}")
+    sys.exit(0)
 
-    KNOWN=$(flask db history 2>&1 | grep "$CURRENT" || true)
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    print("SKIP:no_url")
+    sys.exit(0)
 
-    if [ -z "$KNOWN" ]; then
+# 1. Leer revisiones directamente de PostgreSQL
+try:
+    conn = psycopg2.connect(url)
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT version_num FROM alembic_version ORDER BY version_num")
+        rows = [r[0] for r in cur.fetchall()]
+    except psycopg2.errors.UndefinedTable:
+        rows = []
+    finally:
+        conn.close()
+except Exception as e:
+    print(f"SKIP:db_error:{e}")
+    sys.exit(0)
+
+if not rows:
+    print("EMPTY")
+    sys.exit(0)
+
+# 2. Cargar grafo de migraciones — sólo lee archivos .py, no ejecuta env.py
+try:
+    cfg = Config()
+    cfg.set_main_option('script_location', 'migrations')
+    sd = ScriptDirectory.from_config(cfg)
+    known = {s.revision for s in sd.walk_revisions()}
+except Exception as e:
+    print(f"SKIP:graph_error:{e}")
+    sys.exit(0)
+
+unknown = [r for r in rows if r not in known]
+if unknown:
+    print("UNKNOWN:" + ",".join(unknown))
+    sys.exit(0)
+
+print("KNOWN:" + ",".join(rows))
+PYEOF
+)
+
+case "$PREFLIGHT" in
+    EMPTY)
+        echo "   DB nueva o sin versión — upgrade creará el schema desde cero."
+        echo ""
+        ;;
+    KNOWN:*)
+        REVS="${PREFLIGHT#KNOWN:}"
+        echo "   Revisión(es) actual(es): $REVS"
+        echo "   ✅ Reconocida(s) en el grafo. Continuando con parches."
+        echo ""
+        ;;
+    UNKNOWN:*)
+        REVS="${PREFLIGHT#UNKNOWN:}"
         echo ""
         echo "=========================================="
         echo "   ERROR: REVISIÓN ALEMBIC DESCONOCIDA"
         echo "=========================================="
         echo ""
-        echo "   La DB reporta revisión: '$CURRENT'"
-        echo "   Esta revisión NO existe en el historial de migraciones del"
-        echo "   código que se está desplegando."
+        echo "   La DB reporta revisión(es): '$REVS'"
+        echo "   Esta(s) revisión(es) NO existen en el historial de migraciones"
+        echo "   del código que se está desplegando."
         echo ""
         echo "   DEPLOY DETENIDO. No se realizó ningún cambio a la DB."
         echo ""
@@ -69,23 +124,22 @@ if [ -n "$CURRENT" ]; then
         echo "     - Se restauró un backup con un historial de migraciones distinto."
         echo "     - La tabla alembic_version fue modificada manualmente."
         echo ""
-        echo "   Acción requerida (ejecutar manualmente antes de reintentar):"
+        echo "   Acción requerida:"
         echo "     1. Identificar a qué revisión conocida corresponde el schema actual."
-        echo "     2. flask db stamp <revision_conocida>"
+        echo "     2. FLASK_CLI_ONLY=true flask db stamp <revision_conocida>"
         echo "     3. Reintentar el deploy."
         echo ""
-        echo "   Revisiones conocidas (cabezas de rama):"
-        flask db heads 2>&1 | grep -v "^$" | head -20 || true
-        echo ""
         exit 1
-    else
-        echo "   ✅ Revisión reconocida — ningún cambio hasta aquí. Continuando con parches."
+        ;;
+    SKIP:*)
+        echo "   ⚠️  Preflight omitido ($PREFLIGHT) — Alembic validará durante upgrade."
         echo ""
-    fi
-else
-    echo "   DB nueva o sin versión — upgrade creará el schema desde cero."
-    echo ""
-fi
+        ;;
+    *)
+        echo "   Preflight: $PREFLIGHT — continuando."
+        echo ""
+        ;;
+esac
 
 # ── Patch directo: is_validated en bank_movements ────────────────────────────
 # Ejecuta SQL puro con psycopg2 ANTES de Alembic.
