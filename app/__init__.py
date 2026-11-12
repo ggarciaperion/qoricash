@@ -5,17 +5,19 @@ Este archivo crea y configura la aplicación Flask usando el patrón Factory.
 """
 # IMPORTANTE: Monkey patch de eventlet DEBE ir PRIMERO, antes de cualquier otra importación
 import eventlet
+import os as _os_init
 
-# CRITICAL: os=False para no romper subprocess/cloudinary en macOS Python 3.9.
-# En producción run.py ya llama monkey_patch() completo antes de importar la app,
-# por lo que esta llamada es redundante ahí. En local dev evita el crash de cloudinary.
-eventlet.monkey_patch(
-    os=False,
-    select=True,
-    socket=True,
-    thread=True,
-    time=True
-)
+# FLASK_CLI_ONLY=true → omitir monkey_patch (flask db upgrade/heads/current, etc.).
+# En producción run.py llama monkey_patch() completo antes de importar la app.
+# En local dev (sin FLASK_CLI_ONLY) este patch evita el crash de cloudinary/subprocess.
+if not _os_init.environ.get('FLASK_CLI_ONLY'):
+    eventlet.monkey_patch(
+        os=False,
+        select=True,
+        socket=True,
+        thread=True,
+        time=True
+    )
 
 import logging
 import os
@@ -857,12 +859,13 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Sanctions] Error creando tabla sanctions_entries: {e}")
 
-    # Pre-cargar listas de sanciones en background al arrancar (para que estén listas en el primer uso)
-    try:
-        from app.services import sanctions_screening_service as _sss
-        _sss.ensure_lists_loaded(app)
-    except Exception as e:
-        logging.warning(f"[Sanctions] No se pudo iniciar pre-carga: {e}")
+    # Pre-cargar listas de sanciones en background al arrancar (omitir en modo CLI).
+    if not _os_init.environ.get('FLASK_CLI_ONLY'):
+        try:
+            from app.services import sanctions_screening_service as _sss
+            _sss.ensure_lists_loaded(app)
+        except Exception as e:
+            logging.warning(f"[Sanctions] No se pudo iniciar pre-carga: {e}")
 
     # Migración: columna session_token en users (sesión única por usuario)
     try:
@@ -1183,32 +1186,34 @@ def create_app(config_name=None):
     # de la operación de compra (completed_at), para que la utilidad se
     # contabilice en el mes correcto (octubre) y no en el mes del amarre (noviembre).
     # También verifica que las operaciones de octubre tengan completed_at en octubre.
-    try:
-        with app.app_context():
-            from app.extensions import db
-            from sqlalchemy import text
-            from datetime import datetime
+    # Omitir en modo CLI (FLASK_CLI_ONLY=true): la tabla operations puede no existir aún.
+    if not _os_init.environ.get('FLASK_CLI_ONLY'):
+        try:
+            with app.app_context():
+                from app.extensions import db
+                from sqlalchemy import text
+                from datetime import datetime
 
-            # 1. Forzar completed_at correcto para operaciones de octubre
-            #    (por si el script de ajuste las dejó con fecha en noviembre)
-            octubre_ops = {
-                'EXP-1235': datetime(2026, 10, 31, 12, 0, 0),
-                'EXP-1231': datetime(2026, 10, 29, 12, 0, 0),
-                'EXP-1226': datetime(2026, 10, 27, 12, 0, 0),
-                'EXP-1222': datetime(2026, 10, 27, 12, 0, 0),
-                'EXP-1218': datetime(2026, 10, 26, 12, 0, 0),
-            }
-            for exp_id, oct_date in octubre_ops.items():
-                db.session.execute(text(
-                    "UPDATE operations SET completed_at = :dt "
-                    "WHERE exp_id = :eid "
-                    "AND (completed_at IS NULL OR DATE(completed_at) > '2026-10-31')"
-                ), {'dt': oct_date, 'eid': exp_id})
-            db.session.commit()
-            logging.info("[Migration] completed_at octubre ops corregido")
+                # 1. Forzar completed_at correcto para operaciones de octubre
+                #    (por si el script de ajuste las dejó con fecha en noviembre)
+                octubre_ops = {
+                    'EXP-1235': datetime(2026, 10, 31, 12, 0, 0),
+                    'EXP-1231': datetime(2026, 10, 29, 12, 0, 0),
+                    'EXP-1226': datetime(2026, 10, 27, 12, 0, 0),
+                    'EXP-1222': datetime(2026, 10, 27, 12, 0, 0),
+                    'EXP-1218': datetime(2026, 10, 26, 12, 0, 0),
+                }
+                for exp_id, oct_date in octubre_ops.items():
+                    db.session.execute(text(
+                        "UPDATE operations SET completed_at = :dt "
+                        "WHERE exp_id = :eid "
+                        "AND (completed_at IS NULL OR DATE(completed_at) > '2026-10-31')"
+                    ), {'dt': oct_date, 'eid': exp_id})
+                db.session.commit()
+                logging.info("[Migration] completed_at octubre ops corregido")
 
-    except Exception as e:
-        logging.warning(f"[Migration] fix_accounting_match_dates: {e}")
+        except Exception as e:
+            logging.warning(f"[Migration] fix_accounting_match_dates: {e}")
 
     return app
 
