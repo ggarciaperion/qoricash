@@ -499,8 +499,11 @@ def get_agent_guide_status() -> dict:
 
 def _lotes_hoy() -> list[dict]:
     """
-    Lotes de hoy (America/Lima). Cada dict incluye 'id' (BIGINT, FK para items)
-    y 'lote_id' (TEXT).
+    Lotes operativos de hoy (America/Lima), es_prueba=0.
+    Cada dict incluye 'id' (BIGINT, FK para items) y 'lote_id' (TEXT).
+
+    Excluye lotes de prueba (es_prueba != 0). Para acceso a lotes de prueba
+    usar get_lotes_disponibles(fecha) que retorna todos sin filtro.
 
     Detecta el schema disponible y ejecuta la query apropiada.
     - Schema post-ec04 (producción): columnas viejas + nuevas coexisten.
@@ -539,6 +542,7 @@ def _lotes_hoy() -> list[dict]:
                 COALESCE(fecha_creacion, creado_at)
                 AT TIME ZONE 'America/Lima'
             ) = :0
+              AND COALESCE(es_prueba, 0) = 0
             ORDER BY id
         """, (hoy,))
     else:
@@ -557,6 +561,7 @@ def _lotes_hoy() -> list[dict]:
                    COALESCE(es_prueba, 0)                  AS es_prueba
             FROM ec_lotes
             WHERE DATE(fecha_creacion AT TIME ZONE 'America/Lima') = :0
+              AND COALESCE(es_prueba, 0) = 0
             ORDER BY id
         """, (hoy,))
 
