@@ -19,17 +19,10 @@ from .accounting_audit   import AccountingAuditAgent
 _log = logging.getLogger(__name__)
 _LIMA = timezone(timedelta(hours=-5))
 
-# Registro global de todos los agentes (orden = flujo del pipeline)
-# LeadDiscoveryAgent deshabilitado: la base de prospectos se carga manualmente
-ALL_AGENTS = [
-    DataQualityAgent(),
-    MailAgent(),
-    EmailIntelligenceAgent(),
-    OutreachAgent(),
-    SupervisorAgent(),
-    ExecutiveAgent(),
-    AccountingAuditAgent(),
-]
+# Agentes desactivados 2026-11-13 — el pipeline de prospección corre en scheduler_lotes.py
+# (motor local Mac). No hay agentes en paralelo en Render para evitar conflictos.
+# Los endpoints del panel (/api/sync/*, /agentes/*) siguen activos.
+ALL_AGENTS = []
 
 _agent_map = {a.agent_id: a for a in ALL_AGENTS}
 _greenlets = {}  # agent_id → greenlet
