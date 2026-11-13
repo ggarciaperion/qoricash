@@ -305,3 +305,80 @@ def sync_agents():
         })
 
     return jsonify({'agents': agents, 'threshold_segundos': threshold}), 200
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /api/public/baja  — sin autenticación, con rate-limit
+# Recibe solicitud de baja desde www.qoricash.pe/baja (usuario web).
+# Escribe en ec_web_baja (PostgreSQL). No aplica supresión en SQLite local;
+# eso lo hace el motor via GET /api/sync/baja.
+# ─────────────────────────────────────────────────────────────────────────────
+
+@sync_api_bp.route('/public/baja', methods=['POST'])
+@csrf.exempt
+def public_baja():
+    """
+    POST /api/sync/public/baja
+    Body: {email: str}
+    Idempotente: ON CONFLICT(email) DO NOTHING.
+    Devuelve {ok: true} siempre que el email sea válido (tanto si es nuevo como si ya existía).
+    """
+    import re
+    data  = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip().lower()
+
+    if not email or not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+        return jsonify({'ok': False, 'error': 'email_invalido'}), 400
+
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr or '')
+    ip = ip.split(',')[0].strip()[:64]
+
+    try:
+        db.session.execute(db.text("""
+            INSERT INTO ec_web_baja (email, ip_origen)
+            VALUES (:email, :ip)
+            ON CONFLICT (email) DO NOTHING
+        """), {'email': email, 'ip': ip})
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        log.error('[public_baja] error escribiendo ec_web_baja: %s', e)
+        return jsonify({'ok': False, 'error': 'error_interno'}), 500
+
+    log.info('[public_baja] baja registrada: %s desde %s', email, ip)
+    return jsonify({'ok': True}), 200
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /api/sync/baja  — solo motor (Bearer SYNC_SECRET)
+# Motor llama esto antes de cada job_enviar() para bajar nuevas supresiones.
+# ─────────────────────────────────────────────────────────────────────────────
+
+@sync_api_bp.route('/baja', methods=['GET'])
+@csrf.exempt
+def sync_baja_pull():
+    """
+    GET /api/sync/baja?since=<ISO_TIMESTAMP>
+    Devuelve solicitudes de baja registradas desde 'since'.
+    Auth: Bearer SYNC_SECRET.
+    Respuesta: {items: [{email, creado_en}], count: N}
+    """
+    if not _check_bearer():
+        return jsonify({'error': 'unauthorized'}), 401
+
+    since_str = request.args.get('since', '2000-01-01T00:00:00')
+    try:
+        rows = db.session.execute(db.text("""
+            SELECT email, creado_en
+            FROM ec_web_baja
+            WHERE creado_en > :since
+            ORDER BY creado_en ASC
+            LIMIT 500
+        """), {'since': since_str}).fetchall()
+    except Exception as e:
+        log.error('[sync_baja_pull] error: %s', e)
+        return jsonify({'items': [], 'count': 0}), 200
+
+    items = [{'email': r[0], 'creado_en': r[1].isoformat() if hasattr(r[1], 'isoformat') else str(r[1])}
+             for r in rows]
+    return jsonify({'items': items, 'count': len(items)}), 200
