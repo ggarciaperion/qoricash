@@ -218,40 +218,6 @@
 .sk-line.w60 { width:60%; }
 .sk-line.w40 { width:40%; }
 
-/* ── Nav cards (bottom) ─────────────────────────────────────────── */
-.ag-nav-grid { display:flex; flex-wrap:wrap; gap:16px; }
-.ag-nav-card {
-  background:var(--ag-surface); border:1.5px solid var(--ag-border);
-  border-radius:14px; padding:20px 22px 18px;
-  width:240px; text-decoration:none; color:inherit;
-  display:flex; flex-direction:column; gap:10px;
-  transition:border-color .18s, box-shadow .18s, transform .18s;
-  position:relative; overflow:hidden;
-}
-.ag-nav-card:hover {
-  border-color:var(--ag-blue); transform:translateY(-2px);
-  box-shadow:0 6px 24px rgba(25,107,254,.12);
-  text-decoration:none; color:inherit;
-}
-.ag-nav-card:hover .ag-nav-arrow { transform:translateX(3px); }
-.ag-nav-icon {
-  width:40px; height:40px; border-radius:10px;
-  background:var(--ag-blue-lt); color:var(--ag-blue);
-  display:flex; align-items:center; justify-content:center; font-size:1rem;
-}
-.ag-nav-name { font-size:.9rem; font-weight:800; color:var(--ag-text); margin:0; }
-.ag-nav-desc { font-size:.72rem; color:var(--ag-muted); line-height:1.5; margin:0; }
-.ag-nav-footer {
-  display:flex; align-items:center; justify-content:space-between;
-  padding-top:10px; border-top:1px solid #f1f5f9; margin-top:auto;
-}
-.ag-nav-tag {
-  font-size:.65rem; font-weight:600; color:var(--ag-blue);
-  background:var(--ag-blue-lt); border:1px solid #bfdbfe;
-  border-radius:20px; padding:2px 9px;
-}
-.ag-nav-arrow { color:var(--ag-blue); transition:transform .18s; }
-
 /* ── Section divider ────────────────────────────────────────────── */
 .ag-section-label {
   font-size:.65rem; font-weight:700; text-transform:uppercase;
@@ -408,48 +374,6 @@
     </div>
 
   </div><!-- /.ag-cards -->
-
-  <!-- ── Navigation cards ───────────────────────────────────────── -->
-  <p class="ag-section-label" style="margin-top:8px;">Otros módulos</p>
-  <div class="ag-nav-grid">
-
-    <a href="{{ url_for('agentes.mission_control') }}" class="ag-nav-card">
-      <div class="ag-nav-icon"><i class="bi bi-diagram-3-fill"></i></div>
-      <div>
-        <h3 class="ag-nav-name">Mission Control</h3>
-        <p class="ag-nav-desc">Centro de comando — pipeline visual de agentes autónomos.</p>
-      </div>
-      <div class="ag-nav-footer">
-        <span class="ag-nav-tag">7 agentes</span>
-        <i class="bi bi-arrow-right ag-nav-arrow"></i>
-      </div>
-    </a>
-
-    <a href="{{ url_for('agentes.contabilidad') }}" class="ag-nav-card">
-      <div class="ag-nav-icon" style="background:#eff6ff;color:#2563eb;"><i class="bi bi-calculator-fill"></i></div>
-      <div>
-        <h3 class="ag-nav-name">Agente Contabilidad</h3>
-        <p class="ag-nav-desc">Auditoría autónoma diaria: asientos, conciliación, resultados.</p>
-      </div>
-      <div class="ag-nav-footer">
-        <span class="ag-nav-tag" style="background:#eff6ff;border-color:#bfdbfe;color:#2563eb;">Cron 23:00 Lima</span>
-        <i class="bi bi-arrow-right ag-nav-arrow"></i>
-      </div>
-    </a>
-
-    <a href="{{ url_for('agentes.actividad') }}" class="ag-nav-card">
-      <div class="ag-nav-icon" style="background:#faf5ff;color:#7c3aed;"><i class="bi bi-activity"></i></div>
-      <div>
-        <h3 class="ag-nav-name">Consola de Actividad</h3>
-        <p class="ag-nav-desc">Logs en tiempo real de todos los agentes en ejecución.</p>
-      </div>
-      <div class="ag-nav-footer">
-        <span class="ag-nav-tag" style="background:#faf5ff;border-color:#ddd6fe;color:#7c3aed;">En vivo</span>
-        <i class="bi bi-arrow-right ag-nav-arrow"></i>
-      </div>
-    </a>
-
-  </div>
 
 </div><!-- /.ag-root -->
 
