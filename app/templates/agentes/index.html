@@ -139,7 +139,7 @@
   letter-spacing:.1em; color:var(--ag-muted); margin-bottom:3px;
 }
 .ag-card-title {
-  font-size:.95rem; font-weight:800; color:var(--ag-blue);
+  font-size:.95rem; font-weight:800 !important; color:var(--ag-blue) !important;
   margin:0; letter-spacing:-.01em;
 }
 
@@ -165,8 +165,13 @@
   font-size:2rem; font-weight:900; color:var(--ag-text);
   letter-spacing:-.03em; line-height:1; font-family:'Courier New',monospace;
   animation:count-up .35s ease-out;
+  display:flex; flex-direction:column; gap:3px;
 }
-.ag-number-unit { font-size:.74rem; font-weight:600; color:var(--ag-muted); margin-left:4px; vertical-align:middle; }
+.ag-number-unit {
+  font-size:.64rem; font-weight:600; color:var(--ag-muted);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  letter-spacing:.02em; line-height:1;
+}
 
 /* ── Stats row ───────────────────────────────────────────────────── */
 .ag-stats { display:flex; gap:14px; flex-wrap:wrap; }
@@ -410,9 +415,18 @@
     if (!m || !m.disponible) {
       pill.className  = 'ag-status-pill offline'; lbl.textContent = 'Motor local'; return;
     }
-    const mins = (m.edad_min !== null && m.edad_min !== undefined) ? ` · ${m.edad_min} min` : '';
-    pill.className  = m.conectado ? 'ag-status-pill online' : 'ag-status-pill offline';
-    lbl.textContent = m.conectado ? `Motor local${mins}` : `Sin conexión${mins}`;
+    if (m.conectado) {
+      const mins = (m.edad_min !== null && m.edad_min !== undefined) ? ` · ${m.edad_min} min` : '';
+      pill.className  = 'ag-status-pill online';
+      lbl.textContent = `Motor local${mins}`;
+    } else if (m.edad_min !== null && m.edad_min !== undefined) {
+      // Heartbeat antiguo: no afirmar ni activo ni pausado
+      pill.className  = 'ag-status-pill loading';
+      lbl.textContent = `Estado sin confirmar · hace ${m.edad_min} min`;
+    } else {
+      pill.className  = 'ag-status-pill offline';
+      lbl.textContent = 'Sin señal conocida';
+    }
     if (m.ultimo_lote_id) pill.title = `Último lote: ${m.ultimo_lote_id}`;
   }
 
@@ -569,8 +583,9 @@
     document.getElementById('rsm-acept').textContent = fmt(enviados);
     document.getElementById('c4-body').innerHTML = `
       ${dryRun ? `<span class="ag-sbadge err" style="margin-bottom:4px;display:inline-flex;">
-        <span class="ag-dot"></span>Envíos deshabilitados (modo prueba)
-      </span>` : ''}
+        <span class="ag-dot"></span>Envíos pausados
+      </span>
+      <p style="font-size:.68rem;color:var(--ag-muted);margin:0 0 4px;">Los correos no se enviarán mientras esta opción esté deshabilitada.</p>` : ''}
       <div class="ag-number">${fmt(enviados)}<span class="ag-number-unit">aceptados hoy · máx 75</span></div>
       <div class="ag-stats">
         <div class="ag-stat">
