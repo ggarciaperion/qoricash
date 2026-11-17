@@ -115,21 +115,32 @@
   letter-spacing:.12em; color:var(--ag-muted); margin:0 0 14px;
 }
 
+/* ── Cards scroll wrapper (mobile) ───────────────────────────────── */
+.ag-cards-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Negative margin trick: allow card shadow to show on edges */
+  margin-left: -4px; margin-right: -4px;
+  padding-left: 4px; padding-right: 4px;
+}
+
 /* ── Cards grid ──────────────────────────────────────────────────── */
 .ag-cards {
   display:grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px,1fr));
-  gap:16px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap:12px;
   margin-bottom:32px;
+  /* On narrow screens the scroll wrapper prevents page overflow */
+  min-width: 850px;
 }
 
 /* ── Card ────────────────────────────────────────────────────────── */
 .ag-card {
   background:var(--ag-surface);
   border:1px solid var(--ag-border);
-  border-radius:12px;
-  padding:20px;
-  display:flex; flex-direction:column; gap:10px;
+  border-radius:10px;
+  padding:14px;
+  display:flex; flex-direction:column; gap:8px;
 }
 
 /* ── Card head ───────────────────────────────────────────────────── */
@@ -272,6 +283,7 @@
   <!-- ── 5 Pipeline cards ───────────────────────────────────────── -->
   <p class="ag-section-label">Estado del pipeline · 5 pasos</p>
 
+  <div class="ag-cards-scroll">
   <div class="ag-cards" id="ag-cards">
 
     <!-- Paso 1 — Elegir contactos -->
@@ -280,8 +292,8 @@
         <span class="ag-step">Paso 1</span>
         <h3 class="ag-card-title">Elegir contactos</h3>
       </div>
-      <p class="ag-card-what">Busca empresas en la Fuente de datos y selecciona candidatos según las reglas de la campaña. <span class="ag-next">→ Los candidatos pasan a revisión. Si ya hay un lote en curso, se continúa ese lote.</span></p>
-      <p class="ag-card-when">Horario configurado: 08:00</p>
+      <p class="ag-card-what">Selecciona contactos de la Fuente de datos. Si hay un lote pendiente, continúa con él.</p>
+      <p class="ag-card-when">08:00 hora Lima</p>
       <hr class="ag-card-divider">
       <div id="c1-body" class="ag-card-result">
         <div class="ag-skeleton sk-num"></div>
@@ -296,8 +308,8 @@
         <span class="ag-step">Paso 2</span>
         <h3 class="ag-card-title">Revisar correos</h3>
       </div>
-      <p class="ag-card-what">Revisa los correos y excluye duplicados, bajas y contactos no aptos. <span class="ag-next">→ Los contactos aptos pasan a la asignación.</span></p>
-      <p class="ag-card-when">Horario configurado: 08:00 · junto con la selección</p>
+      <p class="ag-card-what">Revisa los contactos y excluye duplicados, bajas y correos no aptos.</p>
+      <p class="ag-card-when">08:00 hora Lima · junto con la selección</p>
       <hr class="ag-card-divider">
       <div id="c2-body" class="ag-card-result">
         <div class="ag-skeleton sk-num"></div>
@@ -312,8 +324,8 @@
         <span class="ag-step">Paso 3</span>
         <h3 class="ag-card-title">Repartir contactos</h3>
       </div>
-      <p class="ag-card-what">Distribuye los contactos entre gerencia, ggarcia e info. <span class="ag-next">→ Quedan listos para enviarse desde su bandeja.</span></p>
-      <p class="ag-card-when">Horario configurado: 09:00 · Límite: 25 envíos por bandeja al día</p>
+      <p class="ag-card-what">Distribuye los contactos entre las tres bandejas, con un máximo de 25 envíos diarios por bandeja.</p>
+      <p class="ag-card-when">09:00 hora Lima · máx 25/bandeja/día</p>
       <hr class="ag-card-divider">
       <div id="c3-body" class="ag-card-result">
         <div class="ag-skeleton sk-num"></div>
@@ -328,8 +340,8 @@
         <span class="ag-step">Paso 4</span>
         <h3 class="ag-card-title">Enviar correos</h3>
       </div>
-      <p class="ag-card-what">Envía el correo oficial con el tipo de cambio disponible. <span class="ag-next">→ Registra el resultado y deja los mensajes disponibles para seguimiento.</span></p>
-      <p class="ag-card-when">Horario configurado: 7 tandas · 09:30 → 15:00</p>
+      <p class="ag-card-what">Envía la plantilla oficial con el tipo de cambio vigente. Máximo: 75 correos al día.</p>
+      <p class="ag-card-when">09:30–15:00 hora Lima · 7 tandas</p>
       <hr class="ag-card-divider">
       <div id="c4-body" class="ag-card-result">
         <div class="ag-skeleton sk-num"></div>
@@ -344,8 +356,8 @@
         <span class="ag-step">Paso 5</span>
         <h3 class="ag-card-title">Revisar resultados</h3>
       </div>
-      <p class="ag-card-what">Revisa respuestas, bajas y correos que no llegaron; actualiza los registros. <span class="ag-next">→ Registra oportunidades y evita nuevos envíos a contactos suprimidos.</span></p>
-      <p class="ag-card-when">Horario configurado: scan de bandeja 17:00 · respuestas y feedback cada 30 min</p>
+      <p class="ag-card-what">Registra respuestas, rebotes y bajas; actualiza la fuente de datos.</p>
+      <p class="ag-card-when">17:00 hora Lima · respuestas y feedback cada 30 min</p>
       <hr class="ag-card-divider">
       <div id="c5-body" class="ag-card-result">
         <div class="ag-skeleton sk-num"></div>
@@ -355,6 +367,7 @@
     </div>
 
   </div><!-- /.ag-cards -->
+  </div><!-- /.ag-cards-scroll -->
 
 </div><!-- /.ag-root -->
 
@@ -479,7 +492,7 @@
           <span class="ag-stat-lbl">Revisados</span>
         </div>
         <div class="ag-stat">
-          <span class="ag-stat-val" style="color:#dc2626;">${fmt(excluidos)}</span>
+          <span class="ag-stat-val" style="color:${excluidos > 0 ? '#dc2626' : '#64748b'};">${fmt(excluidos)}</span>
           <span class="ag-stat-lbl">Excluidos</span>
         </div>
         <div class="ag-stat">
@@ -565,7 +578,7 @@
     document.getElementById('c3-body').innerHTML = `
       <div style="font-size:.8rem;font-weight:700;color:#0f172a;margin-bottom:6px;">${titulo}</div>
       ${rowsHTML || '<div style="font-size:.72rem;color:#94a3b8;">Sin información</div>'}
-      <div class="ag-note">Los números "en lote" corresponden al total asignado (puede incluir envíos de días anteriores). "Hoy" muestra solo los del día actual.</div>`;
+      <div class="ag-note">En lote: total asignado. Hoy: envíos del día.</div>`;
   }
 
   // ── Card 4: Enviar correos ────────────────────────────────────────
@@ -582,7 +595,7 @@
 
     document.getElementById('rsm-acept').textContent = fmt(enviados);
     document.getElementById('c4-body').innerHTML = `
-      ${dryRun ? `<span class="ag-sbadge err" style="margin-bottom:4px;display:inline-flex;">
+      ${dryRun ? `<span class="ag-sbadge off" style="margin-bottom:4px;display:inline-flex;">
         <span class="ag-dot"></span>Envíos pausados
       </span>
       <p style="font-size:.68rem;color:var(--ag-muted);margin:0 0 4px;">Los correos no se enviarán mientras esta opción esté deshabilitada.</p>` : ''}
@@ -601,11 +614,11 @@
           <span class="ag-stat-lbl">En conciliación</span>
         </div>` : ''}
         <div class="ag-stat">
-          <span class="ag-stat-val" style="color:#dc2626;">${fmt(errores)}</span>
+          <span class="ag-stat-val" style="color:${errores > 0 ? '#dc2626' : '#64748b'};">${fmt(errores)}</span>
           <span class="ag-stat-lbl">Error hoy</span>
         </div>
       </div>
-      <div class="ag-note">Aceptado por el proveedor para envío. No confirma que el correo haya llegado a la bandeja del destinatario.</div>`;
+      <div class="ag-note">Aceptado por el proveedor; no confirma entrega.</div>`;
   }
 
   // ── Card 5: Revisar resultados ────────────────────────────────────
@@ -619,7 +632,7 @@
       <div class="ag-number">${fmt(acum)}<span class="ag-number-unit">rebotes acumulados</span></div>
       <div class="ag-stats">
         <div class="ag-stat">
-          <span class="ag-stat-val" style="color:#dc2626;">${fmt(hoy)}</span>
+          <span class="ag-stat-val" style="color:${hoy > 0 ? '#dc2626' : '#64748b'};">${fmt(hoy)}</span>
           <span class="ag-stat-lbl">Detectados hoy</span>
         </div>
       </div>
