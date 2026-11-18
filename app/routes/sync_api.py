@@ -382,3 +382,54 @@ def sync_baja_pull():
     items = [{'email': r[0], 'creado_en': r[1].isoformat() if hasattr(r[1], 'isoformat') else str(r[1])}
              for r in rows]
     return jsonify({'items': items, 'count': len(items)}), 200
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /api/sync/hunter  —  snapshot del worker Hunter (scheduler_hunter.py)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@sync_api_bp.route('/hunter', methods=['POST'])
+@csrf.exempt
+def sync_hunter():
+    """
+    POST /api/sync/hunter
+    Recibe snapshot de estado del worker Hunter cada ~5 min.
+    Payload JSON: {schema_version, ts, dry_run, hostname, lote, bandejas,
+                   outreach, rebotes, respuestas, feedback, scheduler}
+    Upsert en hunter_snapshots[snapshot_key='latest'].
+    """
+    if not _check_bearer():
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    raw = request.get_data(as_text=True)
+    if not raw:
+        return jsonify({'error': 'payload vacío'}), 400
+
+    try:
+        import json as _json
+        data = _json.loads(raw)
+    except Exception:
+        return jsonify({'error': 'JSON inválido'}), 400
+
+    hostname         = (data.get('hostname') or '').strip()
+    schema_version   = (data.get('schema_version') or '1.0').strip()
+    received_at      = datetime.now(timezone.utc)
+
+    try:
+        from app.models.hunter_snapshot import HunterSnapshot
+        snap = HunterSnapshot.query.filter_by(snapshot_key='latest').first()
+        if snap is None:
+            snap = HunterSnapshot(snapshot_key='latest')
+            db.session.add(snap)
+        snap.payload         = raw
+        snap.received_at     = received_at
+        snap.worker_hostname = hostname
+        snap.schema_version  = schema_version
+        db.session.commit()
+        log.debug('[sync_hunter] snapshot recibido de %s', hostname)
+    except Exception as e:
+        db.session.rollback()
+        log.error('[sync_hunter] error guardando HunterSnapshot: %s', e)
+        return jsonify({'error': 'Error interno'}), 500
+
+    return jsonify({'status': 'ok', 'received_at': received_at.isoformat()}), 200
