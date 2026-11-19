@@ -332,18 +332,6 @@ def api_pipeline_cards():
     return jsonify(stats)
 
 
-@agentes_bp.route('/api/hunter/pipeline-cards')
-@login_required
-@_require_agent_access
-def api_hunter_pipeline_cards():
-    """
-    Datos para las 7 tarjetas del panel Hunter (personas naturales).
-    Lee desde hunter_snapshots (snapshot empujado por scheduler_hunter).
-    """
-    from app.services.hunter_repo import get_hunter_pipeline_cards
-    return jsonify(get_hunter_pipeline_cards())
-
-
 @agentes_bp.route('/api/prospeccion/lotes')
 @login_required
 @_require_agent_access
