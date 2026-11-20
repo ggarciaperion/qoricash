@@ -470,12 +470,92 @@ def api_enviar():
             err_msg   = err_body.get('message', 'Error API')
             # Código 131026: ventana de 24h expirada — solo se permiten templates
             if '131026' in str(err_code) or '131026' in str(err_msg):
-                err_msg = ('El prospecto no ha escrito en las últimas 24 horas. '
-                           'WhatsApp solo permite responder dentro de ese plazo. '
-                           'Usa un template de campaña para retomar el contacto.')
+                return jsonify({
+                    'ok': False,
+                    'ventana_cerrada': True,
+                    'error': 'Ventana de 24h cerrada — el cliente no ha escrito recientemente.',
+                }), 400
         except Exception:
             err_msg = 'Error al enviar (API WhatsApp)'
         return jsonify({'ok': False, 'error': err_msg}), 400
+
+
+# ── API — iniciar conversación vía template (sin ventana de 24h) ─
+@crm_bp.route('/api/iniciar-conversacion', methods=['POST'])
+@login_required
+@require_role('Master')
+def api_iniciar_conversacion():
+    """Envía el template de reactivación para abrir ventana con el cliente."""
+    from app.services.wa_bot import send_template
+    from app.models.wa_bot_session import WaBotSession
+    from app.models.exchange_rate import ExchangeRate
+
+    data   = request.get_json(silent=True) or {}
+    numero = data.get('numero', '').strip()
+    if not numero:
+        return jsonify({'ok': False, 'error': 'Falta numero'}), 400
+
+    digits = ''.join(c for c in numero if c.isdigit())
+    if not digits.startswith('51'):
+        digits = f'51{digits}'
+    destino = f'+{digits}'
+
+    # Nombre del contacto
+    ses = WaBotSession.query.filter_by(numero=destino).first()
+    nombre = ''
+    if ses:
+        nombre = (getattr(ses, 'nombre_guardado', '') or getattr(ses, 'nombre', '') or '').strip()
+    if not nombre:
+        prev = WaMessage.query.filter(
+            WaMessage.numero == destino,
+            WaMessage.nombre != '',
+            WaMessage.nombre != None,
+        ).order_by(WaMessage.id.desc()).first()
+        nombre = (prev.nombre or '').strip() if prev else ''
+    if not nombre:
+        nombre = 'Estimado/a'
+
+    # TC actual
+    try:
+        rates  = ExchangeRate.get_current_rates()
+        compra = str(round(rates['compra'], 4))
+        venta  = str(round(rates['venta'],  4))
+    except Exception:
+        compra = '3.75'
+        venta  = '3.77'
+
+    try:
+        send_template(
+            destino,
+            CAMPANA_TEMPLATE_NAME,
+            CAMPANA_TEMPLATE_LANG,
+            [nombre, compra, venta],
+            header_image_url=CAMPANA_BANNER_URL,
+        )
+        # Guardar en historial
+        prev = WaMessage.query.filter(
+            WaMessage.numero == destino,
+            WaMessage.nombre != '',
+            WaMessage.nombre != None,
+            WaMessage.direccion != 'interna',
+        ).order_by(WaMessage.id.desc()).first()
+        empresa_contacto = prev.empresa if prev else ''
+        msg = WaMessage(
+            numero    = destino,
+            nombre    = nombre if nombre != 'Estimado/a' else '',
+            empresa   = empresa_contacto,
+            mensaje   = f'[Reactivación] Template {CAMPANA_TEMPLATE_NAME} — TC compra {compra} / venta {venta}',
+            direccion = 'saliente',
+            leido     = True,
+            tipo      = 'mensaje',
+            origen    = 'asesor',
+        )
+        db.session.add(msg)
+        db.session.commit()
+        return jsonify({'ok': True})
+    except Exception as e:
+        log.error(f'[CRM] Error iniciar-conversacion {destino}: {e}')
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 
 # ── API — enviar imagen ──────────────────────────────────────────

@@ -470,6 +470,23 @@ body.has-pb-bar.has-sidebar .main-wrapper {
 .crm-doc:hover { background: #f1f5f9; color: #0f172a; }
 .crm-caption { font-size: .78rem; color: #64748b; margin-top: 4px; }
 
+/* ── Banner ventana cerrada ── */
+.crm-ventana-banner {
+  display: none;
+  align-items: center; justify-content: space-between;
+  gap: 10px;
+  background: #fff7ed; border-top: 1px solid #fed7aa;
+  padding: 8px 14px; font-size: .82rem; color: #92400e;
+}
+.crm-ventana-banner span { flex: 1; }
+.crm-ventana-banner button {
+  background: #f97316; color: #fff; border: none;
+  border-radius: 6px; padding: 5px 12px; font-size: .82rem;
+  cursor: pointer; white-space: nowrap; font-weight: 600;
+  display: flex; align-items: center; gap: 5px;
+}
+.crm-ventana-banner button:disabled { opacity: .6; cursor: not-allowed; }
+
 /* ── Footer (input area) ── */
 .crm-footer {
   background: #fff;
@@ -932,6 +949,14 @@ body.has-pb-bar.has-sidebar .main-wrapper {
       <!-- Messages -->
       <div class="crm-messages" id="chatMessages"></div>
 
+      <!-- Banner ventana cerrada -->
+      <div class="crm-ventana-banner" id="ventanaBanner">
+        <span>⏰ Este cliente no ha escrito en las últimas 24 h. Envía el mensaje de reactivación para abrir la conversación.</span>
+        <button id="btnIniciarConv" onclick="iniciarConversacion()">
+          <i class="bi bi-send"></i> Iniciar conversación
+        </button>
+      </div>
+
       <!-- Footer -->
       <div class="crm-footer">
 
@@ -1154,6 +1179,7 @@ function goBack() {
 
 async function selectConv(numero, nombre, empresa) {
   activeNum = numero;
+  document.getElementById('ventanaBanner').style.display = 'none';
   renderConvs();
 
   document.getElementById('emptyState').style.display = 'none';
@@ -1652,11 +1678,47 @@ async function enviar() {
       body:   JSON.stringify({ numero: activeNum, mensaje: textoEnv }),
     });
     const data = await res.json();
-    if (!data.ok) showToast('Error: ' + (data.error || 'Intenta de nuevo'), 'error');
+    if (!data.ok) {
+      if (data.ventana_cerrada) {
+        document.getElementById('ventanaBanner').style.display = 'flex';
+      } else {
+        showToast('Error: ' + (data.error || 'Intenta de nuevo'), 'error');
+      }
+    } else {
+      document.getElementById('ventanaBanner').style.display = 'none';
+    }
   } catch (e) {
     showToast('Error de conexión', 'error');
   } finally {
     btn.disabled = false;
+  }
+}
+
+async function iniciarConversacion() {
+  if (!activeNum) return;
+  const btn = document.getElementById('btnIniciarConv');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Enviando...';
+  try {
+    const res = await fetch('/crm/api/iniciar-conversacion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+      body:   JSON.stringify({ numero: activeNum }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('ventanaBanner').style.display = 'none';
+      showToast('Mensaje de reactivación enviado — el cliente lo recibirá en instantes', 'success');
+      loadMessages(activeNum);
+    } else {
+      showToast('Error: ' + (data.error || 'No se pudo enviar el template'), 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-send"></i> Iniciar conversación';
+    }
+  } catch (e) {
+    showToast('Error de conexión', 'error');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-send"></i> Iniciar conversación';
   }
 }
 
