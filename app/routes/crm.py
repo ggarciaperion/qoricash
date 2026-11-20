@@ -464,7 +464,18 @@ def api_enviar():
         return jsonify({'ok': True})
     else:
         log.error(f'[CRM] Error enviando a {destino}: {resp.text}')
-        return jsonify({'ok': False, 'error': resp.json().get('error', {}).get('message', 'Error API')}), 400
+        try:
+            err_body  = resp.json().get('error', {})
+            err_code  = err_body.get('code') or err_body.get('error_data', {}).get('details', '')
+            err_msg   = err_body.get('message', 'Error API')
+            # Código 131026: ventana de 24h expirada — solo se permiten templates
+            if '131026' in str(err_code) or '131026' in str(err_msg):
+                err_msg = ('El prospecto no ha escrito en las últimas 24 horas. '
+                           'WhatsApp solo permite responder dentro de ese plazo. '
+                           'Usa un template de campaña para retomar el contacto.')
+        except Exception:
+            err_msg = 'Error al enviar (API WhatsApp)'
+        return jsonify({'ok': False, 'error': err_msg}), 400
 
 
 # ── API — enviar imagen ──────────────────────────────────────────

@@ -3912,10 +3912,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
 
         session = WaBotSession.get_or_create(numero)
 
-        # ── Número bloqueado: ignorar cualquier mensaje entrante ───────────
-        if session.opt_out_wa:
-            log.info(f'[WaBot] {numero} bloqueado (opt_out_wa=True), mensaje ignorado.')
-            return
+        # opt_out_wa solo aplica a campañas de salida; los mensajes entrantes
+        # (el prospecto escribe a Qoricash) siempre se procesan normalmente.
 
         # Nombre: proviene exclusivamente de la BD de clientes (nunca del perfil WA).
         # Se siembra una sola vez por sesión; las asignaciones posteriores (RENIEC,
