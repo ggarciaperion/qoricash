@@ -469,7 +469,8 @@ def api_enviar():
             err_body = resp.json().get('error', {})
             err_code = err_body.get('code', '')
             err_msg  = err_body.get('message', 'Error API')
-            log.error(f'[CRM] Error enviando a {destino_wa}: code={err_code} msg={err_msg} body={resp.text[:400]}')
+            err_data = err_body.get('error_data', {})
+            log.error(f'[CRM] Error enviando a {destino_wa}: code={err_code} msg={err_msg} data={err_data} body={resp.text[:500]}')
             # Código 131026: ventana de 24h expirada — solo se permiten templates
             if '131026' in str(err_code) or '131026' in str(err_msg):
                 return jsonify({
@@ -477,6 +478,7 @@ def api_enviar():
                     'ventana_cerrada': True,
                     'error': 'Ventana de 24h cerrada — el cliente no ha escrito recientemente.',
                 }), 400
+            return jsonify({'ok': False, 'error': f'({err_code}) {err_msg} [to:{destino_wa}]'}), 400
         except Exception:
             err_msg = 'Error al enviar (API WhatsApp)'
             log.error(f'[CRM] Error enviando a {destino_wa}: {resp.text[:400]}')
