@@ -415,16 +415,18 @@ def api_enviar():
     if not numero or not texto:
         return jsonify({'ok': False, 'error': 'Faltan datos'}), 400
 
-    # Asegurar formato E.164
+    # Formato sin + (consistente con send_text / send_template del bot)
     digits = ''.join(c for c in numero if c.isdigit())
     if not digits.startswith('51'):
         digits = f'51{digits}'
-    destino = f'+{digits}'
+    # numero_db: con + (como está guardado en WaMessage); destino_wa: sin + (para Meta API)
+    numero_db  = f'+{digits}'
+    destino_wa = digits
 
     headers = {'Authorization': f'Bearer {WA_ACCESS_TOKEN}', 'Content-Type': 'application/json'}
     payload = {
         'messaging_product': 'whatsapp',
-        'to': destino,
+        'to': destino_wa,
         'type': 'text',
         'text': {'body': texto},
     }
@@ -433,7 +435,7 @@ def api_enviar():
     if resp.status_code == 200:
         # Recuperar nombre/empresa del historial para que el sidebar no pierda el nombre
         prev = WaMessage.query.filter(
-            WaMessage.numero == destino,
+            WaMessage.numero.in_([numero_db, destino_wa]),
             WaMessage.nombre != '',
             WaMessage.nombre != None,
             WaMessage.direccion != 'interna',
@@ -441,7 +443,7 @@ def api_enviar():
         nombre_contacto  = prev.nombre  if prev else ''
         empresa_contacto = prev.empresa if prev else ''
         msg = WaMessage(
-            numero    = destino,
+            numero    = numero_db,
             nombre    = nombre_contacto,
             empresa   = empresa_contacto,
             mensaje   = texto,
@@ -454,7 +456,7 @@ def api_enviar():
         # Marcar que un asesor está atendiendo
         try:
             from app.models.wa_bot_session import WaBotSession
-            ses = WaBotSession.query.filter_by(numero=destino).first()
+            ses = WaBotSession.query.filter_by(numero=numero_db).first()
             if ses:
                 ses.estado_atencion = 'en_atencion'
                 ses.assigned_to     = current_user.id
@@ -463,11 +465,11 @@ def api_enviar():
         db.session.commit()
         return jsonify({'ok': True})
     else:
-        log.error(f'[CRM] Error enviando a {destino}: {resp.text}')
         try:
-            err_body  = resp.json().get('error', {})
-            err_code  = err_body.get('code') or err_body.get('error_data', {}).get('details', '')
-            err_msg   = err_body.get('message', 'Error API')
+            err_body = resp.json().get('error', {})
+            err_code = err_body.get('code', '')
+            err_msg  = err_body.get('message', 'Error API')
+            log.error(f'[CRM] Error enviando a {destino_wa}: code={err_code} msg={err_msg} body={resp.text[:400]}')
             # Código 131026: ventana de 24h expirada — solo se permiten templates
             if '131026' in str(err_code) or '131026' in str(err_msg):
                 return jsonify({
@@ -477,6 +479,7 @@ def api_enviar():
                 }), 400
         except Exception:
             err_msg = 'Error al enviar (API WhatsApp)'
+            log.error(f'[CRM] Error enviando a {destino_wa}: {resp.text[:400]}')
         return jsonify({'ok': False, 'error': err_msg}), 400
 
 
@@ -573,7 +576,8 @@ def api_enviar_imagen():
     digits = ''.join(c for c in numero if c.isdigit())
     if not digits.startswith('51'):
         digits = f'51{digits}'
-    destino = f'+{digits}'
+    numero_db  = f'+{digits}'
+    destino_wa = digits
 
     auth_hdr = {'Authorization': f'Bearer {WA_ACCESS_TOKEN}'}
     mime     = imagen.mimetype or 'image/jpeg'
@@ -597,7 +601,7 @@ def api_enviar_imagen():
     # 2. Enviar mensaje de imagen
     payload = {
         'messaging_product': 'whatsapp',
-        'to': destino,
+        'to': destino_wa,
         'type': 'image',
         'image': {'id': media_id},
     }
@@ -611,13 +615,13 @@ def api_enviar_imagen():
     )
     if resp.status_code == 200:
         prev2 = WaMessage.query.filter(
-            WaMessage.numero == destino,
+            WaMessage.numero.in_([numero_db, destino_wa]),
             WaMessage.nombre != '',
             WaMessage.nombre != None,
             WaMessage.direccion != 'interna',
         ).order_by(WaMessage.id.desc()).first()
         msg = WaMessage(
-            numero=destino,
+            numero=numero_db,
             nombre=prev2.nombre if prev2 else '',
             empresa=prev2.empresa if prev2 else '',
             mensaje=caption or '[Imagen]',
@@ -627,7 +631,7 @@ def api_enviar_imagen():
         db.session.add(msg)
         try:
             from app.models.wa_bot_session import WaBotSession
-            ses = WaBotSession.query.filter_by(numero=destino).first()
+            ses = WaBotSession.query.filter_by(numero=numero_db).first()
             if ses:
                 ses.estado_atencion = 'en_atencion'
                 ses.assigned_to     = current_user.id
@@ -637,7 +641,7 @@ def api_enviar_imagen():
         return jsonify({'ok': True})
     else:
         err = resp.json().get('error', {}).get('message', 'Error API')
-        log.error(f'[CRM] Error enviando imagen a {destino}: {err}')
+        log.error(f'[CRM] Error enviando imagen a {destino_wa}: {err}')
         return jsonify({'ok': False, 'error': err}), 400
 
 
