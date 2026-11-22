@@ -1011,9 +1011,10 @@ def webhook_receive():
                 else:
                     texto_b = ''
                     media_b = ''
-                contacto_b = next((c for c in contacts if c.get('wa_id') == msg.get('from')), {})
-                nombre_b   = contacto_b.get('profile', {}).get('name', '')
-                _bot(numero_b, nombre_b, tipo_b, texto_b, media_b, wa_id_b)
+                contacto_b     = next((c for c in contacts if c.get('wa_id') == msg.get('from')), {})
+                nombre_b       = contacto_b.get('profile', {}).get('name', '')
+                context_wa_id  = msg.get('context', {}).get('id', '')
+                _bot(numero_b, nombre_b, tipo_b, texto_b, media_b, wa_id_b, context_wa_id=context_wa_id)
         except Exception as _eb:
             log.warning(f'[CRM Webhook] Bot error: {_eb}')
 

@@ -3898,11 +3898,12 @@ def _typing(numero, wa_id=''):
     time.sleep(1.2)  # pausa natural antes de responder
 
 
-def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
+def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id='', context_wa_id=''):
     """
     Punto de entrada desde webhook_receive().
     tipo_msg: 'text' | 'image' | 'document' | 'interactive' | etc.
     texto: cuerpo del mensaje o button_id si es interactive
+    context_wa_id: wa_id del mensaje al que responde el cliente (de msg.context.id)
     """
     try:
         # Descartar webhooks duplicados (Meta puede entregar el mismo evento 2x)
@@ -3911,6 +3912,21 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
             return
 
         session = WaBotSession.get_or_create(numero)
+
+        # ── Detectar si es respuesta a plantilla de campaña de precios ─────
+        # context_wa_id viene de msg.context.id (Meta webhook) cuando el cliente
+        # responde a un mensaje enviado por Qoricash.
+        # Si ese ID existe en WaCampanaProspecto → saltar bienvenida y mostrar
+        # directamente "¿Cotizar como persona o empresa?"
+        _respuesta_campana_precio = False
+        if context_wa_id:
+            try:
+                from app.models.wa_campana_prospecto import WaCampanaProspecto as _WCP
+                _respuesta_campana_precio = db.session.query(
+                    _WCP.id
+                ).filter_by(wa_id=context_wa_id).first() is not None
+            except Exception as _exc_ctx:
+                log.debug(f'[WaBot] No se pudo verificar context_wa_id: {_exc_ctx}')
 
         # opt_out_wa solo aplica a campañas de salida; los mensajes entrantes
         # (el prospecto escribe a Qoricash) siempre se procesan normalmente.
@@ -4006,8 +4022,20 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
                 and not (session.nombre     or '').strip()
             )
             if _sesion_en_blanco:
-                _bienvenida(numero, session)
-                session.estado = 'eligiendo_operacion'
+                if _respuesta_campana_precio:
+                    # Respuesta a plantilla qoricash_precio_dia — omitir bienvenida
+                    # e ir directo a la pregunta de perfil (persona / empresa)
+                    send_buttons(numero,
+                        '¿Deseas cotizar como persona o como empresa?',
+                        [
+                            {'id': 'btn_como_persona', 'title': '👤 Como persona'},
+                            {'id': 'btn_soy_empresa',  'title': '🏢 Como empresa'},
+                        ]
+                    )
+                    session.estado = 'eligiendo_operacion'
+                else:
+                    _bienvenida(numero, session)
+                    session.estado = 'eligiendo_operacion'
                 db.session.commit()
                 return
 
@@ -5419,6 +5447,19 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id=''):
             _ESTADOS_CON_HORARIO = {
                 'eligiendo_tipo', 'esperando_numero_doc',
             }
+
+            # Respuesta de texto a plantilla de campaña en sesión limpia → persona/empresa
+            if _respuesta_campana_precio and estado == 'inicio':
+                send_buttons(numero,
+                    '¿Deseas cotizar como persona o como empresa?',
+                    [
+                        {'id': 'btn_como_persona', 'title': '👤 Como persona'},
+                        {'id': 'btn_soy_empresa',  'title': '🏢 Como empresa'},
+                    ]
+                )
+                session.estado = 'eligiendo_operacion'
+                db.session.commit()
+                return
 
             # N0 — despedida universal (definida aquí para uso en estados específicos también)
             _despedida_kw = ('cierra sesion', 'cierra sesión', 'cerrar sesion', 'cerrar sesión',
