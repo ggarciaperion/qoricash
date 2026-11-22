@@ -3913,13 +3913,12 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id='', conte
 
         session = WaBotSession.get_or_create(numero)
 
-        # ── Detectar si es respuesta a plantilla de campaña de precios ─────
-        # context_wa_id viene de msg.context.id (Meta webhook) cuando el cliente
-        # responde a un mensaje enviado por Qoricash.
-        # Si ese ID existe en WaCampanaProspecto → saltar bienvenida y mostrar
-        # directamente "¿Cotizar como persona o empresa?"
-        _respuesta_campana_precio = False
-        if context_wa_id:
+        # ── Detectar si es respuesta a plantilla de campaña ────────────────
+        # tipo_msg == 'button' SOLO ocurre cuando el cliente toca un Quick Reply
+        # de un template enviado por Qoricash. No existe para mensajes orgánicos.
+        # También se activa si context_wa_id coincide con un envío registrado en DB.
+        _respuesta_campana_precio = (tipo_msg == 'button')
+        if not _respuesta_campana_precio and context_wa_id:
             try:
                 from app.models.wa_campana_prospecto import WaCampanaProspecto as _WCP
                 _respuesta_campana_precio = db.session.query(

@@ -996,10 +996,10 @@ def webhook_receive():
                     texto_b   = msg['text']['body']
                     media_b   = ''
                 elif tipo_b == 'button':
-                    # Quick Reply de template — tratar como texto para el bot
+                    # Quick Reply de template — mantener tipo 'button' para que el bot
+                    # lo detecte y omita la bienvenida (este tipo SOLO ocurre en respuestas a templates)
                     texto_b = msg.get('button', {}).get('payload', '') or msg.get('button', {}).get('text', '')
                     media_b = ''
-                    tipo_b  = 'text'  # normalizar para que el bot lo procese
                 elif tipo_b == 'interactive':
                     interactive_b = msg.get('interactive', {})
                     i_type_b = interactive_b.get('type', '')
