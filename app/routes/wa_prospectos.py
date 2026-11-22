@@ -139,9 +139,9 @@ def _enviar_wa_meta(numero_9d, nombre, compra, venta, plantilla_cfg):
     components.append({
         'type': 'body',
         'parameters': [
-            {'type': 'text', 'text': nombre},
-            {'type': 'text', 'text': compra},
-            {'type': 'text', 'text': venta},
+            {'type': 'text', 'parameter_name': 'nombre', 'text': nombre},
+            {'type': 'text', 'parameter_name': 'compra', 'text': compra},
+            {'type': 'text', 'parameter_name': 'venta',  'text': venta},
         ],
     })
 
