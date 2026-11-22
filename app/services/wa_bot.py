@@ -4015,6 +4015,12 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id='', conte
             'esperando_cuenta_destino', 'confirmando_cuenta', 'esperando_num_cuenta',
         }
         if _respuesta_campana_precio and estado not in _ESTADOS_EN_OPERACION:
+            # Marcar sesión como "origen campaña" para suprimir saludos y opciones
+            # de empresa en pasos posteriores del flujo
+            try:
+                session.campana_secuencia = 1
+            except Exception:
+                pass
             send_buttons(numero,
                 '¿Deseas cotizar como persona o como empresa?',
                 [
@@ -4220,31 +4226,35 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id='', conte
                 _persona_bp = next(
                     (c for c in _todos_bp if (c.document_type or '').upper() in ('DNI', 'CE')), None
                 )
+                _de_campana_bp = bool(session.campana_secuencia)
                 if _persona_bp:
                     primer_bp = (_persona_bp.nombres or '').strip().split()[0].title() if (_persona_bp.nombres or '').strip() else ''
                     session.tipo      = 'persona'
                     session.cotiz_doc = _persona_bp.dni
                     session.nombre    = primer_bp or (_persona_bp.full_name or '').strip()
-                    # Sin saludo: ya se saludó en _bienvenida. Ir directo a la pregunta.
+                    _btns_bp = [
+                        {'id': 'btn_comprar', 'title': 'Soles a dólares'},
+                        {'id': 'btn_vender',  'title': 'Dólares a soles'},
+                    ]
+                    if not _de_campana_bp:
+                        _btns_bp.append({'id': 'btn_cambiar_perfil', 'title': '🏢 TC para empresa'})
                     send_buttons(numero,
                         '¿Qué operación deseas cotizar?\n> Elige una opción 👇',
-                        [
-                            {'id': 'btn_comprar',        'title': 'Soles a dólares'},
-                            {'id': 'btn_vender',         'title': 'Dólares a soles'},
-                            {'id': 'btn_cambiar_perfil', 'title': '🏢 TC para empresa'},
-                        ]
+                        _btns_bp
                     )
                 else:
                     # Sin persona registrada → nuevo usuario como persona natural
                     session.tipo      = 'persona'
                     session.cotiz_doc = ''
+                    _btns_bp2 = [
+                        {'id': 'btn_comprar', 'title': 'Soles a dólares'},
+                        {'id': 'btn_vender',  'title': 'Dólares a soles'},
+                    ]
+                    if not _de_campana_bp:
+                        _btns_bp2.append({'id': 'btn_cambiar_perfil', 'title': '🏢 TC para empresa'})
                     send_buttons(numero,
                         '👤 Cotizarás como persona natural.\n\n¿Qué operación deseas realizar?',
-                        [
-                            {'id': 'btn_comprar',        'title': 'Soles a dólares'},
-                            {'id': 'btn_vender',         'title': 'Dólares a soles'},
-                            {'id': 'btn_cambiar_perfil', 'title': '🏢 TC para empresa'},
-                        ]
+                        _btns_bp2
                     )
                 session.estado = 'eligiendo_operacion'
 
@@ -4394,7 +4404,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id='', conte
                         _p_bc = _buscar_cliente(session.cotiz_doc)
                         if _p_bc and _p_bc.status == 'Activo':
                             _primer_bc = (_p_bc.nombres or '').strip().split()[0].title() if (_p_bc.nombres or '').strip() else ''
-                            _saludo_bc = f'¡Hola, {_primer_bc}! 👋\n\n' if _primer_bc else ''
+                            # Suprimir saludo si viene de campaña (ya fue saludado en el template)
+                            _saludo_bc = '' if session.campana_secuencia else (f'¡Hola, {_primer_bc}! 👋\n\n' if _primer_bc else '')
                             send_buttons(numero,
                                 f'{_saludo_bc}¿Cuántos dólares quieres recibir?\n'
                                 f'Mínimo: USD {MONTO_MINIMO_USD:,.0f}.\n\n'
@@ -4434,7 +4445,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id='', conte
                         _p_bv = _buscar_cliente(session.cotiz_doc)
                         if _p_bv and _p_bv.status == 'Activo':
                             _primer_bv = (_p_bv.nombres or '').strip().split()[0].title() if (_p_bv.nombres or '').strip() else ''
-                            _saludo_bv = f'¡Hola, {_primer_bv}! 👋\n\n' if _primer_bv else ''
+                            # Suprimir saludo si viene de campaña (ya fue saludado en el template)
+                            _saludo_bv = '' if session.campana_secuencia else (f'¡Hola, {_primer_bv}! 👋\n\n' if _primer_bv else '')
                             send_buttons(numero,
                                 f'{_saludo_bv}¿Cuántos dólares quieres cambiar a soles?\n'
                                 f'Mínimo: USD {MONTO_MINIMO_USD:,.0f}.\n\n'
