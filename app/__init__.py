@@ -1437,6 +1437,9 @@ def register_blueprints(app):
     from app.routes.sync_api import sync_api_bp
     app.register_blueprint(sync_api_bp)  # Receptor sync motor local: /api/sync/*
 
+    from app.routes.wa_prospectos import wa_prospectos_bp
+    app.register_blueprint(wa_prospectos_bp)  # Campañas WA Prospectos: /wa-prospectos/*
+
 # Service Worker debe servirse desde la raíz del dominio (scope /)
     import os
     from flask import send_from_directory

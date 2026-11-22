@@ -785,8 +785,38 @@ def webhook_receive():
         entry    = body.get('entry', [{}])[0]
         changes  = entry.get('changes', [{}])[0]
         value    = changes.get('value', {})
-        messages = value.get('messages', [])
-        contacts = value.get('contacts', [])
+        messages  = value.get('messages', [])
+        contacts  = value.get('contacts', [])
+        statuses  = value.get('statuses', [])
+
+        # ── Delivery / read receipts para campañas WA Prospectos ─────────────
+        if statuses:
+            try:
+                from app.models.wa_campana_prospecto import WaCampanaProspecto
+                _ahora = now_peru()
+                for st in statuses:
+                    _st_wa_id  = st.get('id', '')
+                    _st_status = st.get('status', '')  # sent / delivered / read / failed
+                    if not _st_wa_id or not _st_status:
+                        continue
+                    registro = WaCampanaProspecto.query.filter_by(wa_id=_st_wa_id).first()
+                    if not registro:
+                        continue
+                    if _st_status == 'delivered' and not registro.fecha_entregado:
+                        registro.estado          = 'entregado'
+                        registro.fecha_entregado = _ahora
+                        registro.actualizado_en  = _ahora
+                    elif _st_status == 'read' and not registro.fecha_leido:
+                        registro.estado         = 'leido'
+                        registro.fecha_leido    = _ahora
+                        registro.actualizado_en = _ahora
+                    elif _st_status == 'failed':
+                        registro.estado         = 'fallido'
+                        registro.actualizado_en = _ahora
+                db.session.commit()
+            except Exception as _e:
+                log.warning(f'[Webhook] Error actualizando WaCampanaProspecto statuses: {_e}')
+                db.session.rollback()
 
         if not messages:
             return jsonify({'status': 'ok'})

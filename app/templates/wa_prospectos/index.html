@@ -1,0 +1,867 @@
+{% extends "base.html" %}
+{% block title %}Campaña WA Prospectos — QoriCash{% endblock %}
+
+{% block head %}
+<style>
+/* ═══════════════════════════════════════════════════════════
+   WA PROSPECTOS PANEL
+═══════════════════════════════════════════════════════════ */
+.wa-root {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 0px);
+  overflow: hidden;
+  background: var(--qori-gray-100);
+}
+
+/* Header */
+.wa-header {
+  background: var(--qori-white);
+  border-bottom: 1px solid var(--qori-gray-200);
+  padding: .75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.wa-header-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--qori-gray-900);
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+.wa-header-title i { color: #25D366; }
+
+/* Config bar */
+.wa-config-bar {
+  background: var(--qori-white);
+  border-bottom: 1px solid var(--qori-gray-200);
+  padding: .6rem 1.25rem;
+  display: flex;
+  align-items: flex-end;
+  gap: .75rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.wa-config-bar label {
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--qori-gray-600);
+  margin-bottom: .2rem;
+}
+.wa-config-bar input, .wa-config-bar select {
+  font-size: .82rem;
+  padding: .3rem .55rem;
+  border: 1px solid var(--qori-gray-300);
+  border-radius: 6px;
+  outline: none;
+  color: var(--qori-gray-900);
+  background: var(--qori-white);
+  transition: border-color .15s;
+}
+.wa-config-bar input:focus, .wa-config-bar select:focus {
+  border-color: #25D366;
+  box-shadow: 0 0 0 2px rgba(37,211,102,.15);
+}
+.wa-config-bar input[type="text"] { width: 130px; }
+.wa-config-bar input[name="campana"] { width: 150px; }
+
+/* Filter bar */
+.wa-filter-bar {
+  background: var(--qori-white);
+  border-bottom: 1px solid var(--qori-gray-200);
+  padding: .5rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.wa-filter-bar input[type="text"] {
+  font-size: .82rem;
+  padding: .3rem .55rem;
+  border: 1px solid var(--qori-gray-300);
+  border-radius: 6px;
+  outline: none;
+  width: 220px;
+}
+.wa-filter-bar input:focus { border-color: #25D366; }
+
+.wa-sel-btn {
+  font-size: .75rem;
+  font-weight: 600;
+  padding: .28rem .65rem;
+  border-radius: 6px;
+  border: 1px solid var(--qori-gray-300);
+  background: var(--qori-white);
+  color: var(--qori-gray-700);
+  cursor: pointer;
+  transition: all .15s;
+}
+.wa-sel-btn:hover { background: var(--qori-gray-100); }
+.wa-sel-btn.active { background: #25D366; color: #fff; border-color: #25D366; }
+
+/* Badge WA estado */
+.wa-badge {
+  font-size: .68rem;
+  font-weight: 700;
+  padding: .18rem .45rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.wa-badge-con_wa      { background: #dcfce7; color: #16a34a; }
+.wa-badge-sin_wa      { background: #fee2e2; color: #dc2626; }
+.wa-badge-sin_validar { background: #fef3c7; color: #d97706; }
+
+/* Table */
+.wa-table-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: .75rem 1.25rem;
+}
+.wa-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--qori-white);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  font-size: .82rem;
+}
+.wa-table thead th {
+  background: var(--qori-gray-50);
+  color: var(--qori-gray-600);
+  font-weight: 600;
+  font-size: .73rem;
+  padding: .5rem .75rem;
+  border-bottom: 1px solid var(--qori-gray-200);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.wa-table tbody tr { border-bottom: 1px solid var(--qori-gray-100); transition: background .1s; }
+.wa-table tbody tr:hover { background: var(--qori-gray-50); }
+.wa-table tbody tr.selected { background: #f0fdf4; }
+.wa-table tbody td { padding: .45rem .75rem; color: var(--qori-gray-800); vertical-align: middle; }
+.wa-table input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: #25D366; }
+
+/* Footer toolbar */
+.wa-footer {
+  background: var(--qori-white);
+  border-top: 1px solid var(--qori-gray-200);
+  padding: .6rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+.wa-footer-info { font-size: .8rem; color: var(--qori-gray-600); }
+.wa-footer-info strong { color: var(--qori-gray-900); }
+
+/* Buttons */
+.btn-wa-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  background: #25D366;
+  color: #fff;
+  font-weight: 700;
+  font-size: .82rem;
+  padding: .4rem 1rem;
+  border-radius: 7px;
+  border: none;
+  cursor: pointer;
+  transition: background .15s;
+}
+.btn-wa-primary:hover { background: #1db954; }
+.btn-wa-primary:disabled { background: var(--qori-gray-300); cursor: not-allowed; }
+
+.btn-wa-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  background: var(--qori-white);
+  color: var(--qori-gray-700);
+  font-weight: 600;
+  font-size: .82rem;
+  padding: .4rem .9rem;
+  border-radius: 7px;
+  border: 1px solid var(--qori-gray-300);
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn-wa-secondary:hover { background: var(--qori-gray-50); }
+
+/* Tabs */
+.wa-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--qori-gray-200); margin-bottom: 0; }
+.wa-tab {
+  font-size: .82rem; font-weight: 600;
+  padding: .6rem 1.2rem;
+  cursor: pointer;
+  color: var(--qori-gray-500);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all .15s;
+}
+.wa-tab:hover { color: var(--qori-gray-800); }
+.wa-tab.active { color: #25D366; border-bottom-color: #25D366; }
+
+/* Modal overlay */
+.wa-modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+.wa-modal-overlay.show { display: flex; }
+.wa-modal {
+  background: var(--qori-white);
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 90%;
+  max-width: 580px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+}
+.wa-modal h3 { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; }
+
+/* Resultado bar */
+.wa-result-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .3rem 0;
+  border-bottom: 1px solid var(--qori-gray-100);
+  font-size: .78rem;
+}
+.wa-result-ok   { color: #16a34a; }
+.wa-result-fail { color: #dc2626; }
+.wa-result-dup  { color: #d97706; }
+
+/* Historial */
+.histo-card {
+  background: var(--qori-white);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: .75rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.histo-card-title { font-weight: 700; font-size: .9rem; color: var(--qori-gray-900); }
+.histo-stats { display: flex; gap: 1.2rem; margin-top: .5rem; flex-wrap: wrap; }
+.histo-stat { text-align: center; }
+.histo-stat .n { font-size: 1.3rem; font-weight: 800; }
+.histo-stat .l { font-size: .68rem; color: var(--qori-gray-500); font-weight: 600; text-transform: uppercase; }
+
+/* Loading spinner */
+.wa-spinner {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid var(--qori-gray-300);
+  border-top-color: #25D366;
+  border-radius: 50%;
+  animation: wa-spin .7s linear infinite;
+}
+@keyframes wa-spin { to { transform: rotate(360deg); } }
+
+/* Progress bar */
+.wa-progress-wrap { background: var(--qori-gray-200); border-radius: 20px; height: 6px; margin: .5rem 0; }
+.wa-progress-bar  { height: 6px; border-radius: 20px; background: #25D366; transition: width .3s; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wa-root">
+
+  <!-- Header -->
+  <div class="wa-header">
+    <div class="wa-header-title">
+      <i class="bi bi-whatsapp"></i>
+      Campaña WA — Prospectos
+    </div>
+    <div class="wa-tabs" style="margin-left:auto;">
+      <div class="wa-tab active" onclick="showTab('envio')">Envío</div>
+      <div class="wa-tab" onclick="showTab('historial')">Historial</div>
+    </div>
+  </div>
+
+  <!-- ══ TAB ENVÍO ══════════════════════════════════════════════════════════ -->
+  <div id="tab-envio">
+
+    <!-- Config bar -->
+    <div class="wa-config-bar">
+      <div>
+        <label>Campaña</label>
+        <input type="text" name="campana" id="inputCampana"
+               placeholder="ej: Nov2026" value="{{ now_peru().strftime('%b%Y') }}">
+      </div>
+      <div>
+        <label>Plantilla</label>
+        <select id="selectPlantilla">
+          <option value="">Cargando...</option>
+        </select>
+      </div>
+      <div>
+        <label>Compra</label>
+        <input type="text" id="inputCompra" placeholder="3.377" style="width:90px;">
+      </div>
+      <div>
+        <label>Venta</label>
+        <input type="text" id="inputVenta" placeholder="3.381" style="width:90px;">
+      </div>
+      <div style="margin-left:auto; display:flex; gap:.5rem; align-items:flex-end;">
+        <button class="btn-wa-secondary" onclick="cargarElegibles()">
+          <i class="bi bi-arrow-clockwise"></i> Actualizar lista
+        </button>
+        <button class="btn-wa-primary" id="btnEnviar" onclick="abrirModal()" disabled>
+          <i class="bi bi-send-fill"></i> Enviar seleccionados
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="wa-filter-bar">
+      <input type="text" id="inputBuscar" placeholder="Buscar empresa o número..."
+             oninput="filtrarTabla()">
+      <div style="display:flex;gap:.4rem;align-items:center;">
+        <span style="font-size:.75rem;font-weight:600;color:var(--qori-gray-500);">Seleccionar:</span>
+        <button class="wa-sel-btn" onclick="seleccionar(20)">20</button>
+        <button class="wa-sel-btn" onclick="seleccionar(50)">50</button>
+        <button class="wa-sel-btn" onclick="seleccionar(100)">100</button>
+        <button class="wa-sel-btn" onclick="seleccionar(999)">Todos</button>
+        <button class="wa-sel-btn" onclick="deseleccionarTodos()">Ninguno</button>
+      </div>
+      <div style="margin-left:auto; display:flex;gap:.4rem;align-items:center;">
+        <label style="font-size:.75rem;font-weight:600;color:var(--qori-gray-500);">
+          <input type="checkbox" id="chkSoloConWa" onchange="cargarElegibles()">
+          Solo confirmados con WA
+        </label>
+      </div>
+      <span id="totalInfo" style="font-size:.78rem;color:var(--qori-gray-500);"></span>
+    </div>
+
+    <!-- Tabla -->
+    <div class="wa-table-wrap">
+      <div id="loadingMsg" style="text-align:center;padding:2rem;color:var(--qori-gray-500);">
+        <div class="wa-spinner" style="width:24px;height:24px;margin:0 auto 8px;"></div>
+        Cargando prospectos...
+      </div>
+      <table class="wa-table" id="tablaProspectos" style="display:none;">
+        <thead>
+          <tr>
+            <th style="width:36px;"><input type="checkbox" id="chkAll" onchange="toggleAll(this)"></th>
+            <th>Empresa</th>
+            <th>Nombre contacto</th>
+            <th>Número</th>
+            <th>Rubro</th>
+            <th>Provincia</th>
+            <th>WA</th>
+            <th>Último contacto</th>
+          </tr>
+        </thead>
+        <tbody id="tablaBody"></tbody>
+      </table>
+      <div id="emptyMsg" style="display:none;text-align:center;padding:2rem;color:var(--qori-gray-500);">
+        No hay prospectos elegibles con los filtros actuales.
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="wa-footer">
+      <span class="wa-footer-info">
+        <strong id="cntSeleccionados">0</strong> seleccionados de
+        <strong id="cntTotal">0</strong> disponibles
+      </span>
+      <div id="estadoWa" style="font-size:.78rem;color:var(--qori-gray-500);margin-left:auto;">
+        <span class="wa-badge wa-badge-con_wa">■</span> Con WA &nbsp;
+        <span class="wa-badge wa-badge-sin_validar">■</span> Sin validar &nbsp;
+        <span class="wa-badge wa-badge-sin_wa">■</span> Sin WA
+      </div>
+    </div>
+
+  </div><!-- /tab-envio -->
+
+  <!-- ══ TAB HISTORIAL ══════════════════════════════════════════════════════ -->
+  <div id="tab-historial" style="display:none; overflow-y:auto; padding:1rem 1.25rem;">
+    <div id="historialContent">
+      <div style="text-align:center;padding:2rem;color:var(--qori-gray-500);">
+        Cargando historial...
+      </div>
+    </div>
+  </div>
+
+</div><!-- /wa-root -->
+
+
+<!-- ══ MODAL PREVIEW ════════════════════════════════════════════════════════ -->
+<div class="wa-modal-overlay" id="modalOverlay" onclick="cerrarModal(event)">
+  <div class="wa-modal" onclick="event.stopPropagation()">
+    <h3><i class="bi bi-whatsapp" style="color:#25D366;"></i> Confirmar envío</h3>
+
+    <div id="modalResumenPrev"></div>
+
+    <div style="margin:1rem 0;">
+      <div class="wa-progress-wrap" id="progressWrap" style="display:none;">
+        <div class="wa-progress-bar" id="progressBar" style="width:0%;"></div>
+      </div>
+      <div id="resultadosEnvio" style="max-height:280px;overflow-y:auto;"></div>
+    </div>
+
+    <div id="modalFooter" style="display:flex;gap:.75rem;justify-content:flex-end;">
+      <button class="btn-wa-secondary" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-wa-primary" id="btnConfirmar" onclick="ejecutarEnvio()">
+        <i class="bi bi-send-fill"></i> Confirmar y enviar
+      </button>
+    </div>
+    <div id="modalResumenPost" style="display:none;margin-top:.75rem;"></div>
+  </div>
+</div>
+
+
+<script>
+// ══ Estado global ══════════════════════════════════════════════════════════
+let _prospectos   = [];   // todos los cargados
+let _visible      = [];   // después de filtro búsqueda
+let _seleccionados = new Set();  // indices de _prospectos
+
+// ══ Init ═══════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  cargarPlantillas();
+  cargarElegibles();
+});
+
+// ══ Tabs ═══════════════════════════════════════════════════════════════════
+function showTab(tab) {
+  document.querySelectorAll('.wa-tab').forEach((t,i) => {
+    t.classList.toggle('active', (i === 0 && tab === 'envio') || (i === 1 && tab === 'historial'));
+  });
+  document.getElementById('tab-envio').style.display     = tab === 'envio'     ? '' : 'none';
+  document.getElementById('tab-historial').style.display = tab === 'historial' ? '' : 'none';
+  if (tab === 'historial') cargarHistorial();
+}
+
+// ══ Plantillas ═════════════════════════════════════════════════════════════
+async function cargarPlantillas() {
+  try {
+    const r = await fetch('/wa-prospectos/api/plantillas');
+    const d = await r.json();
+    const sel = document.getElementById('selectPlantilla');
+    sel.innerHTML = '';
+    d.plantillas.forEach(p => {
+      const o = document.createElement('option');
+      o.value = p.nombre;
+      o.textContent = p.nombre;
+      sel.appendChild(o);
+    });
+  } catch(e) {
+    console.error('Error cargando plantillas', e);
+  }
+}
+
+// ══ Elegibles ══════════════════════════════════════════════════════════════
+async function cargarElegibles() {
+  _seleccionados.clear();
+  document.getElementById('tablaProspectos').style.display = 'none';
+  document.getElementById('emptyMsg').style.display = 'none';
+  document.getElementById('loadingMsg').style.display = 'block';
+
+  const campana   = document.getElementById('inputCampana').value.trim();
+  const soloConWa = document.getElementById('chkSoloConWa').checked;
+  const params    = new URLSearchParams({ campana, solo_con_wa: soloConWa, limit: 500 });
+
+  try {
+    const r = await fetch(`/wa-prospectos/api/elegibles?${params}`);
+    const d = await r.json();
+    _prospectos = d.prospectos || [];
+    document.getElementById('loadingMsg').style.display = 'none';
+    filtrarTabla();
+  } catch(e) {
+    document.getElementById('loadingMsg').innerHTML =
+      `<span style="color:#dc2626;">Error cargando prospectos: ${e.message}</span>`;
+  }
+}
+
+// ══ Filtro búsqueda ════════════════════════════════════════════════════════
+function filtrarTabla() {
+  const q = (document.getElementById('inputBuscar').value || '').toLowerCase();
+  _visible = q
+    ? _prospectos.filter(p =>
+        (p.empresa || '').toLowerCase().includes(q) ||
+        (p.numero || '').includes(q) ||
+        (p.nombre || '').toLowerCase().includes(q)
+      )
+    : [..._prospectos];
+
+  renderTabla();
+}
+
+// ══ Render tabla ═══════════════════════════════════════════════════════════
+function renderTabla() {
+  const tbody = document.getElementById('tablaBody');
+  if (!_visible.length) {
+    document.getElementById('tablaProspectos').style.display = 'none';
+    document.getElementById('emptyMsg').style.display = 'block';
+    actualizarContadores();
+    return;
+  }
+  document.getElementById('tablaProspectos').style.display = '';
+  document.getElementById('emptyMsg').style.display = 'none';
+
+  tbody.innerHTML = _visible.map((p, i) => {
+    const sel = _seleccionados.has(p.numero);
+    const badgeCls = `wa-badge-${p.wa_validado || 'sin_validar'}`;
+    const badgeTxt = {con_wa:'Con WA', sin_wa:'Sin WA', sin_validar:'No validado'}[p.wa_validado] || p.wa_validado;
+    return `<tr class="${sel ? 'selected' : ''}" onclick="toggleRow(${i},event)">
+      <td><input type="checkbox" ${sel?'checked':''} onclick="toggleRow(${i},event)"></td>
+      <td style="font-weight:600;">${esc(p.empresa) || '<span style="color:var(--qori-gray-400)">—</span>'}</td>
+      <td>${esc(p.nombre) || '—'}</td>
+      <td style="font-family:monospace;">${esc(p.numero_display)}</td>
+      <td style="color:var(--qori-gray-500);font-size:.75rem;">${esc(p.rubro) || '—'}</td>
+      <td style="color:var(--qori-gray-500);font-size:.75rem;">${esc(p.provincia) || '—'}</td>
+      <td><span class="wa-badge ${badgeCls}">${badgeTxt}</span></td>
+      <td style="color:var(--qori-gray-500);font-size:.75rem;">${esc(p.ult_contacto) || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  actualizarContadores();
+}
+
+function toggleRow(idx, e) {
+  if (e.target.type === 'checkbox') e.stopPropagation();
+  const p = _visible[idx];
+  if (_seleccionados.has(p.numero)) {
+    _seleccionados.delete(p.numero);
+  } else {
+    _seleccionados.add(p.numero);
+  }
+  renderTabla();
+}
+
+function toggleAll(chk) {
+  if (chk.checked) {
+    _visible.forEach(p => _seleccionados.add(p.numero));
+  } else {
+    _visible.forEach(p => _seleccionados.delete(p.numero));
+  }
+  renderTabla();
+}
+
+function seleccionar(n) {
+  _seleccionados.clear();
+  _visible.slice(0, n).forEach(p => _seleccionados.add(p.numero));
+  renderTabla();
+}
+
+function deseleccionarTodos() {
+  _seleccionados.clear();
+  renderTabla();
+}
+
+function actualizarContadores() {
+  document.getElementById('cntSeleccionados').textContent = _seleccionados.size;
+  document.getElementById('cntTotal').textContent = _visible.length;
+  document.getElementById('totalInfo').textContent = `${_prospectos.length} elegibles total`;
+  document.getElementById('btnEnviar').disabled = _seleccionados.size === 0;
+  document.getElementById('chkAll').checked =
+    _visible.length > 0 && _visible.every(p => _seleccionados.has(p.numero));
+}
+
+// ══ Modal preview ══════════════════════════════════════════════════════════
+function abrirModal() {
+  const campana  = document.getElementById('inputCampana').value.trim();
+  const plantilla = document.getElementById('selectPlantilla').value;
+  const compra   = document.getElementById('inputCompra').value.trim();
+  const venta    = document.getElementById('inputVenta').value.trim();
+
+  if (!campana)   { alert('Ingresa el nombre de la campaña'); return; }
+  if (!plantilla) { alert('Selecciona una plantilla'); return; }
+  if (!compra || !venta) { alert('Ingresa compra y venta'); return; }
+
+  const sel = _prospectos.filter(p => _seleccionados.has(p.numero));
+
+  document.getElementById('modalResumenPrev').innerHTML = `
+    <div style="background:var(--qori-gray-50);border-radius:8px;padding:.75rem 1rem;margin-bottom:.75rem;font-size:.83rem;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;">
+        <div><span style="color:var(--qori-gray-500);">Campaña:</span> <strong>${esc(campana)}</strong></div>
+        <div><span style="color:var(--qori-gray-500);">Plantilla:</span> <strong>${esc(plantilla)}</strong></div>
+        <div><span style="color:var(--qori-gray-500);">Compra:</span> <strong>S/ ${esc(compra)}</strong></div>
+        <div><span style="color:var(--qori-gray-500);">Venta:</span> <strong>S/ ${esc(venta)}</strong></div>
+      </div>
+      <div style="margin-top:.5rem;font-size:.88rem;">
+        Se enviará a <strong style="color:#25D366;">${sel.length} número${sel.length !== 1 ? 's' : ''}</strong>
+      </div>
+    </div>
+    <div style="font-size:.75rem;color:var(--qori-gray-500);margin-bottom:.5rem;">
+      Primeros 5 destinatarios:
+    </div>
+    <div style="font-size:.8rem;">
+      ${sel.slice(0,5).map(p =>
+        `<div style="padding:.2rem 0;border-bottom:1px solid var(--qori-gray-100);">
+           <strong>${esc(p.empresa) || esc(p.nombre) || '—'}</strong>
+           <span style="color:var(--qori-gray-500);margin-left:.5rem;">${esc(p.numero)}</span>
+           <span class="wa-badge wa-badge-${p.wa_validado}" style="margin-left:.5rem;">
+             ${{con_wa:'Con WA',sin_wa:'Sin WA',sin_validar:'No validado'}[p.wa_validado]||p.wa_validado}
+           </span>
+         </div>`
+      ).join('')}
+      ${sel.length > 5 ? `<div style="padding:.3rem 0;color:var(--qori-gray-500);">... y ${sel.length-5} más</div>` : ''}
+    </div>`;
+
+  document.getElementById('resultadosEnvio').innerHTML = '';
+  document.getElementById('progressWrap').style.display = 'none';
+  document.getElementById('progressBar').style.width = '0%';
+  document.getElementById('modalResumenPost').style.display = 'none';
+  document.getElementById('btnConfirmar').disabled = false;
+  document.getElementById('btnConfirmar').innerHTML = '<i class="bi bi-send-fill"></i> Confirmar y enviar';
+  document.getElementById('modalFooter').style.display = 'flex';
+
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function cerrarModal(e) {
+  if (e && e.target !== document.getElementById('modalOverlay')) return;
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+// ══ Envío ══════════════════════════════════════════════════════════════════
+async function ejecutarEnvio() {
+  const campana   = document.getElementById('inputCampana').value.trim();
+  const plantilla = document.getElementById('selectPlantilla').value;
+  const compra    = document.getElementById('inputCompra').value.trim();
+  const venta     = document.getElementById('inputVenta').value.trim();
+  const sel       = _prospectos.filter(p => _seleccionados.has(p.numero));
+
+  document.getElementById('btnConfirmar').disabled = true;
+  document.getElementById('btnConfirmar').innerHTML =
+    '<span class="wa-spinner"></span> Enviando...';
+  document.getElementById('progressWrap').style.display = '';
+
+  const body = {
+    campana, plantilla, compra, venta,
+    pausa_seg: 2,
+    prospectos: sel.map(p => ({
+      prospecto_id: p.prospecto_id,
+      numero:       p.numero,
+      nombre:       p.nombre,
+      empresa:      p.empresa,
+    })),
+  };
+
+  try {
+    // Simular progreso mientras espera
+    let prog = 10;
+    const interval = setInterval(() => {
+      prog = Math.min(prog + 5, 85);
+      document.getElementById('progressBar').style.width = prog + '%';
+    }, 500);
+
+    const r = await fetch('/wa-prospectos/api/enviar', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+
+    clearInterval(interval);
+    document.getElementById('progressBar').style.width = '100%';
+
+    const d = await r.json();
+
+    if (!d.ok) {
+      document.getElementById('resultadosEnvio').innerHTML =
+        `<div style="color:#dc2626;padding:.5rem;">Error: ${esc(d.error)}</div>`;
+      document.getElementById('btnConfirmar').disabled = false;
+      document.getElementById('btnConfirmar').innerHTML = 'Reintentar';
+      return;
+    }
+
+    // Mostrar resultados
+    const rs = d.resumen;
+    document.getElementById('modalResumenPost').style.display = '';
+    document.getElementById('modalResumenPost').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:.5rem;text-align:center;">
+        <div style="background:#dcfce7;border-radius:8px;padding:.5rem;">
+          <div style="font-size:1.3rem;font-weight:800;color:#16a34a;">${rs.enviados}</div>
+          <div style="font-size:.65rem;font-weight:700;color:#16a34a;">ENVIADOS</div>
+        </div>
+        <div style="background:#fee2e2;border-radius:8px;padding:.5rem;">
+          <div style="font-size:1.3rem;font-weight:800;color:#dc2626;">${rs.sin_wa}</div>
+          <div style="font-size:.65rem;font-weight:700;color:#dc2626;">SIN WA</div>
+        </div>
+        <div style="background:#fef3c7;border-radius:8px;padding:.5rem;">
+          <div style="font-size:1.3rem;font-weight:800;color:#d97706;">${rs.fallidos}</div>
+          <div style="font-size:.65rem;font-weight:700;color:#d97706;">FALLIDOS</div>
+        </div>
+        <div style="background:#eff6ff;border-radius:8px;padding:.5rem;">
+          <div style="font-size:1.3rem;font-weight:800;color:#2563eb;">${rs.duplicados}</div>
+          <div style="font-size:.65rem;font-weight:700;color:#2563eb;">DUPLICADOS</div>
+        </div>
+        <div style="background:var(--qori-gray-50);border-radius:8px;padding:.5rem;">
+          <div style="font-size:1.3rem;font-weight:800;color:var(--qori-gray-700);">${rs.total}</div>
+          <div style="font-size:.65rem;font-weight:700;color:var(--qori-gray-500);">TOTAL</div>
+        </div>
+      </div>`;
+
+    // Lista de resultados
+    document.getElementById('resultadosEnvio').innerHTML =
+      (d.resultados || []).map(r => {
+        const cls  = r.estado === 'enviado' ? 'wa-result-ok' :
+                     r.estado === 'duplicado' ? 'wa-result-dup' : 'wa-result-fail';
+        const icon = r.estado === 'enviado' ? '✓' :
+                     r.estado === 'duplicado' ? '↷' : '✕';
+        const txt  = r.estado === 'enviado' ? 'Enviado' :
+                     r.estado === 'sin_wa' ? 'Sin WhatsApp' :
+                     r.estado === 'duplicado' ? 'Duplicado' :
+                     r.estado === 'fallido' ? `Fallido: ${r.error}` : r.estado;
+        return `<div class="wa-result-row ${cls}">
+          <span style="font-weight:700;">${icon}</span>
+          <span style="font-family:monospace;">${esc(r.numero)}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.empresa || r.nombre)}</span>
+          <span style="font-size:.72rem;">${txt}</span>
+        </div>`;
+      }).join('');
+
+    document.getElementById('modalFooter').innerHTML =
+      `<button class="btn-wa-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show'); cargarElegibles();">
+         <i class="bi bi-check2"></i> Cerrar y actualizar
+       </button>`;
+
+    // Limpiar selección
+    _seleccionados.clear();
+
+  } catch(e) {
+    document.getElementById('resultadosEnvio').innerHTML =
+      `<div style="color:#dc2626;padding:.5rem;">Error de red: ${esc(e.message)}</div>`;
+    document.getElementById('btnConfirmar').disabled = false;
+    document.getElementById('btnConfirmar').innerHTML = 'Reintentar';
+  }
+}
+
+// ══ Historial ══════════════════════════════════════════════════════════════
+async function cargarHistorial() {
+  document.getElementById('historialContent').innerHTML =
+    '<div style="text-align:center;padding:2rem;color:var(--qori-gray-500);"><div class="wa-spinner" style="width:24px;height:24px;margin:0 auto 8px;"></div>Cargando...</div>';
+  try {
+    const r = await fetch('/wa-prospectos/api/campanas');
+    const d = await r.json();
+    if (!d.campanas || !d.campanas.length) {
+      document.getElementById('historialContent').innerHTML =
+        '<div style="text-align:center;padding:2rem;color:var(--qori-gray-500);">No hay campañas enviadas aún.</div>';
+      return;
+    }
+    document.getElementById('historialContent').innerHTML = d.campanas.map(c => `
+      <div class="histo-card">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;">
+          <div>
+            <div class="histo-card-title">${esc(c.campana)}</div>
+            <div style="font-size:.75rem;color:var(--qori-gray-500);margin-top:.2rem;">
+              ${esc(c.plantilla)} &nbsp;·&nbsp; Compra ${esc(c.compra)} / Venta ${esc(c.venta)}
+              &nbsp;·&nbsp; ${esc(c.inicio)}
+            </div>
+          </div>
+          <button class="btn-wa-secondary" style="font-size:.73rem;padding:.25rem .6rem;"
+                  onclick="verDetalleCampana('${esc(c.campana)}')">
+            Ver detalle
+          </button>
+        </div>
+        <div class="histo-stats">
+          <div class="histo-stat">
+            <div class="n" style="color:#16a34a;">${c.enviados}</div>
+            <div class="l">Enviados</div>
+          </div>
+          <div class="histo-stat">
+            <div class="n" style="color:#2563eb;">${c.entregados}</div>
+            <div class="l">Entregados</div>
+          </div>
+          <div class="histo-stat">
+            <div class="n" style="color:#7c3aed;">${c.leidos}</div>
+            <div class="l">Leídos</div>
+          </div>
+          <div class="histo-stat">
+            <div class="n" style="color:#dc2626;">${c.sin_wa}</div>
+            <div class="l">Sin WA</div>
+          </div>
+          <div class="histo-stat">
+            <div class="n" style="color:var(--qori-gray-700);">${c.total}</div>
+            <div class="l">Total</div>
+          </div>
+          <div class="histo-stat">
+            <div class="n" style="color:#2563eb;">${c.tasa_entrega}%</div>
+            <div class="l">Entrega</div>
+          </div>
+          <div class="histo-stat">
+            <div class="n" style="color:#7c3aed;">${c.tasa_lectura}%</div>
+            <div class="l">Lectura</div>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    document.getElementById('historialContent').innerHTML =
+      `<div style="color:#dc2626;padding:1rem;">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+async function verDetalleCampana(campana) {
+  document.getElementById('historialContent').innerHTML =
+    '<div style="text-align:center;padding:2rem;"><div class="wa-spinner" style="width:24px;height:24px;margin:0 auto;"></div></div>';
+  try {
+    const r = await fetch(`/wa-prospectos/api/campanas/${encodeURIComponent(campana)}?limit=200`);
+    const d = await r.json();
+    document.getElementById('historialContent').innerHTML = `
+      <div style="margin-bottom:.75rem;display:flex;align-items:center;gap:.75rem;">
+        <button class="btn-wa-secondary" onclick="cargarHistorial()">
+          <i class="bi bi-arrow-left"></i> Volver
+        </button>
+        <strong style="font-size:.95rem;">${esc(campana)}</strong>
+        <span style="font-size:.8rem;color:var(--qori-gray-500);">${d.total} envíos</span>
+      </div>
+      <table class="wa-table">
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>Nombre</th>
+            <th>Número</th>
+            <th>Estado</th>
+            <th>WA</th>
+            <th>Fecha envío</th>
+            <th>Entregado</th>
+            <th>Leído</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${(d.items || []).map(it => {
+            const stColor = {enviado:'#16a34a',entregado:'#2563eb',leido:'#7c3aed',fallido:'#dc2626',sin_wa:'#dc2626',pendiente:'#d97706'}[it.estado] || '#6b7280';
+            return `<tr>
+              <td style="font-weight:600;">${esc(it.empresa) || '—'}</td>
+              <td>${esc(it.nombre) || '—'}</td>
+              <td style="font-family:monospace;font-size:.78rem;">${esc(it.numero)}</td>
+              <td><span style="color:${stColor};font-weight:700;font-size:.78rem;">${it.estado.toUpperCase()}</span></td>
+              <td><span class="wa-badge wa-badge-${it.wa_validado}">${it.wa_validado}</span></td>
+              <td style="font-size:.75rem;">${esc(it.fecha_envio) || '—'}</td>
+              <td style="font-size:.75rem;">${esc(it.fecha_entregado) || '—'}</td>
+              <td style="font-size:.75rem;">${esc(it.fecha_leido) || '—'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) {
+    document.getElementById('historialContent').innerHTML =
+      `<div style="color:#dc2626;">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+// ══ Utils ══════════════════════════════════════════════════════════════════
+function esc(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}
