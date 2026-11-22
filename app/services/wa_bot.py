@@ -4007,6 +4007,26 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id='', conte
         # por el job de expiración de sesiones (antes de resetear), no aquí.
         # Si el cliente escribe tras una sesión reseteada, recibe bienvenida.
 
+        # ── Respuesta a template de campaña (prioridad sobre state machine) ──
+        # Aplica a cualquier mensaje (texto, botón Quick Reply, interactive) que
+        # venga con context_wa_id en WaCampanaProspecto, siempre que el cliente
+        # no esté en medio de una operación activa.
+        _ESTADOS_EN_OPERACION = {
+            'op_pendiente_pago', 'confirmando_operacion', 'eligiendo_cuenta_destino',
+            'esperando_cuenta_destino', 'confirmando_cuenta', 'esperando_num_cuenta',
+        }
+        if _respuesta_campana_precio and estado not in _ESTADOS_EN_OPERACION:
+            send_buttons(numero,
+                '¿Deseas cotizar como persona o como empresa?',
+                [
+                    {'id': 'btn_como_persona', 'title': '👤 Como persona'},
+                    {'id': 'btn_soy_empresa',  'title': '🏢 Como empresa'},
+                ]
+            )
+            session.estado = 'eligiendo_operacion'
+            db.session.commit()
+            return
+
         # ── Botones interactivos ───────────────────────────────────
         btn_id = None  # se sobreescribe en el bloque interactive; evita UnboundLocalError en text
         if tipo_msg == 'interactive':
