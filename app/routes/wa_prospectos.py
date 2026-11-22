@@ -34,6 +34,7 @@ from sqlalchemy import func, or_
 from app.extensions import db
 from app.models.prospecto import Prospecto, ActividadProspecto
 from app.models.wa_campana_prospecto import WaCampanaProspecto
+from app.models.wa_bot_session import WaBotSession
 from app.utils.formatters import now_peru
 
 log = logging.getLogger(__name__)
@@ -130,12 +131,8 @@ def _enviar_wa_meta(numero_9d, nombre, compra, venta, plantilla_cfg):
     destino = f'51{numero_9d}'
     components = []
 
-    if plantilla_cfg.get('tiene_header_imagen'):
-        components.append({
-            'type': 'header',
-            'parameters': [{'type': 'image', 'image': {'link': HEADER_IMAGE}}],
-        })
-
+    # No pasar header component — la imagen del template ya está guardada en Meta.
+    # Pasarlo con una URL distinta sobreescribiría con una imagen obsoleta.
     components.append({
         'type': 'body',
         'parameters': [
@@ -194,19 +191,70 @@ def api_plantillas():
 @login_required
 def api_elegibles():
     """
-    Retorna prospectos elegibles para campaña WA.
-    Criterios:
-      - Tienen teléfono celular válido (9 dígitos, empieza en 9)
-      - Han sido contactados por email (actividad canal=email o estado_comercial implica contacto)
-      - No están marcados como no_contactar
-      - No recibieron WA en la campaña actual (parámetro ?campana=)
-    Parámetro opcional: ?campana=NombreCampana
+    Retorna prospectos elegibles para campaña WA, ordenados por calidad de señal WA.
+
+    Prioridad (wa_validado):
+      1. 'bot_session'  — número con sesión activa en WaBotSession (confirmado WA por interacción real)
+      2. 'con_wa'       — número que recibió template en campaña anterior sin error
+      3. 'sin_historial'— número sin historial WA pero contactado por email (riesgo controlado)
+
+    Excluidos:
+      - 'sin_wa'        — números que ya fallaron con error 131026/131030 (no tiene WA)
+      - no_contactar    — excluidos siempre
+      - ya enviados en esta campaña (dedup)
+
+    La API de Meta Cloud NO ofrece endpoint de validación de números.
+    No se usa el envío como mecanismo de descubrimiento masivo.
     """
     campana     = request.args.get('campana', '').strip()
     solo_con_wa = request.args.get('solo_con_wa', 'false').lower() == 'true'
     limit       = min(int(request.args.get('limit', 500)), 2000)
 
-    # IDs con actividad email registrada
+    # ── 1. Números con sesión real en el bot (máxima confianza) ──────────────
+    # WaBotSession.numero puede estar en formato '51XXXXXXXXX' o 'XXXXXXXXX'
+    bot_rows = db.session.query(WaBotSession.numero).all()
+    numeros_bot = set()
+    for (n,) in bot_rows:
+        d = re.sub(r'\D', '', str(n))
+        if d.startswith('51') and len(d) == 11:
+            d = d[2:]
+        if len(d) == 9:
+            numeros_bot.add(d)
+
+    # ── 2. Números confirmados/rechazados por campañas anteriores ────────────
+    campana_rows = db.session.query(
+        WaCampanaProspecto.numero,
+        WaCampanaProspecto.wa_validado,
+    ).all()
+    confirmados_wa = set()   # con_wa — enviado OK antes
+    rechazados_wa  = set()   # sin_wa — error 131026/131030
+    for (num, estado) in campana_rows:
+        d = re.sub(r'\D', '', str(num))
+        if d.startswith('51') and len(d) == 11:
+            d = d[2:]
+        if len(d) == 9:
+            if estado == 'con_wa':
+                confirmados_wa.add(d)
+            elif estado == 'sin_wa':
+                rechazados_wa.add(d)
+
+    # ── 3. Números ya enviados en esta campaña (dedup) ───────────────────────
+    enviados_campana = set()
+    if campana:
+        rows = db.session.query(WaCampanaProspecto.numero).filter(
+            WaCampanaProspecto.campana == campana
+        ).all()
+        for (num,) in rows:
+            d = re.sub(r'\D', '', str(num))
+            if d.startswith('51') and len(d) == 11:
+                d = d[2:]
+            enviados_campana.add(d)
+
+    # ── 4. Prospectos contactados (ya tienen relación con Qoricash) ──────────
+    _ESTADOS_CONTACTADOS = (
+        'contactado', 'interesado', 'negociando', 'cliente',
+        'P1', 'P2', 'P3', 'P4', 'presentado', 'precio_enviado', 'seguimiento',
+    )
     email_ids = (
         db.session.query(ActividadProspecto.prospecto_id)
         .filter(or_(
@@ -216,13 +264,7 @@ def api_elegibles():
         .distinct()
         .subquery()
     )
-
-    _ESTADOS_CONTACTADOS = (
-        'contactado', 'interesado', 'negociando', 'cliente',
-        'P1', 'P2', 'P3', 'P4', 'presentado', 'precio_enviado', 'seguimiento',
-    )
-
-    query = (
+    prospectos = (
         Prospecto.query
         .filter(
             or_(
@@ -233,76 +275,56 @@ def api_elegibles():
             ),
             Prospecto.estado_comercial != 'no_contactar',
         )
+        .order_by(Prospecto.fecha_ultimo_contacto.desc().nullslast())
+        .all()
     )
 
-    if solo_con_wa:
-        # Solo números previamente confirmados como con_wa
-        numeros_con_wa = (
-            db.session.query(WaCampanaProspecto.numero)
-            .filter(WaCampanaProspecto.wa_validado == 'con_wa')
-            .distinct()
-            .subquery()
-        )
-        # Necesitamos filtrar por los teléfonos del prospecto... difícil a nivel SQL.
-        # Lo hacemos en Python abajo (flag ya_validado).
-        pass
+    # ── 5. Construir lista priorizada ────────────────────────────────────────
+    _PRIO = {'bot_session': 0, 'con_wa': 1, 'sin_historial': 2}
 
-    prospectos = query.order_by(
-        Prospecto.fecha_ultimo_contacto.desc().nullslast(),
-    ).all()
-
-    # Números ya enviados en esta campaña (dedup)
-    enviados_campana = set()
-    if campana:
-        rows = db.session.query(WaCampanaProspecto.numero).filter(
-            WaCampanaProspecto.campana == campana
-        ).all()
-        enviados_campana = {r[0] for r in rows}
-
-    # Mapa de validación por número
-    validaciones = {}
-    rows_val = db.session.query(
-        WaCampanaProspecto.numero,
-        WaCampanaProspecto.wa_validado,
-        func.max(WaCampanaProspecto.fecha_envio).label('ultima'),
-    ).group_by(WaCampanaProspecto.numero, WaCampanaProspecto.wa_validado).all()
-    for r in rows_val:
-        validaciones[r.numero] = r.wa_validado
-
-    resultado = []
+    candidatos = []
     seen_phones = set()
 
     for p in prospectos:
         numero = _primer_numero(p)
-        if not numero:
+        if not numero or numero in seen_phones:
             continue
-        numero_e164 = f'+51{numero}'
-        if numero_e164 in seen_phones:
+        if numero in enviados_campana:
             continue
-        if numero_e164 in enviados_campana:
+        if numero in rechazados_wa:
+            continue  # sabemos que no tiene WA — no desperdiciar cuota
+
+        if numero in numeros_bot:
+            wa_estado = 'bot_session'
+        elif numero in confirmados_wa:
+            wa_estado = 'con_wa'
+        else:
+            wa_estado = 'sin_historial'
+
+        if solo_con_wa and wa_estado == 'sin_historial':
             continue
 
-        wa_estado = validaciones.get(numero_e164, 'sin_validar')
-        if solo_con_wa and wa_estado != 'con_wa':
-            continue
-
-        seen_phones.add(numero_e164)
-        resultado.append({
+        seen_phones.add(numero)
+        candidatos.append({
             'prospecto_id':   p.id,
-            'numero':         numero_e164,
+            'numero':         f'+51{numero}',
             'numero_display': numero,
             'nombre':         p.nombre_contacto or '',
             'empresa':        p.razon_social or '',
             'rubro':          p.rubro or '',
             'provincia':      p.provincia or '',
             'estado_com':     p.estado_comercial or '',
-            'ult_contacto':   p.fecha_ultimo_contacto or '',
+            'ult_contacto':   str(p.fecha_ultimo_contacto) if p.fecha_ultimo_contacto else '',
             'wa_validado':    wa_estado,
+            '_prio':          _PRIO.get(wa_estado, 9),
         })
 
-        if len(resultado) >= limit:
-            break
+    # Ordenar: bot_session → con_wa → sin_historial
+    candidatos.sort(key=lambda x: x['_prio'])
+    for c in candidatos:
+        del c['_prio']
 
+    resultado = candidatos[:limit]
     return jsonify({'ok': True, 'total': len(resultado), 'prospectos': resultado})
 
 

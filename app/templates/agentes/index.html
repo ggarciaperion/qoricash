@@ -299,8 +299,10 @@
   font-size:.62rem; font-weight:600; padding:2px 7px;
   border-radius:20px; border:1px solid;
 }
-.wa-badge.con_wa  { color:var(--ag-green); background:#f0fdf4; border-color:#bbf7d0; }
-.wa-badge.sin_wa  { color:var(--ag-red);   background:#fef2f2; border-color:#fecaca; }
+.wa-badge.bot_session { color:#7c3aed; background:#f5f3ff; border-color:#ddd6fe; }
+.wa-badge.con_wa      { color:var(--ag-green); background:#f0fdf4; border-color:#bbf7d0; }
+.wa-badge.sin_wa      { color:var(--ag-red);   background:#fef2f2; border-color:#fecaca; }
+.wa-badge.sin_historial,
 .wa-badge.sin_validar { color:var(--ag-muted); background:#f8fafc; border-color:var(--ag-border); }
 .wa-footer-bar {
   display:flex; align-items:center; justify-content:space-between;
@@ -1021,9 +1023,10 @@
   }
 
   function waLabel(v) {
-    if (v === 'con_wa') return '✓ WA';
-    if (v === 'sin_wa') return '✗ sin WA';
-    return '? pendiente';
+    if (v === 'bot_session') return '● Bot';
+    if (v === 'con_wa')      return '✓ WA';
+    if (v === 'sin_wa')      return '✗ sin WA';
+    return '? sin hist.';
   }
 
   function esc(s) {
