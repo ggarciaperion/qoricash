@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Campaña WA — QoriCash{% endblock %}
+{% block title %}Campañas WA — QoriCash{% endblock %}
 
 {% block head %}
 <style>
@@ -12,7 +12,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 .cw-header h1 {
   font-size: 1.3rem;
@@ -41,6 +41,30 @@
   transition: background .15s;
 }
 .cw-refresh-btn:hover { background: #1058d4; }
+
+/* ── Tab nav ── */
+.cw-tab-nav {
+  display: flex;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #e2e8f0;
+}
+.cw-tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  padding: 10px 20px;
+  font-size: .84rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: color .15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cw-tab-btn:hover { color: #0f172a; }
+.cw-tab-btn.active { color: #196BFE; border-bottom-color: #196BFE; }
 
 /* ── Stats cards ── */
 .cw-stats {
@@ -165,7 +189,7 @@ table.cw-table tr:hover td { background: #f8fafc; }
   transition: opacity .15s;
 }
 .btn-pause:hover { opacity: .8; }
-.btn-pause.pausar { background: #fef3c7; color: #92400e; }
+.btn-pause.pausar   { background: #fef3c7; color: #92400e; }
 .btn-pause.reanudar { background: #dcfce7; color: #166534; }
 
 /* ── Empty ── */
@@ -201,11 +225,7 @@ table.cw-table tr:hover td { background: #f8fafc; }
   align-items: flex-end;
   gap: 12px;
 }
-.cw-launch-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
+.cw-launch-field { display: flex; flex-direction: column; gap: 4px; }
 .cw-launch-field label {
   font-size: .72rem;
   font-weight: 700;
@@ -274,16 +294,13 @@ table.cw-table tr:hover td { background: #f8fafc; }
   border-radius: 6px;
   margin-left: 10px;
 }
-.cw-estado-badge.corriendo { background: #eff6ff; color: #196BFE; }
+.cw-estado-badge.corriendo  { background: #eff6ff; color: #196BFE; }
 .cw-estado-badge.completado { background: #f0fdf4; color: #16a34a; }
-.cw-estado-badge.detenida { background: #fef2f2; color: #dc2626; }
-.cw-estado-badge.error { background: #fef2f2; color: #dc2626; }
+.cw-estado-badge.detenida   { background: #fef2f2; color: #dc2626; }
+.cw-estado-badge.error      { background: #fef2f2; color: #dc2626; }
 
 /* ── Progress ── */
-#cwProgress {
-  margin-top: 16px;
-  display: none;
-}
+#cwProgress { margin-top: 16px; display: none; }
 .cw-prog-bar-wrap {
   background: #f1f5f9;
   border-radius: 8px;
@@ -298,11 +315,7 @@ table.cw-table tr:hover td { background: #f8fafc; }
   transition: width .3s;
   width: 0%;
 }
-.cw-prog-label {
-  font-size: .75rem;
-  color: #64748b;
-  margin-bottom: 8px;
-}
+.cw-prog-label { font-size: .75rem; color: #64748b; margin-bottom: 8px; }
 .cw-prog-log {
   background: #0f172a;
   color: #94a3b8;
@@ -332,6 +345,193 @@ table.cw-table tr:hover td { background: #f8fafc; }
   z-index: 9999;
 }
 #cwToast.show { opacity: 1; }
+
+/* ── WA Prospectos ── */
+.wp-box {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.04);
+}
+.wp-box-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.wp-box-title {
+  font-size: .9rem;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.wp-config-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.wp-field { display: flex; flex-direction: column; gap: 4px; }
+.wp-field label {
+  font-size: .62rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.wp-field--sm .wp-input { width: 90px; }
+.wp-field--xs .wp-input { width: 70px; }
+.wp-check-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .74rem;
+  color: #64748b;
+  cursor: pointer;
+  align-self: flex-end;
+  padding-bottom: 4px;
+}
+.wp-input {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: .78rem;
+  color: #0f172a;
+  background: #fff;
+  outline: none;
+  transition: border-color .15s;
+}
+.wp-input:focus { border-color: #196BFE; }
+.wp-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.wp-search-input { flex: 1; min-width: 200px; }
+.wp-sel-btns { display: flex; gap: 4px; }
+.wp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: .76rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: #fff;
+  color: #64748b;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.wp-btn:hover { background: #f1f5f9; color: #0f172a; }
+.wp-btn:disabled { opacity: .4; cursor: default; }
+.wp-btn-xs { padding: 4px 8px; font-size: .7rem; }
+.wp-btn-primary { background: #196BFE; color: #fff; border-color: #196BFE; }
+.wp-btn-primary:hover { opacity: .88; color: #fff; }
+.wp-btn-green { background: #16a34a; color: #fff; border-color: #16a34a; }
+.wp-btn-green:hover { opacity: .88; color: #fff; }
+.wp-btn-ghost { background: none; }
+.wp-table-wrap { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+.wp-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+.wp-table thead th {
+  background: #f8fafc;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: .62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+.wp-table tbody td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+.wp-table tbody tr:last-child td { border-bottom: none; }
+.wp-table tbody tr:hover { background: #fafbfc; }
+.wp-empty { text-align: center; color: #64748b; font-size: .78rem; padding: 24px !important; }
+.wp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: .62rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+  border: 1px solid;
+}
+.wp-badge.bot_session { color: #7c3aed; background: #f5f3ff; border-color: #ddd6fe; }
+.wp-badge.con_wa      { color: #16a34a; background: #f0fdf4; border-color: #bbf7d0; }
+.wp-badge.sin_wa      { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
+.wp-badge.sin_historial,
+.wp-badge.sin_validar { color: #64748b; background: #f8fafc; border-color: #e2e8f0; }
+.wp-footer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 4px 0;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 8px;
+}
+.wp-footer-bar span { font-size: .76rem; color: #64748b; }
+.wp-hist-list { display: flex; flex-direction: column; gap: 12px; }
+.wp-hist-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; }
+.wp-hist-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
+.wp-hist-card-name { font-size: .85rem; font-weight: 700; color: #0f172a; }
+.wp-hist-card-date { font-size: .68rem; color: #64748b; }
+.wp-hist-stats { display: flex; gap: 16px; flex-wrap: wrap; }
+.wp-hist-stat { display: flex; flex-direction: column; }
+.wp-hist-stat-val { font-size: .9rem; font-weight: 800; color: #0f172a; font-family: 'Courier New', monospace; }
+.wp-hist-stat-lbl { font-size: .58rem; color: #64748b; text-transform: uppercase; letter-spacing: .05em; }
+/* Modal WA Prospectos */
+.wp-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.wp-modal-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 28px 28px 24px;
+  width: min(500px, 94vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,.18);
+}
+.wp-modal-title { font-size: 1rem; font-weight: 800; margin: 0 0 10px; color: #0f172a; }
+.wp-modal-desc  { font-size: .82rem; color: #64748b; margin: 0 0 14px; }
+.wp-modal-preview {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: .78rem;
+  color: #0f172a;
+  margin-bottom: 16px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+.wp-modal-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+.wp-progress-bar { background: #e2e8f0; border-radius: 4px; height: 6px; margin-bottom: 8px; overflow: hidden; }
+.wp-progress-fill { height: 100%; background: #16a34a; border-radius: 4px; transition: width .3s; }
+.wp-progress-txt { font-size: .74rem; color: #64748b; text-align: center; margin: 0; }
+.wp-result-box { font-size: .78rem; color: #0f172a; padding: 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; }
 </style>
 {% endblock %}
 
@@ -339,136 +539,262 @@ table.cw-table tr:hover td { background: #f8fafc; }
 <div class="cw-page">
 
   <div class="cw-header">
-    <div style="width:36px;height:36px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;border:1px solid #bfdbfe;flex-shrink:0;">
-      <i class="bi bi-megaphone" style="color:#196BFE;font-size:1.1rem;"></i>
+    <div style="width:36px;height:36px;background:#f0fdf4;border-radius:10px;display:flex;align-items:center;justify-content:center;border:1px solid #bbf7d0;flex-shrink:0;">
+      <i class="bi bi-whatsapp" style="color:#16a34a;font-size:1.1rem;"></i>
     </div>
     <div>
-      <h1>Campaña WA — Monitoreo</h1>
-      <div class="cw-subtitle">Reactivación de clientes via WhatsApp · actualizado <span id="ultimaActualizacion">—</span></div>
+      <h1>Campañas WhatsApp</h1>
+      <div class="cw-subtitle">Reactivación de clientes · Prospección de nuevos contactos · actualizado <span id="ultimaActualizacion">—</span></div>
     </div>
     <button class="cw-refresh-btn" onclick="cargarStats()">
       <i class="bi bi-arrow-clockwise" id="refreshIcon"></i> Actualizar
     </button>
   </div>
 
-  <!-- Launch form -->
-  <div class="cw-launch">
-    <h2><i class="bi bi-send-fill" style="color:#16a34a;"></i> Lanzar campaña</h2>
-    <div class="cw-launch-form">
-      <div class="cw-launch-field">
-        <label>Compra (S/)</label>
-        <input type="number" id="inCompra" step="0.001" min="1" placeholder="3.377">
-      </div>
-      <div class="cw-launch-field">
-        <label>Venta (S/)</label>
-        <input type="number" id="inVenta" step="0.001" min="1" placeholder="3.381">
-      </div>
-      <div class="cw-launch-field">
-        <label>Máx. mensajes</label>
-        <input type="number" id="inLimite" value="300" min="1" max="500">
-      </div>
-      <div class="cw-launch-actions">
-        <button class="btn-dryrun" id="btnDryRun" onclick="lanzarCampana(true)">
-          <i class="bi bi-eye"></i> Vista previa (sin enviar)
-        </button>
-        <button class="btn-lanzar" id="btnLanzar" onclick="lanzarCampana(false)">
-          <i class="bi bi-send-fill"></i> Lanzar envío
-        </button>
-        <button class="btn-stop" id="btnStop" onclick="detenerCampana()">
-          <i class="bi bi-stop-fill"></i> STOP
-        </button>
-        <span id="cwEstadoBadge"></span>
-      </div>
-    </div>
-    <div id="cwProgress">
-      <div class="cw-prog-bar-wrap"><div class="cw-prog-bar" id="progBar"></div></div>
-      <div class="cw-prog-label" id="progLabel">Iniciando...</div>
-      <div class="cw-prog-log" id="progLog"></div>
-    </div>
+  <!-- Tab nav -->
+  <div class="cw-tab-nav">
+    <button class="cw-tab-btn active" id="tab-btn-reactivacion" onclick="cwTab('reactivacion')">
+      <i class="bi bi-arrow-repeat"></i> Reactivación (Clientes)
+    </button>
+    <button class="cw-tab-btn" id="tab-btn-prospectos" onclick="cwTab('prospectos')">
+      <i class="bi bi-person-plus"></i> Prospectos (Nueva base)
+    </button>
   </div>
 
-  <!-- Stats -->
-  <div class="cw-stats" id="statsGrid">
-    <div class="cw-card seq-0">
-      <div class="cw-card-label">Seq 0 — Sin enviar</div>
-      <div class="cw-card-val" id="s0">—</div>
+  <!-- ── Tab: Reactivación ─────────────────────────────────────────── -->
+  <div id="tab-reactivacion">
+
+    <!-- Launch form -->
+    <div class="cw-launch">
+      <h2><i class="bi bi-send-fill" style="color:#16a34a;"></i> Lanzar campaña reactivación</h2>
+      <div class="cw-launch-form">
+        <div class="cw-launch-field">
+          <label>Compra (S/)</label>
+          <input type="number" id="inCompra" step="0.001" min="1" placeholder="3.377">
+        </div>
+        <div class="cw-launch-field">
+          <label>Venta (S/)</label>
+          <input type="number" id="inVenta" step="0.001" min="1" placeholder="3.381">
+        </div>
+        <div class="cw-launch-field">
+          <label>Máx. mensajes</label>
+          <input type="number" id="inLimite" value="300" min="1" max="500">
+        </div>
+        <div class="cw-launch-actions">
+          <button class="btn-dryrun" id="btnDryRun" onclick="lanzarCampana(true)">
+            <i class="bi bi-eye"></i> Vista previa (sin enviar)
+          </button>
+          <button class="btn-lanzar" id="btnLanzar" onclick="lanzarCampana(false)">
+            <i class="bi bi-send-fill"></i> Lanzar envío
+          </button>
+          <button class="btn-stop" id="btnStop" onclick="detenerCampana()">
+            <i class="bi bi-stop-fill"></i> STOP
+          </button>
+          <span id="cwEstadoBadge"></span>
+        </div>
+      </div>
+      <div id="cwProgress">
+        <div class="cw-prog-bar-wrap"><div class="cw-prog-bar" id="progBar"></div></div>
+        <div class="cw-prog-label" id="progLabel">Iniciando...</div>
+        <div class="cw-prog-log" id="progLog"></div>
+      </div>
     </div>
-    <div class="cw-card seq-1">
-      <div class="cw-card-label">Seq 1 — 1er envío</div>
-      <div class="cw-card-val" id="s1">—</div>
+
+    <!-- Stats -->
+    <div class="cw-stats">
+      <div class="cw-card seq-0">
+        <div class="cw-card-label">Seq 0 — Sin enviar</div>
+        <div class="cw-card-val" id="s0">—</div>
+      </div>
+      <div class="cw-card seq-1">
+        <div class="cw-card-label">Seq 1 — 1er envío</div>
+        <div class="cw-card-val" id="s1">—</div>
+      </div>
+      <div class="cw-card seq-2">
+        <div class="cw-card-label">Seq 2 — +15 días</div>
+        <div class="cw-card-val" id="s2">—</div>
+      </div>
+      <div class="cw-card seq-3">
+        <div class="cw-card-label">Seq 3 — +45 días</div>
+        <div class="cw-card-val" id="s3">—</div>
+      </div>
+      <div class="cw-card seq-4">
+        <div class="cw-card-label">Seq 4 — Completa</div>
+        <div class="cw-card-val" id="s4">—</div>
+      </div>
+      <div class="cw-card opt-out">
+        <div class="cw-card-label">Opt-out</div>
+        <div class="cw-card-val" id="sOptOut">—</div>
+      </div>
+      <div class="cw-card pausados">
+        <div class="cw-card-label">En pausa</div>
+        <div class="cw-card-val" id="sPausados">—</div>
+      </div>
     </div>
-    <div class="cw-card seq-2">
-      <div class="cw-card-label">Seq 2 — +15 días</div>
-      <div class="cw-card-val" id="s2">—</div>
+
+    <!-- Enviados hoy -->
+    <div class="cw-section">
+      <div class="cw-section-head">
+        <i class="bi bi-send" style="color:#196BFE;"></i>
+        <h2>Enviados hoy</h2>
+        <span class="cw-count" id="countHoy">0</span>
+      </div>
+      <div class="cw-table-wrap">
+        <table class="cw-table">
+          <thead>
+            <tr>
+              <th>Hora</th>
+              <th>Número</th>
+              <th>Nombre</th>
+              <th>Empresa</th>
+              <th>Mensaje</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyHoy">
+            <tr><td colspan="5" class="cw-empty"><i class="bi bi-hourglass-split"></i>Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
-    <div class="cw-card seq-3">
-      <div class="cw-card-label">Seq 3 — +45 días</div>
-      <div class="cw-card-val" id="s3">—</div>
+
+    <!-- Pausados -->
+    <div class="cw-section">
+      <div class="cw-section-head">
+        <i class="bi bi-pause-circle" style="color:#f59e0b;"></i>
+        <h2>Contactos en pausa manual</h2>
+        <span class="cw-count" id="countPausados" style="background:#f59e0b;">0</span>
+      </div>
+      <div class="cw-table-wrap">
+        <table class="cw-table">
+          <thead>
+            <tr>
+              <th>Número</th>
+              <th>Nombre</th>
+              <th>Empresa</th>
+              <th>Seq</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyPausados">
+            <tr><td colspan="5" class="cw-empty"><i class="bi bi-hourglass-split"></i>Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
-    <div class="cw-card seq-4">
-      <div class="cw-card-label">Seq 4 — Completa</div>
-      <div class="cw-card-val" id="s4">—</div>
+
+  </div><!-- /#tab-reactivacion -->
+
+  <!-- ── Tab: Prospectos ───────────────────────────────────────────── -->
+  <div id="tab-prospectos" style="display:none">
+
+    <div class="wp-box">
+      <div class="wp-box-header">
+        <h2 class="wp-box-title">
+          <i class="bi bi-send-fill" style="color:#16a34a;"></i> Enviar mensajes a prospectos
+        </h2>
+        <button class="wp-btn wp-btn-ghost" id="wp-toggle-hist">Ver historial</button>
+      </div>
+
+      <!-- Panel principal -->
+      <div id="wp-panel-main">
+        <!-- Config bar -->
+        <div class="wp-config-bar">
+          <div class="wp-field">
+            <label>Nombre campaña</label>
+            <input type="text" id="wp-campana" placeholder="ej: prospecto_nov_2026" class="wp-input">
+          </div>
+          <div class="wp-field">
+            <label>Plantilla</label>
+            <select id="wp-plantilla" class="wp-input">
+              <option value="">Cargando…</option>
+            </select>
+          </div>
+          <div class="wp-field wp-field--sm">
+            <label>Compra</label>
+            <input type="number" id="wp-compra" placeholder="3.700" step="0.001" class="wp-input">
+          </div>
+          <div class="wp-field wp-field--sm">
+            <label>Venta</label>
+            <input type="number" id="wp-venta" placeholder="3.720" step="0.001" class="wp-input">
+          </div>
+          <div class="wp-field wp-field--xs">
+            <label>Límite</label>
+            <select id="wp-limit" class="wp-input">
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value="100" selected>100</option>
+              <option value="300">300</option>
+              <option value="500">500</option>
+            </select>
+          </div>
+          <label class="wp-check-label">
+            <input type="checkbox" id="wp-solo-wa"> Solo con WA confirmado
+          </label>
+        </div>
+
+        <!-- Buscador + selección rápida -->
+        <div class="wp-filter-bar">
+          <input type="text" id="wp-search" placeholder="Buscar por nombre, empresa, número…" class="wp-input wp-search-input">
+          <div class="wp-sel-btns">
+            <button class="wp-btn wp-btn-xs" onclick="wpSelectAll()">Todos</button>
+            <button class="wp-btn wp-btn-xs" onclick="wpSelectNone()">Ninguno</button>
+          </div>
+          <button class="wp-btn wp-btn-primary" id="wp-load-btn" onclick="wpCargarElegibles()">Cargar elegibles</button>
+        </div>
+
+        <!-- Tabla -->
+        <div class="wp-table-wrap">
+          <table class="wp-table">
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="wp-chk-all" onchange="wpToggleAll(this)"></th>
+                <th>Nombre</th>
+                <th>Empresa</th>
+                <th>Número</th>
+                <th>WA</th>
+                <th>Sector</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody id="wp-tbody">
+              <tr><td colspan="7" class="wp-empty">Configura los parámetros y pulsa "Cargar elegibles"</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="wp-footer-bar">
+          <span id="wp-sel-count">0 seleccionados</span>
+          <button class="wp-btn wp-btn-green" id="wp-send-btn" onclick="wpConfirmarEnvio()" disabled>Enviar WhatsApp</button>
+        </div>
+      </div>
+
+      <!-- Panel historial -->
+      <div id="wp-panel-hist" style="display:none">
+        <div id="wp-hist-list" class="wp-hist-list">
+          <p class="wp-empty">Cargando historial…</p>
+        </div>
+      </div>
     </div>
-    <div class="cw-card opt-out">
-      <div class="cw-card-label">Opt-out</div>
-      <div class="cw-card-val" id="sOptOut">—</div>
+
+  </div><!-- /#tab-prospectos -->
+
+</div><!-- /.cw-page -->
+
+<!-- Modal confirmación envío — Prospectos -->
+<div id="wp-modal" class="wp-modal" style="display:none">
+  <div class="wp-modal-box">
+    <h3 class="wp-modal-title">Confirmar envío</h3>
+    <p id="wp-modal-desc" class="wp-modal-desc"></p>
+    <div class="wp-modal-preview" id="wp-modal-preview"></div>
+    <div id="wp-progress" style="display:none">
+      <div class="wp-progress-bar"><div class="wp-progress-fill" id="wp-progress-fill"></div></div>
+      <p class="wp-progress-txt" id="wp-progress-txt">Enviando…</p>
     </div>
-    <div class="cw-card pausados">
-      <div class="cw-card-label">En pausa</div>
-      <div class="cw-card-val" id="sPausados">—</div>
+    <div id="wp-result-box" style="display:none" class="wp-result-box"></div>
+    <div class="wp-modal-actions" id="wp-modal-actions">
+      <button class="wp-btn wp-btn-ghost" onclick="wpCerrarModal()">Cancelar</button>
+      <button class="wp-btn wp-btn-green" id="wp-confirm-btn" onclick="wpEnviar()">Confirmar y enviar</button>
     </div>
   </div>
-
-  <!-- Enviados hoy -->
-  <div class="cw-section">
-    <div class="cw-section-head">
-      <i class="bi bi-send" style="color:#196BFE;"></i>
-      <h2>Enviados hoy</h2>
-      <span class="cw-count" id="countHoy">0</span>
-    </div>
-    <div class="cw-table-wrap">
-      <table class="cw-table">
-        <thead>
-          <tr>
-            <th>Hora</th>
-            <th>Número</th>
-            <th>Nombre</th>
-            <th>Empresa</th>
-            <th>Mensaje</th>
-          </tr>
-        </thead>
-        <tbody id="tbodyHoy">
-          <tr><td colspan="5" class="cw-empty"><i class="bi bi-hourglass-split"></i>Cargando...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Pausados -->
-  <div class="cw-section">
-    <div class="cw-section-head">
-      <i class="bi bi-pause-circle" style="color:#f59e0b;"></i>
-      <h2>Contactos en pausa manual</h2>
-      <span class="cw-count" id="countPausados" style="background:#f59e0b;">0</span>
-    </div>
-    <div class="cw-table-wrap">
-      <table class="cw-table">
-        <thead>
-          <tr>
-            <th>Número</th>
-            <th>Nombre</th>
-            <th>Empresa</th>
-            <th>Seq</th>
-            <th>Acción</th>
-          </tr>
-        </thead>
-        <tbody id="tbodyPausados">
-          <tr><td colspan="5" class="cw-empty"><i class="bi bi-hourglass-split"></i>Cargando...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
 </div>
 
 <div id="cwToast"></div>
@@ -476,6 +802,7 @@ table.cw-table tr:hover td { background: #f8fafc; }
 
 {% block scripts %}
 <script>
+// ── Toast ──────────────────────────────────────────────────────────────
 function toast(msg, ok = true) {
   const t = document.getElementById('cwToast');
   t.textContent = msg;
@@ -484,6 +811,15 @@ function toast(msg, ok = true) {
   setTimeout(() => t.classList.remove('show'), 2800);
 }
 
+// ── Tab switching ──────────────────────────────────────────────────────
+function cwTab(name) {
+  ['reactivacion', 'prospectos'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === name ? 'block' : 'none';
+    document.getElementById('tab-btn-' + t).classList.toggle('active', t === name);
+  });
+}
+
+// ── Reactivación ───────────────────────────────────────────────────────
 function seqBadge(n) {
   return `<span class="seq-badge s${n}">Seq ${n}</span>`;
 }
@@ -499,7 +835,6 @@ async function cargarStats() {
     const d = await r.json();
     if (!d.ok) throw new Error('API error');
 
-    // Secuencias
     [0,1,2,3,4].forEach(i => {
       const el = document.getElementById('s' + i);
       if (el) el.textContent = (d.por_secuencia[String(i)] ?? '—');
@@ -507,7 +842,6 @@ async function cargarStats() {
     document.getElementById('sOptOut').textContent   = d.total_opt_out ?? '—';
     document.getElementById('sPausados').textContent = d.total_pausados ?? '—';
 
-    // Enviados hoy
     const tbody = document.getElementById('tbodyHoy');
     document.getElementById('countHoy').textContent = d.enviados_hoy.length;
     if (!d.enviados_hoy.length) {
@@ -523,7 +857,6 @@ async function cargarStats() {
         </tr>`).join('');
     }
 
-    // Pausados
     const tbodyP = document.getElementById('tbodyPausados');
     document.getElementById('countPausados').textContent = d.pausadas.length;
     if (!d.pausadas.length) {
@@ -571,7 +904,7 @@ async function togglePausa(numero, pausar, btn) {
   }
 }
 
-// ── Lanzar campaña ──────────────────────────────────────────────────────────
+// ── Lanzar campaña reactivación ───────────────────────────────────────
 let _pollInterval = null;
 let _activeJobId  = null;
 
@@ -615,7 +948,6 @@ async function lanzarCampana(dryRun) {
 
     _activeJobId = d.job_id;
     toast(dryRun ? `Simulación iniciada (job ${_activeJobId})` : `Campaña iniciada (job ${_activeJobId})`);
-
     _pollInterval = setInterval(() => pollJob(_activeJobId, btnL, btnD, btnS), 2000);
   } catch(e) {
     toast('Error: ' + e.message, false);
@@ -688,27 +1020,296 @@ async function pollJob(jobId, btnL, btnD, btnS) {
   } catch(e) { /* ignore poll errors */ }
 }
 
-// ── Pre-cargar TC del sistema ────────────────────────────────────────────────
+// ── Pre-cargar TC del sistema ──────────────────────────────────────────
 async function cargarTC() {
   try {
     const r = await fetch('/api/platform/public/exchange-rates');
     if (!r.ok) return;
     const d = await r.json();
     if (!d.success || !d.data) return;
-    document.getElementById('inCompra').value = parseFloat(d.data.tipo_compra).toFixed(3);
-    document.getElementById('inVenta').value  = parseFloat(d.data.tipo_venta).toFixed(3);
+    const compra = parseFloat(d.data.tipo_compra).toFixed(3);
+    const venta  = parseFloat(d.data.tipo_venta).toFixed(3);
+    document.getElementById('inCompra').value  = compra;
+    document.getElementById('inVenta').value   = venta;
+    document.getElementById('wp-compra').value = compra;
+    document.getElementById('wp-venta').value  = venta;
   } catch(e) { /* silencioso */ }
 }
 
 // Spin animation
-const st = document.createElement('style');
-st.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
-document.head.appendChild(st);
+const _cwSt = document.createElement('style');
+_cwSt.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+document.head.appendChild(_cwSt);
 
-// Carga inicial
+// ── WA Prospectos ──────────────────────────────────────────────────────
+(function () {
+  'use strict';
+
+  const API_BASE = '/wa-prospectos/api';
+  let wpProspectos   = [];
+  let wpSeleccionados = new Set();
+  let wpHistMode = false;
+
+  async function wpCargarPlantillas() {
+    try {
+      const r = await fetch(API_BASE + '/plantillas', { credentials: 'same-origin' });
+      const data = await r.json();
+      const sel = document.getElementById('wp-plantilla');
+      sel.innerHTML = data.plantillas.map(p =>
+        `<option value="${p.nombre}">${p.label || p.nombre}</option>`
+      ).join('');
+    } catch(e) { console.warn('[WP] plantillas:', e); }
+  }
+
+  window.wpCargarElegibles = async function () {
+    const campana = document.getElementById('wp-campana').value.trim();
+    const limit   = document.getElementById('wp-limit').value;
+    const soloWa  = document.getElementById('wp-solo-wa').checked;
+
+    if (!campana) { alert('Escribe un nombre para la campaña'); return; }
+
+    const btn = document.getElementById('wp-load-btn');
+    btn.textContent = 'Cargando…'; btn.disabled = true;
+
+    try {
+      let url = `${API_BASE}/elegibles?campana=${encodeURIComponent(campana)}&limit=${limit}`;
+      if (soloWa) url += '&solo_con_wa=true';
+      const r = await fetch(url, { credentials: 'same-origin' });
+      const data = await r.json();
+      wpProspectos    = data.prospectos || [];
+      wpSeleccionados = new Set(wpProspectos.map(p => p.numero));
+      wpRenderTabla(wpProspectos);
+      wpActualizarContador();
+    } catch(e) {
+      console.warn('[WP] elegibles:', e);
+      document.getElementById('wp-tbody').innerHTML =
+        '<tr><td colspan="7" class="wp-empty">Error al cargar elegibles</td></tr>';
+    } finally {
+      btn.textContent = 'Cargar elegibles'; btn.disabled = false;
+    }
+  };
+
+  function wpRenderTabla(lista) {
+    const search = document.getElementById('wp-search').value.toLowerCase();
+    const filtrada = search
+      ? lista.filter(p => (p.nombre + p.empresa + p.numero).toLowerCase().includes(search))
+      : lista;
+
+    if (!filtrada.length) {
+      document.getElementById('wp-tbody').innerHTML =
+        '<tr><td colspan="7" class="wp-empty">Sin elegibles para esta campaña</td></tr>';
+      document.getElementById('wp-send-btn').disabled = true;
+      return;
+    }
+
+    document.getElementById('wp-tbody').innerHTML = filtrada.map(p => {
+      const chk     = wpSeleccionados.has(p.numero) ? 'checked' : '';
+      const badge   = `<span class="wp-badge ${p.wa_validado}">${wpLabel(p.wa_validado)}</span>`;
+      const numDisp = p.numero_display || p.numero;
+      return `<tr>
+        <td><input type="checkbox" ${chk} onchange="wpToggleOne('${p.numero}', this)" data-num="${p.numero}"></td>
+        <td style="font-weight:600">${esc(p.nombre)}</td>
+        <td style="color:#64748b">${esc(p.empresa)}</td>
+        <td style="font-family:'Courier New',monospace;font-size:.74rem">${esc(numDisp)}</td>
+        <td>${badge}</td>
+        <td style="font-size:.72rem;color:#64748b">${esc(p.rubro || '—')}</td>
+        <td style="font-family:'Courier New',monospace">${p.score || '—'}</td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('wp-send-btn').disabled = wpSeleccionados.size === 0;
+  }
+
+  function wpLabel(v) {
+    if (v === 'bot_session') return '● Bot';
+    if (v === 'con_wa')      return '✓ WA';
+    if (v === 'sin_wa')      return '✗ sin WA';
+    return '? sin hist.';
+  }
+
+  function esc(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  window.wpToggleOne = function(num, chk) {
+    if (chk.checked) wpSeleccionados.add(num);
+    else wpSeleccionados.delete(num);
+    wpActualizarContador();
+  };
+
+  window.wpToggleAll = function(chk) {
+    document.querySelectorAll('#wp-tbody input[type=checkbox]').forEach(c => {
+      c.checked = chk.checked;
+      const num = c.dataset.num;
+      if (chk.checked) wpSeleccionados.add(num);
+      else wpSeleccionados.delete(num);
+    });
+    wpActualizarContador();
+  };
+
+  window.wpSelectAll = function() {
+    document.getElementById('wp-chk-all').checked = true;
+    wpToggleAll(document.getElementById('wp-chk-all'));
+  };
+
+  window.wpSelectNone = function() {
+    document.getElementById('wp-chk-all').checked = false;
+    wpToggleAll(document.getElementById('wp-chk-all'));
+  };
+
+  function wpActualizarContador() {
+    document.getElementById('wp-sel-count').textContent = `${wpSeleccionados.size} seleccionados`;
+    document.getElementById('wp-send-btn').disabled = wpSeleccionados.size === 0;
+  }
+
+  document.getElementById('wp-search').addEventListener('input', function() {
+    if (wpProspectos.length) wpRenderTabla(wpProspectos);
+  });
+
+  window.wpConfirmarEnvio = function() {
+    const campana   = document.getElementById('wp-campana').value.trim();
+    const plantilla = document.getElementById('wp-plantilla').value;
+    const compra    = document.getElementById('wp-compra').value;
+    const venta     = document.getElementById('wp-venta').value;
+
+    if (!campana)   { alert('Falta el nombre de campaña'); return; }
+    if (!plantilla) { alert('Selecciona una plantilla'); return; }
+    if (!compra || !venta) { alert('Ingresa precio compra y venta'); return; }
+    if (wpSeleccionados.size === 0) { alert('Selecciona al menos un prospecto'); return; }
+
+    document.getElementById('wp-modal-desc').textContent =
+      `Se enviarán ${wpSeleccionados.size} mensajes WA · campaña "${campana}" · plantilla "${plantilla}"`;
+    document.getElementById('wp-modal-preview').textContent =
+      `Compra: S/ ${compra}  |  Venta: S/ ${venta}\nPlantilla: ${plantilla}`;
+    document.getElementById('wp-progress').style.display      = 'none';
+    document.getElementById('wp-result-box').style.display    = 'none';
+    document.getElementById('wp-modal-actions').style.display = 'flex';
+    document.getElementById('wp-modal').style.display         = 'flex';
+  };
+
+  window.wpCerrarModal = function() {
+    document.getElementById('wp-modal').style.display = 'none';
+  };
+
+  window.wpEnviar = async function() {
+    const campana   = document.getElementById('wp-campana').value.trim();
+    const plantilla = document.getElementById('wp-plantilla').value;
+    const compra    = document.getElementById('wp-compra').value;
+    const venta     = document.getElementById('wp-venta').value;
+
+    document.getElementById('wp-modal-actions').style.display = 'none';
+    document.getElementById('wp-progress').style.display      = 'block';
+    document.getElementById('wp-progress-fill').style.width   = '0%';
+    document.getElementById('wp-progress-txt').textContent    = 'Enviando…';
+
+    try {
+      const listaEnvio = wpProspectos
+        .filter(p => wpSeleccionados.has(p.numero))
+        .map(p => ({
+          prospecto_id: p.prospecto_id,
+          numero:       p.numero,
+          nombre:       p.nombre,
+          empresa:      p.empresa,
+        }));
+
+      const r = await fetch(API_BASE + '/enviar', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          campana,
+          plantilla,
+          compra:     String(parseFloat(compra).toFixed(3)),
+          venta:      String(parseFloat(venta).toFixed(3)),
+          prospectos: listaEnvio,
+        })
+      });
+      const data = await r.json();
+      document.getElementById('wp-progress-fill').style.width = '100%';
+
+      const box = document.getElementById('wp-result-box');
+      box.style.display = 'block';
+      if (data.ok) {
+        const r2 = data.resumen || {};
+        box.style.background   = '#f0fdf4';
+        box.style.borderColor  = '#bbf7d0';
+        box.innerHTML = `<strong>Enviados: ${r2.enviados || 0}</strong>  ·  Sin WA: ${r2.sin_wa || 0}  ·  Fallidos: ${r2.fallidos || 0}  ·  Duplicados: ${r2.duplicados || 0}`;
+      } else {
+        box.style.background  = '#fef2f2';
+        box.style.borderColor = '#fecaca';
+        box.innerHTML = `<strong>Error:</strong> ${esc(data.error || 'Desconocido')}`;
+      }
+      document.getElementById('wp-progress-txt').textContent = 'Completado';
+      setTimeout(() => {
+        wpCerrarModal();
+        wpCargarElegibles();
+      }, 2500);
+    } catch(e) {
+      document.getElementById('wp-progress-txt').textContent = 'Error de conexión';
+      console.warn('[WP] enviar:', e);
+    }
+  };
+
+  document.getElementById('wp-toggle-hist').addEventListener('click', function() {
+    wpHistMode = !wpHistMode;
+    document.getElementById('wp-panel-main').style.display  = wpHistMode ? 'none'  : 'block';
+    document.getElementById('wp-panel-hist').style.display  = wpHistMode ? 'block' : 'none';
+    this.textContent = wpHistMode ? 'Volver al panel' : 'Ver historial';
+    if (wpHistMode) wpCargarHistorial();
+  });
+
+  window.wpCargarHistorial = async function() {
+    const container = document.getElementById('wp-hist-list');
+    container.innerHTML = '<p class="wp-empty">Cargando…</p>';
+    try {
+      const r = await fetch(API_BASE + '/campanas', { credentials: 'same-origin' });
+      const data = await r.json();
+      const campanas = data.campanas || [];
+      if (!campanas.length) {
+        container.innerHTML = '<p class="wp-empty">Sin campañas registradas</p>';
+        return;
+      }
+      container.innerHTML = campanas.map(c => `
+        <div class="wp-hist-card">
+          <div class="wp-hist-card-header">
+            <div>
+              <span class="wp-hist-card-name">${esc(c.campana)}</span>
+              <span style="font-size:.68rem;color:#64748b;margin-left:8px">${esc(c.plantilla || '')}</span>
+            </div>
+            <span class="wp-hist-card-date">${esc(c.inicio || '—')}</span>
+          </div>
+          <div class="wp-hist-stats">
+            <div class="wp-hist-stat"><span class="wp-hist-stat-val">${c.total || 0}</span><span class="wp-hist-stat-lbl">Total</span></div>
+            <div class="wp-hist-stat"><span class="wp-hist-stat-val">${c.enviados || 0}</span><span class="wp-hist-stat-lbl">Enviados</span></div>
+            <div class="wp-hist-stat">
+              <span class="wp-hist-stat-val" style="color:#16a34a">${c.entregados || 0}
+                <span style="font-size:.7rem">(${c.tasa_entrega || 0}%)</span>
+              </span>
+              <span class="wp-hist-stat-lbl">Entregados</span>
+            </div>
+            <div class="wp-hist-stat">
+              <span class="wp-hist-stat-val" style="color:#196BFE">${c.leidos || 0}
+                <span style="font-size:.7rem">(${c.tasa_lectura || 0}%)</span>
+              </span>
+              <span class="wp-hist-stat-lbl">Leídos</span>
+            </div>
+            <div class="wp-hist-stat"><span class="wp-hist-stat-val" style="color:#dc2626">${c.fallidos || 0}</span><span class="wp-hist-stat-lbl">Fallidos</span></div>
+            <div class="wp-hist-stat"><span class="wp-hist-stat-val" style="color:#64748b">${c.sin_wa || 0}</span><span class="wp-hist-stat-lbl">Sin WA</span></div>
+          </div>
+        </div>`).join('');
+    } catch(e) {
+      container.innerHTML = '<p class="wp-empty">Error al cargar historial</p>';
+      console.warn('[WP] historial:', e);
+    }
+  };
+
+  wpCargarPlantillas();
+})();
+
+// ── Carga inicial ──────────────────────────────────────────────────────
 cargarStats();
 cargarTC();
-// Auto-refresh cada 60s
 setInterval(cargarStats, 60000);
 </script>
 {% endblock %}

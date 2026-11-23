@@ -179,9 +179,8 @@ def _enviar_wa_meta(numero_9d, nombre, compra, venta, plantilla_cfg):
 @wa_prospectos_bp.route('/')
 @login_required
 def index():
-    if current_user.role not in ('Master', 'Presidente de Negocios'):
-        return 'Acceso denegado', 403
-    return render_template('wa_prospectos/index.html')
+    from flask import redirect, url_for
+    return redirect(url_for('crm.campana_wa_panel'))
 
 
 @wa_prospectos_bp.route('/api/plantillas')
