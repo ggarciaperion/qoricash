@@ -31,7 +31,7 @@ from flask import Blueprint, jsonify, render_template, request, current_app
 from flask_login import login_required, current_user
 from sqlalchemy import func, or_
 
-from app.extensions import db
+from app.extensions import db, csrf
 from app.models.wa_campana_prospecto import WaCampanaProspecto
 from app.models.wa_bot_session import WaBotSession
 from app.models.wa_prospecto_base import WaProspectoBase
@@ -296,13 +296,13 @@ def api_elegibles():
 
 
 @wa_prospectos_bp.route('/api/sync-base', methods=['POST'])
+@csrf.exempt
 def api_sync_base():
     """
     Recibe contactos del Sheet (desde sync_wa_prospectos.py) y los persiste en WaProspectoBase.
     Autenticación: X-API-Key header.
     Body: {contacts: [{numero, nombre, empresa, rubro, bandeja_email, fecha_email}]}
     """
-    from app.extensions import csrf
     api_key = request.headers.get('X-API-Key', '')
     expected = os.environ.get('CRM_API_KEY', 'qoricash_crm_2026')
     if api_key != expected:
