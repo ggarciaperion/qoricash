@@ -339,56 +339,66 @@ def api_sync_base():
     ahora  = now_peru()
 
     for c in contacts:
-        num = re.sub(r'\D', '', str(c.get('numero', '')))
-        if num.startswith('51') and len(num) == 11:
-            num = num[2:]
-        if len(num) != 9 or num[0] != '9':
+        try:
+            num = re.sub(r'\D', '', str(c.get('numero', '')))
+            if num.startswith('51') and len(num) == 11:
+                num = num[2:]
+            if len(num) != 9 or num[0] != '9':
+                omitidos += 1
+                continue
+
+            # Determinar wa_validado
+            if num in numeros_bot:
+                wa_v = 'bot_session'
+            elif num in rechazados:
+                wa_v = 'sin_wa'
+            else:
+                wa_v = 'sin_historial'
+
+            # Parsear fecha (sin truncar el string)
+            fecha_str = str(c.get('fecha_email', '') or '').strip()
+            fecha_dt  = None
+            if fecha_str:
+                for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d',
+                            '%d/%m/%Y %H:%M:%S', '%d/%m/%Y %H:%M', '%d/%m/%Y'):
+                    try:
+                        fecha_dt = datetime.strptime(fecha_str[:19], fmt)
+                        break
+                    except Exception:
+                        try:
+                            fecha_dt = datetime.strptime(fecha_str, fmt)
+                            break
+                        except Exception:
+                            continue
+
+            existing = WaProspectoBase.query.filter_by(numero=num).first()
+            if existing:
+                existing.nombre        = (c.get('nombre') or existing.nombre or '')[:200]
+                existing.empresa       = (c.get('empresa') or existing.empresa or '')[:300]
+                existing.rubro         = (c.get('rubro') or existing.rubro or '')[:100]
+                existing.bandeja_email = (c.get('bandeja_email') or existing.bandeja_email or '')[:20]
+                if fecha_dt:
+                    existing.fecha_email = fecha_dt
+                if wa_v in ('bot_session', 'con_wa') or existing.wa_validado == 'sin_historial':
+                    existing.wa_validado = wa_v
+                existing.actualizado_en = ahora
+                actualizados += 1
+            else:
+                db.session.add(WaProspectoBase(
+                    numero=num,
+                    nombre=(c.get('nombre') or '')[:200],
+                    empresa=(c.get('empresa') or '')[:300],
+                    rubro=(c.get('rubro') or '')[:100],
+                    bandeja_email=(c.get('bandeja_email') or '')[:20],
+                    fecha_email=fecha_dt,
+                    wa_validado=wa_v,
+                    actualizado_en=ahora,
+                ))
+                nuevos += 1
+        except Exception as e:
+            log.error(f'[sync-base] error procesando contacto {c.get("numero")}: {e}')
             omitidos += 1
             continue
-
-        # Determinar wa_validado
-        if num in numeros_bot:
-            wa_v = 'bot_session'
-        elif num in rechazados:
-            wa_v = 'sin_wa'
-        else:
-            wa_v = 'sin_historial'
-
-        # Parsear fecha
-        fecha_str = c.get('fecha_email', '')
-        fecha_dt  = None
-        if fecha_str:
-            for fmt in ('%d/%m/%Y %H:%M', '%d/%m/%Y', '%Y-%m-%d %H:%M', '%Y-%m-%d'):
-                try:
-                    fecha_dt = datetime.strptime(str(fecha_str).strip()[:len(fmt)], fmt)
-                    break
-                except Exception:
-                    pass
-
-        existing = WaProspectoBase.query.filter_by(numero=num).first()
-        if existing:
-            existing.nombre        = c.get('nombre', existing.nombre) or existing.nombre
-            existing.empresa       = c.get('empresa', existing.empresa) or existing.empresa
-            existing.rubro         = c.get('rubro', existing.rubro) or existing.rubro
-            existing.bandeja_email = c.get('bandeja_email', existing.bandeja_email) or existing.bandeja_email
-            if fecha_dt:
-                existing.fecha_email = fecha_dt
-            if wa_v in ('bot_session', 'con_wa') or existing.wa_validado == 'sin_historial':
-                existing.wa_validado = wa_v
-            existing.actualizado_en = ahora
-            actualizados += 1
-        else:
-            db.session.add(WaProspectoBase(
-                numero=num,
-                nombre=c.get('nombre', ''),
-                empresa=c.get('empresa', ''),
-                rubro=c.get('rubro', ''),
-                bandeja_email=c.get('bandeja_email', ''),
-                fecha_email=fecha_dt,
-                wa_validado=wa_v,
-                actualizado_en=ahora,
-            ))
-            nuevos += 1
 
     try:
         db.session.commit()
