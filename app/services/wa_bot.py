@@ -1734,6 +1734,11 @@ def _reset_sesion(session):
         session.rate_resp_sesion = 0
     except Exception:
         pass
+    # Limpiar flag de origen campaña para que sesiones futuras orgánicas funcionen normal
+    try:
+        session.campana_secuencia = 0
+    except Exception:
+        pass
 
 
 def _sesion_inactiva(session):
@@ -4047,20 +4052,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id='', conte
                 and not (session.nombre     or '').strip()
             )
             if _sesion_en_blanco:
-                if _respuesta_campana_precio:
-                    # Respuesta a plantilla qoricash_precio_dia — omitir bienvenida
-                    # e ir directo a la pregunta de perfil (persona / empresa)
-                    send_buttons(numero,
-                        '¿Deseas cotizar como persona o como empresa?',
-                        [
-                            {'id': 'btn_como_persona', 'title': '👤 Como persona'},
-                            {'id': 'btn_soy_empresa',  'title': '🏢 Como empresa'},
-                        ]
-                    )
-                    session.estado = 'eligiendo_operacion'
-                else:
-                    _bienvenida(numero, session)
-                    session.estado = 'eligiendo_operacion'
+                _bienvenida(numero, session)
+                session.estado = 'eligiendo_operacion'
                 db.session.commit()
                 return
 
@@ -5478,19 +5471,6 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id='', conte
             _ESTADOS_CON_HORARIO = {
                 'eligiendo_tipo', 'esperando_numero_doc',
             }
-
-            # Respuesta de texto a plantilla de campaña en sesión limpia → persona/empresa
-            if _respuesta_campana_precio and estado == 'inicio':
-                send_buttons(numero,
-                    '¿Deseas cotizar como persona o como empresa?',
-                    [
-                        {'id': 'btn_como_persona', 'title': '👤 Como persona'},
-                        {'id': 'btn_soy_empresa',  'title': '🏢 Como empresa'},
-                    ]
-                )
-                session.estado = 'eligiendo_operacion'
-                db.session.commit()
-                return
 
             # N0 — despedida universal (definida aquí para uso en estados específicos también)
             _despedida_kw = ('cierra sesion', 'cierra sesión', 'cerrar sesion', 'cerrar sesión',

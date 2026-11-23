@@ -64,7 +64,7 @@ def _get_wa_config():
                 break
     return token, phone_id
 
-HEADER_IMAGE = 'https://www.qoricash.pe/banerwsp.png'
+HEADER_IMAGE = 'https://app.qoricash.pe/static/banner_wa.png'
 
 # Plantillas conocidas (se pueden extender desde config)
 _PLANTILLAS_DEFAULT = [
@@ -131,8 +131,12 @@ def _enviar_wa_meta(numero_9d, nombre, compra, venta, plantilla_cfg):
     destino = f'51{numero_9d}'
     components = []
 
-    # No pasar header component — la imagen del template ya está guardada en Meta.
-    # Pasarlo con una URL distinta sobreescribiría con una imagen obsoleta.
+    if plantilla_cfg.get('tiene_header_imagen'):
+        components.append({
+            'type': 'header',
+            'parameters': [{'type': 'image', 'image': {'link': HEADER_IMAGE}}],
+        })
+
     components.append({
         'type': 'body',
         'parameters': [
