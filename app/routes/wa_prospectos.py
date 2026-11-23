@@ -32,9 +32,9 @@ from flask_login import login_required, current_user
 from sqlalchemy import func, or_
 
 from app.extensions import db
-from app.models.prospecto import Prospecto, ActividadProspecto
 from app.models.wa_campana_prospecto import WaCampanaProspecto
 from app.models.wa_bot_session import WaBotSession
+from app.models.wa_prospecto_base import WaProspectoBase
 from app.utils.formatters import now_peru
 
 log = logging.getLogger(__name__)
@@ -194,27 +194,17 @@ def api_plantillas():
 @login_required
 def api_elegibles():
     """
-    Retorna prospectos elegibles para campaña WA, ordenados por calidad de señal WA.
+    Retorna prospectos elegibles desde WaProspectoBase (sincronizado del Sheet).
 
-    Prioridad (wa_validado):
-      1. 'bot_session'  — número con sesión activa en WaBotSession (confirmado WA por interacción real)
-      2. 'con_wa'       — número que recibió template en campaña anterior sin error
-      3. 'sin_historial'— número sin historial WA pero contactado por email (riesgo controlado)
-
-    Excluidos:
-      - 'sin_wa'        — números que ya fallaron con error 131026/131030 (no tiene WA)
-      - no_contactar    — excluidos siempre
-      - ya enviados en esta campaña (dedup)
-
-    La API de Meta Cloud NO ofrece endpoint de validación de números.
-    No se usa el envío como mecanismo de descubrimiento masivo.
+    Fuente: wa_prospectos_base — contactos que ya recibieron email (Fecha de Envío no vacía)
+    Prioridad: bot_session > con_wa > sin_historial
+    Excluidos: sin_wa (no tienen WA) y ya enviados en esta campaña
     """
     campana     = request.args.get('campana', '').strip()
     solo_con_wa = request.args.get('solo_con_wa', 'false').lower() == 'true'
     limit       = min(int(request.args.get('limit', 500)), 2000)
 
-    # ── 1. Números con sesión real en el bot (máxima confianza) ──────────────
-    # WaBotSession.numero puede estar en formato '51XXXXXXXXX' o 'XXXXXXXXX'
+    # ── 1. Números con sesión real en el bot ──────────────────────────────────
     bot_rows = db.session.query(WaBotSession.numero).all()
     numeros_bot = set()
     for (n,) in bot_rows:
@@ -224,13 +214,12 @@ def api_elegibles():
         if len(d) == 9:
             numeros_bot.add(d)
 
-    # ── 2. Números confirmados/rechazados por campañas anteriores ────────────
+    # ── 2. Confirmados / rechazados por campañas anteriores ───────────────────
     campana_rows = db.session.query(
-        WaCampanaProspecto.numero,
-        WaCampanaProspecto.wa_validado,
+        WaCampanaProspecto.numero, WaCampanaProspecto.wa_validado,
     ).all()
-    confirmados_wa = set()   # con_wa — enviado OK antes
-    rechazados_wa  = set()   # sin_wa — error 131026/131030
+    confirmados_wa = set()
+    rechazados_wa  = set()
     for (num, estado) in campana_rows:
         d = re.sub(r'\D', '', str(num))
         if d.startswith('51') and len(d) == 11:
@@ -241,7 +230,7 @@ def api_elegibles():
             elif estado == 'sin_wa':
                 rechazados_wa.add(d)
 
-    # ── 3. Números ya enviados en esta campaña (dedup) ───────────────────────
+    # ── 3. Ya enviados en esta campaña (dedup) ────────────────────────────────
     enviados_campana = set()
     if campana:
         rows = db.session.query(WaCampanaProspecto.numero).filter(
@@ -253,82 +242,169 @@ def api_elegibles():
                 d = d[2:]
             enviados_campana.add(d)
 
-    # ── 4. Prospectos contactados (ya tienen relación con Qoricash) ──────────
-    _ESTADOS_CONTACTADOS = (
-        'contactado', 'interesado', 'negociando', 'cliente',
-        'P1', 'P2', 'P3', 'P4', 'presentado', 'precio_enviado', 'seguimiento',
-    )
-    email_ids = (
-        db.session.query(ActividadProspecto.prospecto_id)
-        .filter(or_(
-            ActividadProspecto.canal == 'email',
-            ActividadProspecto.tipo  == 'email',
-        ))
-        .distinct()
-        .subquery()
-    )
-    prospectos = (
-        Prospecto.query
-        .filter(
-            or_(
-                Prospecto.id.in_(email_ids),
-                Prospecto.estado_comercial.in_(_ESTADOS_CONTACTADOS),
-                Prospecto.tipo_ultimo_envio.isnot(None),
-                Prospecto.fecha_ultimo_contacto.isnot(None),
-            ),
-            Prospecto.estado_comercial != 'no_contactar',
-        )
-        .order_by(Prospecto.fecha_ultimo_contacto.desc().nullslast())
-        .all()
-    )
+    # ── 4. Base de prospectos sincronizados del Sheet ─────────────────────────
+    base = WaProspectoBase.query.order_by(
+        WaProspectoBase.fecha_email.desc().nullslast()
+    ).all()
 
-    # ── 5. Construir lista priorizada ────────────────────────────────────────
+    if not base:
+        return jsonify({
+            'ok': True, 'total': 0, 'prospectos': [],
+            'aviso': 'Base vacía — ejecuta sync_wa_prospectos.py para cargar contactos del Sheet',
+        })
+
+    # ── 5. Construir lista priorizada ─────────────────────────────────────────
     _PRIO = {'bot_session': 0, 'con_wa': 1, 'sin_historial': 2}
-
     candidatos = []
-    seen_phones = set()
 
-    for p in prospectos:
-        numero = _primer_numero(p)
-        if not numero or numero in seen_phones:
+    for p in base:
+        num = p.numero  # ya 9 dígitos (guardado por sync)
+        if num in enviados_campana:
             continue
-        if numero in enviados_campana:
+        if num in rechazados_wa:
             continue
-        if numero in rechazados_wa:
-            continue  # sabemos que no tiene WA — no desperdiciar cuota
 
-        if numero in numeros_bot:
+        if num in numeros_bot:
             wa_estado = 'bot_session'
-        elif numero in confirmados_wa:
+        elif num in confirmados_wa:
             wa_estado = 'con_wa'
         else:
-            wa_estado = 'sin_historial'
+            wa_estado = p.wa_validado or 'sin_historial'
 
         if solo_con_wa and wa_estado == 'sin_historial':
             continue
 
-        seen_phones.add(numero)
         candidatos.append({
-            'prospecto_id':   p.id,
-            'numero':         f'+51{numero}',
-            'numero_display': numero,
-            'nombre':         p.nombre_contacto or '',
-            'empresa':        p.razon_social or '',
+            'prospecto_id':   None,
+            'numero':         f'+51{num}',
+            'numero_display': num,
+            'nombre':         p.nombre or '',
+            'empresa':        p.empresa or '',
             'rubro':          p.rubro or '',
-            'provincia':      p.provincia or '',
-            'estado_com':     p.estado_comercial or '',
-            'ult_contacto':   str(p.fecha_ultimo_contacto) if p.fecha_ultimo_contacto else '',
+            'bandeja_email':  p.bandeja_email or '',
+            'fecha_email':    p.fecha_email.strftime('%d/%m/%Y') if p.fecha_email else '',
             'wa_validado':    wa_estado,
             '_prio':          _PRIO.get(wa_estado, 9),
         })
 
-    # Ordenar: bot_session → con_wa → sin_historial
     candidatos.sort(key=lambda x: x['_prio'])
     for c in candidatos:
         del c['_prio']
 
     resultado = candidatos[:limit]
     return jsonify({'ok': True, 'total': len(resultado), 'prospectos': resultado})
+
+
+@wa_prospectos_bp.route('/api/sync-base', methods=['POST'])
+def api_sync_base():
+    """
+    Recibe contactos del Sheet (desde sync_wa_prospectos.py) y los persiste en WaProspectoBase.
+    Autenticación: X-API-Key header.
+    Body: {contacts: [{numero, nombre, empresa, rubro, bandeja_email, fecha_email}]}
+    """
+    from app.extensions import csrf
+    api_key = request.headers.get('X-API-Key', '')
+    expected = os.environ.get('CRM_API_KEY', 'qoricash_crm_2026')
+    if api_key != expected:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    data     = request.get_json(silent=True) or {}
+    contacts = data.get('contacts', [])
+    if not contacts:
+        return jsonify({'ok': False, 'error': 'No contacts provided'}), 400
+
+    # Cargar números confirmados bot (para actualizar wa_validado)
+    bot_rows = db.session.query(WaBotSession.numero).all()
+    numeros_bot = set()
+    for (n,) in bot_rows:
+        d = re.sub(r'\D', '', str(n))
+        if d.startswith('51') and len(d) == 11:
+            d = d[2:]
+        if len(d) == 9:
+            numeros_bot.add(d)
+
+    # Cargar rechazados (sin_wa) de campañas previas
+    rechazados = set()
+    rows = db.session.query(WaCampanaProspecto.numero).filter(
+        WaCampanaProspecto.wa_validado == 'sin_wa'
+    ).all()
+    for (num,) in rows:
+        d = re.sub(r'\D', '', str(num))
+        if d.startswith('51') and len(d) == 11:
+            d = d[2:]
+        if len(d) == 9:
+            rechazados.add(d)
+
+    nuevos = actualizados = omitidos = 0
+    ahora  = now_peru()
+
+    for c in contacts:
+        num = re.sub(r'\D', '', str(c.get('numero', '')))
+        if num.startswith('51') and len(num) == 11:
+            num = num[2:]
+        if len(num) != 9 or num[0] != '9':
+            omitidos += 1
+            continue
+
+        # Determinar wa_validado
+        if num in numeros_bot:
+            wa_v = 'bot_session'
+        elif num in rechazados:
+            wa_v = 'sin_wa'
+        else:
+            wa_v = 'sin_historial'
+
+        # Parsear fecha
+        fecha_str = c.get('fecha_email', '')
+        fecha_dt  = None
+        if fecha_str:
+            for fmt in ('%d/%m/%Y %H:%M', '%d/%m/%Y', '%Y-%m-%d %H:%M', '%Y-%m-%d'):
+                try:
+                    fecha_dt = datetime.strptime(str(fecha_str).strip()[:len(fmt)], fmt)
+                    break
+                except Exception:
+                    pass
+
+        existing = WaProspectoBase.query.filter_by(numero=num).first()
+        if existing:
+            existing.nombre        = c.get('nombre', existing.nombre) or existing.nombre
+            existing.empresa       = c.get('empresa', existing.empresa) or existing.empresa
+            existing.rubro         = c.get('rubro', existing.rubro) or existing.rubro
+            existing.bandeja_email = c.get('bandeja_email', existing.bandeja_email) or existing.bandeja_email
+            if fecha_dt:
+                existing.fecha_email = fecha_dt
+            if wa_v in ('bot_session', 'con_wa') or existing.wa_validado == 'sin_historial':
+                existing.wa_validado = wa_v
+            existing.actualizado_en = ahora
+            actualizados += 1
+        else:
+            db.session.add(WaProspectoBase(
+                numero=num,
+                nombre=c.get('nombre', ''),
+                empresa=c.get('empresa', ''),
+                rubro=c.get('rubro', ''),
+                bandeja_email=c.get('bandeja_email', ''),
+                fecha_email=fecha_dt,
+                wa_validado=wa_v,
+                actualizado_en=ahora,
+            ))
+            nuevos += 1
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        log.error(f'[sync-base] commit error: {e}')
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+    log.info(f'[sync-base] nuevos={nuevos} actualizados={actualizados} omitidos={omitidos}')
+    return jsonify({
+        'ok': True,
+        'nuevos': nuevos,
+        'actualizados': actualizados,
+        'omitidos': omitidos,
+        'total_base': WaProspectoBase.query.count(),
+    })
 
 
 @wa_prospectos_bp.route('/api/enviar', methods=['POST'])
