@@ -20,4 +20,11 @@ class WaProspectoBase(db.Model):
     fecha_email    = db.Column(db.DateTime, nullable=True)   # Fecha de Envío del email
     wa_validado    = db.Column(db.String(20), default='sin_historial')
     # sin_historial / con_wa / sin_wa / bot_session
+
+    # Sheet fields added 2026-11-24 (source of truth columns)
+    ruc            = db.Column(db.String(15),  nullable=True, index=True)  # para cruce con Client.dni
+    resultado      = db.Column(db.String(100), nullable=True)  # CLIENTE / INTERESADO / COTIZO / REBOTADO / …
+    email          = db.Column(db.String(200), nullable=True)
+    cargo          = db.Column(db.String(150), nullable=True)
+
     actualizado_en = db.Column(db.DateTime, default=now_peru, onupdate=now_peru, nullable=False)

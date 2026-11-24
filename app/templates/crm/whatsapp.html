@@ -884,9 +884,11 @@ body.has-pb-bar.has-sidebar .main-wrapper {
   border-radius: 10px; margin: 0 auto 12px;
   display: table; /* center without flex */
 }
-.crm-rp-type-badge.cliente    { background: #eff6ff; color: #196BFE; }
-.crm-rp-type-badge.prospecto  { background: #fffbeb; color: #d97706; }
-.crm-rp-type-badge.desconocido{ background: #f1f5f9; color: #64748b; }
+.crm-rp-type-badge.cliente            { background: #eff6ff; color: #196BFE; }
+.crm-rp-type-badge.prospecto          { background: #fffbeb; color: #d97706; }
+.crm-rp-type-badge.requiere_revision  { background: #fff7ed; color: #ea580c; }
+.crm-rp-type-badge.sheet_only         { background: #f0fdf4; color: #16a34a; }
+.crm-rp-type-badge.desconocido        { background: #f1f5f9; color: #64748b; }
 
 .crm-rp-field {
   display: flex; gap: 6px; align-items: flex-start;
@@ -2289,10 +2291,16 @@ function renderRightPanel(data, numero) {
     : (conv.nombre || numero);
   const init   = (nombre || numero).charAt(0).toUpperCase();
 
-  const typeClass = info ? info.tipo  : 'desconocido';
-  const typeLabel = info
-    ? (info.tipo === 'cliente' ? '✦ Cliente registrado' : '◆ Prospecto')
-    : '— Desconocido';
+  const typeMap = {
+    cliente:           ['cliente',           '✦ Cliente'],
+    prospecto:         ['prospecto',         '◆ Prospecto'],
+    requiere_revision: ['requiere_revision', '⚠ Requiere revisión'],
+    sheet_only:        ['sheet_only',        '📋 En Sheet'],
+    desconocido:       ['desconocido',       '— Desconocido'],
+  };
+  const [typeClass, typeLabel] = info
+    ? (typeMap[info.tipo] || ['desconocido', '— Desconocido'])
+    : ['desconocido', '— Desconocido'];
 
   /* Profile fields */
   let fieldsHtml = '';
@@ -2305,18 +2313,33 @@ function renderRightPanel(data, numero) {
   };
   if (info) {
     if (info.tipo === 'cliente') {
+      addF('Empresa', info.razon_social);
       addF('Contacto', info.nombre);
       addF('Doc',  `${info.doc_tipo || ''} ${info.doc || ''}`.trim());
       addF('Email', info.email);
       addF('Canal', info.canal);
       addF('KYC',   info.kyc);
+      if (info.sheet_resultado)
+        addF('Sheet', info.sheet_resultado);
+      if (!info.en_sheet)
+        fieldsHtml += `<div style="font-size:.7rem;color:#94a3b8;margin-top:6px;">Sin registro en Fuente de datos</div>`;
+    } else if (info.tipo === 'requiere_revision') {
+      addF('Empresa', info.razon_social);
+      addF('RUC',     info.ruc);
+      addF('Email',   info.email);
+      addF('Rubro',   info.rubro);
+      if (info.nota)
+        fieldsHtml += `<div style="font-size:.73rem;color:#d97706;margin-top:6px;line-height:1.5;">${esc(info.nota)}</div>`;
     } else {
       addF('Empresa',  info.razon_social);
       addF('Contacto', info.nombre);
       addF('RUC',      info.ruc);
       addF('Email',    info.email);
+      addF('Cargo',    info.cargo);
       addF('Rubro',    info.rubro);
-      addF('Estado',   info.estado);
+      addF('Estado',   info.estado || info.sheet_resultado);
+      if (!info.en_sheet)
+        fieldsHtml += `<div style="font-size:.7rem;color:#94a3b8;margin-top:6px;">Sin registro en Fuente de datos</div>`;
     }
   }
 

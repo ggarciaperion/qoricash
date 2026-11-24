@@ -284,23 +284,21 @@ def api_mensajes(numero):
         digits = _re.sub(r'\D', '', numero)
         if digits.startswith('51') and len(digits) == 11:
             digits = digits[2:]
-        # Buscar en clientes registrados
-        client = Client.query.filter(
-            _or(Client.dni == digits, Client.dni == numero)
-        ).first()
-        if client:
-            cliente_info = {
-                'tipo':    'cliente',
-                'nombre':  f"{client.nombres or ''} {client.apellido_paterno or ''}".strip(),
-                'razon_social': client.razon_social or '',
-                'doc':     client.dni,
-                'doc_tipo': client.document_type,
-                'email':   client.email or '',
-                'canal':   client.registration_canal or '',
-                'kyc':     client.kyc_status or '',
-            }
-        if not cliente_info and digits:
-            prospecto = Prospecto.query.filter(
+
+        # 1) Buscar cliente por TELÉFONO (Client.phone puede tener múltiples, sep ";")
+        client = None
+        if digits:
+            client = Client.query.filter(
+                _or(
+                    Client.phone.contains(digits),
+                    Client.dni == digits,          # edge case: DNI como teléfono
+                )
+            ).first()
+
+        # 2) Si no, buscar en Prospecto por teléfono y escalar por RUC → Client
+        prospecto_obj = None
+        if not client and digits:
+            prospecto_obj = Prospecto.query.filter(
                 _or(
                     Prospecto.telefono     == digits,
                     Prospecto.telefono_alt == digits,
@@ -309,16 +307,31 @@ def api_mensajes(numero):
                     Prospecto.contacto_wa  == digits,
                 )
             ).first()
-            if prospecto:
-                cliente_info = {
-                    'tipo':         'prospecto',
-                    'nombre':       prospecto.nombre_contacto or '',
-                    'razon_social': prospecto.razon_social or '',
-                    'ruc':          prospecto.ruc or '',
-                    'email':        prospecto.email or '',
-                    'estado':       prospecto.estado_comercial or '',
-                    'rubro':        prospecto.rubro or '',
-                }
+            if prospecto_obj and prospecto_obj.ruc:
+                # El prospecto tiene RUC → verificar si ya es cliente registrado
+                client = Client.query.filter_by(dni=str(prospecto_obj.ruc)).first()
+
+        if client:
+            cliente_info = {
+                'tipo':         'cliente',
+                'nombre':       f"{client.nombres or ''} {client.apellido_paterno or ''}".strip(),
+                'razon_social': client.razon_social or '',
+                'doc':          client.dni,
+                'doc_tipo':     client.document_type,
+                'email':        client.email or '',
+                'canal':        client.registration_canal or '',
+                'kyc':          client.kyc_status or '',
+            }
+        elif prospecto_obj:
+            cliente_info = {
+                'tipo':         'prospecto',
+                'nombre':       prospecto_obj.nombre_contacto or '',
+                'razon_social': prospecto_obj.razon_social or '',
+                'ruc':          prospecto_obj.ruc or '',
+                'email':        prospecto_obj.email or '',
+                'estado':       prospecto_obj.estado_comercial or '',
+                'rubro':        prospecto_obj.rubro or '',
+            }
     except Exception as _e:
         log.warning(f'[CRM] Error buscando cliente_info para {numero}: {_e}')
 
@@ -752,43 +765,104 @@ def api_actividades(numero):
             num9 = raw
         num_e164 = f'+51{num9}'
 
-        # Cliente / prospecto info
+        # ── Identificación del contacto (fuente de verdad: Client DB + Sheet) ──────
+        from app.models.wa_prospecto_base import WaProspectoBase
         cliente_info = None
-        client = Client.query.filter(
-            _or(Client.dni == num9, Client.dni == numero)
-        ).first() if num9 else None
+        client       = None
         prospecto_obj = None
-        if client:
-            cliente_info = {
-                'tipo': 'cliente',
-                'nombre': f"{client.nombres or ''} {client.apellido_paterno or ''}".strip(),
-                'razon_social': client.razon_social or '',
-                'doc': client.dni,
-                'doc_tipo': client.document_type,
-                'email': client.email or '',
-                'canal': client.registration_canal or '',
-                'kyc': client.kyc_status or '',
-            }
-        if not cliente_info and num9:
-            prospecto_obj = Prospecto.query.filter(
+
+        # 1) Cliente por TELÉFONO — Client.phone puede tener múltiples (sep ";")
+        if num9:
+            client = Client.query.filter(
                 _or(
-                    Prospecto.telefono == num9,
-                    Prospecto.telefono_alt == num9,
-                    Prospecto.telefono_3 == num9,
-                    Prospecto.telefono_4 == num9,
-                    Prospecto.contacto_wa == num9,
+                    Client.phone.contains(num9),
+                    Client.dni == num9,        # edge case: DNI = teléfono
                 )
             ).first()
-            if prospecto_obj:
-                cliente_info = {
-                    'tipo': 'prospecto',
-                    'nombre': prospecto_obj.nombre_contacto or '',
-                    'razon_social': prospecto_obj.razon_social or '',
-                    'ruc': prospecto_obj.ruc or '',
-                    'email': prospecto_obj.email or '',
-                    'estado': prospecto_obj.estado_comercial or '',
-                    'rubro': prospecto_obj.rubro or '',
+
+        # 2) Buscar en Prospecto por teléfono
+        if not client and num9:
+            prospecto_obj = Prospecto.query.filter(
+                _or(
+                    Prospecto.telefono     == num9,
+                    Prospecto.telefono_alt == num9,
+                    Prospecto.telefono_3   == num9,
+                    Prospecto.telefono_4   == num9,
+                    Prospecto.contacto_wa  == num9,
+                )
+            ).first()
+            # Escalación por RUC: si el prospecto tiene RUC, verificar en Client
+            if prospecto_obj and prospecto_obj.ruc:
+                client = Client.query.filter_by(dni=str(prospecto_obj.ruc)).first()
+
+        # 3) Verificación Sheet (WaProspectoBase — sincronizado desde Fuente de datos)
+        sheet_info = None
+        if num9:
+            wb = WaProspectoBase.query.filter_by(numero=num9).first()
+            if wb:
+                sheet_info = {
+                    'empresa':   wb.empresa or '',
+                    'rubro':     wb.rubro   or '',
+                    'resultado': (wb.resultado or '').upper().strip(),
+                    'ruc':       wb.ruc or '',
+                    'email':     wb.email or '',
+                    'cargo':     wb.cargo or '',
                 }
+                # Si el Sheet registra CLIENTE y aún no encontramos Client por teléfono,
+                # intentar por RUC del Sheet
+                if not client and sheet_info.get('ruc'):
+                    client = Client.query.filter_by(dni=sheet_info['ruc']).first()
+
+        # 4) Construir cliente_info
+        if client:
+            cliente_info = {
+                'tipo':         'cliente',
+                'nombre':       f"{client.nombres or ''} {client.apellido_paterno or ''}".strip(),
+                'razon_social': client.razon_social or '',
+                'doc':          client.dni,
+                'doc_tipo':     client.document_type,
+                'email':        client.email or '',
+                'canal':        client.registration_canal or '',
+                'kyc':          client.kyc_status or '',
+                'sheet_resultado': sheet_info.get('resultado') if sheet_info else '',
+                'en_sheet':     sheet_info is not None,
+            }
+        elif sheet_info and sheet_info.get('resultado') in ('CLIENTE',):
+            # Sheet dice CLIENTE pero no encontramos registro en DB → requiere revisión
+            cliente_info = {
+                'tipo':         'requiere_revision',
+                'razon_social': sheet_info.get('empresa', ''),
+                'ruc':          sheet_info.get('ruc', ''),
+                'email':        sheet_info.get('email', ''),
+                'rubro':        sheet_info.get('rubro', ''),
+                'nota':         'Sheet lo clasifica como CLIENTE pero no hay registro en la base de datos.',
+                'en_sheet':     True,
+            }
+        elif prospecto_obj:
+            cliente_info = {
+                'tipo':         'prospecto',
+                'nombre':       prospecto_obj.nombre_contacto or '',
+                'razon_social': prospecto_obj.razon_social or '',
+                'ruc':          prospecto_obj.ruc or '',
+                'email':        prospecto_obj.email or '',
+                'estado':       prospecto_obj.estado_comercial or '',
+                'rubro':        prospecto_obj.rubro or '',
+                'sheet_resultado': sheet_info.get('resultado') if sheet_info else '',
+                'en_sheet':     sheet_info is not None,
+            }
+        elif sheet_info:
+            # Solo en Sheet (no en Prospecto ni Client)
+            resultado = sheet_info.get('resultado', '')
+            cliente_info = {
+                'tipo':         'sheet_only',
+                'razon_social': sheet_info.get('empresa', ''),
+                'rubro':        sheet_info.get('rubro', ''),
+                'email':        sheet_info.get('email', ''),
+                'cargo':        sheet_info.get('cargo', ''),
+                'ruc':          sheet_info.get('ruc', ''),
+                'estado':       resultado,
+                'en_sheet':     True,
+            }
 
         # Stats de mensajes
         all_nums = list({numero, num_e164, num9})

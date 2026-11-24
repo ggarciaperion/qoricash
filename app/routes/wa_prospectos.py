@@ -372,6 +372,12 @@ def api_sync_base():
                         except Exception:
                             continue
 
+            # Nuevos campos del Sheet
+            ruc_v       = (str(c.get('ruc') or '').strip() or None)
+            resultado_v = (str(c.get('resultado') or '').strip() or None)
+            email_v     = (str(c.get('email') or '').strip() or None)
+            cargo_v     = (str(c.get('cargo') or '').strip() or None)
+
             existing = WaProspectoBase.query.filter_by(numero=num).first()
             if existing:
                 existing.nombre        = (c.get('nombre') or existing.nombre or '')[:200]
@@ -382,6 +388,15 @@ def api_sync_base():
                     existing.fecha_email = fecha_dt
                 if wa_v in ('bot_session', 'con_wa') or existing.wa_validado == 'sin_historial':
                     existing.wa_validado = wa_v
+                # Siempre actualizar campos del Sheet (source of truth)
+                if ruc_v:
+                    existing.ruc = ruc_v[:15]
+                if resultado_v:
+                    existing.resultado = resultado_v[:100]
+                if email_v:
+                    existing.email = email_v[:200]
+                if cargo_v:
+                    existing.cargo = cargo_v[:150]
                 existing.actualizado_en = ahora
                 actualizados += 1
             else:
@@ -393,6 +408,10 @@ def api_sync_base():
                     bandeja_email=(c.get('bandeja_email') or '')[:20],
                     fecha_email=fecha_dt,
                     wa_validado=wa_v,
+                    ruc=ruc_v[:15] if ruc_v else None,
+                    resultado=resultado_v[:100] if resultado_v else None,
+                    email=email_v[:200] if email_v else None,
+                    cargo=cargo_v[:150] if cargo_v else None,
                     actualizado_en=ahora,
                 ))
                 nuevos += 1
