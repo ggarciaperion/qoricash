@@ -697,12 +697,11 @@ table.cw-table tr:hover td { background: #f8fafc; }
 
       <!-- Panel principal -->
       <div id="wp-panel-main">
+        <!-- Campo campaña oculto — se genera automáticamente con la fecha -->
+        <input type="hidden" id="wp-campana" value="">
+
         <!-- Config bar -->
         <div class="wp-config-bar">
-          <div class="wp-field">
-            <label>Nombre campaña</label>
-            <input type="text" id="wp-campana" placeholder="ej: prospecto_nov_2026" class="wp-input">
-          </div>
           <div class="wp-field">
             <label>Plantilla</label>
             <select id="wp-plantilla" class="wp-input">
@@ -821,14 +820,12 @@ function cwTab(name) {
 }
 
 function wpAutoLoad() {
-  const campInput = document.getElementById('wp-campana');
-  if (!campInput.value.trim()) {
-    const hoy = new Date();
-    const yyyy = hoy.getFullYear();
-    const mm   = String(hoy.getMonth() + 1).padStart(2, '0');
-    const dd   = String(hoy.getDate()).padStart(2, '0');
-    campInput.value = `prosp_${yyyy}-${mm}-${dd}`;
-  }
+  // Nombre interno fijo para registrar envíos — invisible al usuario
+  const hoy = new Date();
+  const yyyy = hoy.getFullYear();
+  const mm   = String(hoy.getMonth() + 1).padStart(2, '0');
+  const dd   = String(hoy.getDate()).padStart(2, '0');
+  document.getElementById('wp-campana').value = `prosp_${yyyy}-${mm}-${dd}`;
   wpCargarElegibles();
 }
 
@@ -1089,7 +1086,7 @@ document.head.appendChild(_cwSt);
     btn.textContent = 'Cargando…'; btn.disabled = true;
 
     try {
-      let url = `${API_BASE}/elegibles?campana=${encodeURIComponent(campana)}&limit=${limit}`;
+      let url = `${API_BASE}/elegibles?limit=${limit}`;
       if (soloWa) url += '&solo_con_wa=true';
       const r = await fetch(url, { credentials: 'same-origin' });
       const data = await r.json();
@@ -1185,18 +1182,16 @@ document.head.appendChild(_cwSt);
   });
 
   window.wpConfirmarEnvio = function() {
-    const campana   = document.getElementById('wp-campana').value.trim();
     const plantilla = document.getElementById('wp-plantilla').value;
     const compra    = document.getElementById('wp-compra').value;
     const venta     = document.getElementById('wp-venta').value;
 
-    if (!campana)   { alert('Falta el nombre de campaña'); return; }
     if (!plantilla) { alert('Selecciona una plantilla'); return; }
     if (!compra || !venta) { alert('Ingresa precio compra y venta'); return; }
     if (wpSeleccionados.size === 0) { alert('Selecciona al menos un prospecto'); return; }
 
     document.getElementById('wp-modal-desc').textContent =
-      `Se enviarán ${wpSeleccionados.size} mensajes WA · campaña "${campana}" · plantilla "${plantilla}"`;
+      `Se enviarán ${wpSeleccionados.size} mensajes WA · plantilla "${plantilla}"`;
     document.getElementById('wp-modal-preview').textContent =
       `Compra: S/ ${compra}  |  Venta: S/ ${venta}\nPlantilla: ${plantilla}`;
     document.getElementById('wp-progress').style.display      = 'none';
