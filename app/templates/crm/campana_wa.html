@@ -1290,7 +1290,13 @@ document.head.appendChild(_cwSt);
               <span class="wp-hist-card-name">${esc(c.campana)}</span>
               <span style="font-size:.68rem;color:#64748b;margin-left:8px">${esc(c.plantilla || '')}</span>
             </div>
-            <span class="wp-hist-card-date">${esc(c.inicio || '—')}</span>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="wp-hist-card-date">${esc(c.inicio || '—')}</span>
+              <a href="/crm/campana-detalle/${encodeURIComponent(c.campana)}"
+                 style="font-size:.72rem;color:#196BFE;font-weight:600;text-decoration:none;
+                        padding:2px 8px;border-radius:5px;border:1px solid #bfdbfe;background:#eff6ff;"
+                 target="_blank">Ver detalle →</a>
+            </div>
           </div>
           <div class="wp-hist-stats">
             <div class="wp-hist-stat"><span class="wp-hist-stat-val">${c.total || 0}</span><span class="wp-hist-stat-lbl">Total</span></div>

@@ -236,27 +236,107 @@ body.has-pb-bar.has-sidebar .main-wrapper {
   background: #f8fafc;
 }
 
-/* Empty state */
+/* Empty state — Resumen Operativo */
 .crm-empty-state {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
   color: #64748b;
   background: #f8fafc;
+  padding: 28px 32px;
+  overflow-y: auto;
 }
-.crm-empty-icon {
-  width: 80px; height: 80px;
-  background: #eff6ff;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 2.2rem; margin-bottom: 20px;
-  border: 2px solid #bfdbfe;
+.crm-es-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.crm-empty-state h5 { color: #0f172a; font-weight: 600; font-size: 1rem; margin-bottom: 6px; }
-.crm-empty-state p  { font-size: .8rem; text-align: center; max-width: 260px; line-height: 1.6; color: #64748b; }
-.crm-empty-state hr { border-color: #e2e8f0; width: 60px; margin: 16px auto; }
+.crm-es-sub {
+  font-size: .75rem;
+  color: #94a3b8;
+  margin-bottom: 20px;
+}
+.crm-es-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: 640px;
+  margin-bottom: 24px;
+}
+.crm-es-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: box-shadow .15s;
+}
+.crm-es-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.crm-es-card.urgent { border-color: #fca5a5; }
+.crm-es-num {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1;
+}
+.crm-es-num.red   { color: #dc2626; }
+.crm-es-num.orange { color: #d97706; }
+.crm-es-num.blue  { color: #196BFE; }
+.crm-es-num.purple{ color: #7c3aed; }
+.crm-es-lbl {
+  font-size: .68rem;
+  color: #64748b;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+/* Última campaña */
+.crm-es-camp {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 18px;
+  max-width: 640px;
+  width: 100%;
+}
+.crm-es-camp-title {
+  font-size: .78rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 10px;
+}
+.crm-es-camp-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 10px;
+}
+.crm-es-camp-stats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.crm-es-camp-stat { text-align: center; }
+.crm-es-camp-stat-num { font-size: 1.1rem; font-weight: 700; color: #0f172a; }
+.crm-es-camp-stat-lbl { font-size: .68rem; color: #64748b; }
+.crm-es-camp-link {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: .78rem;
+  color: #196BFE;
+  text-decoration: none;
+  font-weight: 500;
+}
+.crm-es-camp-link:hover { text-decoration: underline; }
+.crm-es-loading { font-size: .82rem; color: #94a3b8; }
 
 /* Chat panel */
 .crm-chat-panel {
@@ -1049,18 +1129,19 @@ body.has-pb-bar.has-sidebar .main-wrapper {
   <!-- ════ MAIN ════ -->
   <main class="crm-main">
 
-    <!-- Empty state -->
+    <!-- Empty state — Resumen Operativo -->
     <div class="crm-empty-state" id="emptyState">
-      <div class="crm-empty-icon">
+      <div class="crm-es-title">
         <i class="bi bi-whatsapp" style="color:#22c55e;"></i>
+        Resumen operativo
       </div>
-      <h5>CRM WhatsApp</h5>
-      <p>Selecciona una conversación del panel izquierdo para ver los mensajes y responder en tiempo real.</p>
-      <hr>
-      <div style="display:flex;align-items:center;gap:6px;justify-content:center;">
-        <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#196BFE;opacity:.6;"></span>
-        <p style="font-size:.73rem;margin:0;">Actualización automática cada 5 seg</p>
+      <div class="crm-es-sub" id="esSubtitle">Cargando métricas…</div>
+
+      <div class="crm-es-cards" id="esCards">
+        <div class="crm-es-loading"><i class="bi bi-arrow-clockwise spin"></i> Cargando…</div>
       </div>
+
+      <div id="esUltimaCamp"></div>
     </div>
 
     <!-- Chat panel (oculto hasta seleccionar) -->
@@ -2415,14 +2496,26 @@ function renderRightPanel(data, numero) {
       <button class="crm-rp-action-btn" onclick="document.getElementById('rpTaskSection').scrollIntoView({behavior:'smooth'})">
         <i class="bi bi-calendar-check"></i> Programar tarea
       </button>
+      <button class="crm-rp-action-btn" onclick="abrirModalAsignar()">
+        <i class="bi bi-person-check"></i> Asignar asesor
+      </button>
     </div>
 
     ${campasHtml}
     ${timelineHtml}
 
+    <!-- WaTareas -->
+    <div class="crm-rp-section" id="rpTareasSection">
+      <div class="crm-rp-sec-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Tareas y seguimientos</span>
+        <span id="rpTareasCount" style="font-size:.68rem;color:#94a3b8;"></span>
+      </div>
+      <div id="rpTareasList" style="font-size:.78rem;color:#94a3b8;">Cargando…</div>
+    </div>
+
     <!-- Task form -->
     <div id="rpTaskSection" class="crm-rp-task-form">
-      <div class="crm-rp-task-title">📋 Programar tarea</div>
+      <div class="crm-rp-task-title">📋 Nueva tarea</div>
       <input type="text" class="crm-rp-task-input" id="rpTaskTexto"
         placeholder="Descripción de la tarea...">
       <div class="crm-rp-task-row">
@@ -2438,6 +2531,9 @@ function renderRightPanel(data, numero) {
 
   document.getElementById('rpLoading').style.display = 'none';
   document.getElementById('rpContent').style.display = 'block';
+
+  // Load WaTareas async
+  rpCargarTareas(numero);
 }
 
 function rpCampanaBadge(estado) {
@@ -2462,25 +2558,193 @@ function rpTlIcon(tipo) {
 
 async function crearTarea() {
   if (!activeNum) return;
-  const texto = (document.getElementById('rpTaskTexto')?.value || '').trim();
-  const fecha = document.getElementById('rpTaskFecha')?.value || '';
-  if (!texto) { showToast('Escribe una descripción para la tarea', 'warning'); return; }
+  const descripcion = (document.getElementById('rpTaskTexto')?.value || '').trim();
+  const fecha       = document.getElementById('rpTaskFecha')?.value || '';
+  if (!descripcion) { showToast('Escribe una descripción para la tarea', 'warning'); return; }
   try {
-    const r = await fetch('/crm/api/tarea', {
+    const r = await fetch('/crm/api/tarea-wa', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
-      body: JSON.stringify({ numero: activeNum, texto, fecha }),
+      body: JSON.stringify({ numero: activeNum, descripcion, fecha }),
     });
     const j = await r.json();
     if (j.ok) {
       showToast('Tarea guardada', 'success');
       if (document.getElementById('rpTaskTexto')) document.getElementById('rpTaskTexto').value = '';
-      reloadChat();
-      if (rpOpen) loadRightPanel(activeNum);
+      if (rpOpen) { loadRightPanel(activeNum); }
     } else {
       showToast(j.error || 'Error al guardar tarea', 'error');
     }
   } catch(e) { showToast('Error de conexión', 'error'); }
+}
+
+async function rpCargarTareas(numero) {
+  const listEl  = document.getElementById('rpTareasList');
+  const countEl = document.getElementById('rpTareasCount');
+  if (!listEl) return;
+  listEl.innerHTML = '<span style="color:#94a3b8;">Cargando…</span>';
+  try {
+    const r    = await fetch(`/crm/api/tareas-wa/${encodeURIComponent(numero)}`);
+    const data = await r.json();
+    const tareas = data.tareas || [];
+    if (countEl) countEl.textContent = tareas.length ? `${tareas.length} tarea(s)` : '';
+    if (!tareas.length) {
+      listEl.innerHTML = '<span style="color:#94a3b8;font-size:.75rem;">Sin tareas registradas</span>';
+      return;
+    }
+    const hoy   = new Date().toISOString().split('T')[0];
+    listEl.innerHTML = tareas.map(t => {
+      const vencida  = !t.completado && t.fecha_prog && t.fecha_prog < hoy;
+      const hoyTask  = !t.completado && t.fecha_prog === hoy;
+      const icon     = t.completado ? '✅' : (vencida ? '⚠️' : (hoyTask ? '🔔' : '📋'));
+      const color    = t.completado ? '#94a3b8' : (vencida ? '#dc2626' : (hoyTask ? '#d97706' : '#334155'));
+      const fecha    = t.fecha_prog ? ` · <span style="font-size:.68rem;">${t.fecha_prog}</span>` : '';
+      const compBtn  = t.completado ? '' :
+        `<button onclick="rpCompletarTarea(${t.id})" title="Completar"
+          style="background:none;border:none;color:#22c55e;cursor:pointer;font-size:.8rem;padding:0 4px;line-height:1;">✓</button>`;
+      return `<div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:8px;padding:7px 10px;
+                           border-radius:7px;background:${t.completado?'#f8fafc':'#fff'};
+                           border:1px solid ${vencida?'#fecaca':'#e2e8f0'};">
+        <span style="flex-shrink:0;">${icon}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="color:${color};font-size:.78rem;line-height:1.4;
+                      text-decoration:${t.completado?'line-through':'none'};
+                      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+               title="${esc(t.descripcion)}">${esc(t.descripcion)}</div>
+          <div style="font-size:.68rem;color:#94a3b8;margin-top:2px;">${t.creado_por || ''}${fecha}</div>
+        </div>
+        ${compBtn}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    if (listEl) listEl.innerHTML = '<span style="color:#dc2626;font-size:.75rem;">Error al cargar tareas</span>';
+  }
+}
+
+async function rpCompletarTarea(id) {
+  try {
+    const r = await fetch(`/crm/api/tarea-wa/${id}/completar`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCsrf() },
+    });
+    const j = await r.json();
+    if (j.ok) {
+      showToast('Tarea completada', 'success');
+      if (activeNum) rpCargarTareas(activeNum);
+    }
+  } catch(e) {}
+}
+
+// ── Asignar asesor ─────────────────────────────────────────────
+let _asesores = [];
+async function abrirModalAsignar() {
+  if (!activeNum) return;
+  if (!_asesores.length) {
+    try {
+      const r = await fetch('/crm/api/asesores');
+      const d = await r.json();
+      _asesores = d.asesores || [];
+    } catch(e) {}
+  }
+  const opts = _asesores.map(a =>
+    `<option value="${a.id}">${esc(a.username)}</option>`
+  ).join('');
+  const sel = `<select id="asignarSelect" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;color:#0f172a;font-size:.875rem;outline:none;">
+    <option value="">— Sin asignar (devolver al bot)</option>
+    ${opts}
+  </select>`;
+  // Reuse contacto modal structure
+  document.getElementById('contactoModal').innerHTML = `
+    <div class="crm-modal">
+      <h6><i class="bi bi-person-check" style="color:#196BFE;"></i> Asignar asesor</h6>
+      ${sel}
+      <div class="crm-modal-actions" style="margin-top:12px;">
+        <button class="crm-modal-cancel" onclick="document.getElementById('contactoModal').classList.remove('open')">Cancelar</button>
+        <button class="crm-modal-save" onclick="confirmarAsignar()">Asignar</button>
+      </div>
+    </div>`;
+  document.getElementById('contactoModal').classList.add('open');
+}
+
+async function confirmarAsignar() {
+  const sel      = document.getElementById('asignarSelect');
+  const asesorId = sel ? sel.value : '';
+  document.getElementById('contactoModal').classList.remove('open');
+  try {
+    const r = await fetch('/crm/api/asignar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+      body: JSON.stringify({ numero: activeNum, asesor_id: asesorId ? parseInt(asesorId) : null }),
+    });
+    const j = await r.json();
+    if (j.ok) {
+      showToast(j.asesor ? `Asignado a ${j.asesor}` : 'Devuelto al bot', 'success');
+    } else {
+      showToast(j.error || 'Error al asignar', 'error');
+    }
+  } catch(e) { showToast('Error de conexión', 'error'); }
+}
+
+// ── Resumen Operativo ─────────────────────────────────────────
+async function cargarResumenOperativo() {
+  try {
+    const r    = await fetch('/crm/api/resumen-operativo');
+    const data = await r.json();
+    if (!data.ok) return;
+
+    const now = new Date().toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'});
+    document.getElementById('esSubtitle').textContent = `Actualizado a las ${now}`;
+
+    const cards = [
+      { num: data.sin_respuesta,    lbl: 'Sin respuesta',      cls: data.sin_respuesta > 0 ? 'red' : '' },
+      { num: data.no_leidos,        lbl: 'No leídos',          cls: data.no_leidos > 0 ? 'orange' : '' },
+      { num: data.seguimientos_hoy, lbl: 'Seguimientos hoy',   cls: data.seguimientos_hoy > 0 ? 'blue' : '' },
+      { num: data.vencidas,         lbl: 'Tareas vencidas',    cls: data.vencidas > 0 ? 'red' : '' },
+    ];
+    document.getElementById('esCards').innerHTML = cards.map(c => `
+      <div class="crm-es-card${c.cls === 'red' && c.num > 0 ? ' urgent' : ''}">
+        <div class="crm-es-num ${c.cls}">${c.num}</div>
+        <div class="crm-es-lbl">${c.lbl}</div>
+      </div>`).join('');
+
+    const uc = data.ultima_campana;
+    if (uc) {
+      const tasa_entr  = uc.total ? Math.round(uc.entregados / uc.total * 100) : 0;
+      const tasa_lec   = uc.total ? Math.round(uc.leidos     / uc.total * 100) : 0;
+      document.getElementById('esUltimaCamp').innerHTML = `
+        <div class="crm-es-camp">
+          <div class="crm-es-camp-title">Última campaña WA</div>
+          <div class="crm-es-camp-name">${esc(uc.campana)}</div>
+          <div class="crm-es-camp-stats">
+            <div class="crm-es-camp-stat">
+              <div class="crm-es-camp-stat-num">${uc.total}</div>
+              <div class="crm-es-camp-stat-lbl">Total</div>
+            </div>
+            <div class="crm-es-camp-stat">
+              <div class="crm-es-camp-stat-num" style="color:#196BFE">${uc.enviados}</div>
+              <div class="crm-es-camp-stat-lbl">Enviados</div>
+            </div>
+            <div class="crm-es-camp-stat">
+              <div class="crm-es-camp-stat-num" style="color:#16a34a">${uc.entregados} <span style="font-size:.7rem">(${tasa_entr}%)</span></div>
+              <div class="crm-es-camp-stat-lbl">Entregados</div>
+            </div>
+            <div class="crm-es-camp-stat">
+              <div class="crm-es-camp-stat-num" style="color:#0369a1">${uc.leidos} <span style="font-size:.7rem">(${tasa_lec}%)</span></div>
+              <div class="crm-es-camp-stat-lbl">Leídos</div>
+            </div>
+            <div class="crm-es-camp-stat">
+              <div class="crm-es-camp-stat-num" style="color:#7c3aed">${uc.respondieron}</div>
+              <div class="crm-es-camp-stat-lbl">Respondieron</div>
+            </div>
+          </div>
+          <a href="/crm/campana-detalle/${encodeURIComponent(uc.campana)}" class="crm-es-camp-link" target="_blank">
+            Ver detalle completo →
+          </a>
+        </div>`;
+    }
+  } catch(e) {
+    console.warn('[CRM] resumen-operativo error:', e);
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -2489,5 +2753,7 @@ async function crearTarea() {
 buildEmojiPicker();
 loadConversaciones().then(startPolling);
 solicitarPermiso();
+cargarResumenOperativo();
+setInterval(cargarResumenOperativo, 60000);
 </script>
 {% endblock %}

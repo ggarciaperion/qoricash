@@ -3003,6 +3003,259 @@ def api_wa_campana_stop():
     return jsonify({'ok': True, 'msg': 'Señal de stop enviada. El proceso se detendrá antes del próximo envío.'})
 
 
+# ── API — Resumen Operativo ──────────────────────────────────────
+@crm_bp.route('/api/resumen-operativo')
+@login_required
+@require_role('Master')
+def api_resumen_operativo():
+    """Dashboard: métricas clave del panel WA para el empty state."""
+    from sqlalchemy import func as _f
+    from datetime import date as _date
+    from app.models.wa_bot_session import WaBotSession
+    from app.models.wa_campana_prospecto import WaCampanaProspecto
+    from app.models.wa_tarea import WaTarea
+
+    try:
+        hoy       = _date.today()
+        hoy_dt_s  = now_peru().replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Chats sin respuesta de nuestra parte hoy
+        # = números donde el último mensaje (excluyendo notas internas) es ENTRANTE
+        sub = (
+            db.session.query(
+                WaMessage.numero,
+                _f.max(WaMessage.id).label('last_id')
+            )
+            .filter(WaMessage.direccion != 'interna')
+            .group_by(WaMessage.numero)
+            .subquery()
+        )
+        sin_respuesta = (
+            db.session.query(_f.count())
+            .select_from(WaMessage)
+            .join(sub, WaMessage.id == sub.c.last_id)
+            .filter(WaMessage.direccion == 'entrante')
+            .scalar() or 0
+        )
+
+        # No leídos (entrante, leido=False)
+        no_leidos = WaMessage.query.filter(
+            WaMessage.direccion == 'entrante',
+            WaMessage.leido == False,
+        ).with_entities(_f.count(WaMessage.id.distinct())).scalar() or 0
+
+        # Seguimientos de hoy
+        seguimientos_hoy = WaTarea.query.filter(
+            WaTarea.fecha_prog == hoy,
+            WaTarea.completado == False,
+        ).count()
+
+        # Tareas vencidas (fecha pasada, no completadas)
+        from datetime import date as _d2
+        vencidas = WaTarea.query.filter(
+            WaTarea.fecha_prog < hoy,
+            WaTarea.completado == False,
+        ).count()
+
+        # Última campaña WA
+        ultima_camp = None
+        ultima = db.session.query(WaCampanaProspecto.campana).order_by(
+            WaCampanaProspecto.id.desc()
+        ).limit(1).scalar()
+        if ultima:
+            stats = db.session.query(
+                _f.count(WaCampanaProspecto.id),
+                _f.sum(db.case((WaCampanaProspecto.estado == 'enviado',   1), else_=0)),
+                _f.sum(db.case((WaCampanaProspecto.estado == 'entregado', 1), else_=0)),
+                _f.sum(db.case((WaCampanaProspecto.estado == 'leido',     1), else_=0)),
+                _f.sum(db.case((WaCampanaProspecto.respondio_en != None,  1), else_=0)),
+            ).filter(WaCampanaProspecto.campana == ultima).first()
+            total, enviados, entregados, leidos, respondieron = (stats or (0,0,0,0,0))
+            ultima_camp = {
+                'campana':     ultima,
+                'total':       total or 0,
+                'enviados':    (enviados or 0) + (entregados or 0) + (leidos or 0),
+                'entregados':  (entregados or 0) + (leidos or 0),
+                'leidos':      leidos or 0,
+                'respondieron': respondieron or 0,
+            }
+
+        return jsonify({
+            'ok':               True,
+            'sin_respuesta':    sin_respuesta,
+            'no_leidos':        no_leidos,
+            'seguimientos_hoy': seguimientos_hoy,
+            'vencidas':         vencidas,
+            'ultima_campana':   ultima_camp,
+        })
+    except Exception as e:
+        log.error(f'[CRM] api_resumen_operativo: {e}')
+        return jsonify({'ok': False, 'sin_respuesta': 0, 'no_leidos': 0,
+                        'seguimientos_hoy': 0, 'vencidas': 0, 'ultima_campana': None})
+
+
+# ── API — Asignar asesor a conversación ──────────────────────────
+@crm_bp.route('/api/asignar', methods=['POST'])
+@login_required
+@require_role('Master')
+def api_asignar():
+    """Asigna o desasigna un asesor a una conversación WA."""
+    from app.models.wa_bot_session import WaBotSession
+    from app.models.user import User
+    data        = request.get_json(silent=True) or {}
+    numero      = data.get('numero', '').strip()
+    asesor_id   = data.get('asesor_id')   # int o None para desasignar
+
+    if not numero:
+        return jsonify({'ok': False, 'error': 'Falta numero'}), 400
+
+    session = WaBotSession.query.filter_by(numero=numero).first()
+    if not session:
+        return jsonify({'ok': False, 'error': 'Sesión no encontrada'}), 404
+
+    if asesor_id:
+        u = User.query.get(int(asesor_id))
+        if not u:
+            return jsonify({'ok': False, 'error': 'Asesor no encontrado'}), 404
+        session.assigned_to     = u.id
+        session.estado_atencion = 'en_atencion'
+        session.bot_pausado     = True
+        nombre_asesor = u.username
+    else:
+        session.assigned_to     = None
+        session.estado_atencion = 'bot'
+        session.bot_pausado     = False
+        nombre_asesor = None
+
+    db.session.commit()
+    return jsonify({'ok': True, 'asesor': nombre_asesor})
+
+
+# ── API — Listar asesores disponibles ───────────────────────────
+@crm_bp.route('/api/asesores')
+@login_required
+@require_role('Master')
+def api_asesores():
+    """Lista de usuarios con rol Master (posibles asesores)."""
+    from app.models.user import User
+    users = User.query.filter(User.is_active == True).order_by(User.username).all()
+    return jsonify({'ok': True, 'asesores': [
+        {'id': u.id, 'username': u.username} for u in users
+    ]})
+
+
+# ── API — Tareas WA (WaTarea) ────────────────────────────────────
+@crm_bp.route('/api/tarea-wa', methods=['POST'])
+@login_required
+@require_role('Master')
+def api_crear_tarea_wa():
+    """Crea una WaTarea ligada a un número."""
+    from app.models.wa_tarea import WaTarea
+    from datetime import date as _date
+    data       = request.get_json(silent=True) or {}
+    numero     = data.get('numero', '').strip()
+    descripcion = data.get('descripcion', '').strip() or data.get('texto', '').strip()
+    fecha_str  = data.get('fecha', '').strip()
+
+    if not numero or not descripcion:
+        return jsonify({'ok': False, 'error': 'Faltan datos'}), 400
+
+    # Normalizar número a E.164
+    digits = ''.join(c for c in numero if c.isdigit())
+    if not digits.startswith('51'):
+        digits = f'51{digits}'
+    numero_db = f'+{digits}'
+
+    fecha_prog = None
+    if fecha_str:
+        try:
+            from datetime import datetime as _dt
+            fecha_prog = _dt.strptime(fecha_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+
+    tarea = WaTarea(
+        numero      = numero_db,
+        descripcion = descripcion,
+        fecha_prog  = fecha_prog,
+        creado_por  = current_user.id,
+    )
+    db.session.add(tarea)
+    db.session.commit()
+    return jsonify({'ok': True, 'tarea': tarea.to_dict()})
+
+
+@crm_bp.route('/api/tareas-wa/<path:numero>')
+@login_required
+@require_role('Master')
+def api_tareas_wa(numero):
+    """Lista de WaTareas para un número."""
+    from app.models.wa_tarea import WaTarea
+    import re as _re
+    raw = _re.sub(r'\D', '', numero)
+    if raw.startswith('51') and len(raw) == 11:
+        num9 = raw[2:]
+    elif len(raw) == 9:
+        num9 = raw
+    else:
+        num9 = raw
+    num_e164 = f'+51{num9}'
+
+    tareas = WaTarea.query.filter(
+        WaTarea.numero.in_([numero, num_e164, num9])
+    ).order_by(WaTarea.completado, WaTarea.fecha_prog, WaTarea.id.desc()).all()
+    return jsonify({'ok': True, 'tareas': [t.to_dict() for t in tareas]})
+
+
+@crm_bp.route('/api/tarea-wa/<int:tarea_id>/completar', methods=['POST'])
+@login_required
+@require_role('Master')
+def api_completar_tarea_wa(tarea_id):
+    """Marca una WaTarea como completada."""
+    from app.models.wa_tarea import WaTarea
+    tarea = WaTarea.query.get_or_404(tarea_id)
+    tarea.completado    = True
+    tarea.completado_en = now_peru()
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+# ── Vista + API — Detalle de campaña WA prospectos ───────────────
+@crm_bp.route('/campana-detalle/<path:campana>')
+@login_required
+@require_role('Master')
+def campana_detalle(campana):
+    return render_template('crm/campana_detalle.html', campana=campana)
+
+
+@crm_bp.route('/api/campana-detalle-prosp/<path:campana>')
+@login_required
+@require_role('Master')
+def api_campana_detalle_prosp(campana):
+    """Detalle por destinatario de una campaña WA de prospectos."""
+    from app.models.wa_campana_prospecto import WaCampanaProspecto
+    estado_filtro = request.args.get('estado', '').strip()
+    page          = max(int(request.args.get('page', 1)), 1)
+    per_page      = 100
+
+    q = WaCampanaProspecto.query.filter_by(campana=campana)
+    if estado_filtro:
+        q = q.filter(WaCampanaProspecto.estado == estado_filtro)
+    q = q.order_by(WaCampanaProspecto.id)
+
+    total  = q.count()
+    rows   = q.offset((page - 1) * per_page).limit(per_page).all()
+
+    return jsonify({
+        'ok':       True,
+        'campana':  campana,
+        'total':    total,
+        'page':     page,
+        'per_page': per_page,
+        'rows':     [r.to_dict() for r in rows],
+    })
+
+
 # ── Migración one-shot columnas campaña WA ───────────────────────
 
 @crm_bp.route('/api/wa-campana-migrate')

@@ -1,0 +1,388 @@
+{% extends "base.html" %}
+{% block title %}Detalle Campaña {{ campana }} — QoriCash{% endblock %}
+
+{% block head %}
+<style>
+.cd-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+.cd-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.cd-header h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+.cd-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .82rem;
+  color: #196BFE;
+  text-decoration: none;
+  font-weight: 500;
+}
+.cd-back:hover { text-decoration: underline; }
+
+/* Stat cards */
+.cd-stats {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.cd-stat-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 20px;
+  min-width: 100px;
+  text-align: center;
+  flex: 1;
+}
+.cd-stat-num {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+.cd-stat-lbl {
+  font-size: .72rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+/* Filters */
+.cd-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.cd-filter-btn {
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: .78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .15s;
+}
+.cd-filter-btn:hover { background: #e2e8f0; }
+.cd-filter-btn.active { background: #196BFE; color: #fff; border-color: #196BFE; }
+
+/* Table */
+.cd-table-wrap {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.cd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .82rem;
+}
+.cd-table thead th {
+  background: #f1f5f9;
+  color: #64748b;
+  font-weight: 600;
+  font-size: .73rem;
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+.cd-table tbody tr:hover { background: #f8fafc; }
+.cd-table tbody td {
+  padding: 9px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  vertical-align: middle;
+}
+.cd-table tbody tr:last-child td { border-bottom: none; }
+
+/* Estado badge */
+.cd-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: .68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.cd-badge.enviado   { color: #196BFE; background: #eff6ff; }
+.cd-badge.entregado { color: #16a34a; background: #f0fdf4; }
+.cd-badge.leido     { color: #0369a1; background: #e0f2fe; }
+.cd-badge.fallido   { color: #dc2626; background: #fef2f2; }
+.cd-badge.sin_wa    { color: #64748b; background: #f8fafc; }
+.cd-badge.pendiente { color: #d97706; background: #fffbeb; }
+.cd-badge.respondio { color: #7c3aed; background: #f5f3ff; }
+
+.cd-link-chat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #196BFE;
+  font-size: .75rem;
+  font-weight: 500;
+  text-decoration: none;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  white-space: nowrap;
+}
+.cd-link-chat:hover { background: #dbeafe; }
+
+.cd-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  font-size: .78rem;
+  color: #64748b;
+  border-top: 1px solid #e2e8f0;
+}
+.cd-pag-btn {
+  padding: 5px 14px;
+  border-radius: 7px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  font-size: .78rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.cd-pag-btn:disabled { opacity: .4; cursor: not-allowed; }
+.cd-pag-btn:hover:not(:disabled) { background: #e2e8f0; }
+
+.cd-loading {
+  text-align: center;
+  padding: 40px;
+  color: #94a3b8;
+  font-size: .85rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cd-page">
+
+  <div class="cd-header">
+    <a href="/crm/campana-wa" class="cd-back">
+      <i class="bi bi-arrow-left"></i> Volver a campañas
+    </a>
+    <h1><i class="bi bi-megaphone" style="color:#22c55e;"></i> Campaña: <span id="cdCampanaNombre">{{ campana }}</span></h1>
+  </div>
+
+  <!-- Stats -->
+  <div class="cd-stats" id="cdStats">
+    <div class="cd-stat-card">
+      <div class="cd-stat-num" id="st-total">—</div>
+      <div class="cd-stat-lbl">Total</div>
+    </div>
+    <div class="cd-stat-card">
+      <div class="cd-stat-num" id="st-enviados" style="color:#196BFE">—</div>
+      <div class="cd-stat-lbl">Enviados</div>
+    </div>
+    <div class="cd-stat-card">
+      <div class="cd-stat-num" id="st-entregados" style="color:#16a34a">—</div>
+      <div class="cd-stat-lbl">Entregados</div>
+    </div>
+    <div class="cd-stat-card">
+      <div class="cd-stat-num" id="st-leidos" style="color:#0369a1">—</div>
+      <div class="cd-stat-lbl">Leídos</div>
+    </div>
+    <div class="cd-stat-card">
+      <div class="cd-stat-num" id="st-respondieron" style="color:#7c3aed">—</div>
+      <div class="cd-stat-lbl">Respondieron</div>
+    </div>
+    <div class="cd-stat-card">
+      <div class="cd-stat-num" id="st-fallidos" style="color:#dc2626">—</div>
+      <div class="cd-stat-lbl">Fallidos</div>
+    </div>
+    <div class="cd-stat-card">
+      <div class="cd-stat-num" id="st-sin-wa" style="color:#94a3b8">—</div>
+      <div class="cd-stat-lbl">Sin WA</div>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="cd-filters">
+    <span style="font-size:.78rem;font-weight:600;color:#64748b;">Filtrar:</span>
+    <button class="cd-filter-btn active" data-estado="">Todos</button>
+    <button class="cd-filter-btn" data-estado="enviado">Enviado</button>
+    <button class="cd-filter-btn" data-estado="entregado">Entregado</button>
+    <button class="cd-filter-btn" data-estado="leido">Leído</button>
+    <button class="cd-filter-btn" data-estado="fallido">Fallido</button>
+    <button class="cd-filter-btn" data-estado="sin_wa">Sin WA</button>
+  </div>
+
+  <!-- Tabla -->
+  <div class="cd-table-wrap">
+    <div id="cdTableContainer">
+      <div class="cd-loading"><i class="bi bi-arrow-clockwise spin"></i> Cargando…</div>
+    </div>
+    <div class="cd-pagination" id="cdPagination" style="display:none">
+      <button class="cd-pag-btn" id="cdPrevBtn" onclick="cdPrevPage()">← Anterior</button>
+      <span id="cdPagInfo"></span>
+      <button class="cd-pag-btn" id="cdNextBtn" onclick="cdNextPage()">Siguiente →</button>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CAMPANA     = {{ campana|tojson }};
+const API_BASE    = '/crm/api';
+let cdPage        = 1;
+let cdEstado      = '';
+let cdTotalRows   = 0;
+const cdPerPage   = 100;
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function cdBadge(estado) {
+  const labels = {
+    enviado:'Enviado', entregado:'Entregado ✓✓', leido:'Leído 👁',
+    fallido:'Fallido ✗', sin_wa:'Sin WA', pendiente:'Pendiente',
+  };
+  const cls = labels[estado] ? estado : 'pendiente';
+  return `<span class="cd-badge ${cls}">${labels[estado] || esc(estado)}</span>`;
+}
+
+async function cdCargar() {
+  document.getElementById('cdTableContainer').innerHTML =
+    '<div class="cd-loading"><i class="bi bi-arrow-clockwise spin"></i> Cargando…</div>';
+  document.getElementById('cdPagination').style.display = 'none';
+
+  const url = `${API_BASE}/campana-detalle-prosp/${encodeURIComponent(CAMPANA)}?page=${cdPage}&estado=${encodeURIComponent(cdEstado)}`;
+  try {
+    const r    = await fetch(url, { credentials: 'same-origin' });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'Error');
+
+    cdTotalRows = data.total;
+    const rows  = data.rows || [];
+
+    // Compute stats from first page (all if no filter)
+    if (cdPage === 1 && !cdEstado) {
+      cdActualizarStats(rows);
+    }
+
+    if (!rows.length) {
+      document.getElementById('cdTableContainer').innerHTML =
+        '<div class="cd-loading">Sin registros para este filtro.</div>';
+      return;
+    }
+
+    const tbody = rows.map(row => {
+      const hasResp = !!row.respondio_en;
+      const chatUrl = `/crm/whatsapp?n=${encodeURIComponent(row.numero)}`;
+      return `<tr>
+        <td><span style="font-size:.8rem;font-family:monospace;">${esc(row.numero)}</span></td>
+        <td>${esc(row.nombre || '—')}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(row.empresa)}">${esc(row.empresa || '—')}</td>
+        <td>${cdBadge(row.estado)}</td>
+        <td>${esc(row.fecha_envio || '—')}</td>
+        <td>${esc(row.fecha_entregado || '—')}</td>
+        <td>${esc(row.fecha_leido || '—')}</td>
+        <td>
+          ${hasResp
+            ? `<span style="font-size:.72rem;color:#7c3aed;font-weight:600;">
+                ${esc(row.respondio_en)}
+                ${row.respuesta_btn ? `<br><span style="color:#64748b;font-weight:400;">"${esc(row.respuesta_btn)}"</span>` : ''}
+               </span>`
+            : '<span style="color:#94a3b8;font-size:.72rem;">—</span>'}
+        </td>
+        <td>${row.error_msg ? `<span style="font-size:.7rem;color:#dc2626;">${esc(row.error_msg.slice(0,60))}</span>` : '—'}</td>
+        <td><a href="${chatUrl}" class="cd-link-chat" target="_blank"><i class="bi bi-chat-dots-fill"></i> Chat</a></td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('cdTableContainer').innerHTML = `
+      <table class="cd-table">
+        <thead>
+          <tr>
+            <th>Número</th>
+            <th>Nombre</th>
+            <th>Empresa</th>
+            <th>Estado</th>
+            <th>Enviado</th>
+            <th>Entregado</th>
+            <th>Leído</th>
+            <th>Respondió</th>
+            <th>Error</th>
+            <th>Chat</th>
+          </tr>
+        </thead>
+        <tbody>${tbody}</tbody>
+      </table>`;
+
+    // Paginación
+    const totalPages = Math.ceil(cdTotalRows / cdPerPage);
+    if (totalPages > 1) {
+      document.getElementById('cdPagination').style.display = 'flex';
+      document.getElementById('cdPagInfo').textContent =
+        `Página ${cdPage} de ${totalPages} · ${cdTotalRows} registros`;
+      document.getElementById('cdPrevBtn').disabled = cdPage <= 1;
+      document.getElementById('cdNextBtn').disabled = cdPage >= totalPages;
+    }
+  } catch(e) {
+    document.getElementById('cdTableContainer').innerHTML =
+      `<div class="cd-loading" style="color:#dc2626;">Error al cargar: ${esc(e.message)}</div>`;
+  }
+}
+
+async function cdActualizarStats(rows) {
+  try {
+    const r    = await fetch(`/wa-prospectos/api/campanas`, {credentials:'same-origin'});
+    const data = await r.json();
+    const camp = (data.campanas || []).find(c => c.campana === CAMPANA);
+    if (camp) {
+      document.getElementById('st-total').textContent      = camp.total;
+      document.getElementById('st-enviados').textContent   = camp.enviados;
+      document.getElementById('st-entregados').textContent = camp.entregados;
+      document.getElementById('st-leidos').textContent     = camp.leidos;
+      document.getElementById('st-fallidos').textContent   = camp.fallidos;
+      document.getElementById('st-sin-wa').textContent     = camp.sin_wa;
+    }
+    // respondieron: aggregate from current page (best effort)
+    const resp = rows.filter(row => row.respondio_en).length;
+    document.getElementById('st-respondieron').textContent = resp > 0 ? `${resp}+` : '—';
+  } catch(e) {}
+}
+
+function cdPrevPage() { if (cdPage > 1) { cdPage--; cdCargar(); } }
+function cdNextPage() { cdPage++; cdCargar(); }
+
+// Filtros
+document.querySelectorAll('.cd-filter-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.cd-filter-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    cdEstado = this.dataset.estado;
+    cdPage   = 1;
+    cdCargar();
+  });
+});
+
+cdCargar();
+</script>
+{% endblock %}

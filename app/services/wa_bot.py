@@ -3926,11 +3926,28 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id='', wa_id='', conte
         if not _respuesta_campana_precio and context_wa_id:
             try:
                 from app.models.wa_campana_prospecto import WaCampanaProspecto as _WCP
-                _respuesta_campana_precio = db.session.query(
-                    _WCP.id
-                ).filter_by(wa_id=context_wa_id).first() is not None
+                _camp_row = db.session.query(_WCP).filter_by(wa_id=context_wa_id).first()
+                _respuesta_campana_precio = _camp_row is not None
             except Exception as _exc_ctx:
                 log.debug(f'[WaBot] No se pudo verificar context_wa_id: {_exc_ctx}')
+                _camp_row = None
+        else:
+            _camp_row = None
+
+        # Registrar primera respuesta al template de campaña (atribución)
+        if _respuesta_campana_precio and context_wa_id and _camp_row is None:
+            try:
+                from app.models.wa_campana_prospecto import WaCampanaProspecto as _WCP2
+                _camp_row = db.session.query(_WCP2).filter_by(wa_id=context_wa_id).first()
+            except Exception:
+                pass
+        if _camp_row and not _camp_row.respondio_en:
+            try:
+                _camp_row.respondio_en  = now_peru()
+                _camp_row.respuesta_btn = (texto or '')[:200]
+                db.session.flush()
+            except Exception as _exc_attr:
+                log.debug(f'[WaBot] No se pudo registrar atribución campaña: {_exc_attr}')
 
         # opt_out_wa solo aplica a campañas de salida; los mensajes entrantes
         # (el prospecto escribe a Qoricash) siempre se procesan normalmente.

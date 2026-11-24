@@ -44,6 +44,7 @@ from app.models.audit_report import AuditReport
 from app.models.internal_transfer import InternalTransfer
 from app.models.wa_campana_prospecto import WaCampanaProspecto
 from app.models.wa_prospecto_base import WaProspectoBase
+from app.models.wa_tarea import WaTarea
 __all__ = [
     'User', 'Client', 'Operation', 'AuditLog', 'TraderGoal', 'TraderDailyProfit',
     'BankBalance', 'BankBalanceHistory', 'Invoice', 'ExchangeRate', 'Complaint',
@@ -75,4 +76,5 @@ __all__ = [
     # WA Campañas Prospectos
     'WaCampanaProspecto',
     'WaProspectoBase',
+    'WaTarea',
 ]

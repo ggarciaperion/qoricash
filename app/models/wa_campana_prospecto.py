@@ -40,6 +40,10 @@ class WaCampanaProspecto(db.Model):
     fecha_entregado  = db.Column(db.DateTime, nullable=True)
     fecha_leido      = db.Column(db.DateTime, nullable=True)
 
+    # Respuesta del destinatario al template de campaña
+    respondio_en     = db.Column(db.DateTime, nullable=True)   # primera respuesta / press botón
+    respuesta_btn    = db.Column(db.String(200), nullable=True) # payload/texto del botón presionado
+
     enviado_por      = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     creado_en        = db.Column(db.DateTime, default=now_peru, nullable=False)
     actualizado_en   = db.Column(db.DateTime, default=now_peru, onupdate=now_peru, nullable=False)
@@ -72,6 +76,8 @@ class WaCampanaProspecto(db.Model):
             'fecha_envio':      self.fecha_envio.strftime('%d/%m/%Y %H:%M') if self.fecha_envio else '',
             'fecha_entregado':  self.fecha_entregado.strftime('%d/%m/%Y %H:%M') if self.fecha_entregado else '',
             'fecha_leido':      self.fecha_leido.strftime('%d/%m/%Y %H:%M') if self.fecha_leido else '',
+            'respondio_en':     self.respondio_en.strftime('%d/%m/%Y %H:%M') if self.respondio_en else '',
+            'respuesta_btn':    self.respuesta_btn or '',
             'enviado_por':      self.usuario.username if self.usuario else '',
             'creado_en':        self.creado_en.strftime('%d/%m/%Y %H:%M') if self.creado_en else '',
         }
