@@ -1,0 +1,765 @@
+{% extends "base.html" %}
+{% block title %}Prospectos — QoriCash{% endblock %}
+
+{% block head %}
+<style>
+.pp-page { max-width: 1300px; margin: 0 auto; padding: 20px 16px 60px; }
+
+/* ── Header ── */
+.pp-header { display:flex; align-items:center; gap:14px; margin-bottom:20px; flex-wrap:wrap; }
+.pp-header h1 { font-size:1.25rem; font-weight:700; color:#0f172a; margin:0; }
+.pp-search {
+  flex:1; min-width:200px; max-width:320px;
+  display:flex; align-items:center;
+  background:#fff; border:1px solid #e2e8f0; border-radius:8px;
+  padding:0 10px; gap:6px;
+}
+.pp-search input {
+  border:none; outline:none; background:transparent;
+  font-size:.85rem; color:#334155; width:100%; padding:8px 0;
+}
+.pp-search i { color:#94a3b8; flex-shrink:0; }
+
+/* ── Stats strip ── */
+.pp-stats { display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
+.pp-stat-pill {
+  background:#fff; border:1px solid #e2e8f0; border-radius:20px;
+  padding:5px 14px; font-size:.78rem; color:#334155;
+  display:flex; align-items:center; gap:6px;
+}
+.pp-stat-pill b { font-weight:700; color:#0f172a; }
+.pp-stat-pill.urgente b { color:#dc2626; }
+.pp-stat-pill.urgente { border-color:#fca5a5; }
+
+/* ── Tabs ── */
+.pp-tabs { display:flex; gap:0; margin-bottom:0; border-bottom:2px solid #e2e8f0; }
+.pp-tab {
+  padding:10px 20px; font-size:.85rem; font-weight:600; color:#64748b;
+  cursor:pointer; border:none; background:none; border-bottom:2px solid transparent;
+  margin-bottom:-2px; transition:color .15s;
+}
+.pp-tab:hover { color:#196BFE; }
+.pp-tab.active { color:#196BFE; border-bottom-color:#196BFE; }
+.pp-tab-count {
+  display:inline-block; background:#f1f5f9; color:#64748b;
+  font-size:.7rem; font-weight:700; padding:1px 7px;
+  border-radius:10px; margin-left:5px;
+}
+.pp-tab.active .pp-tab-count { background:#dbeafe; color:#196BFE; }
+
+/* ── Alert filters ── */
+.pp-alert-filters {
+  display:flex; gap:6px; padding:10px 0 14px; align-items:center; flex-wrap:wrap;
+}
+.pp-af-label { font-size:.75rem; font-weight:600; color:#64748b; }
+.pp-af-btn {
+  display:flex; align-items:center; gap:5px;
+  padding:4px 12px; border-radius:20px; border:1px solid #e2e8f0;
+  background:#f8fafc; color:#475569; font-size:.75rem; font-weight:500;
+  cursor:pointer; transition:all .15s;
+}
+.pp-af-btn:hover { background:#e2e8f0; }
+.pp-af-btn.active { color:#fff; border-color:transparent; }
+.pp-af-btn.active.urgente     { background:#dc2626; }
+.pp-af-btn.active.seguimiento { background:#d97706; }
+.pp-af-btn.active.reciente    { background:#ca8a04; }
+.pp-af-btn.active.respondio   { background:#16a34a; }
+.pp-af-btn.active.sin_contacto{ background:#64748b; }
+.pp-af-btn.active.todos       { background:#196BFE; }
+.pp-alert-dot {
+  width:8px; height:8px; border-radius:50%; flex-shrink:0;
+}
+.pp-alert-dot.urgente     { background:#dc2626; }
+.pp-alert-dot.seguimiento { background:#d97706; }
+.pp-alert-dot.reciente    { background:#ca8a04; }
+.pp-alert-dot.respondio   { background:#16a34a; }
+.pp-alert-dot.ok          { background:#196BFE; }
+.pp-alert-dot.sin_contacto{ background:#cbd5e1; }
+
+/* ── Bulk action bar ── */
+.pp-bulk-bar {
+  display:none; align-items:center; gap:10px; flex-wrap:wrap;
+  background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px;
+  padding:10px 14px; margin-bottom:12px;
+}
+.pp-bulk-bar.show { display:flex; }
+.pp-bulk-info { font-size:.82rem; font-weight:600; color:#1e40af; flex:1; }
+.pp-bulk-btn {
+  padding:6px 14px; border-radius:7px; border:none; cursor:pointer;
+  font-size:.78rem; font-weight:600; display:flex; align-items:center; gap:5px;
+}
+.pp-bulk-btn.c1 { background:#196BFE; color:#fff; }
+.pp-bulk-btn.c2 { background:#0369a1; color:#fff; }
+.pp-bulk-btn.c3 { background:#075985; color:#fff; }
+.pp-bulk-btn:hover { opacity:.88; }
+.pp-bulk-clear { background:none; border:none; color:#64748b; font-size:.78rem; cursor:pointer; padding:4px 8px; }
+
+/* ── Table ── */
+.pp-table-wrap {
+  background:#fff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;
+}
+.pp-table {
+  width:100%; border-collapse:collapse; font-size:.81rem;
+}
+.pp-table thead th {
+  background:#f8fafc; color:#64748b; font-size:.7rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:.04em;
+  padding:10px 10px; text-align:left;
+  border-bottom:1px solid #e2e8f0; white-space:nowrap;
+}
+.pp-table thead th.sortable { cursor:pointer; user-select:none; }
+.pp-table thead th.sortable:hover { color:#196BFE; }
+.pp-table tbody tr { transition:background .1s; }
+.pp-table tbody tr:hover { background:#f8fafc; }
+.pp-table tbody tr.selected { background:#eff6ff; }
+.pp-table tbody td {
+  padding:9px 10px; border-bottom:1px solid #f1f5f9;
+  color:#334155; vertical-align:middle;
+}
+.pp-table tbody tr:last-child td { border-bottom:none; }
+
+/* Alert indicator column */
+.pp-row-alert { width:6px; padding:0!important; }
+.pp-row-alert-bar {
+  width:4px; height:36px; border-radius:2px; margin:0 auto;
+}
+.pp-row-alert-bar.urgente     { background:#dc2626; }
+.pp-row-alert-bar.seguimiento { background:#d97706; }
+.pp-row-alert-bar.reciente    { background:#ca8a04; }
+.pp-row-alert-bar.respondio   { background:#16a34a; }
+.pp-row-alert-bar.ok          { background:#196BFE; }
+.pp-row-alert-bar.sin_contacto{ background:#e2e8f0; }
+
+/* Company cell */
+.pp-company { font-weight:600; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; }
+.pp-rubro   { font-size:.68rem; color:#94a3b8; margin-top:1px; }
+
+/* Contact cell */
+.pp-contact-name  { color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px; }
+.pp-contact-cargo { font-size:.68rem; color:#94a3b8; }
+
+/* WA status badge */
+.pp-wa-badge {
+  display:inline-block; padding:2px 8px; border-radius:20px;
+  font-size:.68rem; font-weight:700; white-space:nowrap;
+}
+.pp-wa-badge.con_wa       { color:#16a34a; background:#f0fdf4; border:1px solid #bbf7d0; }
+.pp-wa-badge.sin_wa        { color:#dc2626; background:#fef2f2; border:1px solid #fecaca; }
+.pp-wa-badge.sin_historial { color:#64748b; background:#f8fafc; border:1px solid #e2e8f0; }
+.pp-wa-badge.bot_session   { color:#7c3aed; background:#f5f3ff; border:1px solid #ddd6fe; }
+
+/* Campaign state badge */
+.pp-estado-badge {
+  display:inline-block; padding:1px 7px; border-radius:20px;
+  font-size:.68rem; font-weight:600; white-space:nowrap;
+}
+.pp-estado-badge.enviado   { color:#196BFE; background:#eff6ff; }
+.pp-estado-badge.entregado { color:#16a34a; background:#f0fdf4; }
+.pp-estado-badge.leido     { color:#0369a1; background:#e0f2fe; }
+.pp-estado-badge.fallido   { color:#dc2626; background:#fef2f2; }
+.pp-estado-badge.sin_wa    { color:#64748b; background:#f8fafc; }
+
+/* Result badge */
+.pp-resultado {
+  display:inline-block; padding:1px 7px; border-radius:4px;
+  font-size:.68rem; font-weight:700; white-space:nowrap;
+}
+.pp-resultado.CLIENTE     { color:#16a34a; background:#f0fdf4; }
+.pp-resultado.INTERESADO  { color:#0369a1; background:#e0f2fe; }
+.pp-resultado.COTIZO      { color:#7c3aed; background:#f5f3ff; }
+.pp-resultado.REBOTADO    { color:#dc2626; background:#fef2f2; }
+
+/* Actions */
+.pp-actions { display:flex; gap:5px; white-space:nowrap; }
+.pp-btn {
+  display:inline-flex; align-items:center; gap:3px;
+  padding:4px 9px; border-radius:6px; border:none;
+  font-size:.73rem; font-weight:600; cursor:pointer; transition:opacity .15s;
+}
+.pp-btn:hover { opacity:.85; }
+.pp-btn.chat  { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
+.pp-btn.send  { background:#196BFE; color:#fff; }
+.pp-btn.send.sent { background:#16a34a; }
+
+/* Pagination */
+.pp-pagination {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px 14px; border-top:1px solid #e2e8f0;
+  font-size:.78rem; color:#64748b;
+}
+.pp-pag-btn {
+  padding:5px 14px; border-radius:7px; border:1px solid #e2e8f0;
+  background:#f8fafc; color:#334155; font-size:.78rem; cursor:pointer;
+}
+.pp-pag-btn:disabled { opacity:.4; cursor:not-allowed; }
+.pp-pag-btn:hover:not(:disabled) { background:#e2e8f0; }
+
+.pp-empty { text-align:center; padding:48px 20px; color:#94a3b8; font-size:.85rem; }
+.pp-loading { text-align:center; padding:40px; color:#94a3b8; font-size:.85rem; }
+
+/* ── Send Modal ── */
+.pp-modal-overlay {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,.45);
+  z-index:1000; align-items:center; justify-content:center;
+}
+.pp-modal-overlay.open { display:flex; }
+.pp-modal {
+  background:#fff; border-radius:14px; padding:26px 28px; width:460px;
+  max-width:95vw; box-shadow:0 20px 60px rgba(0,0,0,.2);
+}
+.pp-modal h5 {
+  font-size:1rem; font-weight:700; color:#0f172a; margin:0 0 18px;
+  display:flex; align-items:center; gap:8px;
+}
+.pp-modal-row { display:flex; gap:10px; margin-bottom:12px; }
+.pp-modal label { font-size:.75rem; font-weight:600; color:#64748b; display:block; margin-bottom:4px; }
+.pp-modal input, .pp-modal select {
+  width:100%; padding:9px 11px; border:1px solid #e2e8f0; border-radius:8px;
+  font-size:.85rem; color:#0f172a; background:#f8fafc; outline:none;
+  font-family:inherit;
+}
+.pp-modal input:focus, .pp-modal select:focus { border-color:#196BFE; background:#fff; }
+.pp-modal-info {
+  background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px;
+  padding:10px 14px; font-size:.8rem; color:#166534; margin-bottom:16px;
+}
+.pp-modal-actions { display:flex; gap:8px; justify-content:flex-end; }
+.pp-modal-cancel { background:none; border:1px solid #e2e8f0; color:#64748b; padding:8px 18px; border-radius:8px; cursor:pointer; font-size:.85rem; }
+.pp-modal-send { background:#196BFE; color:#fff; border:none; padding:8px 20px; border-radius:8px; cursor:pointer; font-size:.85rem; font-weight:600; }
+.pp-modal-send:disabled { opacity:.5; cursor:not-allowed; }
+
+/* Send progress */
+.pp-progress {
+  display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;
+  padding:14px 16px; margin-bottom:14px;
+}
+.pp-progress.show { display:block; }
+.pp-progress-bar-wrap { background:#e2e8f0; border-radius:4px; height:6px; margin:8px 0; }
+.pp-progress-bar { background:#196BFE; height:6px; border-radius:4px; transition:width .3s; }
+.pp-progress-label { font-size:.75rem; color:#64748b; }
+
+/* Days indicator */
+.pp-dias {
+  font-size:.68rem; color:#94a3b8;
+}
+.pp-dias.urgente     { color:#dc2626; font-weight:700; }
+.pp-dias.seguimiento { color:#d97706; font-weight:600; }
+.pp-dias.reciente    { color:#ca8a04; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pp-page">
+
+  <!-- Header -->
+  <div class="pp-header">
+    <div>
+      <h1><i class="bi bi-people-fill" style="color:#196BFE;"></i> Panel de Prospectos</h1>
+    </div>
+    <div class="pp-search">
+      <i class="bi bi-search"></i>
+      <input type="text" id="ppSearch" placeholder="Buscar empresa, nombre, teléfono…" oninput="ppDebounceSearch()">
+    </div>
+    <button class="pp-pag-btn" onclick="ppCargar()" title="Actualizar">
+      <i class="bi bi-arrow-clockwise"></i>
+    </button>
+  </div>
+
+  <!-- Stats pills -->
+  <div class="pp-stats" id="ppStats">
+    <div class="pp-stat-pill"><b id="st-todos">—</b> Total</div>
+    <div class="pp-stat-pill"><b id="st-contactados">—</b> Contactados</div>
+    <div class="pp-stat-pill"><b id="st-pendientes">—</b> Pendientes</div>
+    <div class="pp-stat-pill urgente"><b id="st-urgentes">—</b> 🔴 Urgentes</div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="pp-tabs">
+    <button class="pp-tab active" data-tab="todos"
+            onclick="ppSetTab('todos', this)">
+      Todos <span class="pp-tab-count" id="tc-todos">0</span>
+    </button>
+    <button class="pp-tab" data-tab="contactados"
+            onclick="ppSetTab('contactados', this)">
+      Contactados <span class="pp-tab-count" id="tc-contactados">0</span>
+    </button>
+    <button class="pp-tab" data-tab="pendientes"
+            onclick="ppSetTab('pendientes', this)">
+      Pendientes <span class="pp-tab-count" id="tc-pendientes">0</span>
+    </button>
+  </div>
+
+  <!-- Alert filters -->
+  <div class="pp-alert-filters">
+    <span class="pp-af-label">Ver:</span>
+    <button class="pp-af-btn active todos" data-alerta="" onclick="ppSetAlerta('', this)">
+      Todos
+    </button>
+    <button class="pp-af-btn urgente" data-alerta="urgente" onclick="ppSetAlerta('urgente', this)">
+      <span class="pp-alert-dot urgente"></span> Urgentes (+14 días)
+    </button>
+    <button class="pp-af-btn seguimiento" data-alerta="seguimiento" onclick="ppSetAlerta('seguimiento', this)">
+      <span class="pp-alert-dot seguimiento"></span> Seguimiento (7-14 días)
+    </button>
+    <button class="pp-af-btn reciente" data-alerta="reciente" onclick="ppSetAlerta('reciente', this)">
+      <span class="pp-alert-dot reciente"></span> Recientes (3-7 días)
+    </button>
+    <button class="pp-af-btn respondio" data-alerta="respondio" onclick="ppSetAlerta('respondio', this)">
+      <span class="pp-alert-dot respondio"></span> Respondieron
+    </button>
+    <button class="pp-af-btn sin_contacto" data-alerta="sin_contacto" onclick="ppSetAlerta('sin_contacto', this)">
+      <span class="pp-alert-dot sin_contacto"></span> Sin contactar
+    </button>
+  </div>
+
+  <!-- Bulk action bar -->
+  <div class="pp-bulk-bar" id="ppBulkBar">
+    <span class="pp-bulk-info" id="ppBulkInfo">0 seleccionados</span>
+    <button class="pp-bulk-btn c1" onclick="ppAbrirEnvio(1)">
+      <i class="bi bi-send"></i> 1er contacto
+    </button>
+    <button class="pp-bulk-btn c2" onclick="ppAbrirEnvio(2)">
+      <i class="bi bi-send"></i> 2do contacto
+    </button>
+    <button class="pp-bulk-btn c3" onclick="ppAbrirEnvio(3)">
+      <i class="bi bi-send"></i> 3er contacto
+    </button>
+    <button class="pp-bulk-clear" onclick="ppLimpiarSeleccion()">✕ Deseleccionar</button>
+  </div>
+
+  <!-- Table -->
+  <div class="pp-table-wrap">
+    <div id="ppTableContainer">
+      <div class="pp-loading"><i class="bi bi-arrow-clockwise spin"></i> Cargando prospectos…</div>
+    </div>
+    <div class="pp-pagination" id="ppPagination" style="display:none">
+      <button class="pp-pag-btn" id="ppPrevBtn" onclick="ppPrevPage()">← Anterior</button>
+      <span id="ppPagInfo"></span>
+      <button class="pp-pag-btn" id="ppNextBtn" onclick="ppNextPage()">Siguiente →</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ Modal de Envío ══ -->
+<div class="pp-modal-overlay" id="ppSendModal">
+  <div class="pp-modal">
+    <h5><i class="bi bi-send-fill" style="color:#196BFE;"></i>
+      <span id="ppModalTitle">Enviar campaña WA</span>
+    </h5>
+
+    <div class="pp-modal-info" id="ppModalInfo">Se enviará a <b id="ppModalCount">0</b> prospectos.</div>
+
+    <div class="pp-modal-row">
+      <div style="flex:1">
+        <label>Nombre de la campaña</label>
+        <input type="text" id="ppModalCampana" placeholder="Ej: Nov2026-C1">
+      </div>
+      <div style="flex:1">
+        <label>Plantilla</label>
+        <select id="ppModalPlantilla">
+          <option value="qoricash_precio_dia">Precio del día</option>
+        </select>
+      </div>
+    </div>
+    <div class="pp-modal-row">
+      <div style="flex:1">
+        <label>TC Compra (S/)</label>
+        <input type="text" id="ppModalCompra" placeholder="3.377">
+      </div>
+      <div style="flex:1">
+        <label>TC Venta (S/)</label>
+        <input type="text" id="ppModalVenta" placeholder="3.381">
+      </div>
+    </div>
+
+    <!-- Progress bar (oculto hasta enviar) -->
+    <div class="pp-progress" id="ppProgress">
+      <div class="pp-progress-label" id="ppProgressLabel">Enviando 0 / 0…</div>
+      <div class="pp-progress-bar-wrap">
+        <div class="pp-progress-bar" id="ppProgressBar" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div class="pp-modal-actions">
+      <button class="pp-modal-cancel" id="ppModalCancelBtn" onclick="ppCerrarModal()">Cancelar</button>
+      <button class="pp-modal-send" id="ppModalSendBtn" onclick="ppConfirmarEnvio()">
+        <i class="bi bi-send"></i> Enviar ahora
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ══════════════════════════════════════════════
+//  Estado global
+// ══════════════════════════════════════════════
+let ppTab      = 'todos';
+let ppPage     = 1;
+let ppAlerta   = '';
+let ppQ        = '';
+let ppTotal    = 0;
+let ppPerPage  = 80;
+let ppSelected = new Set();     // set of numero strings
+let ppSendContacto = 1;         // 1/2/3 — tipo de contacto seleccionado
+let ppAllRows  = [];            // rows actuales (para acceso rápido)
+let ppPlantillas = [];
+let ppSearchTimer = null;
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function getCsrf() {
+  return document.querySelector('meta[name=csrf-token]')?.content || '';
+}
+
+// ══════════════════════════════════════════════
+//  Carga de datos
+// ══════════════════════════════════════════════
+async function ppCargar() {
+  document.getElementById('ppTableContainer').innerHTML =
+    '<div class="pp-loading"><i class="bi bi-arrow-clockwise spin"></i> Cargando…</div>';
+  document.getElementById('ppPagination').style.display = 'none';
+
+  const url = `/crm/api/prospectos-panel?tab=${ppTab}&page=${ppPage}&q=${encodeURIComponent(ppQ)}&alerta=${encodeURIComponent(ppAlerta)}`;
+  try {
+    const r    = await fetch(url, { credentials: 'same-origin' });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'Error');
+
+    ppTotal   = data.total;
+    ppAllRows = data.rows || [];
+    const tabs  = data.tabs || {};
+
+    // Update stats
+    document.getElementById('st-todos').textContent       = tabs.todos        ?? 0;
+    document.getElementById('st-contactados').textContent = tabs.contactados   ?? 0;
+    document.getElementById('st-pendientes').textContent  = tabs.pendientes    ?? 0;
+    document.getElementById('st-urgentes').textContent    = tabs.urgentes      ?? 0;
+    document.getElementById('tc-todos').textContent       = tabs.todos        ?? 0;
+    document.getElementById('tc-contactados').textContent = tabs.contactados   ?? 0;
+    document.getElementById('tc-pendientes').textContent  = tabs.pendientes    ?? 0;
+
+    ppRenderTable(ppAllRows);
+
+    // Pagination
+    const totalPages = Math.ceil(ppTotal / ppPerPage);
+    if (totalPages > 1) {
+      document.getElementById('ppPagination').style.display = 'flex';
+      document.getElementById('ppPagInfo').textContent =
+        `Página ${ppPage} de ${totalPages} · ${ppTotal} registros`;
+      document.getElementById('ppPrevBtn').disabled = ppPage <= 1;
+      document.getElementById('ppNextBtn').disabled = ppPage >= totalPages;
+    }
+  } catch(e) {
+    document.getElementById('ppTableContainer').innerHTML =
+      `<div class="pp-loading" style="color:#dc2626;">Error al cargar: ${esc(e.message)}</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════
+//  Render tabla
+// ══════════════════════════════════════════════
+function ppRenderTable(rows) {
+  if (!rows.length) {
+    document.getElementById('ppTableContainer').innerHTML =
+      '<div class="pp-empty">No hay registros para este filtro.</div>';
+    return;
+  }
+
+  const tbody = rows.map(row => ppRenderRow(row)).join('');
+  document.getElementById('ppTableContainer').innerHTML = `
+    <table class="pp-table">
+      <thead>
+        <tr>
+          <th style="width:28px;"><input type="checkbox" id="ppSelectAll" onchange="ppToggleAll(this.checked)"></th>
+          <th style="width:6px;"></th>
+          <th>Empresa / Rubro</th>
+          <th>Contacto</th>
+          <th>Teléfono</th>
+          <th>Último email</th>
+          <th>Último WA</th>
+          <th>Días</th>
+          <th>Resultado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="ppTbody">${tbody}</tbody>
+    </table>`;
+}
+
+function ppRenderRow(row) {
+  const sel     = ppSelected.has(row.numero);
+  const alerta  = row.nivel_alerta || 'sin_contacto';
+  const uw      = row.ultimo_wa;
+  const chatUrl = `/crm/whatsapp?n=${encodeURIComponent(row.numero_e164)}`;
+
+  // Días indicator
+  let diasHtml = '';
+  if (row.dias_desde_contacto !== null && row.dias_desde_contacto !== undefined) {
+    diasHtml = `<span class="pp-dias ${alerta}">${row.dias_desde_contacto}d</span>`;
+  } else if (alerta === 'sin_contacto') {
+    diasHtml = `<span class="pp-dias">—</span>`;
+  }
+
+  // Último WA cell
+  let uwHtml = '<span style="color:#94a3b8;font-size:.73rem;">—</span>';
+  if (uw) {
+    const estadoBadge = `<span class="pp-estado-badge ${uw.estado}">${uw.estado}</span>`;
+    uwHtml = `<div style="font-size:.73rem;">${esc(uw.fecha)}</div>
+              <div style="margin-top:2px;">${estadoBadge}</div>
+              ${uw.respondio ? `<div style="font-size:.68rem;color:#16a34a;margin-top:2px;">✓ Respondió ${esc(uw.respondio)}</div>` : ''}`;
+  }
+
+  // Resultado
+  const resHtml = row.resultado
+    ? `<span class="pp-resultado ${esc(row.resultado)}">${esc(row.resultado)}</span>`
+    : '<span style="color:#cbd5e1;font-size:.72rem;">—</span>';
+
+  return `<tr id="pp-row-${esc(row.numero)}" class="${sel ? 'selected' : ''}">
+    <td><input type="checkbox" class="pp-chk" data-num="${esc(row.numero)}"
+               ${sel ? 'checked' : ''} onchange="ppToggleRow(this)"></td>
+    <td class="pp-row-alert"><div class="pp-row-alert-bar ${alerta}"></div></td>
+    <td>
+      <div class="pp-company" title="${esc(row.empresa)}">${esc(row.empresa) || '<span style="color:#cbd5e1;">Sin empresa</span>'}</div>
+      <div class="pp-rubro">${esc(row.rubro)}</div>
+    </td>
+    <td>
+      <div class="pp-contact-name" title="${esc(row.nombre)}">${esc(row.nombre) || '—'}</div>
+      <div class="pp-contact-cargo">${esc(row.cargo)}</div>
+    </td>
+    <td>
+      <div style="font-size:.8rem;font-family:monospace;">${esc(row.numero)}</div>
+      <span class="pp-wa-badge ${row.wa_validado}">${ppWaLabel(row.wa_validado)}</span>
+    </td>
+    <td style="font-size:.75rem;color:#64748b;">${esc(row.fecha_email) || '—'}</td>
+    <td>${uwHtml}</td>
+    <td>${diasHtml}</td>
+    <td>${resHtml}</td>
+    <td>
+      <div class="pp-actions">
+        <a href="${chatUrl}" class="pp-btn chat" target="_blank" title="Abrir chat">
+          <i class="bi bi-chat-dots-fill"></i>
+        </a>
+        <button class="pp-btn send" id="ppSendBtn-${esc(row.numero)}"
+                onclick="ppEnviarUno('${esc(row.numero)}', '${esc(row.nombre)}', '${esc(row.empresa)}')"
+                title="Enviar campaña WA">
+          <i class="bi bi-send"></i> WA
+        </button>
+      </div>
+    </td>
+  </tr>`;
+}
+
+function ppWaLabel(v) {
+  const m = { con_wa:'✓ Con WA', sin_wa:'✗ Sin WA', sin_historial:'? Pendiente', bot_session:'🤖 Sesión bot' };
+  return m[v] || v;
+}
+
+// ══════════════════════════════════════════════
+//  Selección y bulk
+// ══════════════════════════════════════════════
+function ppToggleRow(chk) {
+  const num = chk.dataset.num;
+  if (chk.checked) ppSelected.add(num);
+  else             ppSelected.delete(num);
+  const row = document.getElementById(`pp-row-${num}`);
+  if (row) row.classList.toggle('selected', chk.checked);
+  ppActualizarBulkBar();
+}
+
+function ppToggleAll(checked) {
+  document.querySelectorAll('.pp-chk').forEach(chk => {
+    chk.checked = checked;
+    const num = chk.dataset.num;
+    if (checked) ppSelected.add(num);
+    else         ppSelected.delete(num);
+    const row = document.getElementById(`pp-row-${num}`);
+    if (row) row.classList.toggle('selected', checked);
+  });
+  ppActualizarBulkBar();
+}
+
+function ppActualizarBulkBar() {
+  const n   = ppSelected.size;
+  const bar = document.getElementById('ppBulkBar');
+  bar.classList.toggle('show', n > 0);
+  document.getElementById('ppBulkInfo').textContent = `${n} prospecto${n!==1?'s':''} seleccionado${n!==1?'s':''}`;
+}
+
+function ppLimpiarSeleccion() {
+  ppSelected.clear();
+  document.querySelectorAll('.pp-chk').forEach(c => c.checked = false);
+  document.querySelectorAll('.pp-table tbody tr').forEach(r => r.classList.remove('selected'));
+  const selAll = document.getElementById('ppSelectAll');
+  if (selAll) selAll.checked = false;
+  ppActualizarBulkBar();
+}
+
+// ══════════════════════════════════════════════
+//  Envío — Modal
+// ══════════════════════════════════════════════
+const _MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+function ppNombreCampana(contacto) {
+  const now  = new Date();
+  const mes  = _MESES[now.getMonth()];
+  const anio = now.getFullYear();
+  return `${mes}${anio}-C${contacto}`;
+}
+
+function ppAbrirEnvio(contacto) {
+  if (!ppSelected.size) return;
+  ppSendContacto = contacto;
+  document.getElementById('ppModalTitle').textContent =
+    contacto === 1 ? 'Enviar 1er contacto WA' :
+    contacto === 2 ? 'Enviar 2do contacto WA' :
+                     'Enviar 3er contacto WA';
+  document.getElementById('ppModalCampana').value = ppNombreCampana(contacto);
+  document.getElementById('ppModalCount').textContent = ppSelected.size;
+  document.getElementById('ppProgress').classList.remove('show');
+  document.getElementById('ppModalSendBtn').disabled = false;
+  document.getElementById('ppModalSendBtn').innerHTML = '<i class="bi bi-send"></i> Enviar ahora';
+  document.getElementById('ppModalCancelBtn').textContent = 'Cancelar';
+  document.getElementById('ppSendModal').classList.add('open');
+}
+
+function ppEnviarUno(numero, nombre, empresa) {
+  ppSelected.clear();
+  ppSelected.add(numero);
+  ppActualizarBulkBar();
+  ppAbrirEnvio(1);
+}
+
+function ppCerrarModal() {
+  document.getElementById('ppSendModal').classList.remove('open');
+}
+
+async function ppConfirmarEnvio() {
+  const campana    = document.getElementById('ppModalCampana').value.trim();
+  const plantilla  = document.getElementById('ppModalPlantilla').value.trim();
+  const compra     = document.getElementById('ppModalCompra').value.trim();
+  const venta      = document.getElementById('ppModalVenta').value.trim();
+
+  if (!campana)   { alert('Escribe el nombre de la campaña'); return; }
+  if (!compra || !venta) { alert('Ingresa el tipo de cambio (compra y venta)'); return; }
+
+  // Build prospect list from selected
+  const prospectos = [...ppSelected].map(num => {
+    const row = ppAllRows.find(r => r.numero === num);
+    return {
+      prospecto_id: row?.id || null,
+      numero:       row ? row.numero_e164 : `+51${num}`,
+      nombre:       row?.nombre  || '',
+      empresa:      row?.empresa || '',
+    };
+  });
+
+  document.getElementById('ppModalSendBtn').disabled = true;
+  document.getElementById('ppModalSendBtn').innerHTML = '<i class="bi bi-hourglass-split"></i> Enviando…';
+  document.getElementById('ppProgress').classList.add('show');
+  document.getElementById('ppProgressBar').style.width = '0%';
+  document.getElementById('ppProgressLabel').textContent = `Enviando 0 / ${prospectos.length}…`;
+  document.getElementById('ppModalCancelBtn').textContent = 'Cerrar';
+
+  // Send in batches of 50
+  const BATCH = 50;
+  let enviados = 0, errores = 0;
+
+  for (let i = 0; i < prospectos.length; i += BATCH) {
+    const lote = prospectos.slice(i, i + BATCH);
+    try {
+      const r = await fetch('/wa-prospectos/api/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ campana, plantilla, compra, venta, prospectos: lote, pausa_seg: 1 }),
+      });
+      const j = await r.json();
+      if (j.ok) {
+        enviados += j.resumen?.enviados || 0;
+        errores  += (j.resumen?.fallidos || 0) + (j.resumen?.sin_wa || 0);
+        // Mark rows sent
+        lote.forEach(p => {
+          const btn = document.getElementById(`ppSendBtn-${p.numero.replace('+51','')}`);
+          if (btn) { btn.classList.add('sent'); btn.innerHTML = '<i class="bi bi-check2"></i> OK'; btn.disabled = true; }
+        });
+      }
+    } catch(e) { errores++; }
+
+    const done = Math.min(i + BATCH, prospectos.length);
+    const pct  = Math.round(done / prospectos.length * 100);
+    document.getElementById('ppProgressBar').style.width  = pct + '%';
+    document.getElementById('ppProgressLabel').textContent = `Enviando ${done} / ${prospectos.length}…`;
+  }
+
+  document.getElementById('ppProgressLabel').textContent =
+    `Listo — Enviados: ${enviados}  Errores: ${errores}`;
+  document.getElementById('ppModalSendBtn').innerHTML = '✓ Completado';
+  ppLimpiarSeleccion();
+
+  // Reload data after 2 sec
+  setTimeout(() => { ppCerrarModal(); ppCargar(); }, 2000);
+}
+
+// ══════════════════════════════════════════════
+//  Navegación
+// ══════════════════════════════════════════════
+function ppSetTab(tab, el) {
+  ppTab  = tab;
+  ppPage = 1;
+  document.querySelectorAll('.pp-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  ppCargar();
+}
+
+function ppSetAlerta(alerta, el) {
+  ppAlerta = alerta;
+  ppPage   = 1;
+  document.querySelectorAll('.pp-af-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  ppCargar();
+}
+
+function ppDebounceSearch() {
+  clearTimeout(ppSearchTimer);
+  ppSearchTimer = setTimeout(() => {
+    ppQ    = document.getElementById('ppSearch').value.trim();
+    ppPage = 1;
+    ppCargar();
+  }, 400);
+}
+
+function ppPrevPage() { if (ppPage > 1) { ppPage--; ppCargar(); } }
+function ppNextPage() { ppPage++; ppCargar(); }
+
+// ══════════════════════════════════════════════
+//  Plantillas
+// ══════════════════════════════════════════════
+async function ppCargarPlantillas() {
+  try {
+    const r    = await fetch('/wa-prospectos/api/plantillas');
+    const data = await r.json();
+    ppPlantillas = data.plantillas || [];
+    const sel  = document.getElementById('ppModalPlantilla');
+    if (sel && ppPlantillas.length) {
+      sel.innerHTML = ppPlantillas.map(p =>
+        `<option value="${esc(p.nombre)}">${esc(p.label)}</option>`
+      ).join('');
+    }
+  } catch(e) {}
+}
+
+// Close modal on overlay click
+document.getElementById('ppSendModal').addEventListener('click', function(e) {
+  if (e.target === this) ppCerrarModal();
+});
+
+// ── Init ──
+ppCargar();
+ppCargarPlantillas();
+</script>
+{% endblock %}

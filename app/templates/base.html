@@ -128,6 +128,12 @@
                 <span class="sidebar-link-text">Chat Bot</span>
                 <span id="waBadge" class="sidebar-badge" style="display:none;">0</span>
             </a>
+            <a class="sidebar-link {% if request.endpoint == 'crm.prospectos_panel' %}active{% endif %}"
+               href="{{ url_for('crm.prospectos_panel') }}">
+                <i class="bi bi-people-fill"></i>
+                <span class="sidebar-link-text">Prospectos</span>
+                <span id="ppUrgBadge" class="sidebar-badge" style="display:none;background:#dc2626;"></span>
+            </a>
             <a class="sidebar-link {% if request.endpoint == 'crm.campana_wa_panel' %}active{% endif %}"
                href="{{ url_for('crm.campana_wa_panel') }}">
                 <i class="bi bi-megaphone"></i>
@@ -870,6 +876,18 @@
                 }
             }).catch(() => {});
     }
+    function updatePpBadge() {
+        fetch('/crm/api/resumen-operativo', { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(data => {
+                const n = data.sin_respuesta || 0;
+                const badge = document.getElementById('ppUrgBadge');
+                if (badge) {
+                    badge.textContent = n > 99 ? '99+' : n;
+                    badge.style.display = n > 0 ? 'inline-flex' : 'none';
+                }
+            }).catch(() => {});
+    }
     document.addEventListener('DOMContentLoaded', function() {
         // Limpiar badge si estamos en el panel de WhatsApp
         if (window.location.pathname.indexOf('/crm/whatsapp') === 0) {
@@ -879,6 +897,8 @@
             updateWaBadge();
         }
         setInterval(updateWaBadge, 30000);
+        updatePpBadge();
+        setInterval(updatePpBadge, 120000);
     });
     {% endif %}
     </script>
