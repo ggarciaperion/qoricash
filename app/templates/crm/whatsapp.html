@@ -817,6 +817,182 @@ body.has-pb-bar.has-sidebar .main-wrapper {
 .crm-op-badge.Cancelado  { background: #fef2f2; color: #ef4444; }
 .crm-op-badge.other      { background: #f1f5f9; color: #64748b; }
 .crm-cp-op-fecha { color: #94a3b8; font-size: .7rem; margin-left: auto; }
+
+/* ══ RIGHT PANEL — Perfil de contacto ═══════════════════ */
+.crm-rp {
+  min-width: 0;
+  max-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  flex-shrink: 0;
+  transition: max-width .28s cubic-bezier(.4,0,.2,1);
+  border-left: 0px solid #e2e8f0;
+}
+.crm-rp.open {
+  max-width: 300px;
+  min-width: 260px;
+  border-left: 1px solid #e2e8f0;
+  box-shadow: -2px 0 10px rgba(0,0,0,.05);
+}
+.crm-rp-header {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+  height: 56px;
+  min-width: 260px;
+}
+.crm-rp-title {
+  font-size: .88rem; font-weight: 700;
+  color: #0f172a;
+  display: flex; align-items: center; gap: 8px;
+}
+.crm-rp-close {
+  width: 28px; height: 28px; background: #f1f5f9;
+  border: none; border-radius: 6px; color: #64748b;
+  cursor: pointer; display: flex; align-items: center;
+  justify-content: center; font-size: .88rem; transition: all .15s;
+}
+.crm-rp-close:hover { background: #e2e8f0; color: #0f172a; }
+.crm-rp-body { flex: 1; overflow-y: auto; min-width: 260px; }
+.crm-rp-body::-webkit-scrollbar { width: 4px; }
+.crm-rp-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+.crm-rp-section {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.crm-rp-sec-title {
+  font-size: .68rem; font-weight: 700; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px;
+}
+.crm-rp-avatar {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: linear-gradient(135deg, #196BFE, #60a5fa);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; font-weight: 700; color: #fff;
+  margin: 0 auto 10px;
+}
+.crm-rp-name  { font-size: .92rem; font-weight: 700; color: #0f172a; text-align: center; margin-bottom: 2px; }
+.crm-rp-sub   { font-size: .75rem; color: #64748b; text-align: center; margin-bottom: 10px; }
+.crm-rp-type-badge {
+  font-size: .68rem; font-weight: 700; padding: 3px 10px;
+  border-radius: 10px; margin: 0 auto 12px;
+  display: table; /* center without flex */
+}
+.crm-rp-type-badge.cliente    { background: #eff6ff; color: #196BFE; }
+.crm-rp-type-badge.prospecto  { background: #fffbeb; color: #d97706; }
+.crm-rp-type-badge.desconocido{ background: #f1f5f9; color: #64748b; }
+
+.crm-rp-field {
+  display: flex; gap: 6px; align-items: flex-start;
+  margin-bottom: 7px; font-size: .8rem;
+}
+.crm-rp-field-label {
+  width: 68px; flex-shrink: 0; color: #94a3b8;
+  font-size: .68rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .03em; padding-top: 1px;
+}
+.crm-rp-field-val { flex: 1; color: #334155; word-break: break-word; }
+
+.crm-rp-stats {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; padding: 10px 16px 14px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.crm-rp-stat {
+  background: #f8fafc; border: 1px solid #e2e8f0;
+  border-radius: 8px; padding: 8px 10px; text-align: center;
+}
+.crm-rp-stat-num   { font-size: 1.25rem; font-weight: 700; color: #0f172a; line-height: 1; margin-bottom: 2px; }
+.crm-rp-stat-label { font-size: .66rem; color: #94a3b8; }
+
+.crm-rp-actions {
+  display: flex; flex-direction: column;
+  gap: 6px; padding: 10px 16px 14px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.crm-rp-action-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; border-radius: 8px;
+  border: 1px solid #e2e8f0; background: #f8fafc;
+  color: #334155; font-size: .82rem; font-weight: 500;
+  cursor: pointer; transition: all .15s;
+  text-decoration: none; width: 100%; text-align: left;
+}
+.crm-rp-action-btn:hover { background: #eff6ff; border-color: #bfdbfe; color: #196BFE; }
+.crm-rp-action-btn i { color: #94a3b8; font-size: .9rem; flex-shrink: 0; }
+.crm-rp-action-btn:hover i { color: #196BFE; }
+
+.crm-rp-campana-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 7px; gap: 8px; font-size: .78rem;
+}
+.crm-rp-campana-name {
+  color: #334155; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; flex: 1;
+}
+
+/* Timeline */
+.crm-rp-timeline { padding: 10px 16px 0; border-bottom: 1px solid #f1f5f9; }
+.crm-rp-tl-item {
+  display: flex; gap: 10px; padding-bottom: 14px; position: relative;
+}
+.crm-rp-tl-item:not(:last-child)::before {
+  content: ''; position: absolute;
+  left: 11px; top: 24px; width: 2px; bottom: 0;
+  background: #f1f5f9;
+}
+.crm-rp-tl-dot {
+  width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .78rem; flex-shrink: 0;
+}
+.crm-rp-tl-dot.wa       { background: #dcfce7; }
+.crm-rp-tl-dot.email    { background: #eff6ff; }
+.crm-rp-tl-dot.call     { background: #fef3c7; }
+.crm-rp-tl-dot.note     { background: #fef9c3; }
+.crm-rp-tl-dot.operacion{ background: #f0fdf4; }
+.crm-rp-tl-dot.campana  { background: #f0f9ff; }
+.crm-rp-tl-dot.default  { background: #f1f5f9; }
+.crm-rp-tl-body { flex: 1; min-width: 0; }
+.crm-rp-tl-desc {
+  font-size: .78rem; color: #334155;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px;
+}
+.crm-rp-tl-time { font-size: .68rem; color: #94a3b8; }
+
+/* Task form */
+.crm-rp-task-form {
+  padding: 12px 16px 16px;
+}
+.crm-rp-task-title { font-size: .78rem; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
+.crm-rp-task-input {
+  width: 100%; box-sizing: border-box;
+  padding: 8px 10px; border: 1px solid #e2e8f0;
+  border-radius: 8px; font-size: .8rem; color: #0f172a;
+  background: #f8fafc; outline: none; font-family: inherit;
+  margin-bottom: 6px; transition: border-color .15s;
+}
+.crm-rp-task-input:focus { border-color: #196BFE; background: #fff; box-shadow: 0 0 0 3px rgba(25,107,254,.08); }
+.crm-rp-task-row  { display: flex; gap: 6px; }
+.crm-rp-task-date { flex: 1; }
+.crm-rp-task-save {
+  padding: 7px 14px; background: #196BFE; color: #fff;
+  border: none; border-radius: 8px; font-size: .78rem;
+  font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s;
+}
+.crm-rp-task-save:hover { background: #1558d6; }
+
+/* Perfil toggle btn active state */
+#btnPerfil.rp-active { background: rgba(25,107,254,.2) !important; color: #93c5fd !important; }
+
+@media (max-width: 1050px) { .crm-rp.open { max-width: 260px; min-width: 220px; } }
+@media (max-width: 860px)  { .crm-rp { display: none !important; } #btnPerfil { display: none !important; } }
 </style>
 {% endblock %}
 
@@ -908,6 +1084,10 @@ body.has-pb-bar.has-sidebar .main-wrapper {
           <!-- Nota interna (acción frecuente, visible) -->
           <button id="btnNota" onclick="abrirModalNota()" title="Agregar nota interna">
             <i class="bi bi-pencil-square"></i>
+          </button>
+          <!-- Perfil contacto -->
+          <button id="btnPerfil" onclick="toggleRightPanel()" title="Ver perfil del contacto">
+            <i class="bi bi-person-circle"></i>
           </button>
           <!-- Más opciones -->
           <div class="crm-hdr-menu-wrap">
@@ -1007,6 +1187,20 @@ body.has-pb-bar.has-sidebar .main-wrapper {
     </div><!-- /chatPanel -->
 
   </main>
+
+  <!-- ════ RIGHT PANEL — Perfil de contacto ════ -->
+  <aside class="crm-rp" id="rightPanel">
+    <div class="crm-rp-header">
+      <span class="crm-rp-title"><i class="bi bi-person-circle" style="color:#196BFE;"></i> Perfil</span>
+      <button class="crm-rp-close" onclick="closeRightPanel()" title="Cerrar"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="crm-rp-body" id="rpBody">
+      <div id="rpLoading" style="display:flex;align-items:center;justify-content:center;padding:50px 20px;color:#94a3b8;font-size:.85rem;gap:8px;">
+        <i class="bi bi-arrow-clockwise spin"></i> Cargando perfil...
+      </div>
+      <div id="rpContent" style="display:none;"></div>
+    </div>
+  </aside>
 
 </div><!-- /crm-page -->
 
@@ -1206,6 +1400,7 @@ async function selectConv(numero, nombre, empresa) {
     renderBotToggle(botStatus.bot_pausado || false, botStatus.estado_atencion);
     renderBloquearBtn((msgsResp.sesion_info || {}).opt_out_wa || false);
     renderClientPanel(msgsResp.cliente_info || null, msgsResp.sesion_info || null, msgsResp.operaciones || []);
+    if (rpOpen) loadRightPanel(numero);
   }
   // Actualizar badge del sidebar tras marcar como leídos
   if (typeof updateWaBadge === 'function') updateWaBadge();
@@ -2044,6 +2239,226 @@ document.addEventListener('keydown', e => {
     closeHdrMenu();
   }
 });
+
+// ══════════════════════════════════════════════════════
+//  Right Panel — Perfil de contacto
+// ══════════════════════════════════════════════════════
+let rpOpen = false;
+
+function toggleRightPanel() {
+  if (rpOpen) closeRightPanel();
+  else        openRightPanel();
+}
+
+function openRightPanel() {
+  document.getElementById('rightPanel').classList.add('open');
+  document.getElementById('btnPerfil').classList.add('rp-active');
+  rpOpen = true;
+  if (activeNum) loadRightPanel(activeNum);
+}
+
+function closeRightPanel() {
+  document.getElementById('rightPanel').classList.remove('open');
+  document.getElementById('btnPerfil').classList.remove('rp-active');
+  rpOpen = false;
+}
+
+async function loadRightPanel(numero) {
+  if (!rpOpen) return;
+  document.getElementById('rpLoading').style.display = 'flex';
+  document.getElementById('rpContent').style.display  = 'none';
+  try {
+    const r    = await fetch(`/crm/api/actividades/${encodeURIComponent(numero)}`);
+    const data = await r.json();
+    renderRightPanel(data, numero);
+  } catch(e) {
+    document.getElementById('rpLoading').innerHTML =
+      '<span style="color:#ef4444;font-size:.8rem;">Error al cargar perfil</span>';
+  }
+}
+
+function renderRightPanel(data, numero) {
+  const info   = data.cliente_info;
+  const acts   = data.actividades  || [];
+  const stats  = data.stats        || {};
+  const campas = data.campanas     || [];
+
+  const conv   = allConvs.find(c => c.numero === numero) || {};
+  const nombre = info
+    ? (info.razon_social || info.nombre || numero)
+    : (conv.nombre || numero);
+  const init   = (nombre || numero).charAt(0).toUpperCase();
+
+  const typeClass = info ? info.tipo  : 'desconocido';
+  const typeLabel = info
+    ? (info.tipo === 'cliente' ? '✦ Cliente registrado' : '◆ Prospecto')
+    : '— Desconocido';
+
+  /* Profile fields */
+  let fieldsHtml = '';
+  const addF = (lbl, val) => {
+    if (!val) return;
+    fieldsHtml += `<div class="crm-rp-field">
+      <span class="crm-rp-field-label">${lbl}</span>
+      <span class="crm-rp-field-val">${esc(val)}</span>
+    </div>`;
+  };
+  if (info) {
+    if (info.tipo === 'cliente') {
+      addF('Contacto', info.nombre);
+      addF('Doc',  `${info.doc_tipo || ''} ${info.doc || ''}`.trim());
+      addF('Email', info.email);
+      addF('Canal', info.canal);
+      addF('KYC',   info.kyc);
+    } else {
+      addF('Empresa',  info.razon_social);
+      addF('Contacto', info.nombre);
+      addF('RUC',      info.ruc);
+      addF('Email',    info.email);
+      addF('Rubro',    info.rubro);
+      addF('Estado',   info.estado);
+    }
+  }
+
+  /* Campaigns strip */
+  let campasHtml = '';
+  if (campas.length) {
+    const rows = campas.map(c => `
+      <div class="crm-rp-campana-row">
+        <span class="crm-rp-campana-name">${esc(c.campana || 'Campaña WA')}</span>
+        ${rpCampanaBadge(c.estado)}
+      </div>`).join('');
+    campasHtml = `<div class="crm-rp-section">
+      <div class="crm-rp-sec-title">Campañas WA</div>
+      ${rows}
+    </div>`;
+  }
+
+  /* Timeline */
+  let timelineHtml = '';
+  if (acts.length) {
+    const items = acts.map(a => `
+      <div class="crm-rp-tl-item">
+        <div class="crm-rp-tl-dot ${rpTlClass(a.tipo)}">${rpTlIcon(a.tipo)}</div>
+        <div class="crm-rp-tl-body">
+          <div class="crm-rp-tl-desc">${esc(a.descripcion)}</div>
+          <div class="crm-rp-tl-time">${esc(a.fecha || '')}</div>
+        </div>
+      </div>`).join('');
+    timelineHtml = `<div class="crm-rp-timeline">
+      <div class="crm-rp-sec-title">Actividad reciente</div>
+      ${items}
+    </div>`;
+  }
+
+  document.getElementById('rpContent').innerHTML = `
+    <!-- Contact card -->
+    <div class="crm-rp-section" style="text-align:center;padding-top:22px;">
+      <div class="crm-rp-avatar">${init}</div>
+      <div class="crm-rp-name">${esc(nombre)}</div>
+      <div class="crm-rp-sub">${esc(numero)}</div>
+      <div class="crm-rp-type-badge ${typeClass}">${typeLabel}</div>
+      ${fieldsHtml}
+    </div>
+
+    <!-- Stats -->
+    <div class="crm-rp-stats">
+      <div class="crm-rp-stat">
+        <div class="crm-rp-stat-num">${stats.total_mensajes || 0}</div>
+        <div class="crm-rp-stat-label">Mensajes</div>
+      </div>
+      <div class="crm-rp-stat">
+        <div class="crm-rp-stat-num">${stats.mensajes_entrantes || 0}</div>
+        <div class="crm-rp-stat-label">Respuestas</div>
+      </div>
+      <div class="crm-rp-stat">
+        <div class="crm-rp-stat-num">${stats.campanas_enviadas || 0}</div>
+        <div class="crm-rp-stat-label">Campañas WA</div>
+      </div>
+      <div class="crm-rp-stat">
+        <div class="crm-rp-stat-num">${stats.dias_contacto || 0}</div>
+        <div class="crm-rp-stat-label">Días</div>
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="crm-rp-actions">
+      <a href="/crm/campana-wa" class="crm-rp-action-btn" target="_blank">
+        <i class="bi bi-megaphone"></i> Gestionar campañas WA
+      </a>
+      <button class="crm-rp-action-btn" onclick="abrirModalNota()">
+        <i class="bi bi-pencil-square"></i> Agregar nota interna
+      </button>
+      <button class="crm-rp-action-btn" onclick="document.getElementById('rpTaskSection').scrollIntoView({behavior:'smooth'})">
+        <i class="bi bi-calendar-check"></i> Programar tarea
+      </button>
+    </div>
+
+    ${campasHtml}
+    ${timelineHtml}
+
+    <!-- Task form -->
+    <div id="rpTaskSection" class="crm-rp-task-form">
+      <div class="crm-rp-task-title">📋 Programar tarea</div>
+      <input type="text" class="crm-rp-task-input" id="rpTaskTexto"
+        placeholder="Descripción de la tarea...">
+      <div class="crm-rp-task-row">
+        <input type="date" class="crm-rp-task-input crm-rp-task-date" id="rpTaskFecha">
+        <button class="crm-rp-task-save" onclick="crearTarea()">Guardar</button>
+      </div>
+    </div>
+  `;
+
+  /* Default date = today */
+  const fd = document.getElementById('rpTaskFecha');
+  if (fd) fd.value = new Date().toISOString().split('T')[0];
+
+  document.getElementById('rpLoading').style.display = 'none';
+  document.getElementById('rpContent').style.display = 'block';
+}
+
+function rpCampanaBadge(estado) {
+  const map = {
+    enviado:   '<span style="color:#196BFE;font-size:.7rem;font-weight:700;">✓ Enviado</span>',
+    entregado: '<span style="color:#22c55e;font-size:.7rem;font-weight:700;">✓✓ Entregado</span>',
+    leido:     '<span style="color:#22c55e;font-size:.7rem;font-weight:700;">👁 Leído</span>',
+    fallido:   '<span style="color:#ef4444;font-size:.7rem;font-weight:700;">✗ Fallido</span>',
+  };
+  return map[estado] || `<span style="color:#94a3b8;font-size:.7rem;">${esc(estado)}</span>`;
+}
+function rpTlClass(tipo) {
+  const m = { whatsapp:'wa', wa:'wa', email:'email', llamada:'call', call:'call',
+              nota:'note', note:'note', operacion:'operacion', campana:'campana', campaña:'campana' };
+  return m[(tipo||'').toLowerCase()] || 'default';
+}
+function rpTlIcon(tipo) {
+  const m = { whatsapp:'💬', wa:'💬', email:'📧', llamada:'📞', call:'📞',
+              nota:'📝', note:'📝', operacion:'💰', campana:'📢', campaña:'📢' };
+  return m[(tipo||'').toLowerCase()] || '•';
+}
+
+async function crearTarea() {
+  if (!activeNum) return;
+  const texto = (document.getElementById('rpTaskTexto')?.value || '').trim();
+  const fecha = document.getElementById('rpTaskFecha')?.value || '';
+  if (!texto) { showToast('Escribe una descripción para la tarea', 'warning'); return; }
+  try {
+    const r = await fetch('/crm/api/tarea', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+      body: JSON.stringify({ numero: activeNum, texto, fecha }),
+    });
+    const j = await r.json();
+    if (j.ok) {
+      showToast('Tarea guardada', 'success');
+      if (document.getElementById('rpTaskTexto')) document.getElementById('rpTaskTexto').value = '';
+      reloadChat();
+      if (rpOpen) loadRightPanel(activeNum);
+    } else {
+      showToast(j.error || 'Error al guardar tarea', 'error');
+    }
+  } catch(e) { showToast('Error de conexión', 'error'); }
+}
 
 // ══════════════════════════════════════════════════════
 //  Init

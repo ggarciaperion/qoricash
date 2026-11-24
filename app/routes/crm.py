@@ -730,6 +730,174 @@ def api_registro_campana():
     return jsonify({'ok': True})
 
 
+# ── API — perfil + actividades para right panel ──────────────────
+@crm_bp.route('/api/actividades/<path:numero>')
+@login_required
+def api_actividades(numero):
+    """Devuelve perfil + actividades + stats de campaña para un número."""
+    from sqlalchemy import func as _func
+    import re as _re
+    from app.models.client import Client
+    from app.models.prospecto import Prospecto, ActividadProspecto
+    from app.models.wa_campana_prospecto import WaCampanaProspecto
+    from sqlalchemy import or_ as _or
+
+    try:
+        raw = _re.sub(r'\D', '', numero)
+        if raw.startswith('51') and len(raw) == 11:
+            num9 = raw[2:]
+        elif len(raw) == 9:
+            num9 = raw
+        else:
+            num9 = raw
+        num_e164 = f'+51{num9}'
+
+        # Cliente / prospecto info
+        cliente_info = None
+        client = Client.query.filter(
+            _or(Client.dni == num9, Client.dni == numero)
+        ).first() if num9 else None
+        prospecto_obj = None
+        if client:
+            cliente_info = {
+                'tipo': 'cliente',
+                'nombre': f"{client.nombres or ''} {client.apellido_paterno or ''}".strip(),
+                'razon_social': client.razon_social or '',
+                'doc': client.dni,
+                'doc_tipo': client.document_type,
+                'email': client.email or '',
+                'canal': client.registration_canal or '',
+                'kyc': client.kyc_status or '',
+            }
+        if not cliente_info and num9:
+            prospecto_obj = Prospecto.query.filter(
+                _or(
+                    Prospecto.telefono == num9,
+                    Prospecto.telefono_alt == num9,
+                    Prospecto.telefono_3 == num9,
+                    Prospecto.telefono_4 == num9,
+                    Prospecto.contacto_wa == num9,
+                )
+            ).first()
+            if prospecto_obj:
+                cliente_info = {
+                    'tipo': 'prospecto',
+                    'nombre': prospecto_obj.nombre_contacto or '',
+                    'razon_social': prospecto_obj.razon_social or '',
+                    'ruc': prospecto_obj.ruc or '',
+                    'email': prospecto_obj.email or '',
+                    'estado': prospecto_obj.estado_comercial or '',
+                    'rubro': prospecto_obj.rubro or '',
+                }
+
+        # Stats de mensajes
+        all_nums = list({numero, num_e164, num9})
+        num_cond = WaMessage.numero.in_(all_nums)
+
+        total_msgs = WaMessage.query.filter(num_cond).count()
+        entrantes  = WaMessage.query.filter(num_cond, WaMessage.direccion == 'entrante').count()
+        primer_msg = db.session.query(_func.min(WaMessage.created_at)).filter(num_cond).scalar()
+        dias_contacto = (now_peru() - primer_msg).days if primer_msg else 0
+
+        # Campañas WA
+        campanas_q = WaCampanaProspecto.query.filter(
+            WaCampanaProspecto.numero.in_(all_nums)
+        ).order_by(WaCampanaProspecto.id.desc()).limit(5).all()
+        campanas = [{
+            'campana': c.campana or '',
+            'estado':  c.estado or 'enviado',
+            'fecha':   c.creado_en.strftime('%d/%m %H:%M') if c.creado_en else '',
+        } for c in campanas_q]
+
+        # Actividades
+        actividades = []
+
+        # Notas internas recientes
+        notas = WaMessage.query.filter(
+            num_cond, WaMessage.direccion == 'interna'
+        ).order_by(WaMessage.id.desc()).limit(5).all()
+        for n in notas:
+            actividades.append({
+                'tipo': 'nota',
+                'descripcion': (n.mensaje or '')[:80],
+                'fecha': n.created_at.strftime('%d/%m %H:%M') if n.created_at else '',
+            })
+
+        # ActividadProspecto si hay match
+        if prospecto_obj:
+            acts = ActividadProspecto.query.filter_by(
+                prospecto_id=prospecto_obj.id
+            ).order_by(ActividadProspecto.id.desc()).limit(8).all()
+            for a in acts:
+                actividades.append({
+                    'tipo': a.tipo or 'default',
+                    'descripcion': (a.descripcion or a.resultado or '')[:80],
+                    'fecha': a.creado_en.strftime('%d/%m %H:%M') if getattr(a, 'creado_en', None) else '',
+                })
+
+        # Campañas como actividades
+        for c in campanas_q[:3]:
+            actividades.append({
+                'tipo': 'campana',
+                'descripcion': f"WA enviado — {c.estado or 'enviado'}",
+                'fecha': c.creado_en.strftime('%d/%m %H:%M') if c.creado_en else '',
+            })
+
+        actividades = actividades[:12]
+
+        return jsonify({
+            'ok': True,
+            'cliente_info': cliente_info,
+            'stats': {
+                'total_mensajes':    total_msgs,
+                'mensajes_entrantes': entrantes,
+                'campanas_enviadas': len(campanas_q),
+                'dias_contacto':     max(dias_contacto, 0),
+            },
+            'campanas':    campanas,
+            'actividades': actividades,
+        })
+    except Exception as e:
+        log.error(f'[CRM] api_actividades error: {e}')
+        return jsonify({'ok': False, 'error': str(e), 'cliente_info': None,
+                        'stats': {}, 'campanas': [], 'actividades': []}), 500
+
+
+# ── API — crear tarea programada ──────────────────────────────────
+@crm_bp.route('/api/tarea', methods=['POST'])
+@login_required
+def api_tarea():
+    """Guarda una tarea programada como nota interna en el chat."""
+    data   = request.get_json(silent=True) or {}
+    numero = data.get('numero', '').strip()
+    texto  = data.get('texto', '').strip()
+    fecha  = data.get('fecha', '').strip()
+    if not numero or not texto:
+        return jsonify({'ok': False, 'error': 'Faltan datos'}), 400
+
+    digits = ''.join(c for c in numero if c.isdigit())
+    if not digits.startswith('51'):
+        digits = f'51{digits}'
+    numero_db = f'+{digits}'
+
+    fecha_label = f' [{fecha}]' if fecha else ''
+    mensaje     = f'📋 TAREA{fecha_label}: {texto}'
+
+    nombre_asesor = getattr(current_user, 'username', '') or ''
+    db.session.add(WaMessage(
+        numero    = numero_db,
+        nombre    = nombre_asesor,
+        empresa   = '',
+        mensaje   = mensaje,
+        direccion = 'interna',
+        leido     = True,
+        tipo      = 'nota_interna',
+        origen    = 'asesor',
+    ))
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
 # ── API interna — exportar documentos de clientes ────────────────
 @crm_bp.route('/api/clientes-docs', methods=['GET'])
 @csrf.exempt
