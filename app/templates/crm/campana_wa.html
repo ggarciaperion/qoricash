@@ -1225,10 +1225,11 @@ document.head.appendChild(_cwSt);
           empresa:      p.empresa,
         }));
 
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
       const r = await fetch(API_BASE + '/enviar', {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
         body: JSON.stringify({
           campana,
           plantilla,
