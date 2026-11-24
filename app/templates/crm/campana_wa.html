@@ -757,7 +757,7 @@ table.cw-table tr:hover td { background: #f8fafc; }
               </tr>
             </thead>
             <tbody id="wp-tbody">
-              <tr><td colspan="7" class="wp-empty">Configura los parámetros y pulsa "Cargar elegibles"</td></tr>
+              <tr><td colspan="7" class="wp-empty">Cargando contactos…</td></tr>
             </tbody>
           </table>
         </div>
@@ -817,6 +817,19 @@ function cwTab(name) {
     document.getElementById('tab-' + t).style.display = t === name ? 'block' : 'none';
     document.getElementById('tab-btn-' + t).classList.toggle('active', t === name);
   });
+  if (name === 'prospectos') wpAutoLoad();
+}
+
+function wpAutoLoad() {
+  const campInput = document.getElementById('wp-campana');
+  if (!campInput.value.trim()) {
+    const hoy = new Date();
+    const yyyy = hoy.getFullYear();
+    const mm   = String(hoy.getMonth() + 1).padStart(2, '0');
+    const dd   = String(hoy.getDate()).padStart(2, '0');
+    campInput.value = `prosp_${yyyy}-${mm}-${dd}`;
+  }
+  wpCargarElegibles();
 }
 
 // ── Reactivación ───────────────────────────────────────────────────────
@@ -1066,7 +1079,11 @@ document.head.appendChild(_cwSt);
     const limit   = document.getElementById('wp-limit').value;
     const soloWa  = document.getElementById('wp-solo-wa').checked;
 
-    if (!campana) { alert('Escribe un nombre para la campaña'); return; }
+    if (!campana) {
+      const hoy = new Date();
+      campana = `prosp_${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`;
+      document.getElementById('wp-campana').value = campana;
+    }
 
     const btn = document.getElementById('wp-load-btn');
     btn.textContent = 'Cargando…'; btn.disabled = true;
