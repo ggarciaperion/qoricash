@@ -35,6 +35,7 @@ from app.extensions import db, csrf
 from app.models.wa_campana_prospecto import WaCampanaProspecto
 from app.models.wa_bot_session import WaBotSession
 from app.models.wa_prospecto_base import WaProspectoBase
+from app.models.wa_message import WaMessage
 from app.utils.formatters import now_peru
 
 log = logging.getLogger(__name__)
@@ -537,6 +538,46 @@ def api_enviar():
             actualizado_en   = ahora,
         )
         db.session.add(registro)
+
+        # Si el envío fue exitoso: crear sesión en chat + registrar mensaje saliente
+        if exito:
+            try:
+                num9 = numero.lstrip('+').lstrip('51')
+                num_full = f'+51{num9}'
+                # Upsert WaBotSession para que aparezca en /crm/whatsapp
+                sesion = WaBotSession.query.filter_by(numero=num_full).first()
+                if not sesion:
+                    sesion = WaBotSession(
+                        numero          = num_full,
+                        nombre          = nombre,
+                        nombre_guardado = nombre,
+                        empresa_guardada= empresa,
+                        estado          = 'prospecto',
+                        bot_pausado     = True,
+                        estado_atencion = 'esperando',
+                    )
+                    db.session.add(sesion)
+                else:
+                    if not sesion.nombre_guardado:
+                        sesion.nombre_guardado  = nombre
+                    if not sesion.empresa_guardada:
+                        sesion.empresa_guardada = empresa
+                    sesion.estado_atencion = 'esperando'
+
+                # Registrar el mensaje saliente en el historial del chat
+                texto_msg = f'[Campaña] Plantilla: {plantilla_nombre} · Compra S/{compra} · Venta S/{venta}'
+                db.session.add(WaMessage(
+                    numero    = num_full,
+                    nombre    = nombre,
+                    empresa   = empresa,
+                    mensaje   = texto_msg,
+                    direccion = 'saliente',
+                    wa_id     = wa_id or '',
+                    origen    = 'campaña',
+                    created_at= ahora,
+                ))
+            except Exception as e:
+                log.warning(f'[WA Prospectos] No se pudo crear sesión/mensaje para {numero}: {e}')
 
         # Registrar en ActividadProspecto si hay prospecto_id
         if pid and exito:
