@@ -128,16 +128,11 @@
                 <span class="sidebar-link-text">Chat Bot</span>
                 <span id="waBadge" class="sidebar-badge" style="display:none;">0</span>
             </a>
-            <a class="sidebar-link {% if request.endpoint == 'crm.prospectos_panel' %}active{% endif %}"
+            <a class="sidebar-link {% if request.endpoint in ('crm.prospectos_panel', 'crm.campana_wa_panel') %}active{% endif %}"
                href="{{ url_for('crm.prospectos_panel') }}">
                 <i class="bi bi-people-fill"></i>
-                <span class="sidebar-link-text">Prospectos</span>
+                <span class="sidebar-link-text">Prospectos WA</span>
                 <span id="ppUrgBadge" class="sidebar-badge" style="display:none;background:#dc2626;"></span>
-            </a>
-            <a class="sidebar-link {% if request.endpoint == 'crm.campana_wa_panel' %}active{% endif %}"
-               href="{{ url_for('crm.campana_wa_panel') }}">
-                <i class="bi bi-megaphone"></i>
-                <span class="sidebar-link-text">Campaña WA</span>
             </a>
             {% endif %}
 

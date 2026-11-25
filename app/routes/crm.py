@@ -3015,127 +3015,101 @@ def prospectos_panel():
 @login_required
 @require_role('Master')
 def api_prospectos_panel():
-    """Panel de prospectos: tabla unificada con alertas de seguimiento."""
+    """Panel unificado: semáforo de contactos + pestañas por nivel de seguimiento."""
     import re as _re
-    from sqlalchemy import func as _f
+    from sqlalchemy import or_ as _or2
     from app.models.wa_prospecto_base import WaProspectoBase
     from app.models.wa_campana_prospecto import WaCampanaProspecto
-    from datetime import date as _date
 
-    tab    = request.args.get('tab',    'todos').strip()
+    tab    = request.args.get('tab',  'todos').strip()
     page   = max(int(request.args.get('page', 1)), 1)
-    per_pg = 80
-    q      = request.args.get('q',      '').strip()
-    alerta = request.args.get('alerta', '').strip()
+    per_pg = 100
+    q      = request.args.get('q', '').strip()
 
-    hoy = now_peru().date()
+    # ── Todos los envíos exitosos, agrupados por número ───────────────────────
+    _EXITO = ('enviado', 'entregado', 'leido')
+    camps_all = db.session.query(WaCampanaProspecto).filter(
+        WaCampanaProspecto.estado.in_(_EXITO)
+    ).order_by(WaCampanaProspecto.numero, WaCampanaProspecto.fecha_envio).all()
 
-    # Latest WaCampanaProspecto per numero (numero is E.164 +51XXXXXXXXX)
-    sub = db.session.query(
-        WaCampanaProspecto.numero,
-        _f.max(WaCampanaProspecto.id).label('lid')
-    ).group_by(WaCampanaProspecto.numero).subquery()
-
-    latest_camp_map = {}
-    for row in db.session.query(WaCampanaProspecto).join(
-        sub, WaCampanaProspecto.id == sub.c.lid
-    ).all():
-        d = _re.sub(r'\D', '', row.numero)
+    camps_map = {}   # num9 → [camp1, camp2, ...]  cronológico
+    for c in camps_all:
+        d = _re.sub(r'\D', '', c.numero)
         if d.startswith('51') and len(d) == 11:
             d = d[2:]
-        latest_camp_map[d] = row
+        num9 = d[-9:] if len(d) >= 9 else d
+        camps_map.setdefault(num9, []).append(c)
 
-    contactados_set = set(latest_camp_map.keys())
-
-    # Base query
+    # ── Base de prospectos del Sheet ──────────────────────────────────────────
     bq = WaProspectoBase.query
     if q:
-        from sqlalchemy import or_ as _or2
         bq = bq.filter(_or2(
             WaProspectoBase.empresa.ilike(f'%{q}%'),
             WaProspectoBase.nombre.ilike(f'%{q}%'),
             WaProspectoBase.numero.ilike(f'%{q}%'),
             WaProspectoBase.ruc.ilike(f'%{q}%'),
         ))
-
     all_base = bq.order_by(WaProspectoBase.fecha_email.desc().nullslast()).all()
 
-    # Compute alert level and build rows
-    def _alerta(camp, num9):
-        if camp and camp.respondio_en:
-            return 'respondio', None
-        if camp and camp.fecha_envio:
-            dias = (hoy - camp.fecha_envio.date()).days
-            if dias >= 14:  return 'urgente',     dias
-            if dias >= 7:   return 'seguimiento', dias
-            if dias >= 3:   return 'reciente',    dias
-            return 'ok', dias
-        return 'sin_contacto', None
+    # ── Conteos por tab ───────────────────────────────────────────────────────
+    _c = {0: 0, 1: 0, 2: 0, 3: 0}
+    for p in all_base:
+        n = min(len(camps_map.get(p.numero, [])), 3)
+        _c[n] += 1
+
+    # ── Construir filas filtradas ─────────────────────────────────────────────
+    _SEM = {0: 'none', 1: 'verde', 2: 'ambar', 3: 'rojo'}
 
     rows_all = []
     for p in all_base:
-        num9 = p.numero
-        camp = latest_camp_map.get(num9)
+        plist = camps_map.get(p.numero, [])
+        n     = len(plist)
+        nbucket = min(n, 3)
 
-        nivel, dias = _alerta(camp, num9)
+        if tab == 'disponibles' and n != 0: continue
+        if tab == 'c1'          and n != 1: continue
+        if tab == 'c2'          and n != 2: continue
+        if tab == 'c3'          and n < 3:  continue
 
-        # Tab filter
-        if tab == 'contactados' and num9 not in contactados_set:
-            continue
-        if tab == 'pendientes' and num9 in contactados_set:
-            continue
+        def _cinfo(c):
+            return {
+                'campana':   c.campana or '',
+                'fecha':     c.fecha_envio.strftime('%d/%m/%Y') if c.fecha_envio else '',
+                'estado':    c.estado or '',
+                'respondio': c.respondio_en.strftime('%d/%m/%Y') if c.respondio_en else '',
+            }
 
-        # Alert filter
-        if alerta and nivel != alerta:
-            continue
+        contactos = [_cinfo(c) for c in plist[:3]]
 
         rows_all.append({
-            'id':       p.id,
-            'numero':   num9,
-            'numero_e164': f'+51{num9}',
-            'nombre':   p.nombre   or '',
-            'empresa':  p.empresa  or '',
-            'rubro':    p.rubro    or '',
-            'cargo':    p.cargo    or '',
-            'email':    p.email    or '',
-            'ruc':      p.ruc      or '',
-            'resultado': (p.resultado or '').upper(),
-            'wa_validado': p.wa_validado or 'sin_historial',
-            'fecha_email': p.fecha_email.strftime('%d/%m/%Y') if p.fecha_email else '',
-            'nivel_alerta': nivel,
-            'dias_desde_contacto': dias,
-            'ultimo_wa': {
-                'campana':  camp.campana or '',
-                'estado':   camp.estado  or '',
-                'fecha':    camp.fecha_envio.strftime('%d/%m/%Y') if camp.fecha_envio else '',
-                'respondio': camp.respondio_en.strftime('%d/%m/%Y %H:%M') if camp.respondio_en else '',
-                'respuesta_btn': camp.respuesta_btn or '',
-            } if camp else None,
+            'id':           p.id,
+            'numero':       p.numero,
+            'numero_e164':  f'+51{p.numero}',
+            'nombre':       p.nombre   or '',
+            'empresa':      p.empresa  or '',
+            'rubro':        p.rubro    or '',
+            'cargo':        p.cargo    or '',
+            'email':        p.email    or '',
+            'ruc':          p.ruc      or '',
+            'resultado':    (p.resultado or '').upper(),
+            'wa_validado':  p.wa_validado or 'sin_historial',
+            'fecha_email':  p.fecha_email.strftime('%d/%m/%Y') if p.fecha_email else '',
+            'num_contactos': n,
+            'semaforo':     _SEM.get(nbucket, 'rojo'),
+            'contactos':    contactos,
         })
 
-    # Tab counts (from full unfiltered base, no alert filter)
-    all_nums_set = {p.numero for p in all_base}
-    cont_in_base  = all_nums_set & contactados_set
-    pend_in_base  = all_nums_set - contactados_set
-    urgentes_cnt  = sum(1 for r in rows_all if r['nivel_alerta'] == 'urgente') \
-                    if not alerta else \
-                    sum(1 for p in all_base
-                        if latest_camp_map.get(p.numero)
-                        and latest_camp_map[p.numero].fecha_envio
-                        and (hoy - latest_camp_map[p.numero].fecha_envio.date()).days >= 14
-                        and not latest_camp_map[p.numero].respondio_en)
-
-    total  = len(rows_all)
-    start  = (page - 1) * per_pg
-    paged  = rows_all[start:start + per_pg]
+    total = len(rows_all)
+    paged = rows_all[(page - 1) * per_pg: page * per_pg]
 
     return jsonify({
         'ok':     True,
         'tabs':   {
             'todos':       len(all_base),
-            'contactados': len(cont_in_base),
-            'pendientes':  len(pend_in_base),
-            'urgentes':    urgentes_cnt,
+            'disponibles': _c[0],
+            'c1':          _c[1],
+            'c2':          _c[2],
+            'c3':          _c[3],
         },
         'total':    total,
         'page':     page,
