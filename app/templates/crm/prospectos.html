@@ -675,9 +675,16 @@ async function ppConfirmarEnvio() {
     try {
       const r = await fetch('/wa-prospectos/api/enviar', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type':'application/json', 'X-CSRFToken': getCsrf() },
         body: JSON.stringify({ campana, plantilla, compra, venta, prospectos: lote, pausa_seg: 1 }),
       });
+      if (!r.ok) {
+        const txt = await r.text();
+        console.error('[PP] enviar error:', r.status, txt.slice(0, 200));
+        errores += lote.length;
+        continue;
+      }
       const j = await r.json();
       if (j.ok) {
         enviados += j.resumen?.enviados || 0;
@@ -687,8 +694,11 @@ async function ppConfirmarEnvio() {
           const btn = document.getElementById(`ppSendBtn-${p.numero.replace('+51','')}`);
           if (btn) { btn.classList.add('sent'); btn.innerHTML = '<i class="bi bi-check2"></i> OK'; btn.disabled = true; }
         });
+      } else {
+        console.error('[PP] enviar API error:', j.error);
+        errores += lote.length;
       }
-    } catch(e) { errores++; }
+    } catch(e) { console.error('[PP] enviar exception:', e); errores += lote.length; }
 
     const done = Math.min(i + BATCH, prospectos.length);
     const pct  = Math.round(done / prospectos.length * 100);
@@ -696,13 +706,22 @@ async function ppConfirmarEnvio() {
     document.getElementById('ppProgressLabel').textContent = `Enviando ${done} / ${prospectos.length}…`;
   }
 
+  const hayErrores = errores > 0;
+  document.getElementById('ppProgressBar').style.width = '100%';
+  document.getElementById('ppProgressBar').style.background = hayErrores ? '#dc2626' : '#16a34a';
   document.getElementById('ppProgressLabel').textContent =
-    `Listo — Enviados: ${enviados}  Errores: ${errores}`;
-  document.getElementById('ppModalSendBtn').innerHTML = '✓ Completado';
+    hayErrores
+      ? `⚠ Enviados: ${enviados}  Sin WA / Errores: ${errores}  — revisa la consola`
+      : `✓ Listo — Enviados: ${enviados}`;
+  document.getElementById('ppModalSendBtn').innerHTML = hayErrores ? '⚠ Ver errores en consola' : '✓ Completado';
   ppLimpiarSeleccion();
 
-  // Reload data after 2 sec
-  setTimeout(() => { ppCerrarModal(); ppCargar(); }, 2000);
+  // Auto-close only if no errors
+  if (!hayErrores) {
+    setTimeout(() => { ppCerrarModal(); ppCargar(); }, 2000);
+  } else {
+    ppCargar();
+  }
 }
 
 // ══════════════════════════════════════════════
