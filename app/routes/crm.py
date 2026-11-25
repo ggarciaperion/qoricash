@@ -3408,3 +3408,113 @@ def api_wa_campana_migrate():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+# ── Sync WA Prospectos desde Google Sheets (script local Mac) ─────────────────
+
+def _check_sync_key():
+    """Valida X-Sync-Key header contra SYNC_API_KEY env var."""
+    expected = os.environ.get('SYNC_API_KEY', '').strip()
+    if not expected:
+        return False, 'SYNC_API_KEY no configurada en servidor'
+    provided = request.headers.get('X-Sync-Key', '').strip()
+    if not provided or provided != expected:
+        return False, 'Clave inválida'
+    return True, ''
+
+
+@crm_bp.route('/api/sync-wa-prospectos', methods=['POST'])
+@csrf.exempt
+def api_sync_wa_prospectos():
+    """
+    Recibe prospectos desde script local (sync_wa_prospectos.py) y hace upsert
+    en wa_prospectos_base. Autenticado con X-Sync-Key header.
+
+    Body JSON: { "prospectos": [ { numero, nombre, empresa, rubro, bandeja_email,
+                                    fecha_email, ruc, email, cargo } ] }
+    """
+    ok, err = _check_sync_key()
+    if not ok:
+        log.warning(f'[sync-wa] Auth fallida: {err}')
+        return jsonify({'ok': False, 'error': err}), 401
+
+    from app.models.wa_prospecto_base import WaProspectoBase
+    import re as _re
+
+    data = request.get_json(silent=True) or {}
+    prospectos = data.get('prospectos', [])
+    if not prospectos:
+        return jsonify({'ok': True, 'upserted': 0, 'msg': 'Sin registros'})
+
+    def _norm9(val):
+        if not val:
+            return None
+        d = _re.sub(r'\D', '', str(val))
+        if d.startswith('51') and len(d) == 11:
+            d = d[2:]
+        return d if len(d) == 9 and d[0] == '9' else None
+
+    def _parse_dt(s):
+        if not s:
+            return None
+        for fmt in ('%d/%m/%Y %H:%M', '%d/%m/%Y', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+            try:
+                return datetime.strptime(str(s).strip()[:len(fmt)], fmt)
+            except Exception:
+                pass
+        return None
+
+    inserted = updated = skipped = 0
+    now = now_peru()
+
+    for p in prospectos:
+        num9 = _norm9(p.get('numero'))
+        if not num9:
+            skipped += 1
+            continue
+
+        existing = WaProspectoBase.query.filter_by(numero=num9).first()
+        fecha_dt = _parse_dt(p.get('fecha_email'))
+
+        if existing:
+            # Actualiza campos de Sheet, conserva wa_validado y actualizado_en
+            existing.nombre       = p.get('nombre') or existing.nombre
+            existing.empresa      = p.get('empresa') or existing.empresa
+            existing.rubro        = p.get('rubro')   or existing.rubro
+            existing.bandeja_email = p.get('bandeja_email') or existing.bandeja_email
+            existing.ruc          = p.get('ruc')     or existing.ruc
+            existing.email        = p.get('email')   or existing.email
+            existing.cargo        = p.get('cargo')   or existing.cargo
+            if fecha_dt and (not existing.fecha_email or fecha_dt > existing.fecha_email):
+                existing.fecha_email = fecha_dt
+            existing.actualizado_en = now
+            updated += 1
+        else:
+            row = WaProspectoBase(
+                numero       = num9,
+                nombre       = p.get('nombre', ''),
+                empresa      = p.get('empresa', ''),
+                rubro        = p.get('rubro', ''),
+                bandeja_email = p.get('bandeja_email', ''),
+                fecha_email  = fecha_dt,
+                wa_validado  = 'sin_historial',
+                ruc          = p.get('ruc'),
+                email        = p.get('email'),
+                cargo        = p.get('cargo'),
+                actualizado_en = now,
+            )
+            db.session.add(row)
+            inserted += 1
+
+        if (inserted + updated) % 200 == 0:
+            db.session.flush()
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        log.error(f'[sync-wa] Error commit: {e}')
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+    log.info(f'[sync-wa] inserted={inserted} updated={updated} skipped={skipped}')
+    return jsonify({'ok': True, 'inserted': inserted, 'updated': updated, 'skipped': skipped})
+
+
