@@ -3418,9 +3418,9 @@ def api_wa_campana_migrate():
 # ── Sync WA Prospectos desde Google Sheets (script local Mac) ─────────────────
 # ── Admin temporal: listar/limpiar wa_prospectos_base ─────────────────────────
 
-@crm_bp.route('/api/admin-wa-prospectos', methods=['GET', 'DELETE'])
+@crm_bp.route('/api/wa-base-mgmt', methods=['GET', 'DELETE'])
 @csrf.exempt
-def api_admin_wa_prospectos():
+def api_wa_base_mgmt():
     """Endpoint temporal para auditar y limpiar wa_prospectos_base."""
     from app.models.wa_prospecto_base import WaProspectoBase
     ok, err = _check_sync_key()
