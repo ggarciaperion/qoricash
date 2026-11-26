@@ -3462,6 +3462,12 @@ def api_sync_wa_prospectos():
                 pass
         return None
 
+    def _trunc(val, maxlen):
+        if not val:
+            return val
+        s = str(val)
+        return s[:maxlen] if len(s) > maxlen else s
+
     inserted = updated = skipped = 0
     now = now_peru()
 
@@ -3476,29 +3482,29 @@ def api_sync_wa_prospectos():
 
         if existing:
             # Actualiza campos de Sheet, conserva wa_validado y actualizado_en
-            existing.nombre       = p.get('nombre') or existing.nombre
-            existing.empresa      = p.get('empresa') or existing.empresa
-            existing.rubro        = p.get('rubro')   or existing.rubro
-            existing.bandeja_email = p.get('bandeja_email') or existing.bandeja_email
-            existing.ruc          = p.get('ruc')     or existing.ruc
-            existing.email        = p.get('email')   or existing.email
-            existing.cargo        = p.get('cargo')   or existing.cargo
+            existing.nombre       = _trunc(p.get('nombre') or existing.nombre, 200)
+            existing.empresa      = _trunc(p.get('empresa') or existing.empresa, 300)
+            existing.rubro        = _trunc(p.get('rubro')   or existing.rubro,  100)
+            existing.bandeja_email = _trunc(p.get('bandeja_email') or existing.bandeja_email, 20)
+            existing.ruc          = _trunc(p.get('ruc')     or existing.ruc, 15)
+            existing.email        = _trunc(p.get('email')   or existing.email, 200)
+            existing.cargo        = _trunc(p.get('cargo')   or existing.cargo, 150)
             if fecha_dt and (not existing.fecha_email or fecha_dt > existing.fecha_email):
                 existing.fecha_email = fecha_dt
             existing.actualizado_en = now
             updated += 1
         else:
             row = WaProspectoBase(
-                numero       = num9,
-                nombre       = p.get('nombre', ''),
-                empresa      = p.get('empresa', ''),
-                rubro        = p.get('rubro', ''),
-                bandeja_email = p.get('bandeja_email', ''),
-                fecha_email  = fecha_dt,
-                wa_validado  = 'sin_historial',
-                ruc          = p.get('ruc'),
-                email        = p.get('email'),
-                cargo        = p.get('cargo'),
+                numero        = num9,
+                nombre        = _trunc(p.get('nombre', ''),        200),
+                empresa       = _trunc(p.get('empresa', ''),       300),
+                rubro         = _trunc(p.get('rubro', ''),         100),
+                bandeja_email = _trunc(p.get('bandeja_email', ''), 20),
+                fecha_email   = fecha_dt,
+                wa_validado   = 'sin_historial',
+                ruc           = _trunc(p.get('ruc'),  15),
+                email         = _trunc(p.get('email'), 200),
+                cargo         = _trunc(p.get('cargo'), 150),
                 actualizado_en = now,
             )
             db.session.add(row)
