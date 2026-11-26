@@ -3490,7 +3490,7 @@ def api_sync_wa_prospectos():
 
     prospectos = data.get('prospectos', [])
     if not prospectos:
-        return jsonify({'ok': True, 'upserted': 0, 'msg': 'Sin registros'})
+        return jsonify({'ok': True, 'upserted': 0, 'msg': 'Sin registros', 'v': 2})
 
     def _norm9(val):
         if not val:
