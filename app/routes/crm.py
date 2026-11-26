@@ -3416,6 +3416,29 @@ def api_wa_campana_migrate():
 
 
 # ── Sync WA Prospectos desde Google Sheets (script local Mac) ─────────────────
+# ── Admin temporal: listar/limpiar wa_prospectos_base ─────────────────────────
+
+@crm_bp.route('/api/admin-wa-prospectos', methods=['GET', 'DELETE'])
+@csrf.exempt
+def api_admin_wa_prospectos():
+    """Endpoint temporal para auditar y limpiar wa_prospectos_base."""
+    from app.models.wa_prospecto_base import WaProspectoBase
+    ok, err = _check_sync_key()
+    if not ok:
+        return jsonify({'ok': False, 'error': err}), 401
+    if request.method == 'GET':
+        rows = WaProspectoBase.query.order_by(WaProspectoBase.id).all()
+        return jsonify({'ok': True, 'total': len(rows), 'rows': [
+            {'id': r.id, 'numero': r.numero, 'empresa': r.empresa,
+             'nombre': r.nombre, 'email': r.email, 'fecha_email': str(r.fecha_email),
+             'bandeja_email': r.bandeja_email, 'actualizado_en': str(r.actualizado_en)}
+            for r in rows]})
+    # DELETE: truncate entire table
+    n = WaProspectoBase.query.count()
+    WaProspectoBase.query.delete()
+    db.session.commit()
+    return jsonify({'ok': True, 'deleted': n})
+
 
 def _check_sync_key():
     """Valida X-Sync-Key header contra SYNC_API_KEY env var."""
