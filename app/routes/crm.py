@@ -3472,6 +3472,22 @@ def api_sync_wa_prospectos():
     import re as _re
 
     data = request.get_json(silent=True) or {}
+
+    # Acción especial: listar o limpiar la tabla
+    _action = data.get('_action', '')
+    if _action == 'list':
+        rows = WaProspectoBase.query.order_by(WaProspectoBase.id).all()
+        return jsonify({'ok': True, 'total': len(rows), 'rows': [
+            {'id': r.id, 'numero': r.numero, 'empresa': r.empresa,
+             'nombre': r.nombre, 'email': r.email,
+             'fecha_email': str(r.fecha_email), 'bandeja_email': r.bandeja_email,
+             'actualizado_en': str(r.actualizado_en)} for r in rows]})
+    if _action == 'clear':
+        n = WaProspectoBase.query.count()
+        WaProspectoBase.query.delete()
+        db.session.commit()
+        return jsonify({'ok': True, 'deleted': n})
+
     prospectos = data.get('prospectos', [])
     if not prospectos:
         return jsonify({'ok': True, 'upserted': 0, 'msg': 'Sin registros'})
