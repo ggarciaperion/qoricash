@@ -3554,3 +3554,4 @@ def api_sync_wa_prospectos():
     return jsonify({'ok': True, 'inserted': inserted, 'updated': updated, 'skipped': skipped})
 
 
+
