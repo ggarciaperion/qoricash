@@ -3416,31 +3416,6 @@ def api_wa_campana_migrate():
 
 
 # ── Sync WA Prospectos desde Google Sheets (script local Mac) ─────────────────
-# ── Admin temporal: listar/limpiar wa_prospectos_base ─────────────────────────
-
-@crm_bp.route('/api/wa-base-mgmt', methods=['POST'])
-@csrf.exempt
-def api_wa_base_mgmt():
-    """Endpoint temporal para auditar y limpiar wa_prospectos_base."""
-    from app.models.wa_prospecto_base import WaProspectoBase
-    ok, err = _check_sync_key()
-    if not ok:
-        return jsonify({'ok': False, 'error': err}), 401
-    action = (request.get_json(silent=True) or {}).get('action', 'list')
-    if action == 'list':
-        rows = WaProspectoBase.query.order_by(WaProspectoBase.id).all()
-        return jsonify({'ok': True, 'total': len(rows), 'rows': [
-            {'id': r.id, 'numero': r.numero, 'empresa': r.empresa,
-             'nombre': r.nombre, 'email': r.email, 'fecha_email': str(r.fecha_email),
-             'bandeja_email': r.bandeja_email, 'actualizado_en': str(r.actualizado_en)}
-            for r in rows]})
-    if action == 'clear':
-        n = WaProspectoBase.query.count()
-        WaProspectoBase.query.delete()
-        db.session.commit()
-        return jsonify({'ok': True, 'deleted': n})
-    return jsonify({'ok': False, 'error': 'action must be list or clear'}), 400
-
 
 def _check_sync_key():
     """Valida X-Sync-Key header contra SYNC_API_KEY env var."""
@@ -3474,23 +3449,9 @@ def api_sync_wa_prospectos():
     data = request.get_json(silent=True) or {}
 
     # Acción especial: listar o limpiar la tabla
-    _action = data.get('_action', '')
-    if _action == 'list':
-        rows = WaProspectoBase.query.order_by(WaProspectoBase.id).all()
-        return jsonify({'ok': True, 'total': len(rows), 'rows': [
-            {'id': r.id, 'numero': r.numero, 'empresa': r.empresa,
-             'nombre': r.nombre, 'email': r.email,
-             'fecha_email': str(r.fecha_email), 'bandeja_email': r.bandeja_email,
-             'actualizado_en': str(r.actualizado_en)} for r in rows]})
-    if _action == 'clear':
-        n = WaProspectoBase.query.count()
-        WaProspectoBase.query.delete()
-        db.session.commit()
-        return jsonify({'ok': True, 'deleted': n})
-
     prospectos = data.get('prospectos', [])
     if not prospectos:
-        return jsonify({'ok': True, 'upserted': 0, 'msg': 'Sin registros', 'v': 2})
+        return jsonify({'ok': True, 'upserted': 0, 'msg': 'Sin registros'})
 
     def _norm9(val):
         if not val:
@@ -3570,6 +3531,3 @@ def api_sync_wa_prospectos():
 
     log.info(f'[sync-wa] inserted={inserted} updated={updated} skipped={skipped}')
     return jsonify({'ok': True, 'inserted': inserted, 'updated': updated, 'skipped': skipped})
-
-
-
