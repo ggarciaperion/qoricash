@@ -3049,6 +3049,13 @@ def api_prospectos_panel():
             WaProspectoBase.numero.ilike(f'%{q}%'),
             WaProspectoBase.ruc.ilike(f'%{q}%'),
         ))
+    # Solo prospectos contactados antes de hoy (col N del sheet = fecha_email)
+    from datetime import date as _date_cls
+    hoy_inicio = datetime.combine(_date_cls.today(), datetime.min.time())
+    bq = bq.filter(
+        WaProspectoBase.fecha_email != None,
+        WaProspectoBase.fecha_email < hoy_inicio,
+    )
     all_base = bq.order_by(WaProspectoBase.fecha_email.desc().nullslast()).all()
 
     # ── Conteos por tab ───────────────────────────────────────────────────────
