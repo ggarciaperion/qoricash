@@ -1,12 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Pipeline de prospección — QoriCash{% endblock %}
+{% block title %}Pipelines de Prospección — QoriCash{% endblock %}
 
 {% block head %}
 <style>
-/* ═══════════════════════════════════════════════════════════════════
-   Pipeline de prospección — diseño limpio
-   Sin franjas multicolor · Sin degradados · Sin iconos decorativos
-═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   Pipelines Hub — Email + WA + Mapa del día
+═══════════════════════════════════════════════════════════════ */
 :root {
   --ag-bg:      #f8fafc;
   --ag-surface: #ffffff;
@@ -17,703 +16,786 @@
   --ag-green:   #16a34a;
   --ag-red:     #dc2626;
   --ag-amber:   #d97706;
+  --ag-wa:      #25D366;
 }
 
-@keyframes ag-pulse {
-  0%,100%{ box-shadow:0 0 0 0 rgba(25,107,254,.4) }
-  50%    { box-shadow:0 0 0 5px rgba(25,107,254,0) }
-}
-@keyframes spin     { to{ transform:rotate(360deg) } }
-@keyframes count-up { from{ opacity:0; transform:translateY(4px) } to{ opacity:1; transform:none } }
-@keyframes shimmer  { 0%{ background-position:-400px 0 } 100%{ background-position:400px 0 } }
+@keyframes ag-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(25,107,254,.35)} 50%{box-shadow:0 0 0 5px rgba(25,107,254,0)} }
+@keyframes wa-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(37,211,102,.35)} 50%{box-shadow:0 0 0 5px rgba(37,211,102,0)} }
+@keyframes spin     { to{transform:rotate(360deg)} }
+@keyframes count-up { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+@keyframes shimmer  { 0%{background-position:-400px 0} 100%{background-position:400px 0} }
+@keyframes fade-in  { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
 
-/* ── Page shell ──────────────────────────────────────────────────── */
-.ag-root {
-  background: var(--ag-bg);
-  min-height: calc(100vh - 56px);
-  padding: 28px 32px 48px;
-}
-@media (max-width:768px){ .ag-root{ padding:16px 14px 36px } }
+.ag-root { background:var(--ag-bg); min-height:calc(100vh - 56px); padding:24px 28px 56px; }
+@media(max-width:768px){ .ag-root{ padding:14px 12px 36px } }
 
-/* ── Header ──────────────────────────────────────────────────────── */
-.ag-header {
+/* ── Top bar ─────────────────────────────────────────────────── */
+.ag-topbar {
   display:flex; align-items:center; justify-content:space-between;
-  flex-wrap:wrap; gap:12px; margin-bottom:8px;
+  flex-wrap:wrap; gap:10px; margin-bottom:20px;
 }
 .ag-title {
-  font-size:1.2rem; font-weight:900; color:var(--ag-text);
+  font-size:1.15rem; font-weight:900; color:var(--ag-text);
   letter-spacing:-.02em; margin:0;
-  display:flex; align-items:center; gap:9px;
+  display:flex; align-items:center; gap:8px;
 }
-.ag-pulse-dot {
-  width:8px; height:8px; border-radius:50%;
-  background:var(--ag-blue); flex-shrink:0;
-}
+.ag-pulse-dot { width:8px; height:8px; border-radius:50%; background:var(--ag-blue); flex-shrink:0; }
 .ag-pulse-dot.live { animation:ag-pulse 2.2s ease-in-out infinite; }
-.ag-subtitle { font-size:.74rem; color:var(--ag-muted); margin:2px 0 0; }
+.ag-subtitle { font-size:.72rem; color:var(--ag-muted); margin:2px 0 0; }
+.ag-topbar-right { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
 
-.ag-header-right { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-
-.ag-status-pill {
+/* ── Status pills ────────────────────────────────────────────── */
+.ag-pill {
   display:inline-flex; align-items:center; gap:5px;
-  font-size:.7rem; font-weight:600; letter-spacing:.02em;
-  padding:4px 10px; border-radius:20px; border:1px solid;
+  font-size:.68rem; font-weight:600; letter-spacing:.02em;
+  padding:3px 9px; border-radius:20px; border:1px solid;
 }
-.ag-status-pill.online  { color:var(--ag-blue); background:#eff5ff; border-color:#bfdbfe; }
-.ag-status-pill.offline { color:var(--ag-muted); background:#f8fafc; border-color:var(--ag-border); }
-.ag-status-pill.loading { color:var(--ag-muted); background:#f8fafc; border-color:var(--ag-border); }
-.ag-status-pill.error   { color:var(--ag-red); background:#fef2f2; border-color:#fecaca; }
+.ag-pill.online  { color:var(--ag-blue);  background:#eff5ff;  border-color:#bfdbfe; }
+.ag-pill.wa-on   { color:var(--ag-wa);    background:#f0fdf4;  border-color:#bbf7d0; }
+.ag-pill.offline { color:var(--ag-muted); background:#f8fafc;  border-color:var(--ag-border); }
+.ag-pill.error   { color:var(--ag-red);   background:#fef2f2;  border-color:#fecaca; }
 
 .ag-refresh-btn {
   background:none; border:1px solid var(--ag-border); border-radius:7px;
-  padding:4px 10px; color:var(--ag-muted); font-size:.78rem; cursor:pointer;
+  padding:4px 10px; color:var(--ag-muted); font-size:.75rem; cursor:pointer;
   display:flex; align-items:center; gap:4px; transition:all .15s;
 }
 .ag-refresh-btn:hover { background:rgba(0,0,0,.04); color:var(--ag-text); }
 .ag-refresh-btn.spinning .bi-arrow-clockwise { animation:spin .6s linear infinite; }
 
-.ag-lote-btn {
-  display:inline-flex; align-items:center; gap:5px;
-  background:var(--ag-blue); color:#fff;
-  border:none; border-radius:7px;
-  padding:4px 13px; font-size:.75rem; font-weight:700; cursor:pointer;
-  text-decoration:none; transition:opacity .15s;
+/* ── Hub cards (selector) ────────────────────────────────────── */
+.hub-cards {
+  display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px;
 }
-.ag-lote-btn:hover { opacity:.85; color:#fff; text-decoration:none; }
+@media(max-width:600px){ .hub-cards{ grid-template-columns:1fr; } }
 
-/* ── Updated line ────────────────────────────────────────────────── */
-.ag-updated {
-  font-size:.68rem; color:var(--ag-muted);
-  margin-bottom:20px; display:flex; align-items:center; gap:5px;
+.hub-card {
+  background:var(--ag-surface); border:2px solid var(--ag-border);
+  border-radius:12px; padding:16px 20px; cursor:pointer;
+  display:flex; align-items:center; gap:14px;
+  transition:all .18s; user-select:none;
 }
+.hub-card:hover { border-color:#94a3b8; box-shadow:0 2px 10px rgba(0,0,0,.07); }
+.hub-card.active-email { border-color:var(--ag-blue); background:#eff5ff; }
+.hub-card.active-wa    { border-color:var(--ag-wa);   background:#f0fdf4; }
 
-/* ── Resumen strip ───────────────────────────────────────────────── */
-.ag-resumen {
+.hub-icon {
+  width:40px; height:40px; border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.2rem; flex-shrink:0;
+}
+.hub-icon.email { background:#dbeafe; }
+.hub-icon.wa    { background:#dcfce7; }
+
+.hub-info { flex:1; min-width:0; }
+.hub-name { font-size:.9rem; font-weight:800; color:var(--ag-text); margin:0 0 2px; }
+.hub-desc { font-size:.68rem; color:var(--ag-muted); margin:0; }
+.hub-badge {
+  font-size:.6rem; font-weight:700; padding:2px 7px; border-radius:20px;
+  background:#e2e8f0; color:var(--ag-muted); white-space:nowrap;
+}
+.hub-card.active-email .hub-badge { background:#bfdbfe; color:#1d4ed8; }
+.hub-card.active-wa    .hub-badge { background:#bbf7d0; color:#15803d; }
+
+/* ── Pipeline sections ───────────────────────────────────────── */
+.pipeline-section { display:none; animation:fade-in .25s ease-out; }
+.pipeline-section.visible { display:block; }
+
+/* ── Summary strip ───────────────────────────────────────────── */
+.ag-strip {
   display:flex; background:var(--ag-surface);
   border:1px solid var(--ag-border); border-radius:10px;
-  margin-bottom:24px; overflow:hidden;
+  margin-bottom:20px; overflow:hidden;
 }
-.ag-resumen-item {
-  flex:1; padding:12px 16px; text-align:center;
-  border-right:1px solid var(--ag-border);
-}
-.ag-resumen-item:last-child { border-right:none; }
-.ag-resumen-num {
-  font-size:1.5rem; font-weight:900; font-family:'Courier New',monospace;
-  color:var(--ag-text); display:block; animation:count-up .35s ease-out;
-}
-.ag-resumen-lbl { font-size:.6rem; color:var(--ag-muted); text-transform:uppercase; letter-spacing:.07em; }
-@media (max-width:600px){
-  .ag-resumen { flex-wrap:wrap; }
-  .ag-resumen-item { flex:0 0 50%; border-bottom:1px solid var(--ag-border); }
-  .ag-resumen-item:nth-child(even) { border-right:none; }
-}
+.ag-strip-item { flex:1; padding:11px 14px; text-align:center; border-right:1px solid var(--ag-border); }
+.ag-strip-item:last-child { border-right:none; }
+.ag-strip-num { font-size:1.4rem; font-weight:900; font-family:'Courier New',monospace; color:var(--ag-text); display:block; animation:count-up .35s ease-out; }
+.ag-strip-lbl { font-size:.58rem; color:var(--ag-muted); text-transform:uppercase; letter-spacing:.07em; }
+@media(max-width:600px){ .ag-strip{flex-wrap:wrap} .ag-strip-item{flex:0 0 50%;border-bottom:1px solid var(--ag-border)} .ag-strip-item:nth-child(even){border-right:none} }
 
-/* ── Section label ───────────────────────────────────────────────── */
-.ag-section-label {
-  font-size:.62rem; font-weight:700; text-transform:uppercase;
-  letter-spacing:.12em; color:var(--ag-muted); margin:0 0 14px;
-}
+/* ── Section label ───────────────────────────────────────────── */
+.ag-section-lbl { font-size:.6rem; font-weight:700; text-transform:uppercase; letter-spacing:.12em; color:var(--ag-muted); margin:0 0 12px; }
 
-/* ── Cards scroll wrapper (mobile) ───────────────────────────────── */
-.ag-cards-scroll {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  /* Negative margin trick: allow card shadow to show on edges */
-  margin-left: -4px; margin-right: -4px;
-  padding-left: 4px; padding-right: 4px;
-}
+/* ── Cards grid ──────────────────────────────────────────────── */
+.ag-cards-wrap { overflow-x:auto; margin-left:-4px; margin-right:-4px; padding:4px 4px 2px; }
+.ag-cards { display:grid; gap:10px; min-width:720px; }
+.ag-cards.cols-5 { grid-template-columns:repeat(5,minmax(0,1fr)); }
+.ag-cards.cols-4 { grid-template-columns:repeat(4,minmax(0,1fr)); }
 
-/* ── Cards grid ──────────────────────────────────────────────────── */
-.ag-cards {
-  display:grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap:12px;
-  margin-bottom:32px;
-  /* On narrow screens the scroll wrapper prevents page overflow */
-  min-width: 850px;
-}
-
-/* ── Card ────────────────────────────────────────────────────────── */
+/* ── Card ────────────────────────────────────────────────────── */
 .ag-card {
-  background:var(--ag-surface);
-  border:1px solid var(--ag-border);
-  border-radius:10px;
-  padding:14px;
-  display:flex; flex-direction:column; gap:8px;
+  background:var(--ag-surface); border:1px solid var(--ag-border);
+  border-radius:10px; padding:13px; display:flex; flex-direction:column; gap:7px;
 }
+.ag-card.email-accent { border-top:3px solid var(--ag-blue); }
+.ag-card.wa-accent    { border-top:3px solid var(--ag-wa); }
 
-/* ── Card head ───────────────────────────────────────────────────── */
-.ag-step {
-  display:block;
-  font-size:.6rem; font-weight:700; text-transform:uppercase;
-  letter-spacing:.1em; color:var(--ag-muted); margin-bottom:3px;
-}
-.ag-card-title {
-  font-size:.95rem; font-weight:800 !important; color:var(--ag-blue) !important;
-  margin:0; letter-spacing:-.01em;
-}
-
-/* ── Card description ────────────────────────────────────────────── */
-.ag-card-what {
-  font-size:.76rem; color:var(--ag-text); line-height:1.55; margin:0;
-}
-.ag-next { color:var(--ag-muted); }
-
-/* ── Schedule line ───────────────────────────────────────────────── */
-.ag-card-when {
-  font-size:.7rem; color:var(--ag-muted); margin:0;
-}
-
-/* ── Divider ─────────────────────────────────────────────────────── */
+.ag-step { display:block; font-size:.58rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--ag-muted); margin-bottom:2px; }
+.ag-card-title { font-size:.9rem; font-weight:800; color:var(--ag-blue); margin:0; letter-spacing:-.01em; }
+.ag-card.wa-accent .ag-card-title { color:#15803d; }
+.ag-card-what { font-size:.73rem; color:var(--ag-text); line-height:1.5; margin:0; }
+.ag-card-when { font-size:.67rem; color:var(--ag-muted); margin:0; }
 .ag-card-divider { border:none; border-top:1px solid var(--ag-border); margin:0; }
+.ag-card-result { display:flex; flex-direction:column; gap:6px; }
 
-/* ── Result area ─────────────────────────────────────────────────── */
-.ag-card-result { display:flex; flex-direction:column; gap:7px; }
+.ag-number { font-size:1.9rem; font-weight:900; color:var(--ag-text); letter-spacing:-.03em; line-height:1; font-family:'Courier New',monospace; animation:count-up .35s ease-out; display:flex; flex-direction:column; gap:2px; }
+.ag-number-unit { font-size:.6rem; font-weight:600; color:var(--ag-muted); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; letter-spacing:.02em; }
 
-/* ── Big number ──────────────────────────────────────────────────── */
-.ag-number {
-  font-size:2rem; font-weight:900; color:var(--ag-text);
-  letter-spacing:-.03em; line-height:1; font-family:'Courier New',monospace;
-  animation:count-up .35s ease-out;
-  display:flex; flex-direction:column; gap:3px;
-}
-.ag-number-unit {
-  font-size:.64rem; font-weight:600; color:var(--ag-muted);
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-  letter-spacing:.02em; line-height:1;
-}
-
-/* ── Stats row ───────────────────────────────────────────────────── */
-.ag-stats { display:flex; gap:14px; flex-wrap:wrap; }
+.ag-stats { display:flex; gap:12px; flex-wrap:wrap; }
 .ag-stat  { display:flex; flex-direction:column; gap:1px; }
-.ag-stat-val { font-size:.85rem; font-weight:800; color:var(--ag-text); font-family:'Courier New',monospace; }
-.ag-stat-lbl { font-size:.58rem; color:var(--ag-muted); text-transform:uppercase; letter-spacing:.05em; }
+.ag-stat-val { font-size:.82rem; font-weight:800; color:var(--ag-text); font-family:'Courier New',monospace; }
+.ag-stat-lbl { font-size:.56rem; color:var(--ag-muted); text-transform:uppercase; letter-spacing:.05em; }
 
-/* ── Status badge ────────────────────────────────────────────────── */
-.ag-sbadge {
-  display:inline-flex; align-items:center; gap:5px;
-  font-size:.65rem; font-weight:600;
-  padding:3px 8px; border-radius:20px; border:1px solid;
-}
+.ag-sbadge { display:inline-flex; align-items:center; gap:5px; font-size:.63rem; font-weight:600; padding:3px 8px; border-radius:20px; border:1px solid; }
+.ag-sbadge .ag-dot { width:6px; height:6px; border-radius:50%; background:currentColor; flex-shrink:0; }
 .ag-sbadge.ok   { color:var(--ag-green); background:#f0fdf4; border-color:#bbf7d0; }
 .ag-sbadge.warn { color:var(--ag-amber); background:#fffbeb; border-color:#fde68a; }
 .ag-sbadge.off  { color:var(--ag-muted); background:#f8fafc; border-color:var(--ag-border); }
-.ag-sbadge.err  { color:var(--ag-red); background:#fef2f2; border-color:#fecaca; }
-.ag-sbadge .ag-dot {
-  width:6px; height:6px; border-radius:50%; background:currentColor; flex-shrink:0;
-}
+.ag-sbadge.err  { color:var(--ag-red);   background:#fef2f2; border-color:#fecaca; }
+.ag-sbadge.wa   { color:#15803d;          background:#f0fdf4; border-color:#86efac; }
 
-/* ── Note ────────────────────────────────────────────────────────── */
-.ag-note {
-  font-size:.65rem; color:var(--ag-muted);
+.ag-note { font-size:.62rem; color:var(--ag-muted); background:#f8fafc; border:1px solid var(--ag-border); border-radius:6px; padding:5px 9px; }
+
+.ag-skeleton { background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%); background-size:400px 100%; animation:shimmer 1.4s ease-in-out infinite; border-radius:5px; }
+.sk-num  { height:2.2rem; width:90px; margin-bottom:5px; }
+.sk-line { height:.55rem; width:100%; margin:3px 0; }
+.sk-line.w60 { width:60%; } .sk-line.w40 { width:40%; }
+
+/* ── Mapa del día ────────────────────────────────────────────── */
+.mapa-section { margin-top:36px; }
+.mapa-title { font-size:.85rem; font-weight:800; color:var(--ag-text); margin:0 0 16px; display:flex; align-items:center; gap:8px; }
+
+.mapa-timeline {
+  position:relative; padding-left:28px;
+  display:flex; flex-direction:column; gap:0;
+}
+.mapa-timeline::before {
+  content:''; position:absolute; left:9px; top:8px; bottom:8px;
+  width:2px; background:var(--ag-border); border-radius:2px;
+}
+.mapa-row {
+  display:grid; grid-template-columns:72px 1fr;
+  gap:0 14px; position:relative; padding:6px 0;
+}
+.mapa-row::before {
+  content:''; position:absolute; left:-19px; top:14px;
+  width:10px; height:10px; border-radius:50%;
+  background:var(--ag-border); border:2px solid var(--ag-surface);
+}
+.mapa-row.email-row::before { background:var(--ag-blue); }
+.mapa-row.wa-row::before    { background:var(--ag-wa); }
+.mapa-row.both-row::before  { background:linear-gradient(135deg,var(--ag-blue) 50%,var(--ag-wa) 50%); }
+
+.mapa-time { font-size:.7rem; font-weight:700; color:var(--ag-muted); padding-top:1px; white-space:nowrap; }
+.mapa-content { padding-bottom:4px; border-bottom:1px solid var(--ag-border); margin-bottom:0; }
+.mapa-row:last-child .mapa-content { border-bottom:none; }
+
+.mapa-event { font-size:.78rem; font-weight:700; color:var(--ag-text); margin:0 0 2px; }
+.mapa-desc  { font-size:.68rem; color:var(--ag-muted); margin:0; line-height:1.4; }
+.mapa-tags  { display:flex; gap:5px; flex-wrap:wrap; margin-top:4px; }
+.mapa-tag {
+  font-size:.58rem; font-weight:700; padding:1px 7px; border-radius:10px;
+  letter-spacing:.02em;
+}
+.mapa-tag.email { background:#dbeafe; color:#1d4ed8; }
+.mapa-tag.wa    { background:#dcfce7; color:#15803d; }
+.mapa-tag.sys   { background:#f1f5f9; color:#475569; }
+
+/* ── Mapa conceptual ─────────────────────────────────────────── */
+.mapa-conceptual { margin-top:28px; background:var(--ag-surface); border:1px solid var(--ag-border); border-radius:12px; padding:20px 24px; }
+.mapa-conceptual-title { font-size:.78rem; font-weight:800; color:var(--ag-text); margin:0 0 16px; text-transform:uppercase; letter-spacing:.06em; }
+
+.mc-flow {
+  display:flex; align-items:flex-start; gap:0; overflow-x:auto;
+  padding-bottom:8px;
+}
+.mc-node {
+  flex-shrink:0; min-width:130px; max-width:150px;
   background:#f8fafc; border:1px solid var(--ag-border);
-  border-radius:6px; padding:6px 10px;
+  border-radius:10px; padding:10px 12px; text-align:center;
 }
+.mc-node.email { border-top:3px solid var(--ag-blue); }
+.mc-node.wa    { border-top:3px solid var(--ag-wa); }
+.mc-node.shared{ border-top:3px solid #8b5cf6; }
 
-/* ── Skeleton ────────────────────────────────────────────────────── */
-.ag-skeleton {
-  background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);
-  background-size:400px 100%;
-  animation:shimmer 1.4s ease-in-out infinite;
-  border-radius:5px;
+.mc-node-icon  { font-size:1.1rem; margin-bottom:4px; }
+.mc-node-name  { font-size:.7rem; font-weight:800; color:var(--ag-text); margin:0 0 2px; }
+.mc-node-time  { font-size:.6rem; color:var(--ag-muted); margin:0 0 4px; }
+.mc-node-desc  { font-size:.6rem; color:var(--ag-muted); line-height:1.4; margin:0; }
+
+.mc-arrow {
+  flex-shrink:0; width:36px; display:flex; align-items:center;
+  justify-content:center; color:#94a3b8; padding-top:28px;
+  font-size:.85rem;
 }
-.sk-num  { height:2.4rem; width:100px; margin-bottom:6px; }
-.sk-line { height:.6rem; width:100%; margin:3px 0; }
-.sk-line.w60 { width:60%; }
-.sk-line.w40 { width:40%; }
+.mc-arrow.down-branch { flex-direction:column; gap:2px; color:#cbd5e1; font-size:.7rem; }
+
+.mc-row-label { font-size:.6rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--ag-muted); margin:0 0 10px; }
+.mc-row { margin-bottom:20px; }
+.mc-row:last-child { margin-bottom:0; }
+
+@media(max-width:700px){
+  .mc-flow { gap:0; }
+  .mc-node { min-width:110px; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="ag-root" id="ag-root">
+<div class="ag-root">
 
-  <!-- ── Header ─────────────────────────────────────────────────── -->
-  <div class="ag-header">
+  <!-- ── Top bar ──────────────────────────────────────────────── -->
+  <div class="ag-topbar">
     <div>
       <h1 class="ag-title">
         <span class="ag-pulse-dot" id="ag-pulse-dot"></span>
-        Pipeline de prospección
+        Pipelines de Prospección
       </h1>
-      <p class="ag-subtitle">Todos los horarios corresponden a Lima (UTC−5) · Lunes a viernes</p>
+      <p class="ag-subtitle">Lunes a sábado · Lima (UTC−5) · Render + Fuente de Datos</p>
     </div>
-    <div class="ag-header-right">
-      <span class="ag-status-pill loading" id="ag-worker-pill">
-        <i class="bi bi-circle"></i>
-        <span id="ag-worker-label">Conectando…</span>
-      </span>
-      <span class="ag-status-pill loading" id="ag-motor-pill" title="Motor local Mac">
-        <i class="bi bi-laptop"></i>
-        <span id="ag-motor-label">Motor local…</span>
-      </span>
-<a href="{{ url_for('agentes.prospeccion_lote_dia') }}" target="_blank" class="ag-lote-btn" id="ag-lote-btn">
-        <i class="bi bi-table"></i> Ver prospectos
-      </a>
+    <div class="ag-topbar-right">
+      <span class="ag-pill offline" id="pill-email"><i class="bi bi-envelope"></i> <span id="pill-email-lbl">Email…</span></span>
+      <span class="ag-pill offline" id="pill-wa"><i class="bi bi-whatsapp"></i> <span id="pill-wa-lbl">WA…</span></span>
       <button class="ag-refresh-btn" id="ag-refresh-btn" onclick="agRefresh()">
         <i class="bi bi-arrow-clockwise"></i> Actualizar
       </button>
     </div>
   </div>
 
-  <p class="ag-updated" id="ag-updated">
-    <i class="bi bi-clock" style="font-size:.62rem;"></i>
-    <span id="ag-ts">Cargando estado del pipeline…</span>
-  </p>
-
-  <!-- ── Resumen strip ──────────────────────────────────────────── -->
-  <div class="ag-resumen" id="ag-resumen">
-    <div class="ag-resumen-item">
-      <span class="ag-resumen-num" id="rsm-selec">—</span>
-      <span class="ag-resumen-lbl">Asignados al lote</span>
+  <!-- ── Hub selector ─────────────────────────────────────────── -->
+  <div class="hub-cards">
+    <div class="hub-card active-email" id="hub-email" onclick="switchPipeline('email')">
+      <div class="hub-icon email"><i class="bi bi-envelope-fill" style="color:#1d4ed8;"></i></div>
+      <div class="hub-info">
+        <p class="hub-name">Pipeline de Email</p>
+        <p class="hub-desc">Prospección por correo · 5 pasos · Lun–Sáb</p>
+      </div>
+      <span class="hub-badge" id="hub-email-badge">75/día</span>
     </div>
-    <div class="ag-resumen-item">
-      <span class="ag-resumen-num" id="rsm-valid">—</span>
-      <span class="ag-resumen-lbl">Correos aptos</span>
-    </div>
-    <div class="ag-resumen-item">
-      <span class="ag-resumen-num" id="rsm-acept">—</span>
-      <span class="ag-resumen-lbl">Aceptados hoy</span>
-    </div>
-    <div class="ag-resumen-item">
-      <span class="ag-resumen-num" id="rsm-rebote">—</span>
-      <span class="ag-resumen-lbl">Rebotes acum.</span>
+    <div class="hub-card" id="hub-wa" onclick="switchPipeline('wa')">
+      <div class="hub-icon wa"><i class="bi bi-whatsapp" style="color:#15803d;"></i></div>
+      <div class="hub-info">
+        <p class="hub-name">Campaña WhatsApp</p>
+        <p class="hub-desc">Plantilla Meta aprobada · 4 pasos · 09:30–13:15</p>
+      </div>
+      <span class="hub-badge" id="hub-wa-badge">112/día</span>
     </div>
   </div>
 
-  <!-- ── 5 Pipeline cards ───────────────────────────────────────── -->
-  <p class="ag-section-label">Estado del pipeline · 5 pasos</p>
-
-  <div class="ag-cards-scroll">
-  <div class="ag-cards" id="ag-cards">
-
-    <!-- Paso 1 — Elegir contactos -->
-    <div class="ag-card" id="card-seleccion">
-      <div>
-        <span class="ag-step">Paso 1</span>
-        <h3 class="ag-card-title">Elegir contactos</h3>
-      </div>
-      <p class="ag-card-what">Selecciona contactos de la Fuente de datos. Si hay un lote pendiente, continúa con él.</p>
-      <p class="ag-card-when">08:00 hora Lima</p>
-      <hr class="ag-card-divider">
-      <div id="c1-body" class="ag-card-result">
-        <div class="ag-skeleton sk-num"></div>
-        <div class="ag-skeleton sk-line"></div>
-        <div class="ag-skeleton sk-line w60"></div>
-      </div>
+  <!-- ══════════════════════════════════════════════════════════
+       PIPELINE EMAIL
+  ══════════════════════════════════════════════════════════ -->
+  <div class="pipeline-section visible" id="section-email">
+    <!-- Strip -->
+    <div class="ag-strip" id="email-strip">
+      <div class="ag-strip-item"><span class="ag-strip-num" id="rsm-selec">—</span><span class="ag-strip-lbl">Asignados al lote</span></div>
+      <div class="ag-strip-item"><span class="ag-strip-num" id="rsm-valid">—</span><span class="ag-strip-lbl">Correos aptos</span></div>
+      <div class="ag-strip-item"><span class="ag-strip-num" id="rsm-acept">—</span><span class="ag-strip-lbl">Aceptados hoy</span></div>
+      <div class="ag-strip-item"><span class="ag-strip-num" id="rsm-rebote">—</span><span class="ag-strip-lbl">Rebotes acum.</span></div>
     </div>
 
-    <!-- Paso 2 — Revisar correos -->
-    <div class="ag-card" id="card-validacion">
-      <div>
-        <span class="ag-step">Paso 2</span>
-        <h3 class="ag-card-title">Revisar correos</h3>
+    <p class="ag-section-lbl">Estado del pipeline · 5 pasos</p>
+    <div class="ag-cards-wrap">
+    <div class="ag-cards cols-5">
+
+      <!-- Paso 1 -->
+      <div class="ag-card email-accent">
+        <div><span class="ag-step">Paso 1</span><h3 class="ag-card-title">Elegir contactos</h3></div>
+        <p class="ag-card-what">Selecciona contactos de la Fuente de datos. Si hay un lote pendiente, continúa con él.</p>
+        <p class="ag-card-when">08:00 hora Lima</p>
+        <hr class="ag-card-divider">
+        <div id="c1-body" class="ag-card-result"><div class="ag-skeleton sk-num"></div><div class="ag-skeleton sk-line"></div><div class="ag-skeleton sk-line w60"></div></div>
       </div>
-      <p class="ag-card-what">Revisa los contactos y excluye duplicados, bajas y correos no aptos.</p>
-      <p class="ag-card-when">08:00 hora Lima · junto con la selección</p>
-      <hr class="ag-card-divider">
-      <div id="c2-body" class="ag-card-result">
-        <div class="ag-skeleton sk-num"></div>
-        <div class="ag-skeleton sk-line w60"></div>
-        <div class="ag-skeleton sk-line w40"></div>
+
+      <!-- Paso 2 -->
+      <div class="ag-card email-accent">
+        <div><span class="ag-step">Paso 2</span><h3 class="ag-card-title">Revisar correos</h3></div>
+        <p class="ag-card-what">Revisa los contactos y excluye duplicados, bajas y correos no aptos.</p>
+        <p class="ag-card-when">08:00 hora Lima · junto con la selección</p>
+        <hr class="ag-card-divider">
+        <div id="c2-body" class="ag-card-result"><div class="ag-skeleton sk-num"></div><div class="ag-skeleton sk-line w60"></div><div class="ag-skeleton sk-line w40"></div></div>
       </div>
+
+      <!-- Paso 3 -->
+      <div class="ag-card email-accent">
+        <div><span class="ag-step">Paso 3</span><h3 class="ag-card-title">Repartir contactos</h3></div>
+        <p class="ag-card-what">Distribuye los contactos entre las tres bandejas, con un máximo de 25 envíos diarios por bandeja.</p>
+        <p class="ag-card-when">09:00 hora Lima · máx 25/bandeja/día</p>
+        <hr class="ag-card-divider">
+        <div id="c3-body" class="ag-card-result"><div class="ag-skeleton sk-num"></div><div class="ag-skeleton sk-line"></div><div class="ag-skeleton sk-line w60"></div></div>
+      </div>
+
+      <!-- Paso 4 -->
+      <div class="ag-card email-accent">
+        <div><span class="ag-step">Paso 4</span><h3 class="ag-card-title">Enviar correos</h3></div>
+        <p class="ag-card-what">Envía la plantilla oficial con el tipo de cambio vigente. Máximo: 75 correos al día.</p>
+        <p class="ag-card-when">09:30–15:00 hora Lima · 7 tandas</p>
+        <hr class="ag-card-divider">
+        <div id="c4-body" class="ag-card-result"><div class="ag-skeleton sk-num"></div><div class="ag-skeleton sk-line w60"></div><div class="ag-skeleton sk-line w40"></div></div>
+      </div>
+
+      <!-- Paso 5 -->
+      <div class="ag-card email-accent">
+        <div><span class="ag-step">Paso 5</span><h3 class="ag-card-title">Revisar resultados</h3></div>
+        <p class="ag-card-what">Registra respuestas, rebotes y bajas; actualiza la fuente de datos.</p>
+        <p class="ag-card-when">17:00 hora Lima · respuestas y feedback cada 30 min</p>
+        <hr class="ag-card-divider">
+        <div id="c5-body" class="ag-card-result"><div class="ag-skeleton sk-num"></div><div class="ag-skeleton sk-line w60"></div><div class="ag-skeleton sk-line w40"></div></div>
+      </div>
+
+    </div>
+    </div>
+  </div><!-- /#section-email -->
+
+  <!-- ══════════════════════════════════════════════════════════
+       PIPELINE WA
+  ══════════════════════════════════════════════════════════ -->
+  <div class="pipeline-section" id="section-wa">
+    <!-- Strip -->
+    <div class="ag-strip">
+      <div class="ag-strip-item"><span class="ag-strip-num" id="wa-rsm-base">—</span><span class="ag-strip-lbl">Total en base</span></div>
+      <div class="ag-strip-item"><span class="ag-strip-num" id="wa-rsm-elegibles">—</span><span class="ag-strip-lbl">Elegibles hoy</span></div>
+      <div class="ag-strip-item"><span class="ag-strip-num" id="wa-rsm-enviados">—</span><span class="ag-strip-lbl">Enviados hoy</span></div>
+      <div class="ag-strip-item"><span class="ag-strip-num" id="wa-rsm-leidos">—</span><span class="ag-strip-lbl">Leídos hoy</span></div>
     </div>
 
-    <!-- Paso 3 — Repartir contactos -->
-    <div class="ag-card" id="card-asignacion">
-      <div>
-        <span class="ag-step">Paso 3</span>
-        <h3 class="ag-card-title">Repartir contactos</h3>
+    <p class="ag-section-lbl">Estado del pipeline · 4 pasos</p>
+    <div class="ag-cards-wrap">
+    <div class="ag-cards cols-4">
+
+      <!-- WA Paso 1 -->
+      <div class="ag-card wa-accent">
+        <div><span class="ag-step">Paso 1</span><h3 class="ag-card-title">Sincronizar base</h3></div>
+        <p class="ag-card-what">sync_wa_prospectos lee Fuente de Datos (col N + teléfono) y actualiza la base de prospectos WA en la DB.</p>
+        <p class="ag-card-when">08:05 y 17:30 · desde Mac (LaunchAgent)</p>
+        <hr class="ag-card-divider">
+        <div id="wa-c1-body" class="ag-card-result"><div class="ag-skeleton sk-num"></div><div class="ag-skeleton sk-line"></div><div class="ag-skeleton sk-line w60"></div></div>
       </div>
-      <p class="ag-card-what">Distribuye los contactos entre las tres bandejas, con un máximo de 25 envíos diarios por bandeja.</p>
-      <p class="ag-card-when">09:00 hora Lima · máx 25/bandeja/día</p>
-      <hr class="ag-card-divider">
-      <div id="c3-body" class="ag-card-result">
-        <div class="ag-skeleton sk-num"></div>
-        <div class="ag-skeleton sk-line"></div>
-        <div class="ag-skeleton sk-line w60"></div>
+
+      <!-- WA Paso 2 -->
+      <div class="ag-card wa-accent">
+        <div><span class="ag-step">Paso 2</span><h3 class="ag-card-title">Elegir contactos</h3></div>
+        <p class="ag-card-what">Render selecciona hasta 112 prospectos con teléfono válido que no hayan sido contactados en los últimos 7 días.</p>
+        <p class="ag-card-when">09:30 Lima · prioridad: col N llena (email enviado)</p>
+        <hr class="ag-card-divider">
+        <div id="wa-c2-body" class="ag-card-result"><div class="ag-skeleton sk-num"></div><div class="ag-skeleton sk-line w60"></div><div class="ag-skeleton sk-line w40"></div></div>
       </div>
+
+      <!-- WA Paso 3 -->
+      <div class="ag-card wa-accent">
+        <div><span class="ag-step">Paso 3</span><h3 class="ag-card-title">Enviar WhatsApp</h3></div>
+        <p class="ag-card-what">Envía plantilla <strong>qoricash_precio_dia</strong> con TC en tiempo real. 1 mensaje cada 2 minutos. Render corre sin Mac.</p>
+        <p class="ag-card-when">09:30–13:15 Lima · máx 112/día · 1 c/2 min</p>
+        <hr class="ag-card-divider">
+        <div id="wa-c3-body" class="ag-card-result"><div class="ag-skeleton sk-num"></div><div class="ag-skeleton sk-line w60"></div><div class="ag-skeleton sk-line w40"></div></div>
+      </div>
+
+      <!-- WA Paso 4 -->
+      <div class="ag-card wa-accent">
+        <div><span class="ag-step">Paso 4</span><h3 class="ag-card-title">Verificar estados</h3></div>
+        <p class="ag-card-what">Meta envía webhooks en tiempo real. El sistema actualiza automáticamente: Enviado → Entregado → Leído → Respuesta.</p>
+        <p class="ag-card-when">Tiempo real · webhooks Meta → Render</p>
+        <hr class="ag-card-divider">
+        <div id="wa-c4-body" class="ag-card-result"><div class="ag-skeleton sk-num"></div><div class="ag-skeleton sk-line w60"></div><div class="ag-skeleton sk-line w40"></div></div>
+      </div>
+
     </div>
-
-    <!-- Paso 4 — Enviar correos -->
-    <div class="ag-card" id="card-envios">
-      <div>
-        <span class="ag-step">Paso 4</span>
-        <h3 class="ag-card-title">Enviar correos</h3>
-      </div>
-      <p class="ag-card-what">Envía la plantilla oficial con el tipo de cambio vigente. Máximo: 75 correos al día.</p>
-      <p class="ag-card-when">09:30–15:00 hora Lima · 7 tandas</p>
-      <hr class="ag-card-divider">
-      <div id="c4-body" class="ag-card-result">
-        <div class="ag-skeleton sk-num"></div>
-        <div class="ag-skeleton sk-line w60"></div>
-        <div class="ag-skeleton sk-line w40"></div>
-      </div>
     </div>
+  </div><!-- /#section-wa -->
 
-    <!-- Paso 5 — Revisar resultados -->
-    <div class="ag-card" id="card-rebotes">
-      <div>
-        <span class="ag-step">Paso 5</span>
-        <h3 class="ag-card-title">Revisar resultados</h3>
+  <!-- ══════════════════════════════════════════════════════════
+       MAPA DEL DÍA (siempre visible)
+  ══════════════════════════════════════════════════════════ -->
+  <div class="mapa-section">
+    <p class="mapa-title"><i class="bi bi-clock" style="font-size:.9rem;color:var(--ag-muted);"></i> Mapa del día · Lunes–Sábado Lima</p>
+
+    <div class="mapa-timeline">
+
+      <div class="mapa-row email-row">
+        <div class="mapa-time">08:00</div>
+        <div class="mapa-content">
+          <p class="mapa-event">Selección y validación de emails</p>
+          <p class="mapa-desc">Scheduler lotes elige 75 contactos de Fuente de Datos y valida correos (3 etapas).</p>
+          <div class="mapa-tags"><span class="mapa-tag email">Email</span><span class="mapa-tag sys">Render Worker</span></div>
+        </div>
       </div>
-      <p class="ag-card-what">Registra respuestas, rebotes y bajas; actualiza la fuente de datos.</p>
-      <p class="ag-card-when">17:00 hora Lima · respuestas y feedback cada 30 min</p>
-      <hr class="ag-card-divider">
-      <div id="c5-body" class="ag-card-result">
-        <div class="ag-skeleton sk-num"></div>
-        <div class="ag-skeleton sk-line w60"></div>
-        <div class="ag-skeleton sk-line w40"></div>
+
+      <div class="mapa-row wa-row">
+        <div class="mapa-time">08:05</div>
+        <div class="mapa-content">
+          <p class="mapa-event">Sync prospectos WA (mañana)</p>
+          <p class="mapa-desc">sync_wa_prospectos lee Fuente de Datos (col N + tel.) y actualiza wa_prospectos_base en DB.</p>
+          <div class="mapa-tags"><span class="mapa-tag wa">WhatsApp</span><span class="mapa-tag sys">Mac LaunchAgent</span></div>
+        </div>
       </div>
-    </div>
 
-  </div><!-- /.ag-cards -->
-  </div><!-- /.ag-cards-scroll -->
+      <div class="mapa-row email-row">
+        <div class="mapa-time">09:00</div>
+        <div class="mapa-content">
+          <p class="mapa-event">Distribución a bandejas</p>
+          <p class="mapa-desc">Reparte los 75 contactos entre ggarcia / gerencia / info (máx 25 c/u).</p>
+          <div class="mapa-tags"><span class="mapa-tag email">Email</span><span class="mapa-tag sys">Render Worker</span></div>
+        </div>
+      </div>
 
+      <div class="mapa-row both-row">
+        <div class="mapa-time">09:30</div>
+        <div class="mapa-content">
+          <p class="mapa-event">Inicio de envíos — Email y WhatsApp en paralelo</p>
+          <p class="mapa-desc">Email: 7 tandas hasta las 15:00 (75 correos). WhatsApp: 1 mensaje cada 2 min hasta las 13:15 (112 WA). Ambos desde Render, sin Mac.</p>
+          <div class="mapa-tags"><span class="mapa-tag email">Email · hasta 15:00</span><span class="mapa-tag wa">WhatsApp · hasta 13:15</span><span class="mapa-tag sys">Render</span></div>
+        </div>
+      </div>
+
+      <div class="mapa-row wa-row">
+        <div class="mapa-time">13:15</div>
+        <div class="mapa-content">
+          <p class="mapa-event">Cierre ventana WhatsApp</p>
+          <p class="mapa-desc">El Agente WA deja de enviar. Los webhooks de Meta siguen actualizando estados (Entregado / Leído) en tiempo real.</p>
+          <div class="mapa-tags"><span class="mapa-tag wa">WhatsApp</span><span class="mapa-tag sys">Webhooks Meta</span></div>
+        </div>
+      </div>
+
+      <div class="mapa-row email-row">
+        <div class="mapa-time">17:00</div>
+        <div class="mapa-content">
+          <p class="mapa-event">Revisión de resultados email</p>
+          <p class="mapa-desc">Detecta rebotes, respuestas y bajas. Actualiza col N de Fuente de Datos con feedback de bandejas.</p>
+          <div class="mapa-tags"><span class="mapa-tag email">Email</span><span class="mapa-tag sys">Render · cada 30 min</span></div>
+        </div>
+      </div>
+
+      <div class="mapa-row wa-row">
+        <div class="mapa-time">17:30</div>
+        <div class="mapa-content">
+          <p class="mapa-event">Sync prospectos WA (tarde)</p>
+          <p class="mapa-desc">Segunda ejecución de sync_wa_prospectos. Captura los emails enviados durante el día (col N actualizada).</p>
+          <div class="mapa-tags"><span class="mapa-tag wa">WhatsApp</span><span class="mapa-tag sys">Mac LaunchAgent</span></div>
+        </div>
+      </div>
+
+    </div><!-- /.mapa-timeline -->
+
+    <!-- Mapa conceptual de flujo -->
+    <div class="mapa-conceptual">
+      <p class="mapa-conceptual-title">Cómo se alimentan los procesos</p>
+
+      <div class="mc-row">
+        <p class="mc-row-label" style="color:var(--ag-blue);">Pipeline Email</p>
+        <div class="mc-flow">
+          <div class="mc-node email">
+            <div class="mc-node-icon">📋</div>
+            <p class="mc-node-name">Fuente de Datos</p>
+            <p class="mc-node-time">08:00</p>
+            <p class="mc-node-desc">39,000+ empresas con email</p>
+          </div>
+          <div class="mc-arrow">→</div>
+          <div class="mc-node email">
+            <div class="mc-node-icon">✅</div>
+            <p class="mc-node-name">Validar emails</p>
+            <p class="mc-node-time">08:00</p>
+            <p class="mc-node-desc">3 etapas: regex → MX → SMTP</p>
+          </div>
+          <div class="mc-arrow">→</div>
+          <div class="mc-node email">
+            <div class="mc-node-icon">📤</div>
+            <p class="mc-node-name">Enviar correos</p>
+            <p class="mc-node-time">09:30–15:00</p>
+            <p class="mc-node-desc">75/día · 3 bandejas · TC real</p>
+          </div>
+          <div class="mc-arrow">→</div>
+          <div class="mc-node email">
+            <div class="mc-node-icon">🔄</div>
+            <p class="mc-node-name">Feedback</p>
+            <p class="mc-node-time">17:00+</p>
+            <p class="mc-node-desc">Rebotes → col N Fuente de Datos</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mc-row">
+        <p class="mc-row-label" style="color:var(--ag-wa);">Pipeline WhatsApp</p>
+        <div class="mc-flow">
+          <div class="mc-node wa">
+            <div class="mc-node-icon">📋</div>
+            <p class="mc-node-name">Fuente de Datos</p>
+            <p class="mc-node-time">08:05 · 17:30</p>
+            <p class="mc-node-desc">Col N + Tel. → wa_prospectos_base</p>
+          </div>
+          <div class="mc-arrow">→</div>
+          <div class="mc-node wa">
+            <div class="mc-node-icon">📱</div>
+            <p class="mc-node-name">Elegir 112</p>
+            <p class="mc-node-time">09:30</p>
+            <p class="mc-node-desc">Sin WA en 7 días · tel. válido</p>
+          </div>
+          <div class="mc-arrow">→</div>
+          <div class="mc-node wa">
+            <div class="mc-node-icon">💬</div>
+            <p class="mc-node-name">Enviar WA</p>
+            <p class="mc-node-time">09:30–13:15</p>
+            <p class="mc-node-desc">1 c/2 min · TC fresco · Render</p>
+          </div>
+          <div class="mc-arrow">→</div>
+          <div class="mc-node wa">
+            <div class="mc-node-icon">📊</div>
+            <p class="mc-node-name">Estados Meta</p>
+            <p class="mc-node-time">Tiempo real</p>
+            <p class="mc-node-desc">Enviado → Entregado → Leído</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mc-row">
+        <p class="mc-row-label" style="color:#8b5cf6;">Nexo: Fuente de Datos alimenta ambos pipelines</p>
+        <div class="mc-flow">
+          <div class="mc-node shared">
+            <div class="mc-node-icon">📊</div>
+            <p class="mc-node-name">Fuente de Datos</p>
+            <p class="mc-node-time">Hoja 1</p>
+            <p class="mc-node-desc">Col N = fecha email · Col I/J = tel.</p>
+          </div>
+          <div class="mc-arrow">→</div>
+          <div class="mc-node email">
+            <div class="mc-node-icon">✉️</div>
+            <p class="mc-node-name">Email (col G/H)</p>
+            <p class="mc-node-time">Pipeline Email</p>
+            <p class="mc-node-desc">Escribe col N tras envío</p>
+          </div>
+          <div class="mc-arrow" style="visibility:hidden;">→</div>
+          <div class="mc-node wa">
+            <div class="mc-node-icon">📱</div>
+            <p class="mc-node-name">WA (col I/J)</p>
+            <p class="mc-node-time">Pipeline WA</p>
+            <p class="mc-node-desc">Lee col N para priorizar</p>
+          </div>
+          <div class="mc-arrow">→</div>
+          <div class="mc-node shared">
+            <div class="mc-node-icon">🏆</div>
+            <p class="mc-node-name">/crm/whatsapp</p>
+            <p class="mc-node-time">Tiempo real</p>
+            <p class="mc-node-desc">Respuestas de prospectos</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /.mapa-conceptual -->
+  </div><!-- /.mapa-section -->
 
 </div><!-- /.ag-root -->
 
 <script>
-/* ── Pipeline poller ─────────────────────────────────────────────── */
 (function () {
   'use strict';
 
-  const API_URL       = '{{ url_for("agentes.api_pipeline_cards") }}';
-  const MOTOR_API_URL = '{{ url_for("agentes.api_motor_status") }}';
-  const POLL_MS       = 20000;
-  const MOTOR_POLL_MS = 30000;
-  let   pollTimer     = null;
-  let   motorTimer    = null;
-  let   firstLoad     = true;
+  const EMAIL_API = '{{ url_for("agentes.api_pipeline_cards") }}';
+  const WA_API    = '{{ url_for("agentes.api_wa_pipeline_cards") }}';
+  const MOTOR_API = '{{ url_for("agentes.api_motor_status") }}';
+  const POLL_MS   = 20000;
 
-  function fmt(n) {
-    if (n === null || n === undefined) return '—';
-    return Number(n).toLocaleString('es-PE');
-  }
+  let currentTab  = 'email';
+  let pollTimer   = null;
+  let firstLoad   = { email: true, wa: true };
 
-  function sbadge(cls, dot, label) {
-    return `<span class="ag-sbadge ${cls}"><span class="ag-dot"></span>${label}</span>`;
-  }
+  // ── Tab switcher ───────────────────────────────────────────────
+  window.switchPipeline = function (tab) {
+    currentTab = tab;
+    document.getElementById('section-email').classList.toggle('visible', tab === 'email');
+    document.getElementById('section-wa').classList.toggle('visible',    tab === 'wa');
+    document.getElementById('hub-email').className = 'hub-card' + (tab === 'email' ? ' active-email' : '');
+    document.getElementById('hub-wa').className    = 'hub-card' + (tab === 'wa'    ? ' active-wa'    : '');
+    fetchAll();
+  };
 
-  // ── Scheduler pill ────────────────────────────────────────────────
-  function setWorkerPill(scheduler) {
-    const pill = document.getElementById('ag-worker-pill');
-    const lbl  = document.getElementById('ag-worker-label');
-    const dot  = document.getElementById('ag-pulse-dot');
-    if (!scheduler || !scheduler.online) {
-      pill.className  = 'ag-status-pill offline';
-      lbl.textContent = 'Scheduler · sin conexión';
-      dot.classList.remove('live');
-      dot.style.background = '#94a3b8';
-    } else {
-      pill.className  = 'ag-status-pill online';
-      lbl.textContent = `Scheduler · ${scheduler.status || 'activo'}`;
-      dot.classList.add('live');
-      dot.style.background = '#196BFE';
-    }
-  }
+  // ── Helpers ────────────────────────────────────────────────────
+  function fmt(n) { if (n === null || n === undefined) return '—'; return Number(n).toLocaleString('es-PE'); }
+  function sbadge(cls, label) { return `<span class="ag-sbadge ${cls}"><span class="ag-dot"></span>${label}</span>`; }
 
-  function setWorkerError() {
-    const pill = document.getElementById('ag-worker-pill');
-    const lbl  = document.getElementById('ag-worker-label');
-    const dot  = document.getElementById('ag-pulse-dot');
-    pill.className  = 'ag-status-pill error';
-    lbl.textContent = 'Scheduler · sin datos';
-    dot.classList.remove('live');
-    dot.style.background = '#dc2626';
-  }
-
-  // ── Motor local pill ──────────────────────────────────────────────
-  function setMotorPill(m) {
-    const pill = document.getElementById('ag-motor-pill');
-    const lbl  = document.getElementById('ag-motor-label');
-    if (!m || !m.disponible) {
-      pill.className  = 'ag-status-pill offline'; lbl.textContent = 'Motor local'; return;
-    }
-    if (m.conectado) {
-      const mins = (m.edad_min !== null && m.edad_min !== undefined) ? ` · ${m.edad_min} min` : '';
-      pill.className  = 'ag-status-pill online';
-      lbl.textContent = `Motor local${mins}`;
-    } else if (m.edad_min !== null && m.edad_min !== undefined) {
-      // Heartbeat antiguo: no afirmar ni activo ni pausado
-      pill.className  = 'ag-status-pill loading';
-      lbl.textContent = `Estado sin confirmar · hace ${m.edad_min} min`;
-    } else {
-      pill.className  = 'ag-status-pill offline';
-      lbl.textContent = 'Sin señal conocida';
-    }
-    if (m.ultimo_lote_id) pill.title = `Último lote: ${m.ultimo_lote_id}`;
-  }
-
-  async function fetchMotorStatus() {
-    try {
-      const r = await fetch(MOTOR_API_URL, { credentials: 'same-origin' });
-      if (r.ok) setMotorPill(await r.json());
-    } catch (_) {}
-  }
-
-  // ── Card 1: Elegir contactos ──────────────────────────────────────
-  // seleccionados = asignados a bandeja en el lote operativo
-  // elegibles, excluidos, pendientes = sub-conteos del mismo lote
+  // ── Email pipeline renders (same logic as before) ──────────────
   function renderC1(d, loteOp) {
-    const seleccionados = d.seleccionados || 0;
-    const elegibles     = d.elegibles     || 0;
-    const excluidos     = d.excluidos     || 0;
-    const pendientes    = d.pendientes    || 0;
-
-    // Fuente de datos
-    const sheetId     = d.fuente_activa || '—';
-    const fuenteTab   = d.fuente_tab    || '';
-    const esPendiente = sheetId === 'pendiente de conectar' || sheetId === '—';
-    const sheetUrl    = !esPendiente ? `https://docs.google.com/spreadsheets/d/${sheetId}` : null;
-    const fuenteLabel = fuenteTab ? `Fuente de Datos · ${fuenteTab}` : (esPendiente ? 'Sin fuente' : 'Fuente de Datos');
-    const fuenteHtml  = sheetUrl
-        ? `<a href="${sheetUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;color:#196BFE;">📊 ${fuenteLabel}</a>`
-        : `<span style="color:${esPendiente ? '#c2410c' : '#196BFE'};">${fuenteLabel}</span>`;
-
-    // Estado del lote (solo muestra si hay datos)
-    const loteId    = loteOp && loteOp.lote_id ? loteOp.lote_id : null;
-    const loteFecha = loteOp && loteOp.fecha   ? loteOp.fecha   : null;
+    const sel  = d.seleccionados || 0, el = d.elegibles || 0, exc = d.excluidos || 0, pen = d.pendientes || 0;
+    const sheetId = d.fuente_activa || '—', tab = d.fuente_tab || '';
+    const noPend  = sheetId === 'pendiente de conectar' || sheetId === '—';
+    const sheetUrl = !noPend ? `https://docs.google.com/spreadsheets/d/${sheetId}` : null;
+    const fLabel   = tab ? `Fuente de Datos · ${tab}` : (noPend ? 'Sin fuente' : 'Fuente de Datos');
+    const fHtml    = sheetUrl
+      ? `<a href="${sheetUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;color:#196BFE;">📊 ${fLabel}</a>`
+      : `<span style="color:${noPend ? '#c2410c' : '#196BFE'};">${fLabel}</span>`;
+    const loteId = loteOp && loteOp.lote_id ? loteOp.lote_id : null;
     const loteEsHoy = loteOp && loteOp.es_hoy;
-    let loteBadge = '';
-    if (loteId) {
-      const cls = loteEsHoy ? 'ok' : 'warn';
-      const ico = loteEsHoy ? '📋' : '⏳';
-      const txt = loteEsHoy ? `Lote de hoy · ${loteId}` : `Lote del ${loteFecha} · ${loteId}`;
-      loteBadge = sbadge(cls, true, `${ico} ${txt}`);
-    } else {
-      loteBadge = sbadge('off', true, 'Sin lote activo');
-    }
-
-    document.getElementById('rsm-selec').textContent = fmt(seleccionados);
+    let loteBadge = loteId
+      ? sbadge(loteEsHoy ? 'ok' : 'warn', (loteEsHoy ? '📋 Lote de hoy · ' : '⏳ Lote del ') + loteId)
+      : sbadge('off', 'Sin lote activo');
+    document.getElementById('rsm-selec').textContent = fmt(sel);
     document.getElementById('c1-body').innerHTML = `
-      <div class="ag-number">${fmt(seleccionados)}<span class="ag-number-unit">asignados al lote</span></div>
+      <div class="ag-number">${fmt(sel)}<span class="ag-number-unit">asignados al lote</span></div>
       <div class="ag-stats">
-        <div class="ag-stat">
-          <span class="ag-stat-val" style="color:#64748b;">${fmt(elegibles)}</span>
-          <span class="ag-stat-lbl">Revisados</span>
-        </div>
-        <div class="ag-stat">
-          <span class="ag-stat-val" style="color:${excluidos > 0 ? '#dc2626' : '#64748b'};">${fmt(excluidos)}</span>
-          <span class="ag-stat-lbl">Excluidos</span>
-        </div>
-        <div class="ag-stat">
-          <span class="ag-stat-val" style="color:#64748b;">${fmt(pendientes)}</span>
-          <span class="ag-stat-lbl">Por enviar</span>
-        </div>
+        <div class="ag-stat"><span class="ag-stat-val">${fmt(el)}</span><span class="ag-stat-lbl">Revisados</span></div>
+        <div class="ag-stat"><span class="ag-stat-val" style="color:${exc>0?'#dc2626':'#64748b'};">${fmt(exc)}</span><span class="ag-stat-lbl">Excluidos</span></div>
+        <div class="ag-stat"><span class="ag-stat-val">${fmt(pen)}</span><span class="ag-stat-lbl">Por enviar</span></div>
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
-        <span style="font-size:.62rem;font-weight:700;padding:2px 8px;border-radius:20px;
-                     background:${esPendiente ? '#fff7ed' : '#eff5ff'};
-                     border:1px solid ${esPendiente ? '#fed7aa' : '#bfdbfe'};">${fuenteHtml}</span>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <span style="font-size:.62rem;font-weight:700;padding:2px 8px;border-radius:20px;background:${noPend?'#fff7ed':'#eff5ff'};border:1px solid ${noPend?'#fed7aa':'#bfdbfe'};">${fHtml}</span>
         ${loteBadge}
       </div>`;
   }
-
-  // ── Card 2: Revisar correos ───────────────────────────────────────
-  // validos = correos que pasaron revisión · sin_validar + invalidos/riesgo = excluidos
   function renderC2(d) {
-    const validos   = d.validos     || 0;
-    const sinval    = d.sin_validar || 0;
-    const invalidos = (d.invalidos  || 0) + (d.riesgo || 0);
-    document.getElementById('rsm-valid').textContent = fmt(validos);
+    const v = d.validos || 0, s = d.sin_validar || 0, i = (d.invalidos || 0) + (d.riesgo || 0);
+    document.getElementById('rsm-valid').textContent = fmt(v);
     document.getElementById('c2-body').innerHTML = `
-      <div class="ag-number">${fmt(validos)}<span class="ag-number-unit">correos aptos</span></div>
+      <div class="ag-number">${fmt(v)}<span class="ag-number-unit">correos aptos</span></div>
       <div class="ag-stats">
-        <div class="ag-stat">
-          <span class="ag-stat-val" style="color:#64748b;">${fmt(sinval)}</span>
-          <span class="ag-stat-lbl">Sin revisar</span>
-        </div>
-        <div class="ag-stat">
-          <span class="ag-stat-val" style="color:#d97706;">${fmt(invalidos)}</span>
-          <span class="ag-stat-lbl">No aptos</span>
-        </div>
+        <div class="ag-stat"><span class="ag-stat-val">${fmt(s)}</span><span class="ag-stat-lbl">Sin revisar</span></div>
+        <div class="ag-stat"><span class="ag-stat-val" style="color:#d97706;">${fmt(i)}</span><span class="ag-stat-lbl">No aptos</span></div>
       </div>`;
   }
-
-  // ── Card 3: Repartir contactos ────────────────────────────────────
-  // asignados = total del lote (puede ser 300 en lotes anteriores)
-  // enviados_hoy = solo los enviados en el día actual por esa bandeja
-  // Límite diario: 25 por bandeja (configurado en scheduler)
   function renderC3(d) {
-    const asignados = d.bandejas       || [];
-    const estado    = d.bandeja_estado || [];
-
-    const estadoMap = {};
-    estado.forEach(b => { estadoMap[b.bandeja || b.name] = b; });
-
-    let rowsHTML = '';
-    if (asignados.length) {
-      rowsHTML = asignados.map(a => {
-        const nombre   = a.bandeja || '—';
-        const es       = estadoMap[nombre] || {};
-        const paused   = es.pausada;
-        const envHoy   = es.enviados_hoy != null ? fmt(es.enviados_hoy) : '—';
-        return `<div style="display:flex;justify-content:space-between;font-size:.72rem;margin-bottom:4px;align-items:center;">
-          <span style="font-weight:600;color:${paused ? '#d97706' : '#475569'};">
-            ${nombre}${paused ? ' · pausada' : ''}
-          </span>
-          <span>
-            <span style="font-family:'Courier New',monospace;font-weight:700;color:#0f172a;">${fmt(a.asignados)}</span>
-            <span style="color:#94a3b8;font-size:.6rem;margin-left:3px;">en lote</span>
-            <span style="color:#94a3b8;margin:0 4px;">·</span>
-            <span style="font-family:'Courier New',monospace;font-weight:700;color:#196BFE;">${envHoy}</span>
-            <span style="color:#94a3b8;font-size:.6rem;margin-left:3px;">hoy</span>
-          </span>
-        </div>`;
-      }).join('');
-    } else if (estado.length) {
-      rowsHTML = estado.map(b => {
-        const nombre = b.bandeja || b.name || '—';
-        const paused = b.pausada;
+    const asig = d.bandejas || [], est = d.bandeja_estado || [];
+    const estMap = {}; est.forEach(b => { estMap[b.bandeja || b.name] = b; });
+    let rows = '';
+    if (asig.length) {
+      rows = asig.map(a => {
+        const e = estMap[a.bandeja] || {}, paused = e.pausada, envHoy = e.enviados_hoy != null ? fmt(e.enviados_hoy) : '—';
         return `<div style="display:flex;justify-content:space-between;font-size:.72rem;margin-bottom:4px;">
-          <span style="font-weight:600;color:${paused ? '#d97706' : '#475569'};">${nombre}</span>
-          <span style="font-size:.62rem;color:#94a3b8;">sin lote activo</span>
+          <span style="font-weight:600;color:${paused?'#d97706':'#475569'};">${a.bandeja}${paused?' · pausada':''}</span>
+          <span><span style="font-family:'Courier New',monospace;font-weight:700;">${fmt(a.asignados)}</span> <span style="color:#94a3b8;font-size:.6rem;">en lote</span> · <span style="font-family:'Courier New',monospace;font-weight:700;color:#196BFE;">${envHoy}</span> <span style="color:#94a3b8;font-size:.6rem;">hoy</span></span>
         </div>`;
       }).join('');
     }
-
-    const titulo = asignados.length
-        ? `${asignados.length} bandeja${asignados.length > 1 ? 's' : ''}`
-        : 'Sin asignación';
-
     document.getElementById('c3-body').innerHTML = `
-      <div style="font-size:.8rem;font-weight:700;color:#0f172a;margin-bottom:6px;">${titulo}</div>
-      ${rowsHTML || '<div style="font-size:.72rem;color:#94a3b8;">Sin información</div>'}
+      <div style="font-size:.8rem;font-weight:700;color:#0f172a;margin-bottom:6px;">${asig.length ? asig.length + ' bandejas' : 'Sin asignación'}</div>
+      ${rows || '<div style="font-size:.72rem;color:#94a3b8;">Sin información</div>'}
       <div class="ag-note">En lote: total asignado. Hoy: envíos del día.</div>`;
   }
-
-  // ── Card 4: Enviar correos ────────────────────────────────────────
-  // enviados = aceptados por proveedor (Gmail 2xx) con fecha Lima = hoy
-  // dry_run=TRUE → nunca hay enviados reales, solo simulados
   function renderC4(d, dryRun) {
-    const enviados       = d.enviados       || 0;
-    const simulados      = d.simulados      || 0;
-    const enProceso      = d.en_proceso     || 0;
-    const conciliacion   = d.conciliacion   || 0;
-    const errores        = d.errores        || 0;
-    const pendientesLote = d.pendientes_lote != null ? d.pendientes_lote : (d.pendientes || 0);
-    const inciertas      = enProceso + conciliacion;
-
-    document.getElementById('rsm-acept').textContent = fmt(enviados);
+    const env = d.enviados || 0, sim = d.simulados || 0, pen = d.pendientes_lote != null ? d.pendientes_lote : (d.pendientes || 0), err = d.errores || 0;
+    document.getElementById('rsm-acept').textContent = fmt(env);
     document.getElementById('c4-body').innerHTML = `
-      ${dryRun ? `<span class="ag-sbadge off" style="margin-bottom:4px;display:inline-flex;">
-        <span class="ag-dot"></span>Envíos pausados
-      </span>
-      <p style="font-size:.68rem;color:var(--ag-muted);margin:0 0 4px;">Los correos no se enviarán mientras esta opción esté deshabilitada.</p>` : ''}
-      <div class="ag-number">${fmt(enviados)}<span class="ag-number-unit">aceptados hoy · máx 75</span></div>
+      ${dryRun ? `<span class="ag-sbadge off" style="margin-bottom:4px;display:inline-flex;"><span class="ag-dot"></span>Envíos pausados</span><p style="font-size:.68rem;color:var(--ag-muted);margin:0 0 4px;">Los correos no se enviarán mientras esta opción esté deshabilitada.</p>` : ''}
+      <div class="ag-number">${fmt(env)}<span class="ag-number-unit">aceptados hoy · máx 75</span></div>
       <div class="ag-stats">
-        <div class="ag-stat">
-          <span class="ag-stat-val" style="color:#64748b;">${fmt(pendientesLote)}</span>
-          <span class="ag-stat-lbl">Pendientes del lote</span>
-        </div>
-        ${simulados > 0 ? `<div class="ag-stat">
-          <span class="ag-stat-val" style="color:#d97706;">${fmt(simulados)}</span>
-          <span class="ag-stat-lbl">Simulados</span>
-        </div>` : ''}
-        ${inciertas > 0 ? `<div class="ag-stat">
-          <span class="ag-stat-val" style="color:#d97706;">${fmt(inciertas)}</span>
-          <span class="ag-stat-lbl">En conciliación</span>
-        </div>` : ''}
-        <div class="ag-stat">
-          <span class="ag-stat-val" style="color:${errores > 0 ? '#dc2626' : '#64748b'};">${fmt(errores)}</span>
-          <span class="ag-stat-lbl">Error hoy</span>
-        </div>
+        <div class="ag-stat"><span class="ag-stat-val">${fmt(pen)}</span><span class="ag-stat-lbl">Pendientes del lote</span></div>
+        ${sim > 0 ? `<div class="ag-stat"><span class="ag-stat-val" style="color:#d97706;">${fmt(sim)}</span><span class="ag-stat-lbl">Simulados</span></div>` : ''}
+        <div class="ag-stat"><span class="ag-stat-val" style="color:${err>0?'#dc2626':'#64748b'};">${fmt(err)}</span><span class="ag-stat-lbl">Error hoy</span></div>
       </div>
       <div class="ag-note">Aceptado por el proveedor; no confirma entrega.</div>`;
   }
-
-  // ── Card 5: Revisar resultados ────────────────────────────────────
-  // total_acumulado = rebotes históricos · detectados_hoy = con fecha Lima = hoy
-  // La última ejecución real de este paso no está disponible en la API.
   function renderC5(d) {
-    const acum = d.total_acumulado || 0;
-    const hoy  = d.detectados_hoy  || 0;
-    document.getElementById('rsm-rebote').textContent = fmt(acum);
+    const a = d.total_acumulado || 0, h = d.detectados_hoy || 0;
+    document.getElementById('rsm-rebote').textContent = fmt(a);
     document.getElementById('c5-body').innerHTML = `
-      <div class="ag-number">${fmt(acum)}<span class="ag-number-unit">rebotes acumulados</span></div>
-      <div class="ag-stats">
-        <div class="ag-stat">
-          <span class="ag-stat-val" style="color:${hoy > 0 ? '#dc2626' : '#64748b'};">${fmt(hoy)}</span>
-          <span class="ag-stat-lbl">Detectados hoy</span>
-        </div>
-      </div>
-      ${sbadge('off', false, 'Última ejecución: sin información')}`;
+      <div class="ag-number">${fmt(a)}<span class="ag-number-unit">rebotes acumulados</span></div>
+      <div class="ag-stats"><div class="ag-stat"><span class="ag-stat-val" style="color:${h>0?'#dc2626':'#64748b'};">${fmt(h)}</span><span class="ag-stat-lbl">Detectados hoy</span></div></div>
+      ${sbadge('off', 'Última ejecución: sin información')}`;
   }
 
-  // ── Render all ────────────────────────────────────────────────────
-  function render(data) {
+  function renderEmail(data) {
     if (!data) return;
-
     const loteOp = data.lote_op || null;
-
-    setWorkerPill(data.scheduler || null);
     renderC1(data.seleccion  || {}, loteOp);
     renderC2(data.validacion || {});
     renderC3(data.asignacion || {});
     renderC4(data.envios     || {}, !!data.dry_run);
     renderC5(data.rebotes    || {});
-
-    const btn = document.getElementById('ag-lote-btn');
-    if (btn && loteOp && loteOp.fecha) {
-      const base = btn.href.split('?')[0];
-      btn.href  = loteOp.es_hoy ? base : `${base}?fecha=${loteOp.fecha}`;
-      btn.title = loteOp.lote_id ? `Lote: ${loteOp.lote_id}` : '';
+    // Scheduler pill
+    const sc = data.scheduler || null;
+    const pill = document.getElementById('pill-email');
+    const lbl  = document.getElementById('pill-email-lbl');
+    const dot  = document.getElementById('ag-pulse-dot');
+    if (sc && sc.online) {
+      pill.className = 'ag-pill online'; lbl.textContent = 'Email · activo'; dot.classList.add('live');
+    } else {
+      pill.className = 'ag-pill offline'; lbl.textContent = 'Email · sin señal'; dot.classList.remove('live');
     }
-
-    if (!data.disponible) {
-      ['rsm-selec','rsm-valid','rsm-acept','rsm-rebote'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el && el.textContent === '—') el.textContent = 'Sin lote';
-      });
-    }
-
-    const ts = new Date().toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-    document.getElementById('ag-ts').textContent = 'Actualizado: ' + ts;
-    firstLoad = false;
+    // Update hub badge
+    const env = (data.envios || {}).enviados || 0;
+    document.getElementById('hub-email-badge').textContent = fmt(env) + '/75 hoy';
+    firstLoad.email = false;
   }
 
-  // ── Fetch ─────────────────────────────────────────────────────────
-  async function fetchCards() {
+  // ── WA pipeline renders ────────────────────────────────────────
+  function renderWA(data) {
+    if (!data || !data.ok) return;
+    const sync = data.sync || {}, el = data.elegibles || {}, env = data.envios || {}, res = data.resultados || {};
+
+    document.getElementById('wa-rsm-base').textContent      = fmt(sync.total_base);
+    document.getElementById('wa-rsm-elegibles').textContent = fmt(el.total);
+    document.getElementById('wa-rsm-enviados').textContent  = fmt(env.aceptados_hoy);
+    document.getElementById('wa-rsm-leidos').textContent    = fmt(env.leidos_hoy);
+
+    // WA Card 1 — Sync
+    document.getElementById('wa-c1-body').innerHTML = `
+      <div class="ag-number">${fmt(sync.total_base)}<span class="ag-number-unit">total en base</span></div>
+      <div class="ag-stats">
+        <div class="ag-stat"><span class="ag-stat-val">${fmt(sync.sin_wa)}</span><span class="ag-stat-lbl">Sin WA aún</span></div>
+        <div class="ag-stat"><span class="ag-stat-val" style="color:var(--ag-wa);">${fmt(sync.enviados_hoy)}</span><span class="ag-stat-lbl">Registrados hoy</span></div>
+      </div>
+      ${sync.ultima_sync ? sbadge('wa', 'Último sync: ' + sync.ultima_sync) : sbadge('off', 'Sin sync registrado')}`;
+
+    // WA Card 2 — Elegibles
+    document.getElementById('wa-c2-body').innerHTML = `
+      <div class="ag-number">${fmt(el.total)}<span class="ag-number-unit">elegibles hoy</span></div>
+      <div class="ag-stats">
+        <div class="ag-stat"><span class="ag-stat-val" style="color:var(--ag-muted);">${fmt(el.max_dia)}</span><span class="ag-stat-lbl">Máx por día</span></div>
+      </div>
+      ${sbadge('ok', 'Prioridad: col N llena (email enviado)')}`;
+
+    // WA Card 3 — Envíos
+    const entregados = env.entregados_hoy || 0, leidos = env.leidos_hoy || 0, fallidos = env.fallidos_hoy || 0;
+    document.getElementById('wa-c3-body').innerHTML = `
+      <div class="ag-number">${fmt(env.aceptados_hoy)}<span class="ag-number-unit">enviados hoy · máx 112</span></div>
+      <div class="ag-stats">
+        <div class="ag-stat"><span class="ag-stat-val" style="color:#64748b;">${fmt(entregados)}</span><span class="ag-stat-lbl">Entregados</span></div>
+        <div class="ag-stat"><span class="ag-stat-val" style="color:var(--ag-wa);">${fmt(leidos)}</span><span class="ag-stat-lbl">Leídos</span></div>
+        <div class="ag-stat"><span class="ag-stat-val" style="color:${fallidos>0?'#dc2626':'#64748b'};">${fmt(fallidos)}</span><span class="ag-stat-lbl">Fallidos</span></div>
+      </div>
+      <div class="ag-note">Ventana: ${env.ventana || '09:30–13:15'} · 1 mensaje cada 2 min</div>`;
+
+    // WA Card 4 — Resultados
+    document.getElementById('wa-c4-body').innerHTML = `
+      <div class="ag-number">${fmt(res.total_acumulado)}<span class="ag-number-unit">enviados total acumulado</span></div>
+      <div class="ag-stats">
+        <div class="ag-stat"><span class="ag-stat-val" style="color:var(--ag-green);">${fmt(res.respondieron)}</span><span class="ag-stat-lbl">Respondieron</span></div>
+      </div>
+      ${sbadge('wa', 'Webhooks Meta activos')}`;
+
+    // WA pill
+    const waActivos = (env.aceptados_hoy || 0) > 0;
+    const pillWa = document.getElementById('pill-wa');
+    const lblWa  = document.getElementById('pill-wa-lbl');
+    pillWa.className = waActivos ? 'ag-pill wa-on' : 'ag-pill offline';
+    lblWa.textContent = waActivos ? `WA · ${fmt(env.aceptados_hoy)} hoy` : 'WA · sin envíos hoy';
+
+    // hub badge
+    document.getElementById('hub-wa-badge').textContent = fmt(env.aceptados_hoy) + '/112 hoy';
+    firstLoad.wa = false;
+  }
+
+  // ── Fetch ──────────────────────────────────────────────────────
+  async function fetchAll() {
     const btn = document.getElementById('ag-refresh-btn');
     btn.classList.add('spinning');
     try {
-      const r = await fetch(API_URL, { credentials: 'same-origin' });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      render(await r.json());
-    } catch (err) {
-      console.warn('[Pipeline] fetch error:', err);
-      setWorkerError();
-      if (firstLoad) {
-        ['c1-body','c2-body','c3-body','c4-body','c5-body'].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.innerHTML = '<div style="font-size:.75rem;color:#dc2626;padding:6px 0;"><i class="bi bi-exclamation-circle me-1"></i>No disponible</div>';
-        });
-        document.getElementById('ag-ts').textContent = 'Error de conexión — reintentando…';
-      }
-    } finally {
-      btn.classList.remove('spinning');
-    }
+      const [rEmail, rWa, rMotor] = await Promise.allSettled([
+        fetch(EMAIL_API, { credentials: 'same-origin' }),
+        fetch(WA_API,    { credentials: 'same-origin' }),
+        fetch(MOTOR_API, { credentials: 'same-origin' }),
+      ]);
+      if (rEmail.status === 'fulfilled' && rEmail.value.ok) renderEmail(await rEmail.value.json());
+      if (rWa.status    === 'fulfilled' && rWa.value.ok)    renderWA(await rWa.value.json());
+    } catch (e) { console.warn('[Pipeline] fetch error:', e); }
+    finally { btn.classList.remove('spinning'); }
   }
 
-  function startPolling() {
-    fetchCards();
-    pollTimer  = setInterval(fetchCards,       POLL_MS);
-    motorTimer = setInterval(fetchMotorStatus, MOTOR_POLL_MS);
-    fetchMotorStatus();
-  }
-
-  window.agRefresh = function () {
-    clearInterval(pollTimer); clearInterval(motorTimer); startPolling();
-  };
+  window.agRefresh = function () { clearInterval(pollTimer); fetchAll(); pollTimer = setInterval(fetchAll, POLL_MS); };
 
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden) { clearInterval(pollTimer); clearInterval(motorTimer); }
-    else startPolling();
+    if (document.hidden) clearInterval(pollTimer);
+    else { fetchAll(); pollTimer = setInterval(fetchAll, POLL_MS); }
   });
 
-  startPolling();
+  fetchAll();
+  pollTimer = setInterval(fetchAll, POLL_MS);
 })();
-
-
 </script>
 {% endblock %}

@@ -377,6 +377,101 @@ def api_motor_status():
     return jsonify(get_motor_local_status())
 
 
+@agentes_bp.route('/api/wa/pipeline-cards')
+@login_required
+@_require_agent_access
+def api_wa_pipeline_cards():
+    """Datos en tiempo real para el pipeline WA (4 pasos)."""
+    from app.models.wa_prospecto_base import WaProspectoBase
+    from app.models.wa_campana_prospecto import WaCampanaProspecto
+    from app.utils.formatters import now_peru
+    from sqlalchemy import func, case
+    import datetime
+
+    hoy = now_peru().date()
+    hoy_start = datetime.datetime(hoy.year, hoy.month, hoy.day, 0, 0, 0)
+    hoy_end   = datetime.datetime(hoy.year, hoy.month, hoy.day, 23, 59, 59)
+
+    try:
+        # ── Paso 1: Base (sync desde Fuente de Datos) ─────────────────────────
+        total_base    = db.session.query(func.count(WaProspectoBase.id)).scalar() or 0
+        sinwa         = db.session.query(func.count(WaProspectoBase.id)).filter(
+                            WaProspectoBase.fecha_wa.is_(None)).scalar() or 0
+        conwa_hoy     = db.session.query(func.count(WaProspectoBase.id)).filter(
+                            WaProspectoBase.fecha_wa >= hoy_start,
+                            WaProspectoBase.fecha_wa <= hoy_end).scalar() or 0
+
+        # ── Paso 2: Elegibles (contactados en 7+ días o sin contactar) ────────
+        hace7 = datetime.datetime.now() - datetime.timedelta(days=7)
+        elegibles_hoy = db.session.query(func.count(WaProspectoBase.id)).filter(
+            db.or_(
+                WaProspectoBase.fecha_wa.is_(None),
+                WaProspectoBase.fecha_wa < hace7,
+            )
+        ).scalar() or 0
+
+        # ── Paso 3: Envíos de hoy ─────────────────────────────────────────────
+        stats = db.session.query(
+            func.count(WaCampanaProspecto.id),
+            func.sum(case((WaCampanaProspecto.estado == 'enviado',   1), else_=0)),
+            func.sum(case((WaCampanaProspecto.estado == 'entregado', 1), else_=0)),
+            func.sum(case((WaCampanaProspecto.estado == 'leido',     1), else_=0)),
+            func.sum(case((WaCampanaProspecto.estado == 'fallido',   1), else_=0)),
+        ).filter(
+            WaCampanaProspecto.fecha_envio >= hoy_start,
+            WaCampanaProspecto.fecha_envio <= hoy_end,
+        ).first()
+
+        total_hoy, enviados_hoy, entregados_hoy, leidos_hoy, fallidos_hoy = (
+            int(stats[0] or 0), int(stats[1] or 0),
+            int(stats[2] or 0), int(stats[3] or 0), int(stats[4] or 0)
+        )
+        aceptados_hoy = enviados_hoy + entregados_hoy + leidos_hoy
+
+        # ── Paso 4: Acumulado (últimas campañas) ──────────────────────────────
+        acum = db.session.query(
+            func.count(WaCampanaProspecto.id),
+            func.sum(case((WaCampanaProspecto.respondio_en.isnot(None), 1), else_=0)),
+        ).filter(WaCampanaProspecto.estado.in_(['enviado', 'entregado', 'leido'])).first()
+        total_acum  = int(acum[0] or 0)
+        respondieron = int(acum[1] or 0)
+
+        # Última fecha de sync (última fecha_wa registrada)
+        ultima_sync = db.session.query(func.max(WaProspectoBase.fecha_wa)).scalar()
+        ultima_sync_str = ultima_sync.strftime('%d/%m %H:%M') if ultima_sync else None
+
+    except Exception as e:
+        _log.warning(f'[api_wa_pipeline_cards] error: {e}')
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+    return jsonify({
+        'ok': True,
+        'hoy': hoy.isoformat(),
+        'sync': {
+            'total_base':  total_base,
+            'sin_wa':      sinwa,
+            'enviados_hoy': conwa_hoy,
+            'ultima_sync': ultima_sync_str,
+        },
+        'elegibles': {
+            'total':    elegibles_hoy,
+            'max_dia':  112,
+        },
+        'envios': {
+            'total_hoy':     total_hoy,
+            'aceptados_hoy': aceptados_hoy,
+            'entregados_hoy': entregados_hoy,
+            'leidos_hoy':    leidos_hoy,
+            'fallidos_hoy':  fallidos_hoy,
+            'ventana':       '09:30–13:15',
+        },
+        'resultados': {
+            'total_acumulado': total_acum,
+            'respondieron':    respondieron,
+        },
+    })
+
+
 @agentes_bp.route('/api/status')
 @login_required
 @_require_agent_access
