@@ -14,7 +14,6 @@ Flujo:
     → POST /api/leads   ← este endpoint
     → Oportunidad (oportunidades_comerciales)
     → Notification.create_for_roles(comerciales)
-    → /comercial/pipeline
 
 Autenticación: Bearer token (env var QORI_CRM_TOKEN)
 Rate limit: 200 requests/hora
@@ -195,7 +194,7 @@ def create_lead():
     notif_title   = f"{'⚡ ' if urgente else ''}Lead: {empresa or email}"
     notif_message = _notif_message(tipo_lead, empresa, email, sector)
     notif_type    = 'danger' if urgente else 'warning'
-    notif_link    = f'/comercial/pipeline?id={oportunidad_id}'
+    notif_link    = '/comercial'
 
     _roles_comerciales = ['Master', 'Presidente de Negocios', 'Trader']
 

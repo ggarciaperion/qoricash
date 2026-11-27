@@ -229,11 +229,6 @@ def test_prospeccion_master_stats_en_template():
 
 # ── 7. Navegación: links de CRM y Agentes IA ────────────────────────────────
 
-def test_nav_crm_pipeline_link():
-    """base.html incluye link a /comercial/pipeline (CRM Oportunidades)."""
-    code = (Path(__file__).parents[1] / "app" / "templates" / "base.html").read_text()
-    assert "comercial.pipeline" in code
-
 
 def test_nav_agentes_ia_link():
     """base.html incluye link a Agentes IA / Mission Control."""
