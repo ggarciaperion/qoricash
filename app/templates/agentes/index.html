@@ -108,29 +108,60 @@
 .sn-name  { font-size:.68rem; font-weight:700; color:#0f172a; margin:0 0 1px; }
 .sn-val   { font-size:.7rem; font-weight:800; font-family:'Courier New',monospace; color:#475569; margin:0; }
 
-/* ── Node icon ───────────────────────────────────────────────── */
+/* ── Node icon + header ──────────────────────────────────────── */
 .n-top  { display:flex; align-items:center; justify-content:space-between; margin-bottom:5px; }
-.n-icon { font-size:.95rem; color:#94a3b8; }
+.n-icon { font-size:.95rem; color:#94a3b8; transition:color .3s; }
 
-/* ── Status pill ─────────────────────────────────────────────── */
+/* ── Node estados por horario ────────────────────────────────── */
+
+/* PENDIENTE — antes de su ventana */
+.node.st-pending {
+  opacity:.45;
+  border-color:#e2e8f0;
+}
+.node.st-pending .n-name,
+.node.st-pending .n-num { color:#94a3b8; }
+
+/* PROCESANDO — dentro de su ventana */
+@keyframes node-glow {
+  0%,100% { border-color:#86efac; box-shadow:0 0 0 0 rgba(34,197,94,0); }
+  50%     { border-color:#22c55e; box-shadow:0 0 0 6px rgba(34,197,94,0.1); }
+}
+.node.st-working {
+  animation:node-glow 2.2s ease-in-out infinite;
+}
+.node.st-working .n-icon { color:#22c55e; }
+
+/* LISTO — ventana ya pasó */
+.node.st-done { border-color:#bfdbfe; }
+.node.st-done .n-icon { color:#3b82f6; }
+
+/* SIEMPRE ACTIVO — webhook / 24×7 */
+@keyframes node-pulse-soft {
+  0%,100% { border-color:#bfdbfe; }
+  50%     { border-color:#93c5fd; box-shadow:0 0 0 4px rgba(59,130,246,0.08); }
+}
+.node.st-always {
+  animation:node-pulse-soft 3s ease-in-out infinite;
+}
+.node.st-always .n-icon { color:#3b82f6; }
+
+/* ── Pill ────────────────────────────────────────────────────── */
 .pill {
   display:inline-flex; align-items:center; gap:3px;
-  border-radius:999px; padding:1px 7px;
-  font-size:.52rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
-  border:1px solid #e2e8f0; color:#94a3b8; background:#fff;
-  white-space:nowrap;
+  border-radius:999px; padding:1px 8px;
+  font-size:.52rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  border:1px solid; white-space:nowrap; transition:all .3s;
 }
-.pill.p-live  { border-color:#bbf7d0; color:#15803d; background:#f0fdf4; }
-.pill.p-ok    { border-color:#bfdbfe; color:#1d4ed8; background:#eff6ff; }
-.pill.p-idle  { border-color:#e2e8f0; color:#94a3b8; background:#f8fafc; }
-.pill.p-warn  { border-color:#fde047; color:#854d0e; background:#fef9c3; }
+.pill.p-pending { border-color:#e2e8f0; color:#94a3b8;  background:#f8fafc; }
+.pill.p-working { border-color:#86efac; color:#15803d;  background:#f0fdf4; }
+.pill.p-done    { border-color:#bfdbfe; color:#1d4ed8;  background:#eff6ff; }
+.pill.p-always  { border-color:#93c5fd; color:#1d4ed8;  background:#eff6ff; }
 
-/* pulsing dot inside pill */
-@keyframes pdot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.65)} }
-.pdot {
-  width:5px; height:5px; border-radius:50%; flex-shrink:0;
-  background:currentColor; animation:pdot 1.5s ease-in-out infinite;
-}
+/* pulsing dot */
+@keyframes pdot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.3;transform:scale(.6)} }
+.pdot { width:5px; height:5px; border-radius:50%; background:currentColor;
+        animation:pdot 1.5s ease-in-out infinite; flex-shrink:0; }
 
 /* ── Skeleton ────────────────────────────────────────────────── */
 @keyframes shimmer { 0%{background-position:-300px 0} 100%{background-position:300px 0} }
@@ -173,7 +204,7 @@
         <div class="conn"><div class="conn-line"></div></div>
 
         <div class="node" id="e-fuente">
-          <div class="n-top"><i class="bi bi-table n-icon"></i><span class="pill p-idle" id="e-p1">LOTE</span></div>
+          <div class="n-top"><i class="bi bi-table n-icon"></i><span class="pill p-pending" id="e-p1">LOTE</span></div>
           <p class="n-label">Paso 1</p>
           <p class="n-name">Fuente de Datos</p>
           <p class="n-time" id="e-fuente-time">08:00 · Google Sheets</p>
@@ -189,7 +220,7 @@
         <div class="conn"><div class="conn-line"></div><span class="conn-lbl">valida</span></div>
 
         <div class="node" id="e-validar">
-          <div class="n-top"><i class="bi bi-shield-check n-icon"></i><span class="pill p-idle" id="e-p2">VALIDANDO</span></div>
+          <div class="n-top"><i class="bi bi-shield-check n-icon"></i><span class="pill p-pending" id="e-p2">VALIDANDO</span></div>
           <p class="n-label">Paso 2</p>
           <p class="n-name">Validar emails</p>
           <p class="n-time">08:00 · regex / MX / SMTP</p>
@@ -205,7 +236,7 @@
         <div class="conn"><div class="conn-line"></div><span class="conn-lbl">reparte</span></div>
 
         <div class="node" id="e-repartir">
-          <div class="n-top"><i class="bi bi-inbox n-icon"></i><span class="pill p-idle" id="e-p3">ASIGNADO</span></div>
+          <div class="n-top"><i class="bi bi-inbox n-icon"></i><span class="pill p-pending" id="e-p3">ASIGNADO</span></div>
           <p class="n-label">Paso 3</p>
           <p class="n-name">3 Bandejas</p>
           <p class="n-time">09:00 · máx 25/bandeja</p>
@@ -223,7 +254,7 @@
         <div class="conn"><div class="conn-line"></div><span class="conn-lbl">09:30–15:00</span></div>
 
         <div class="node" id="e-enviar">
-          <div class="n-top"><i class="bi bi-send n-icon"></i><span class="pill p-idle" id="e-p4"><span class="pdot" style="display:none" id="e-p4-dot"></span><span id="e-p4-txt">EN ESPERA</span></span></div>
+          <div class="n-top"><i class="bi bi-send n-icon"></i><span class="pill p-pending" id="e-p4">PENDIENTE</span></div>
           <p class="n-label">Paso 4</p>
           <p class="n-name">Enviar correos</p>
           <p class="n-time">7 tandas · TC en vivo</p>
@@ -240,7 +271,7 @@
         <div class="conn"><div class="conn-line"></div><span class="conn-lbl">17:00+</span></div>
 
         <div class="node" id="e-resultado">
-          <div class="n-top"><i class="bi bi-graph-up n-icon"></i><span class="pill p-idle" id="e-p5">FEEDBACK</span></div>
+          <div class="n-top"><i class="bi bi-graph-up n-icon"></i><span class="pill p-pending" id="e-p5">FEEDBACK</span></div>
           <p class="n-label">Paso 5</p>
           <p class="n-name">Resultados</p>
           <p class="n-time">c/30 min · feedback</p>
@@ -272,7 +303,7 @@
         <div class="conn"><div class="conn-line"></div></div>
 
         <div class="node" id="w-sync">
-          <div class="n-top"><i class="bi bi-arrow-repeat n-icon"></i><span class="pill p-idle" id="w-p1">BASE</span></div>
+          <div class="n-top"><i class="bi bi-arrow-repeat n-icon"></i><span class="pill p-pending" id="w-p1">BASE</span></div>
           <p class="n-label">Paso 1</p>
           <p class="n-name">Sync WA base</p>
           <p class="n-time">08:05 y 17:30 · Mac</p>
@@ -288,7 +319,7 @@
         <div class="conn"><div class="conn-line"></div><span class="conn-lbl">filtra</span></div>
 
         <div class="node" id="w-elegir">
-          <div class="n-top"><i class="bi bi-funnel n-icon"></i><span class="pill p-idle" id="w-p2">FILTRANDO</span></div>
+          <div class="n-top"><i class="bi bi-funnel n-icon"></i><span class="pill p-pending" id="w-p2">FILTRANDO</span></div>
           <p class="n-label">Paso 2</p>
           <p class="n-name">Elegir 112</p>
           <p class="n-time">09:30 · +7 días sin WA</p>
@@ -303,7 +334,7 @@
         <div class="conn"><div class="conn-line"></div><span class="conn-lbl">09:30–13:15</span></div>
 
         <div class="node" id="w-enviar">
-          <div class="n-top"><i class="bi bi-chat-square-dots n-icon"></i><span class="pill p-idle" id="w-p3"><span class="pdot" style="display:none" id="w-p3-dot"></span><span id="w-p3-txt">EN ESPERA</span></span></div>
+          <div class="n-top"><i class="bi bi-chat-square-dots n-icon"></i><span class="pill p-pending" id="w-p3">PENDIENTE</span></div>
           <p class="n-label">Paso 3</p>
           <p class="n-name">Enviar WA</p>
           <p class="n-time">1 c/2 min · TC en vivo</p>
@@ -320,7 +351,7 @@
         <div class="conn"><div class="conn-line"></div><span class="conn-lbl">webhook</span></div>
 
         <div class="node" id="w-estados">
-          <div class="n-top"><i class="bi bi-check2-all n-icon"></i><span class="pill p-idle" id="w-p4">WEBHOOK</span></div>
+          <div class="n-top"><i class="bi bi-check2-all n-icon"></i><span class="pill p-pending" id="w-p4">WEBHOOK</span></div>
           <p class="n-label">Paso 4</p>
           <p class="n-name">Estados Meta</p>
           <p class="n-time">tiempo real · webhook</p>
@@ -347,58 +378,94 @@
   const POLL  = 20000;
   let timer = null;
 
+  // ── Helpers ──────────────────────────────────────────────────────
   function fmt(n){ return (n==null)?'—':Number(n).toLocaleString('es-PE'); }
   function set(id, v){ const el=document.getElementById(id); if(el) el.textContent=v; }
 
-  function pill(id, cls, txt){
-    const el=document.getElementById(id);
-    if(!el) return;
-    el.className='pill '+cls;
+  /** Minutos transcurridos desde medianoche Lima (UTC-5, sin DST). */
+  function limaMin(){
+    const now = new Date();
+    const limaMs = now.getTime() - (now.getTimezoneOffset()+(-5*60))*60000;
+    // Más simple: UTC-5
+    const utcH = now.getUTCHours(), utcM = now.getUTCMinutes();
+    const h = (utcH - 5 + 24) % 24;
+    return h * 60 + utcM;
   }
-  function livePill(pillId, dotId, txtId, active, done){
-    const p=document.getElementById(pillId);
-    const dot=document.getElementById(dotId);
-    const t=document.getElementById(txtId);
-    if(!p) return;
-    if(active){
-      p.className='pill p-live';
-      if(dot) dot.style.display='inline-block';
-      if(t)   t.textContent='EN VIVO';
-    } else if(done){
-      p.className='pill p-ok';
-      if(dot) dot.style.display='none';
-      if(t)   t.textContent='COMPLETADO';
+
+  // ── Agenda de agentes (hora Lima) ────────────────────────────────
+  // win: [[startH, startM, endH, endM], ...]  — puede tener múltiples ventanas
+  // always: true  → siempre activo (webhook / 24×7)
+  const AGENTS = [
+    // Pipeline Email
+    { node:'e-fuente',    pill:'e-p1', win:[[8,0,  9,0  ]] },
+    { node:'e-validar',   pill:'e-p2', win:[[8,0,  9,0  ]] },
+    { node:'e-repartir',  pill:'e-p3', win:[[9,0,  9,30 ]] },
+    { node:'e-enviar',    pill:'e-p4', win:[[9,30, 15,0 ]] },
+    { node:'e-resultado', pill:'e-p5', win:[[15,0, 23,59]] },
+    // Pipeline WA
+    { node:'w-sync',      pill:'w-p1', win:[[8,5,  8,30 ],[17,30,17,45]] },
+    { node:'w-elegir',    pill:'w-p2', win:[[9,30, 10,0 ]] },
+    { node:'w-enviar',    pill:'w-p3', win:[[9,30, 13,15]] },
+    { node:'w-estados',   pill:'w-p4', always:true },
+  ];
+
+  function applyAgentState(nodeId, pillId, state){
+    const node = document.getElementById(nodeId);
+    const pill = document.getElementById(pillId);
+    if(!node || !pill) return;
+    node.classList.remove('st-pending','st-working','st-done','st-always');
+    if(state === 'working'){
+      node.classList.add('st-working');
+      pill.className = 'pill p-working';
+      pill.innerHTML = '<span class="pdot"></span> PROCESANDO';
+    } else if(state === 'done'){
+      node.classList.add('st-done');
+      pill.className = 'pill p-done';
+      pill.textContent = '✓ LISTO';
+    } else if(state === 'always'){
+      node.classList.add('st-always');
+      pill.className = 'pill p-always';
+      pill.innerHTML = '<span class="pdot"></span> EN LÍNEA';
     } else {
-      p.className='pill p-idle';
-      if(dot) dot.style.display='none';
-      if(t)   t.textContent='EN ESPERA';
+      node.classList.add('st-pending');
+      pill.className = 'pill p-pending';
+      pill.textContent = 'PENDIENTE';
     }
   }
 
+  function updateScheduleStates(){
+    const now = limaMin();
+    AGENTS.forEach(a => {
+      if(a.always){ applyAgentState(a.node, a.pill, 'always'); return; }
+      const inWindow  = a.win.some(([sh,sm,eh,em]) => now >= sh*60+sm && now < eh*60+em);
+      const pastAll   = a.win.every(([sh,sm,eh,em]) => now >= eh*60+em);
+      const state = inWindow ? 'working' : pastAll ? 'done' : 'pending';
+      applyAgentState(a.node, a.pill, state);
+    });
+  }
+
+  // ── Render datos Email ────────────────────────────────────────────
   function renderEmail(d){
     if(!d) return;
-    const sel = d.seleccion  || {};
-    const val = d.validacion || {};
-    const asi = d.asignacion || {};
-    const env = d.envios     || {};
-    const reb = d.rebotes    || {};
-    const lote = d.lote_op  || {};
-    const bandejas = asi.bandejas || [];
+    const sel     = d.seleccion  || {};
+    const val     = d.validacion || {};
+    const asi     = d.asignacion || {};
+    const env     = d.envios     || {};
+    const reb     = d.rebotes    || {};
+    const lote    = d.lote_op   || {};
+    const bandejas= asi.bandejas || [];
 
-    const enviados = env.enviados || 0;
-
-    // ── Aviso lote anterior ───────────────────────────────────────
+    // Aviso lote anterior
     const aviso = document.getElementById('e-lote-aviso');
     if(aviso){
       if(lote.fecha && lote.es_hoy === false){
         const [y,m,dd] = lote.fecha.split('-');
         set('e-lote-fecha', `${dd}/${m}/${y}`);
-        aviso.style.display='block';
+        aviso.style.display = 'block';
       } else {
-        aviso.style.display='none';
+        aviso.style.display = 'none';
       }
     }
-    // Fecha del lote en subtítulo de Paso 1
     if(lote.fecha){
       const [y,m,dd] = lote.fecha.split('-');
       set('e-fuente-time', `Lote ${dd}/${m} · Google Sheets`);
@@ -411,7 +478,7 @@
     set('e-n2b', fmt(val.sin_validar));
     set('e-n2c', fmt((val.invalidos||0)+(val.riesgo||0)));
     set('e-n3',  fmt(sel.seleccionados));
-    set('e-n4',  fmt(enviados));
+    set('e-n4',  fmt(env.enviados||0));
     set('e-n4b', fmt(env.pendientes_lote!=null?env.pendientes_lote:env.pendientes));
     set('e-n4c', fmt(env.errores));
     set('e-n5',  fmt(reb.total_acumulado));
@@ -419,26 +486,14 @@
 
     ['ggarcia','gerencia','info'].forEach((name,i)=>{
       const b = bandejas.find(x=>x.bandeja===name)||{};
-      const ids = ['e-b-gg','e-b-ge','e-b-in'];
-      set(ids[i], fmt(b.asignados||0));
+      set(['e-b-gg','e-b-ge','e-b-in'][i], fmt(b.asignados||0));
     });
 
-    // Pills de estado
-    const loteOk  = sel.seleccionados > 0;
-    const valOk   = val.validos > 0;
-    const asiOk   = (sel.seleccionados || 0) > 0;
-    const sending = enviados > 0 && (env.pendientes_lote || 0) > 0;
-    const sentDone= enviados > 0 && (env.pendientes_lote || 0) === 0;
-    pill('e-p1', loteOk ? 'p-ok'   : 'p-idle', '');
-    pill('e-p2', valOk  ? 'p-ok'   : 'p-idle', '');
-    pill('e-p3', asiOk  ? 'p-ok'   : 'p-idle', '');
-    livePill('e-p4','e-p4-dot','e-p4-txt', sending, sentDone);
-    pill('e-p5', (reb.total_acumulado||0)>0 ? 'p-ok' : 'p-idle', '');
-
     const dot = document.getElementById('e-dot');
-    if(dot){ dot.className = 'node-status '+(d.dry_run?'s-warn':enviados>0?'s-ok':'s-idle'); }
+    if(dot){ dot.className='node-status '+(d.dry_run?'s-warn':(env.enviados||0)>0?'s-ok':'s-idle'); }
   }
 
+  // ── Render datos WA ───────────────────────────────────────────────
   function renderWA(d){
     if(!d||!d.ok) return;
     const sy = d.sync      || {};
@@ -459,25 +514,16 @@
     set('w-n4b', pct);
     set('w-n4c', fmt(re.respondieron));
 
-    // Pills WA
-    const wBaseOk   = (sy.total_base||0) > 0;
-    const wElegOk   = (el.total||0) > 0;
-    const wSending  = aceptados > 0 && (en.fallidos_hoy||0) < aceptados;
-    const wDone     = aceptados >= 112;
-    pill('w-p1', wBaseOk ? 'p-ok' : 'p-idle', '');
-    pill('w-p2', wElegOk ? 'p-ok' : 'p-idle', '');
-    livePill('w-p3','w-p3-dot','w-p3-txt', wSending, wDone);
-    pill('w-p4', (en.leidos_hoy||0)>0 ? 'p-ok' : 'p-idle', '');
-
     const dot = document.getElementById('w-dot');
-    if(dot){ dot.className = 'node-status '+(aceptados>0?'s-ok':'s-idle'); }
+    if(dot){ dot.className='node-status '+(aceptados>0?'s-ok':'s-idle'); }
   }
 
+  // ── Fetch datos ───────────────────────────────────────────────────
   async function fetchAll(){
     const btn = document.getElementById('refresh-btn');
     btn.classList.add('spinning');
     try {
-      const [rE, rW] = await Promise.allSettled([
+      const [rE,rW] = await Promise.allSettled([
         fetch(E_API,{credentials:'same-origin'}),
         fetch(W_API,{credentials:'same-origin'}),
       ]);
@@ -487,14 +533,18 @@
     finally{ btn.classList.remove('spinning'); }
   }
 
-  window.agRefresh = function(){ clearInterval(timer); fetchAll(); timer=setInterval(fetchAll,POLL); };
-  document.addEventListener('visibilitychange',()=>{
-    if(document.hidden) clearInterval(timer);
-    else { fetchAll(); timer=setInterval(fetchAll,POLL); }
-  });
+  // ── Init ──────────────────────────────────────────────────────────
+  updateScheduleStates();
+  setInterval(updateScheduleStates, 60000);   // recalcula horario cada minuto
 
   fetchAll();
   timer = setInterval(fetchAll, POLL);
+
+  window.agRefresh = function(){ clearInterval(timer); fetchAll(); timer=setInterval(fetchAll,POLL); };
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden) clearInterval(timer);
+    else { updateScheduleStates(); fetchAll(); timer=setInterval(fetchAll,POLL); }
+  });
 })();
 </script>
 {% endblock %}
