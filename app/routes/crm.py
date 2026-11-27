@@ -3464,10 +3464,11 @@ def api_sync_wa_prospectos():
     def _parse_dt(s):
         if not s:
             return None
-        for fmt in ('%d/%m/%Y %H:%M', '%d/%m/%Y', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+        s = str(s).strip()
+        for fmt in ("%d/%m/%Y %H:%M", "%d/%m/%Y", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
             try:
-                return datetime.strptime(str(s).strip()[:len(fmt)], fmt)
-            except Exception:
+                return datetime.strptime(s, fmt)
+            except ValueError:
                 pass
         return None
 
