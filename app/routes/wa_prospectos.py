@@ -65,7 +65,7 @@ def _get_wa_config():
                 break
     return token, phone_id
 
-HEADER_IMAGE = 'https://app.qoricash.pe/static/banner_wa.png'
+HEADER_IMAGE = 'https://app.qoricash.pe/static/images/fert.png'
 
 # Plantillas conocidas (se pueden extender desde config)
 _PLANTILLAS_DEFAULT = [
@@ -204,6 +204,7 @@ def api_elegibles():
     campana     = request.args.get('campana', '').strip()
     solo_con_wa = request.args.get('solo_con_wa', 'false').lower() == 'true'
     limit       = min(int(request.args.get('limit', 500)), 2000)
+    dias_recency = int(request.args.get('dias_recency', 7))  # excluir contactados en los últimos N días
 
     # ── 1. Números con sesión real en el bot ──────────────────────────────────
     bot_rows = db.session.query(WaBotSession.numero).all()
@@ -275,6 +276,16 @@ def api_elegibles():
         if solo_con_wa and wa_estado == 'sin_historial':
             continue
 
+        # Excluir si ya fue contactado por WA recientemente
+        if p.fecha_wa and dias_recency > 0:
+            from datetime import timezone
+            fw = p.fecha_wa
+            if fw.tzinfo is None:
+                fw = fw.replace(tzinfo=timezone.utc)
+            dias_desde_wa = (datetime.now(timezone.utc) - fw).days
+            if dias_desde_wa < dias_recency:
+                continue
+
         candidatos.append({
             'prospecto_id':   None,
             'numero':         f'+51{num}',
@@ -284,6 +295,7 @@ def api_elegibles():
             'rubro':          p.rubro or '',
             'bandeja_email':  p.bandeja_email or '',
             'fecha_email':    p.fecha_email.strftime('%d/%m/%Y') if p.fecha_email else '',
+            'fecha_wa':       p.fecha_wa.strftime('%d/%m/%Y') if p.fecha_wa else '',
             'wa_validado':    wa_estado,
             '_prio':          _PRIO.get(wa_estado, 9),
         })
@@ -557,6 +569,15 @@ def api_enviar():
             actualizado_en   = ahora,
         )
         db.session.add(registro)
+
+        # Actualizar fecha_wa en WaProspectoBase
+        if exito:
+            num9 = numero.lstrip('+').lstrip('51')[-9:]
+            base_rec = WaProspectoBase.query.filter_by(numero=num9).first()
+            if base_rec:
+                base_rec.fecha_wa      = ahora
+                base_rec.wa_validado   = 'con_wa'
+                base_rec.actualizado_en = ahora
 
         # Si el envío fue exitoso: crear sesión en chat + registrar mensaje saliente
         if exito:

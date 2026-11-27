@@ -207,6 +207,18 @@
   <div class="pp-modal-box">
     <h5><i class="bi bi-send-fill" style="color:#196BFE;"></i> <span id="ppModalTitle">Enviar campaña WA</span></h5>
     <div class="pp-minfo">Se enviará a <b id="ppModalN">0</b> prospectos seleccionados.</div>
+    <div class="pp-mrow" style="align-items:flex-end;margin-bottom:8px">
+      <div>
+        <label class="pp-mlabel">Auto-seleccionar</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input class="pp-minput" type="number" id="ppMAutoN" placeholder="50" min="1" max="500" style="width:80px">
+          <button class="pp-bulk-send" style="padding:6px 12px;font-size:.78rem" onclick="ppAutoSel()"><i class="bi bi-lightning-charge-fill"></i> Seleccionar</button>
+        </div>
+      </div>
+      <div style="font-size:.75rem;color:#64748b;padding-bottom:6px">
+        Excluye contactados en los últimos <b>7 días</b> por WA.
+      </div>
+    </div>
     <div class="pp-mrow">
       <div>
         <label class="pp-mlabel">Nombre de campaña</label>
@@ -526,6 +538,32 @@ function ppNombreCamp(n) {
 function ppContactoNum() {
   return { disponibles:1, c1:2, c2:3 }[ppCurTab] || 1;
 }
+function ppAutoSel() {
+  const n = parseInt(document.getElementById('ppMAutoN').value) || 50;
+  ppDesel();
+  // Select first N rows that haven't been contacted recently (fecha_wa empty preferred)
+  const pool = [...ppRows].sort((a,b) => {
+    if (!a.fecha_wa && b.fecha_wa) return -1;
+    if (a.fecha_wa && !b.fecha_wa) return 1;
+    return 0;
+  });
+  let count = 0;
+  for (const r of pool) {
+    if (count >= n) break;
+    ppSel.add(r.numero);
+    count++;
+  }
+  // Update checkboxes
+  document.querySelectorAll('.ppck').forEach(c => {
+    const sel = ppSel.has(c.dataset.n);
+    c.checked = sel;
+    const tr = document.getElementById(`ppr-${c.dataset.n}`);
+    if (tr) tr.classList.toggle('sel', sel);
+  });
+  document.getElementById('ppModalN').textContent = ppSel.size;
+  ppActBulk();
+}
+
 function ppAbrirModal() {
   if (ppCurTab==='c3') return;
   const n = ppContactoNum();

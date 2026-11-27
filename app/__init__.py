@@ -1215,6 +1215,19 @@ def create_app(config_name=None):
         except Exception as e:
             logging.warning(f"[Migration] fix_accounting_match_dates: {e}")
 
+    # Migración: fecha_wa en wa_prospectos_base
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text(
+                "ALTER TABLE wa_prospectos_base ADD COLUMN IF NOT EXISTS "
+                "fecha_wa TIMESTAMP"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] wa_prospectos_base fecha_wa: {e}")
+
     return app
 
 

@@ -27,4 +27,6 @@ class WaProspectoBase(db.Model):
     email          = db.Column(db.String(200), nullable=True)
     cargo          = db.Column(db.String(150), nullable=True)
 
+    fecha_wa       = db.Column(db.DateTime, nullable=True)   # Último envío WA exitoso
+
     actualizado_en = db.Column(db.DateTime, default=now_peru, onupdate=now_peru, nullable=False)
