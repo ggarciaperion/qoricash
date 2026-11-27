@@ -944,6 +944,24 @@ def update_operation(operation_id):
     # Master puede editar siempre
 
     try:
+        # Actualizar tipo de operación (solo Master)
+        if 'operation_type' in data:
+            if current_user.role != 'Master':
+                return jsonify({'success': False, 'message': 'Solo Master puede cambiar el tipo de operación'}), 403
+            new_type = data['operation_type']
+            if new_type not in ('Compra', 'Venta'):
+                return jsonify({'success': False, 'message': 'operation_type debe ser Compra o Venta'}), 400
+            old_type = operation.operation_type
+            if old_type != new_type:
+                operation.operation_type = new_type
+                AuditLog.log_action(
+                    user_id=current_user.id,
+                    action='UPDATE_OPERATION',
+                    entity='Operation',
+                    entity_id=operation.id,
+                    details=f'Tipo cambiado de {old_type} a {new_type}'
+                )
+
         # Actualizar monto USD si se proporciona
         amount_modified = False
         old_amount_usd_for_email = None
