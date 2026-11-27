@@ -756,9 +756,11 @@ def api_campana_detalle(campana_nombre):
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _check_wa_key():
-    """Valida X-WA-Key. Retorna True si OK."""
+    """Valida X-WA-Key contra SYNC_API_KEY o CRM_API_KEY (Render usa SYNC_API_KEY)."""
     key = request.headers.get('X-WA-Key', '')
-    expected = os.environ.get('CRM_API_KEY', 'qoricash_crm_2026')
+    expected = (os.environ.get('SYNC_API_KEY') or
+                os.environ.get('CRM_API_KEY') or
+                'qoricash_crm_2026')
     return key == expected
 
 
