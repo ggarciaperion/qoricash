@@ -875,6 +875,42 @@ def api_auto_marcar_enviado():
         existing.wa_id       = wa_id or existing.wa_id
         existing.actualizado_en = ahora
 
+    # Upsert WaBotSession + WaMessage para que el chat aparezca en /crm/whatsapp
+    num_full = f'+51{num9}'
+    try:
+        sesion = WaBotSession.query.filter_by(numero=num_full).first()
+        if not sesion:
+            sesion = WaBotSession(
+                numero           = num_full,
+                nombre           = nombre,
+                nombre_guardado  = nombre,
+                empresa_guardada = empresa,
+                estado           = 'prospecto',
+                bot_pausado      = True,
+                estado_atencion  = 'esperando',
+            )
+            db.session.add(sesion)
+        else:
+            if not sesion.nombre_guardado:
+                sesion.nombre_guardado  = nombre
+            if not sesion.empresa_guardada:
+                sesion.empresa_guardada = empresa
+            sesion.estado_atencion = 'esperando'
+
+        texto_msg = f'[Auto] Plantilla: qoricash_precio_dia · Compra S/{compra} · Venta S/{venta}'
+        db.session.add(WaMessage(
+            numero    = num_full,
+            nombre    = nombre,
+            empresa   = empresa,
+            mensaje   = texto_msg,
+            direccion = 'saliente',
+            wa_id     = wa_id or '',
+            origen    = 'campaña',
+            created_at= ahora,
+        ))
+    except Exception as e:
+        log.warning(f'[auto/marcar-enviado] No se pudo crear sesión/mensaje para {num_full}: {e}')
+
     try:
         db.session.commit()
     except Exception as e:
