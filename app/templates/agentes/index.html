@@ -108,6 +108,30 @@
 .sn-name  { font-size:.68rem; font-weight:700; color:#0f172a; margin:0 0 1px; }
 .sn-val   { font-size:.7rem; font-weight:800; font-family:'Courier New',monospace; color:#475569; margin:0; }
 
+/* ── Node icon ───────────────────────────────────────────────── */
+.n-top  { display:flex; align-items:center; justify-content:space-between; margin-bottom:5px; }
+.n-icon { font-size:.95rem; color:#94a3b8; }
+
+/* ── Status pill ─────────────────────────────────────────────── */
+.pill {
+  display:inline-flex; align-items:center; gap:3px;
+  border-radius:999px; padding:1px 7px;
+  font-size:.52rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
+  border:1px solid #e2e8f0; color:#94a3b8; background:#fff;
+  white-space:nowrap;
+}
+.pill.p-live  { border-color:#bbf7d0; color:#15803d; background:#f0fdf4; }
+.pill.p-ok    { border-color:#bfdbfe; color:#1d4ed8; background:#eff6ff; }
+.pill.p-idle  { border-color:#e2e8f0; color:#94a3b8; background:#f8fafc; }
+.pill.p-warn  { border-color:#fde047; color:#854d0e; background:#fef9c3; }
+
+/* pulsing dot inside pill */
+@keyframes pdot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.65)} }
+.pdot {
+  width:5px; height:5px; border-radius:50%; flex-shrink:0;
+  background:currentColor; animation:pdot 1.5s ease-in-out infinite;
+}
+
 /* ── Skeleton ────────────────────────────────────────────────── */
 @keyframes shimmer { 0%{background-position:-300px 0} 100%{background-position:300px 0} }
 .sk {
@@ -149,6 +173,7 @@
         <div class="conn"><div class="conn-line"></div></div>
 
         <div class="node" id="e-fuente">
+          <div class="n-top"><i class="bi bi-table n-icon"></i><span class="pill p-idle" id="e-p1">LOTE</span></div>
           <p class="n-label">Paso 1</p>
           <p class="n-name">Fuente de Datos</p>
           <p class="n-time" id="e-fuente-time">08:00 · Google Sheets</p>
@@ -164,6 +189,7 @@
         <div class="conn"><div class="conn-line"></div><span class="conn-lbl">valida</span></div>
 
         <div class="node" id="e-validar">
+          <div class="n-top"><i class="bi bi-shield-check n-icon"></i><span class="pill p-idle" id="e-p2">VALIDANDO</span></div>
           <p class="n-label">Paso 2</p>
           <p class="n-name">Validar emails</p>
           <p class="n-time">08:00 · regex / MX / SMTP</p>
@@ -179,6 +205,7 @@
         <div class="conn"><div class="conn-line"></div><span class="conn-lbl">reparte</span></div>
 
         <div class="node" id="e-repartir">
+          <div class="n-top"><i class="bi bi-inbox n-icon"></i><span class="pill p-idle" id="e-p3">ASIGNADO</span></div>
           <p class="n-label">Paso 3</p>
           <p class="n-name">3 Bandejas</p>
           <p class="n-time">09:00 · máx 25/bandeja</p>
@@ -196,6 +223,7 @@
         <div class="conn"><div class="conn-line"></div><span class="conn-lbl">09:30–15:00</span></div>
 
         <div class="node" id="e-enviar">
+          <div class="n-top"><i class="bi bi-send n-icon"></i><span class="pill p-idle" id="e-p4"><span class="pdot" style="display:none" id="e-p4-dot"></span><span id="e-p4-txt">EN ESPERA</span></span></div>
           <p class="n-label">Paso 4</p>
           <p class="n-name">Enviar correos</p>
           <p class="n-time">7 tandas · TC en vivo</p>
@@ -212,6 +240,7 @@
         <div class="conn"><div class="conn-line"></div><span class="conn-lbl">17:00+</span></div>
 
         <div class="node" id="e-resultado">
+          <div class="n-top"><i class="bi bi-graph-up n-icon"></i><span class="pill p-idle" id="e-p5">FEEDBACK</span></div>
           <p class="n-label">Paso 5</p>
           <p class="n-name">Resultados</p>
           <p class="n-time">c/30 min · feedback</p>
@@ -243,6 +272,7 @@
         <div class="conn"><div class="conn-line"></div></div>
 
         <div class="node" id="w-sync">
+          <div class="n-top"><i class="bi bi-arrow-repeat n-icon"></i><span class="pill p-idle" id="w-p1">BASE</span></div>
           <p class="n-label">Paso 1</p>
           <p class="n-name">Sync WA base</p>
           <p class="n-time">08:05 y 17:30 · Mac</p>
@@ -258,6 +288,7 @@
         <div class="conn"><div class="conn-line"></div><span class="conn-lbl">filtra</span></div>
 
         <div class="node" id="w-elegir">
+          <div class="n-top"><i class="bi bi-funnel n-icon"></i><span class="pill p-idle" id="w-p2">FILTRANDO</span></div>
           <p class="n-label">Paso 2</p>
           <p class="n-name">Elegir 112</p>
           <p class="n-time">09:30 · +7 días sin WA</p>
@@ -272,6 +303,7 @@
         <div class="conn"><div class="conn-line"></div><span class="conn-lbl">09:30–13:15</span></div>
 
         <div class="node" id="w-enviar">
+          <div class="n-top"><i class="bi bi-chat-square-dots n-icon"></i><span class="pill p-idle" id="w-p3"><span class="pdot" style="display:none" id="w-p3-dot"></span><span id="w-p3-txt">EN ESPERA</span></span></div>
           <p class="n-label">Paso 3</p>
           <p class="n-name">Enviar WA</p>
           <p class="n-time">1 c/2 min · TC en vivo</p>
@@ -288,6 +320,7 @@
         <div class="conn"><div class="conn-line"></div><span class="conn-lbl">webhook</span></div>
 
         <div class="node" id="w-estados">
+          <div class="n-top"><i class="bi bi-check2-all n-icon"></i><span class="pill p-idle" id="w-p4">WEBHOOK</span></div>
           <p class="n-label">Paso 4</p>
           <p class="n-name">Estados Meta</p>
           <p class="n-time">tiempo real · webhook</p>
@@ -316,6 +349,31 @@
 
   function fmt(n){ return (n==null)?'—':Number(n).toLocaleString('es-PE'); }
   function set(id, v){ const el=document.getElementById(id); if(el) el.textContent=v; }
+
+  function pill(id, cls, txt){
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.className='pill '+cls;
+  }
+  function livePill(pillId, dotId, txtId, active, done){
+    const p=document.getElementById(pillId);
+    const dot=document.getElementById(dotId);
+    const t=document.getElementById(txtId);
+    if(!p) return;
+    if(active){
+      p.className='pill p-live';
+      if(dot) dot.style.display='inline-block';
+      if(t)   t.textContent='EN VIVO';
+    } else if(done){
+      p.className='pill p-ok';
+      if(dot) dot.style.display='none';
+      if(t)   t.textContent='COMPLETADO';
+    } else {
+      p.className='pill p-idle';
+      if(dot) dot.style.display='none';
+      if(t)   t.textContent='EN ESPERA';
+    }
+  }
 
   function renderEmail(d){
     if(!d) return;
@@ -365,6 +423,18 @@
       set(ids[i], fmt(b.asignados||0));
     });
 
+    // Pills de estado
+    const loteOk  = sel.seleccionados > 0;
+    const valOk   = val.validos > 0;
+    const asiOk   = (sel.seleccionados || 0) > 0;
+    const sending = enviados > 0 && (env.pendientes_lote || 0) > 0;
+    const sentDone= enviados > 0 && (env.pendientes_lote || 0) === 0;
+    pill('e-p1', loteOk ? 'p-ok'   : 'p-idle', '');
+    pill('e-p2', valOk  ? 'p-ok'   : 'p-idle', '');
+    pill('e-p3', asiOk  ? 'p-ok'   : 'p-idle', '');
+    livePill('e-p4','e-p4-dot','e-p4-txt', sending, sentDone);
+    pill('e-p5', (reb.total_acumulado||0)>0 ? 'p-ok' : 'p-idle', '');
+
     const dot = document.getElementById('e-dot');
     if(dot){ dot.className = 'node-status '+(d.dry_run?'s-warn':enviados>0?'s-ok':'s-idle'); }
   }
@@ -388,6 +458,16 @@
     set('w-n4',  fmt(en.leidos_hoy));
     set('w-n4b', pct);
     set('w-n4c', fmt(re.respondieron));
+
+    // Pills WA
+    const wBaseOk   = (sy.total_base||0) > 0;
+    const wElegOk   = (el.total||0) > 0;
+    const wSending  = aceptados > 0 && (en.fallidos_hoy||0) < aceptados;
+    const wDone     = aceptados >= 112;
+    pill('w-p1', wBaseOk ? 'p-ok' : 'p-idle', '');
+    pill('w-p2', wElegOk ? 'p-ok' : 'p-idle', '');
+    livePill('w-p3','w-p3-dot','w-p3-txt', wSending, wDone);
+    pill('w-p4', (en.leidos_hoy||0)>0 ? 'p-ok' : 'p-idle', '');
 
     const dot = document.getElementById('w-dot');
     if(dot){ dot.className = 'node-status '+(aceptados>0?'s-ok':'s-idle'); }
