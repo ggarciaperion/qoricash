@@ -5,471 +5,300 @@
 <style>
 * { box-sizing: border-box; }
 
-.pg { background: #eef1f5; min-height: calc(100vh - 56px); padding: 24px 28px 60px; }
+.pg { background: #f1f5f9; min-height: calc(100vh - 56px); padding: 24px 28px 60px; }
 @media(max-width:768px){ .pg{ padding:14px 12px 40px } }
 
-/* ── Page header ─────────────────────────────────────────────── */
-.pg-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 24px; flex-wrap: wrap; gap: 10px;
-}
-.pg-title { font-size: .95rem; font-weight: 800; color: #0f172a; margin: 0; }
-.pg-sub   { font-size: .68rem; color: #94a3b8; margin: 2px 0 0; }
+/* ── Header ──────────────────────────────────────────────────── */
+.pg-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:10px; }
+.pg-title  { font-size:.95rem; font-weight:800; color:#0f172a; margin:0; }
+.pg-sub    { font-size:.68rem; color:#94a3b8; margin:2px 0 0; }
 .pg-refresh {
-  background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
-  padding: 5px 13px; font-size: .73rem; color: #64748b; cursor: pointer;
-  display: flex; align-items: center; gap: 5px; transition: .15s;
+  background:#fff; border:1px solid #e2e8f0; border-radius:8px;
+  padding:5px 13px; font-size:.73rem; color:#64748b; cursor:pointer;
+  display:flex; align-items:center; gap:5px;
 }
-.pg-refresh:hover { color: #0f172a; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.pg-refresh.spinning i { animation: spin .6s linear infinite; display: inline-block; }
+.pg-refresh:hover { color:#0f172a; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.pg-refresh.spinning i { animation:spin .6s linear infinite; display:inline-block; }
 
-/* ── Pipeline container ──────────────────────────────────────── */
-.pipeline-wrap { margin-bottom: 20px; }
+/* ── Pipeline wrapper ────────────────────────────────────────── */
+.pipeline-wrap  { margin-bottom:20px; }
 .pipeline-label {
-  font-size: .62rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .12em; color: #94a3b8; margin: 0 0 10px;
-  display: flex; align-items: center; gap: 8px;
+  font-size:.6rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:.12em; color:#94a3b8; margin:0 0 10px;
+  display:flex; align-items:center; gap:7px;
 }
-.pipeline-label span { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+.pipeline-label b { width:8px; height:8px; border-radius:50%; display:inline-block; }
 
-/* ── Canvas area ─────────────────────────────────────────────── */
+/* ── Canvas ──────────────────────────────────────────────────── */
 .canvas {
-  background: #f5f7fa;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 28px 24px 24px;
-  overflow-x: auto;
-  position: relative;
+  background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px;
+  padding:28px 24px 20px; overflow-x:auto;
 }
 
 /* ── Flow row ────────────────────────────────────────────────── */
-.flow-row {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  min-width: fit-content;
-  position: relative;
-}
+.flow-row { display:flex; align-items:center; min-width:fit-content; }
 
 /* ── Node ────────────────────────────────────────────────────── */
 .node {
-  background: #ffffff;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 10px 13px 10px 10px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-  width: 158px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.07);
-  position: relative;
-  transition: box-shadow .15s;
-  cursor: default;
+  background:#fff; border:1px solid #cbd5e1; border-radius:10px;
+  padding:11px 14px; width:160px; flex-shrink:0;
+  box-shadow:0 1px 3px rgba(0,0,0,.06);
+  position:relative;
 }
-.node:hover { box-shadow: 0 3px 10px rgba(0,0,0,.12); }
+.node.trigger { width:80px; text-align:center; padding:10px 8px; }
 
-/* Trigger node (narrower) */
-.node.trigger {
-  width: 90px;
-  flex-direction: column;
-  align-items: center;
-  padding: 10px 8px;
-  text-align: center;
-  gap: 5px;
+/* connection dots */
+.node::before, .node::after {
+  content:''; position:absolute; top:50%; transform:translateY(-50%);
+  width:7px; height:7px; border-radius:50%;
+  background:#fff; border:1.5px solid #cbd5e1;
 }
+.node::before { left:-4px; }
+.node::after  { right:-4px; }
+.node.trigger::before { display:none; }
 
-/* ── Node icon circle ────────────────────────────────────────── */
-.node-icon {
-  width: 36px; height: 36px; border-radius: 9px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1rem; flex-shrink: 0;
-}
-.trigger .node-icon { width: 32px; height: 32px; border-radius: 50%; font-size: .9rem; }
+/* ── Node content ────────────────────────────────────────────── */
+.n-label   { font-size:.58rem; color:#94a3b8; text-transform:uppercase; letter-spacing:.08em; margin:0 0 2px; }
+.n-name    { font-size:.8rem;  font-weight:800; color:#0f172a; margin:0 0 1px; line-height:1.25; }
+.n-time    { font-size:.6rem;  color:#94a3b8; margin:0 0 6px; }
+.n-divider { border:none; border-top:1px solid #e2e8f0; margin:5px 0; }
+.n-num     { font-size:1.3rem; font-weight:900; font-family:'Courier New',monospace; color:#0f172a; line-height:1; }
+.n-unit    { font-size:.58rem; color:#94a3b8; display:block; margin-top:1px; }
+.n-rows    { display:flex; flex-direction:column; gap:3px; margin-top:4px; }
+.n-row     { display:flex; justify-content:space-between; align-items:center; }
+.n-row-lbl { font-size:.62rem; color:#94a3b8; }
+.n-row-val { font-size:.7rem; font-weight:700; font-family:'Courier New',monospace; color:#334155; }
 
-/* ── Node text ───────────────────────────────────────────────── */
-.node-body { flex: 1; min-width: 0; }
-.node-name { font-size: .75rem; font-weight: 800; color: #0f172a; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.node-sub  { font-size: .6rem;  color: #94a3b8; margin: 1px 0 0; }
-.node-num  { font-size: .8rem; font-weight: 900; font-family: 'Courier New', monospace; color: #0f172a; margin: 2px 0 0; display: block; }
+.trigger .n-name { font-size:.72rem; }
+.trigger .n-time { font-size:.58rem; margin-bottom:0; }
 
-.trigger .node-name { font-size: .68rem; }
-.trigger .node-sub  { font-size: .58rem; }
-
-/* ── Connector dots ──────────────────────────────────────────── */
-.node::before,
-.node::after {
-  content: ''; position: absolute; top: 50%; transform: translateY(-50%);
-  width: 8px; height: 8px; border-radius: 50%; border: 2px solid;
-}
-.node::before { left: -4px; }
-.node::after  { right: -4px; }
-
-.node.trigger::before { display: none; }
-
-/* Email node colors */
-.node.email-node { border-color: #bfdbfe; }
-.node.email-node::before, .node.email-node::after { background: #fff; border-color: #2563eb; }
-.node.email-node.trigger { border-color: #bfdbfe; }
-
-/* WA node colors */
-.node.wa-node { border-color: #bbf7d0; }
-.node.wa-node::before, .node.wa-node::after { background: #fff; border-color: #16a34a; }
-.node.wa-node.trigger { border-color: #bbf7d0; }
-
-/* ── Arrow connector ─────────────────────────────────────────── */
-.connector {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  flex-direction: column;
-  gap: 2px;
-  width: 50px;
-  position: relative;
-}
-.connector-line {
-  width: 100%; height: 2px;
-  position: relative;
-}
-.connector-line::after {
-  content: '';
-  position: absolute;
-  right: 0; top: -4px;
-  border-left: 8px solid;
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-}
-.connector-label {
-  font-size: .56rem; color: #94a3b8; white-space: nowrap;
-  margin-top: 2px;
-}
-
-.email-conn .connector-line { background: #93c5fd; }
-.email-conn .connector-line::after { border-left-color: #93c5fd; }
-.wa-conn .connector-line { background: #86efac; }
-.wa-conn .connector-line::after { border-left-color: #86efac; }
-
-/* ── Sub-nodes row (branching down) ──────────────────────────── */
-.subnodes-wrap {
-  display: flex;
-  margin-top: 10px;
-  position: relative;
-}
-.subnode-slot {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-}
-.subnode-line-v {
-  width: 2px;
-  background: #e2e8f0;
-  flex-shrink: 0;
-}
-.subnode {
-  background: #ffffff;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 8px 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-  width: 130px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.06);
-}
-.subnode-icon {
-  width: 28px; height: 28px; border-radius: 7px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: .8rem; flex-shrink: 0;
-}
-.subnode-name { font-size: .68rem; font-weight: 700; color: #0f172a; margin: 0; }
-.subnode-val  { font-size: .65rem; font-weight: 800; color: #64748b; font-family: 'Courier New', monospace; }
-
-/* Dashed branch lines (SVG drawn via JS) */
-.branch-svg {
-  position: absolute;
-  top: 0; left: 0;
-  pointer-events: none;
-  overflow: visible;
-}
-
-/* ── Color schemes ───────────────────────────────────────────── */
-/* Email icons */
-.ic-trigger-e  { background: #fef3c7; }
-.ic-fuente     { background: #dbeafe; }
-.ic-validar    { background: #d1fae5; }
-.ic-repartir   { background: #ede9fe; }
-.ic-enviar-e   { background: #dbeafe; }
-.ic-resultados { background: #fce7f3; }
-.ic-bandeja    { background: #f1f5f9; }
-
-/* WA icons */
-.ic-trigger-w  { background: #dcfce7; }
-.ic-sync       { background: #d1fae5; }
-.ic-elegir     { background: #d1fae5; }
-.ic-enviar-w   { background: #d1fae5; }
-.ic-estados    { background: #dcfce7; }
-
-/* ── Status indicator on node ────────────────────────────────── */
+/* status dot */
 .node-status {
-  position: absolute;
-  top: -5px; right: -5px;
-  width: 12px; height: 12px; border-radius: 50%;
-  border: 2px solid #fff;
-  font-size: 0;
+  position:absolute; top:-4px; right:-4px;
+  width:10px; height:10px; border-radius:50%;
+  border:2px solid #fff;
 }
-.status-ok   { background: #22c55e; }
-.status-idle { background: #94a3b8; }
-.status-warn { background: #f59e0b; }
+.s-ok   { background:#22c55e; }
+.s-idle { background:#94a3b8; }
+.s-warn { background:#f59e0b; }
+
+/* ── Connector arrow ─────────────────────────────────────────── */
+.conn { flex-shrink:0; display:flex; flex-direction:column; align-items:center; width:46px; gap:2px; }
+.conn-line {
+  width:100%; height:1.5px; background:#cbd5e1; position:relative;
+}
+.conn-line::after {
+  content:''; position:absolute; right:-1px; top:-4px;
+  border-left:7px solid #cbd5e1;
+  border-top:4.5px solid transparent;
+  border-bottom:4.5px solid transparent;
+}
+.conn-lbl { font-size:.55rem; color:#94a3b8; white-space:nowrap; }
+
+/* ── Sub-nodes ───────────────────────────────────────────────── */
+.sub-area { position:relative; margin-top:0; }
+.sub-svg  { position:absolute; top:0; left:0; overflow:visible; pointer-events:none; }
+.sub-row  { display:flex; gap:10px; padding-top:48px; }
+.subnode  {
+  background:#fff; border:1px solid #cbd5e1; border-radius:9px;
+  padding:9px 12px; width:128px; flex-shrink:0;
+  box-shadow:0 1px 3px rgba(0,0,0,.05);
+}
+.sn-name  { font-size:.68rem; font-weight:700; color:#0f172a; margin:0 0 1px; }
+.sn-val   { font-size:.7rem; font-weight:800; font-family:'Courier New',monospace; color:#475569; margin:0; }
 
 /* ── Skeleton ────────────────────────────────────────────────── */
 @keyframes shimmer { 0%{background-position:-300px 0} 100%{background-position:300px 0} }
 .sk {
-  background: linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);
-  background-size: 300px 100%; animation: shimmer 1.4s infinite;
-  border-radius: 3px; display: inline-block;
+  display:inline-block; border-radius:3px;
+  background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);
+  background-size:300px 100%; animation:shimmer 1.4s infinite;
 }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="pg">
-
   <div class="pg-header">
     <div>
       <h1 class="pg-title">Pipelines de Prospección</h1>
-      <p class="pg-sub">Lunes–Sábado · Lima (UTC−5) · actualización automática</p>
+      <p class="pg-sub">Lunes–Sábado · Lima (UTC−5) · actualización automática cada 20s</p>
     </div>
     <button class="pg-refresh" id="refresh-btn" onclick="agRefresh()">
       <i class="bi bi-arrow-clockwise"></i> Actualizar
     </button>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════════
+  <!-- ══════════════════════════════════════════════════════
        PIPELINE EMAIL
-  ══════════════════════════════════════════════════════════ -->
+  ══════════════════════════════════════════════════════ -->
   <div class="pipeline-wrap">
-    <p class="pipeline-label">
-      <span style="background:#2563eb;"></span>
-      Pipeline de Email · 75 correos/día · 3 bandejas
-    </p>
-
+    <p class="pipeline-label"><b style="background:#2563eb;"></b> Pipeline de Email · 75 correos/día</p>
     <div class="canvas">
+      <div class="flow-row">
 
-      <div class="flow-row" id="email-flow">
-
-        <!-- Trigger -->
-        <div class="node email-node trigger">
-          <div class="node-icon ic-trigger-e">⚡</div>
-          <p class="node-name">08:00 Lima</p>
-          <p class="node-sub">inicio</p>
+        <div class="node trigger">
+          <p class="n-name">08:00</p>
+          <p class="n-time">inicio</p>
         </div>
 
-        <div class="connector email-conn">
-          <div class="connector-line"></div>
-        </div>
+        <div class="conn"><div class="conn-line"></div></div>
 
-        <!-- Fuente de Datos -->
-        <div class="node email-node" id="e-fuente">
-          <div class="node-icon ic-fuente">📋</div>
-          <div class="node-body">
-            <p class="node-name">Fuente de Datos</p>
-            <p class="node-sub">Hoja 1 · Google Sheets</p>
-            <span class="node-num" id="e-fuente-num"><span class="sk" style="width:40px;height:.7rem;"></span></span>
+        <div class="node" id="e-fuente">
+          <p class="n-label">Paso 1</p>
+          <p class="n-name">Fuente de Datos</p>
+          <p class="n-time">08:00 · Google Sheets</p>
+          <hr class="n-divider">
+          <span class="n-num" id="e-n1">—</span>
+          <span class="n-unit">en lote hoy</span>
+          <div class="n-rows">
+            <div class="n-row"><span class="n-row-lbl">Revisados</span><span class="n-row-val" id="e-n1b">—</span></div>
+            <div class="n-row"><span class="n-row-lbl">Por enviar</span><span class="n-row-val" id="e-n1c">—</span></div>
           </div>
         </div>
 
-        <div class="connector email-conn">
-          <div class="connector-line"></div>
-          <span class="connector-label">valida</span>
-        </div>
+        <div class="conn"><div class="conn-line"></div><span class="conn-lbl">valida</span></div>
 
-        <!-- Validar emails -->
-        <div class="node email-node" id="e-validar">
-          <div class="node-icon ic-validar">✅</div>
-          <div class="node-body">
-            <p class="node-name">Validar emails</p>
-            <p class="node-sub">regex → MX → SMTP</p>
-            <span class="node-num" id="e-validar-num"><span class="sk" style="width:40px;height:.7rem;"></span></span>
+        <div class="node" id="e-validar">
+          <p class="n-label">Paso 2</p>
+          <p class="n-name">Validar emails</p>
+          <p class="n-time">08:00 · regex / MX / SMTP</p>
+          <hr class="n-divider">
+          <span class="n-num" id="e-n2">—</span>
+          <span class="n-unit">correos aptos</span>
+          <div class="n-rows">
+            <div class="n-row"><span class="n-row-lbl">Sin revisar</span><span class="n-row-val" id="e-n2b">—</span></div>
+            <div class="n-row"><span class="n-row-lbl">No aptos</span><span class="n-row-val" id="e-n2c">—</span></div>
           </div>
         </div>
 
-        <div class="connector email-conn">
-          <div class="connector-line"></div>
-          <span class="connector-label">reparte</span>
-        </div>
+        <div class="conn"><div class="conn-line"></div><span class="conn-lbl">reparte</span></div>
 
-        <!-- Repartir bandejas -->
-        <div class="node email-node" id="e-repartir">
-          <div class="node-icon ic-repartir">📬</div>
-          <div class="node-body">
-            <p class="node-name">3 Bandejas</p>
-            <p class="node-sub">máx 25/bandeja/día</p>
-            <span class="node-num" id="e-repartir-num"><span class="sk" style="width:40px;height:.7rem;"></span></span>
+        <div class="node" id="e-repartir">
+          <p class="n-label">Paso 3</p>
+          <p class="n-name">3 Bandejas</p>
+          <p class="n-time">09:00 · máx 25/bandeja</p>
+          <hr class="n-divider">
+          <span class="n-num" id="e-n3">—</span>
+          <span class="n-unit">asignados al lote</span>
+          <div class="n-rows" id="e-bandejas-rows">
+            <div class="n-row"><span class="n-row-lbl">ggarcia</span><span class="n-row-val" id="e-b-gg">—</span></div>
+            <div class="n-row"><span class="n-row-lbl">gerencia</span><span class="n-row-val" id="e-b-ge">—</span></div>
+            <div class="n-row"><span class="n-row-lbl">info</span><span class="n-row-val" id="e-b-in">—</span></div>
           </div>
         </div>
 
-        <div class="connector email-conn">
-          <div class="connector-line"></div>
-          <span class="connector-label">09:30–15:00</span>
-        </div>
+        <div class="conn"><div class="conn-line"></div><span class="conn-lbl">09:30–15:00</span></div>
 
-        <!-- Enviar -->
-        <div class="node email-node" id="e-enviar">
-          <div class="node-icon ic-enviar-e">✉️</div>
-          <div class="node-body">
-            <p class="node-name">Enviar correos</p>
-            <p class="node-sub">7 tandas · TC real</p>
-            <span class="node-num" id="e-enviar-num"><span class="sk" style="width:40px;height:.7rem;"></span></span>
+        <div class="node" id="e-enviar">
+          <p class="n-label">Paso 4</p>
+          <p class="n-name">Enviar correos</p>
+          <p class="n-time">7 tandas · TC en vivo</p>
+          <hr class="n-divider">
+          <span class="n-num" id="e-n4">—</span>
+          <span class="n-unit">aceptados hoy / 75</span>
+          <div class="n-rows">
+            <div class="n-row"><span class="n-row-lbl">Pendientes</span><span class="n-row-val" id="e-n4b">—</span></div>
+            <div class="n-row"><span class="n-row-lbl">Errores</span><span class="n-row-val" id="e-n4c">—</span></div>
           </div>
-          <div class="node-status" id="e-status-dot"></div>
+          <div class="node-status" id="e-dot"></div>
         </div>
 
-        <div class="connector email-conn">
-          <div class="connector-line"></div>
-          <span class="connector-label">17:00+</span>
-        </div>
+        <div class="conn"><div class="conn-line"></div><span class="conn-lbl">17:00+</span></div>
 
-        <!-- Resultados -->
-        <div class="node email-node" id="e-resultados">
-          <div class="node-icon ic-resultados">🔄</div>
-          <div class="node-body">
-            <p class="node-name">Resultados</p>
-            <p class="node-sub">rebotes · respuestas</p>
-            <span class="node-num" id="e-resultado-num"><span class="sk" style="width:40px;height:.7rem;"></span></span>
+        <div class="node" id="e-resultado">
+          <p class="n-label">Paso 5</p>
+          <p class="n-name">Resultados</p>
+          <p class="n-time">c/30 min · feedback</p>
+          <hr class="n-divider">
+          <span class="n-num" id="e-n5">—</span>
+          <span class="n-unit">rebotes acumulados</span>
+          <div class="n-rows">
+            <div class="n-row"><span class="n-row-lbl">Detectados hoy</span><span class="n-row-val" id="e-n5b">—</span></div>
           </div>
         </div>
 
       </div><!-- /.flow-row -->
-
-      <!-- Sub-nodes: bandejas -->
-      <div id="email-subnodes-area" style="margin-top:0;position:relative;">
-        <svg id="email-branch-svg" class="branch-svg" style="width:100%;height:90px;"></svg>
-        <div style="display:flex;gap:12px;padding-top:50px;" id="email-subnodes">
-          <div class="subnode">
-            <div class="subnode-icon ic-bandeja">📧</div>
-            <div><p class="subnode-name">ggarcia</p><p class="subnode-val" id="e-b-gg">—</p></div>
-          </div>
-          <div class="subnode">
-            <div class="subnode-icon ic-bandeja">📧</div>
-            <div><p class="subnode-name">gerencia</p><p class="subnode-val" id="e-b-ge">—</p></div>
-          </div>
-          <div class="subnode">
-            <div class="subnode-icon ic-bandeja">📧</div>
-            <div><p class="subnode-name">info</p><p class="subnode-val" id="e-b-in">—</p></div>
-          </div>
-        </div>
-      </div>
-
     </div><!-- /.canvas -->
-  </div><!-- /.pipeline-wrap email -->
+  </div>
 
-
-  <!-- ══════════════════════════════════════════════════════════
+  <!-- ══════════════════════════════════════════════════════
        PIPELINE WHATSAPP
-  ══════════════════════════════════════════════════════════ -->
+  ══════════════════════════════════════════════════════ -->
   <div class="pipeline-wrap">
-    <p class="pipeline-label">
-      <span style="background:#16a34a;"></span>
-      Campaña WhatsApp · 112 mensajes/día · 1 c/2 min · Render
-    </p>
-
+    <p class="pipeline-label"><b style="background:#16a34a;"></b> Campaña WhatsApp · 112 mensajes/día · Render</p>
     <div class="canvas">
+      <div class="flow-row">
 
-      <div class="flow-row" id="wa-flow">
-
-        <!-- Trigger -->
-        <div class="node wa-node trigger">
-          <div class="node-icon ic-trigger-w">⚡</div>
-          <p class="node-name">09:30 Lima</p>
-          <p class="node-sub">inicio</p>
+        <div class="node trigger">
+          <p class="n-name">09:30</p>
+          <p class="n-time">inicio</p>
         </div>
 
-        <div class="connector wa-conn">
-          <div class="connector-line"></div>
-        </div>
+        <div class="conn"><div class="conn-line"></div></div>
 
-        <!-- Sync DB -->
-        <div class="node wa-node" id="w-sync">
-          <div class="node-icon ic-sync">🔗</div>
-          <div class="node-body">
-            <p class="node-name">Sync WA base</p>
-            <p class="node-sub">08:05 y 17:30 · Mac</p>
-            <span class="node-num" id="w-sync-num"><span class="sk" style="width:40px;height:.7rem;"></span></span>
+        <div class="node" id="w-sync">
+          <p class="n-label">Paso 1</p>
+          <p class="n-name">Sync WA base</p>
+          <p class="n-time">08:05 y 17:30 · Mac</p>
+          <hr class="n-divider">
+          <span class="n-num" id="w-n1">—</span>
+          <span class="n-unit">total en base</span>
+          <div class="n-rows">
+            <div class="n-row"><span class="n-row-lbl">Sin WA aún</span><span class="n-row-val" id="w-n1b">—</span></div>
+            <div class="n-row"><span class="n-row-lbl">Sync hoy</span><span class="n-row-val" id="w-n1c">—</span></div>
           </div>
         </div>
 
-        <div class="connector wa-conn">
-          <div class="connector-line"></div>
-          <span class="connector-label">filtra</span>
-        </div>
+        <div class="conn"><div class="conn-line"></div><span class="conn-lbl">filtra</span></div>
 
-        <!-- Elegir 112 -->
-        <div class="node wa-node" id="w-elegir">
-          <div class="node-icon ic-elegir">🎯</div>
-          <div class="node-body">
-            <p class="node-name">Elegir 112</p>
-            <p class="node-sub">+7 días sin WA · tel.</p>
-            <span class="node-num" id="w-elegir-num"><span class="sk" style="width:40px;height:.7rem;"></span></span>
+        <div class="node" id="w-elegir">
+          <p class="n-label">Paso 2</p>
+          <p class="n-name">Elegir 112</p>
+          <p class="n-time">09:30 · +7 días sin WA</p>
+          <hr class="n-divider">
+          <span class="n-num" id="w-n2">—</span>
+          <span class="n-unit">elegibles hoy</span>
+          <div class="n-rows">
+            <div class="n-row"><span class="n-row-lbl">Límite diario</span><span class="n-row-val">112</span></div>
           </div>
         </div>
 
-        <div class="connector wa-conn">
-          <div class="connector-line"></div>
-          <span class="connector-label">09:30–13:15</span>
-        </div>
+        <div class="conn"><div class="conn-line"></div><span class="conn-lbl">09:30–13:15</span></div>
 
-        <!-- Enviar WA -->
-        <div class="node wa-node" id="w-enviar">
-          <div class="node-icon ic-enviar-w">💬</div>
-          <div class="node-body">
-            <p class="node-name">Enviar WA</p>
-            <p class="node-sub">qoricash_precio_dia</p>
-            <span class="node-num" id="w-enviar-num"><span class="sk" style="width:40px;height:.7rem;"></span></span>
+        <div class="node" id="w-enviar">
+          <p class="n-label">Paso 3</p>
+          <p class="n-name">Enviar WA</p>
+          <p class="n-time">1 c/2 min · TC en vivo</p>
+          <hr class="n-divider">
+          <span class="n-num" id="w-n3">—</span>
+          <span class="n-unit">enviados hoy / 112</span>
+          <div class="n-rows">
+            <div class="n-row"><span class="n-row-lbl">Entregados</span><span class="n-row-val" id="w-n3b">—</span></div>
+            <div class="n-row"><span class="n-row-lbl">Fallidos</span><span class="n-row-val" id="w-n3c">—</span></div>
           </div>
-          <div class="node-status" id="w-status-dot"></div>
+          <div class="node-status" id="w-dot"></div>
         </div>
 
-        <div class="connector wa-conn">
-          <div class="connector-line"></div>
-          <span class="connector-label">webhook</span>
-        </div>
+        <div class="conn"><div class="conn-line"></div><span class="conn-lbl">webhook</span></div>
 
-        <!-- Estados Meta -->
-        <div class="node wa-node" id="w-estados">
-          <div class="node-icon ic-estados">📊</div>
-          <div class="node-body">
-            <p class="node-name">Estados Meta</p>
-            <p class="node-sub">tiempo real</p>
-            <span class="node-num" id="w-estados-num"><span class="sk" style="width:40px;height:.7rem;"></span></span>
+        <div class="node" id="w-estados">
+          <p class="n-label">Paso 4</p>
+          <p class="n-name">Estados Meta</p>
+          <p class="n-time">tiempo real · webhook</p>
+          <hr class="n-divider">
+          <span class="n-num" id="w-n4">—</span>
+          <span class="n-unit">leídos hoy</span>
+          <div class="n-rows">
+            <div class="n-row"><span class="n-row-lbl">% lectura</span><span class="n-row-val" id="w-n4b">—</span></div>
+            <div class="n-row"><span class="n-row-lbl">Respondieron</span><span class="n-row-val" id="w-n4c">—</span></div>
           </div>
         </div>
 
       </div><!-- /.flow-row -->
-
-      <!-- Sub-nodes WA: estados desglosados -->
-      <div id="wa-subnodes-area" style="margin-top:0;position:relative;">
-        <svg id="wa-branch-svg" class="branch-svg" style="width:100%;height:90px;"></svg>
-        <div style="display:flex;gap:12px;padding-top:50px;" id="wa-subnodes">
-          <div class="subnode" style="border-color:#bbf7d0;">
-            <div class="subnode-icon" style="background:#d1fae5;">✅</div>
-            <div><p class="subnode-name">Entregado</p><p class="subnode-val" id="w-entregado">—</p></div>
-          </div>
-          <div class="subnode" style="border-color:#bbf7d0;">
-            <div class="subnode-icon" style="background:#dcfce7;">👁</div>
-            <div><p class="subnode-name">Leído</p><p class="subnode-val" id="w-leido">—</p></div>
-          </div>
-          <div class="subnode" style="border-color:#bbf7d0;">
-            <div class="subnode-icon" style="background:#d1fae5;">💬</div>
-            <div><p class="subnode-name">Respuesta</p><p class="subnode-val" id="w-respuesta">—</p></div>
-          </div>
-        </div>
-      </div>
-
     </div><!-- /.canvas -->
-  </div><!-- /.pipeline-wrap wa -->
+  </div>
 
 </div><!-- /.pg -->
 
@@ -482,47 +311,45 @@
   let timer = null;
 
   function fmt(n){ return (n==null)?'—':Number(n).toLocaleString('es-PE'); }
+  function set(id, v){ const el=document.getElementById(id); if(el) el.textContent=v; }
 
-  /* ── Render email data ──────────────────────────────────────── */
   function renderEmail(d){
     if(!d) return;
-    const sel  = d.seleccion  || {};
-    const val  = d.validacion || {};
-    const asi  = d.asignacion || {};
-    const env  = d.envios     || {};
-    const reb  = d.rebotes    || {};
+    const sel = d.seleccion  || {};
+    const val = d.validacion || {};
+    const asi = d.asignacion || {};
+    const env = d.envios     || {};
+    const reb = d.rebotes    || {};
     const bandejas = asi.bandejas || [];
     const bandEst  = asi.bandeja_estado || [];
-    const estMap   = {}; bandEst.forEach(b=>{ estMap[b.bandeja||b.name]=b; });
+    const estMap = {}; bandEst.forEach(b=>{ estMap[b.bandeja||b.name]=b; });
 
     const enviados = env.enviados || 0;
-    const dry = !!d.dry_run;
 
-    document.getElementById('e-fuente-num').textContent   = fmt(sel.seleccionados) + ' en lote';
-    document.getElementById('e-validar-num').textContent  = fmt(val.validos) + ' aptos';
-    document.getElementById('e-repartir-num').textContent = fmt(bandejas.length || 3) + ' activas';
-    document.getElementById('e-enviar-num').textContent   = fmt(enviados) + ' / 75 hoy';
-    document.getElementById('e-resultado-num').textContent= fmt(reb.total_acumulado) + ' rebotes';
+    set('e-n1',  fmt(sel.seleccionados));
+    set('e-n1b', fmt(sel.elegibles));
+    set('e-n1c', fmt(sel.pendientes));
+    set('e-n2',  fmt(val.validos));
+    set('e-n2b', fmt(val.sin_validar));
+    set('e-n2c', fmt((val.invalidos||0)+(val.riesgo||0)));
+    set('e-n3',  fmt(sel.seleccionados));
+    set('e-n4',  fmt(enviados));
+    set('e-n4b', fmt(env.pendientes_lote!=null?env.pendientes_lote:env.pendientes));
+    set('e-n4c', fmt(env.errores));
+    set('e-n5',  fmt(reb.total_acumulado));
+    set('e-n5b', fmt(reb.detectados_hoy));
 
-    // Bandejas sub-nodes
-    const names = ['ggarcia','gerencia','info'];
-    const ids   = ['e-b-gg','e-b-ge','e-b-in'];
-    ids.forEach((id,i)=>{
-      const b = bandejas.find(x=>x.bandeja===names[i]) || {};
-      const e = estMap[names[i]] || {};
-      const hoy = e.enviados_hoy != null ? e.enviados_hoy : 0;
-      document.getElementById(id).textContent = fmt(b.asignados||0) + ' asig · ' + fmt(hoy) + ' hoy';
+    ['ggarcia','gerencia','info'].forEach((name,i)=>{
+      const b = bandejas.find(x=>x.bandeja===name)||{};
+      const e = estMap[name]||{};
+      const ids = ['e-b-gg','e-b-ge','e-b-in'];
+      set(ids[i], fmt(e.enviados_hoy||0)+' hoy');
     });
 
-    // Status dot
-    const dot = document.getElementById('e-status-dot');
-    dot.className = 'node-status ' + (dry ? 'status-warn' : enviados > 0 ? 'status-ok' : 'status-idle');
-    dot.title = dry ? 'Envíos pausados' : enviados > 0 ? 'Enviando' : 'En espera';
-
-    drawBranchLines('email-branch-svg', 'e-repartir', 'email-subnodes');
+    const dot = document.getElementById('e-dot');
+    if(dot){ dot.className = 'node-status '+(d.dry_run?'s-warn':enviados>0?'s-ok':'s-idle'); }
   }
 
-  /* ── Render WA data ─────────────────────────────────────────── */
   function renderWA(d){
     if(!d||!d.ok) return;
     const sy = d.sync      || {};
@@ -530,75 +357,23 @@
     const en = d.envios    || {};
     const re = d.resultados|| {};
     const aceptados = en.aceptados_hoy || 0;
+    const pct = aceptados>0 ? Math.round(((en.leidos_hoy||0)/aceptados)*100)+'%' : '0%';
 
-    document.getElementById('w-sync-num').textContent   = fmt(sy.total_base) + ' en base';
-    document.getElementById('w-elegir-num').textContent = fmt(el.total) + ' elegibles';
-    document.getElementById('w-enviar-num').textContent = fmt(aceptados) + ' / 112 hoy';
-    document.getElementById('w-estados-num').textContent= fmt(en.leidos_hoy) + ' leídos';
+    set('w-n1',  fmt(sy.total_base));
+    set('w-n1b', fmt(sy.sin_wa));
+    set('w-n1c', fmt(sy.enviados_hoy));
+    set('w-n2',  fmt(el.total));
+    set('w-n3',  fmt(aceptados));
+    set('w-n3b', fmt(en.entregados_hoy));
+    set('w-n3c', fmt(en.fallidos_hoy));
+    set('w-n4',  fmt(en.leidos_hoy));
+    set('w-n4b', pct);
+    set('w-n4c', fmt(re.respondieron));
 
-    document.getElementById('w-entregado').textContent = fmt(en.entregados_hoy);
-    document.getElementById('w-leido').textContent     = fmt(en.leidos_hoy);
-    document.getElementById('w-respuesta').textContent = fmt(re.respondieron);
-
-    const dot = document.getElementById('w-status-dot');
-    dot.className = 'node-status ' + (aceptados > 0 ? 'status-ok' : 'status-idle');
-    dot.title = aceptados > 0 ? 'Enviando' : 'En espera';
-
-    drawBranchLines('wa-branch-svg', 'w-enviar', 'wa-subnodes');
+    const dot = document.getElementById('w-dot');
+    if(dot){ dot.className = 'node-status '+(aceptados>0?'s-ok':'s-idle'); }
   }
 
-  /* ── Draw dashed branch lines from parent node to subnodes ─── */
-  function drawBranchLines(svgId, parentId, subrowId){
-    const svg    = document.getElementById(svgId);
-    const parent = document.getElementById(parentId);
-    const subrow = document.getElementById(subrowId);
-    if(!svg||!parent||!subrow) return;
-
-    const canvas  = svg.closest('.canvas');
-    const cRect   = canvas.getBoundingClientRect();
-    const pRect   = parent.getBoundingClientRect();
-
-    // Start: bottom-center of parent node
-    const startX  = pRect.left + pRect.width/2 - cRect.left;
-    const startY  = 0; // top of SVG area (which is relative to subnodes-area)
-
-    const subNodes = subrow.querySelectorAll('.subnode');
-    svg.innerHTML = '';
-
-    subNodes.forEach(sn=>{
-      const snRect = sn.getBoundingClientRect();
-      const endX   = snRect.left + snRect.width/2 - cRect.left;
-      const endY   = 50; // end at top of subnode area
-
-      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-      const cp1y = startY + 20;
-      const cp2y = endY   - 20;
-      path.setAttribute('d', `M${startX},${startY} C${startX},${cp1y} ${endX},${cp2y} ${endX},${endY}`);
-      path.setAttribute('fill','none');
-      path.setAttribute('stroke','#cbd5e1');
-      path.setAttribute('stroke-width','1.5');
-      path.setAttribute('stroke-dasharray','4 3');
-      svg.appendChild(path);
-
-      // End dot
-      const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
-      circle.setAttribute('cx', endX);
-      circle.setAttribute('cy', endY);
-      circle.setAttribute('r', '3');
-      circle.setAttribute('fill','#94a3b8');
-      svg.appendChild(circle);
-    });
-
-    // Start dot
-    const startCircle = document.createElementNS('http://www.w3.org/2000/svg','circle');
-    startCircle.setAttribute('cx', startX);
-    startCircle.setAttribute('cy', startY);
-    startCircle.setAttribute('r', '3');
-    startCircle.setAttribute('fill','#94a3b8');
-    svg.appendChild(startCircle);
-  }
-
-  /* ── Fetch ───────────────────────────────────────────────────── */
   async function fetchAll(){
     const btn = document.getElementById('refresh-btn');
     btn.classList.add('spinning');
@@ -610,22 +385,13 @@
       if(rE.status==='fulfilled'&&rE.value.ok) renderEmail(await rE.value.json());
       if(rW.status==='fulfilled'&&rW.value.ok) renderWA(await rW.value.json());
     } catch(e){ console.warn(e); }
-    finally { btn.classList.remove('spinning'); }
+    finally{ btn.classList.remove('spinning'); }
   }
 
-  window.agRefresh = function(){
-    clearInterval(timer); fetchAll();
-    timer = setInterval(fetchAll, POLL);
-  };
-
+  window.agRefresh = function(){ clearInterval(timer); fetchAll(); timer=setInterval(fetchAll,POLL); };
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden) clearInterval(timer);
-    else { fetchAll(); timer = setInterval(fetchAll, POLL); }
-  });
-
-  window.addEventListener('resize', ()=>{
-    drawBranchLines('email-branch-svg','e-repartir','email-subnodes');
-    drawBranchLines('wa-branch-svg','w-enviar','wa-subnodes');
+    else { fetchAll(); timer=setInterval(fetchAll,POLL); }
   });
 
   fetchAll();
