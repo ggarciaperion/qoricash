@@ -141,7 +141,6 @@ def _enviar_wa_meta(numero_9d, nombre, compra, venta, plantilla_cfg):
     components.append({
         'type': 'body',
         'parameters': [
-            {'type': 'text', 'parameter_name': 'nombre', 'text': nombre},
             {'type': 'text', 'parameter_name': 'compra', 'text': compra},
             {'type': 'text', 'parameter_name': 'venta',  'text': venta},
         ],
@@ -750,3 +749,135 @@ def api_campana_detalle(campana_nombre):
         'page':    page,
         'items':   [r.to_dict() for r in rows],
     })
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Endpoints internos para scheduler_wa_diario.py (autenticación por API key)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _check_wa_key():
+    """Valida X-WA-Key. Retorna True si OK."""
+    key = request.headers.get('X-WA-Key', '')
+    expected = os.environ.get('CRM_API_KEY', 'qoricash_crm_2026')
+    return key == expected
+
+
+@wa_prospectos_bp.route('/api/auto/elegibles')
+@csrf.exempt
+def api_auto_elegibles():
+    """
+    GET /wa-prospectos/api/auto/elegibles?limite=50&dias_recency=7
+    Autenticación: X-WA-Key
+    Retorna lista de prospectos no contactados en los últimos dias_recency días.
+    """
+    if not _check_wa_key():
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    limite       = min(int(request.args.get('limite', 50)), 200)
+    dias_recency = int(request.args.get('dias_recency', 7))
+
+    from datetime import timezone, timedelta
+    ahora_utc  = datetime.now(timezone.utc)
+    cutoff     = ahora_utc - timedelta(days=dias_recency)
+    cutoff_naive = cutoff.replace(tzinfo=None)
+
+    # Excluir sin_wa y los contactados recientemente por WA
+    rows = (WaProspectoBase.query
+            .filter(WaProspectoBase.wa_validado != 'sin_wa')
+            .filter(WaProspectoBase.fecha_email.isnot(None))
+            .filter(
+                db.or_(
+                    WaProspectoBase.fecha_wa.is_(None),
+                    WaProspectoBase.fecha_wa < cutoff_naive,
+                )
+            )
+            .order_by(
+                WaProspectoBase.wa_validado.desc(),   # con_wa primero
+                WaProspectoBase.fecha_email.desc(),
+            )
+            .limit(limite)
+            .all())
+
+    return jsonify({
+        'ok': True,
+        'total': len(rows),
+        'prospectos': [
+            {
+                'numero':  f'51{r.numero}',   # formato E.164 sin +
+                'empresa': r.empresa or '',
+                'nombre':  r.nombre or '',
+            }
+            for r in rows
+        ],
+    })
+
+
+@wa_prospectos_bp.route('/api/auto/marcar-enviado', methods=['POST'])
+@csrf.exempt
+def api_auto_marcar_enviado():
+    """
+    POST /wa-prospectos/api/auto/marcar-enviado
+    Autenticación: X-WA-Key
+    Body: {numero: '51912345678', wa_id: '...', campana: 'Nov2026-auto'}
+    Registra el envío exitoso y actualiza fecha_wa en WaProspectoBase.
+    """
+    if not _check_wa_key():
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    data    = request.get_json(silent=True) or {}
+    numero  = str(data.get('numero', '')).strip()   # '51912345678'
+    wa_id   = str(data.get('wa_id', '')).strip()
+    campana = str(data.get('campana', 'auto')).strip()
+    compra  = str(data.get('compra', '')).strip()
+    venta   = str(data.get('venta', '')).strip()
+
+    if not numero:
+        return jsonify({'ok': False, 'error': 'numero requerido'}), 400
+
+    num9 = numero[-9:] if len(numero) >= 9 else numero
+    ahora = now_peru()
+
+    # Actualizar WaProspectoBase
+    base = WaProspectoBase.query.filter_by(numero=num9).first()
+    if base:
+        base.fecha_wa      = ahora
+        base.wa_validado   = 'con_wa'
+        base.actualizado_en = ahora
+
+    # Registrar en WaCampanaProspecto
+    nombre  = base.nombre  if base else ''
+    empresa = base.empresa if base else ''
+
+    existing = WaCampanaProspecto.query.filter_by(numero=f'+51{num9}', campana=campana).first()
+    if not existing:
+        db.session.add(WaCampanaProspecto(
+            numero           = f'+51{num9}',
+            nombre           = nombre,
+            empresa          = empresa,
+            wa_validado      = 'con_wa',
+            fecha_validacion = ahora,
+            campana          = campana,
+            plantilla        = 'qoricash_precio_dia',
+            compra           = compra,
+            venta            = venta,
+            wa_id            = wa_id or None,
+            estado           = 'enviado',
+            fecha_envio      = ahora,
+            enviado_por      = None,
+            creado_en        = ahora,
+            actualizado_en   = ahora,
+        ))
+    else:
+        existing.estado      = 'enviado'
+        existing.fecha_envio = ahora
+        existing.wa_id       = wa_id or existing.wa_id
+        existing.actualizado_en = ahora
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        log.error(f'[auto/marcar-enviado] commit error: {e}')
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+    return jsonify({'ok': True, 'num9': num9})
