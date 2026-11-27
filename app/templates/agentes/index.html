@@ -134,7 +134,10 @@
        PIPELINE EMAIL
   ══════════════════════════════════════════════════════ -->
   <div class="pipeline-wrap">
-    <p class="pipeline-label"><b style="background:#2563eb;"></b> Pipeline de Email · 75 correos/día</p>
+    <p class="pipeline-label" id="e-label"><b style="background:#2563eb;"></b> Pipeline de Email · 75 correos/día</p>
+    <div id="e-lote-aviso" style="display:none;background:#fef9c3;border:1px solid #fde047;border-radius:7px;padding:5px 11px;font-size:.67rem;color:#854d0e;margin-bottom:8px;">
+      Mostrando el último lote activo (<span id="e-lote-fecha">—</span>) — el lote de hoy aún no se creó o está vacío.
+    </div>
     <div class="canvas">
       <div class="flow-row">
 
@@ -148,13 +151,13 @@
         <div class="node" id="e-fuente">
           <p class="n-label">Paso 1</p>
           <p class="n-name">Fuente de Datos</p>
-          <p class="n-time">08:00 · Google Sheets</p>
+          <p class="n-time" id="e-fuente-time">08:00 · Google Sheets</p>
           <hr class="n-divider">
           <span class="n-num" id="e-n1">—</span>
-          <span class="n-unit">en lote hoy</span>
+          <span class="n-unit">seleccionados del lote</span>
           <div class="n-rows">
-            <div class="n-row"><span class="n-row-lbl">Revisados</span><span class="n-row-val" id="e-n1b">—</span></div>
-            <div class="n-row"><span class="n-row-lbl">Por enviar</span><span class="n-row-val" id="e-n1c">—</span></div>
+            <div class="n-row"><span class="n-row-lbl">Candidatos</span><span class="n-row-val" id="e-n1b">—</span></div>
+            <div class="n-row"><span class="n-row-lbl">Pendientes</span><span class="n-row-val" id="e-n1c">—</span></div>
           </div>
         </div>
 
@@ -321,11 +324,27 @@
     const asi = d.asignacion || {};
     const env = d.envios     || {};
     const reb = d.rebotes    || {};
+    const lote = d.lote_op  || {};
     const bandejas = asi.bandejas || [];
-    const bandEst  = asi.bandeja_estado || [];
-    const estMap = {}; bandEst.forEach(b=>{ estMap[b.bandeja||b.name]=b; });
 
     const enviados = env.enviados || 0;
+
+    // ── Aviso lote anterior ───────────────────────────────────────
+    const aviso = document.getElementById('e-lote-aviso');
+    if(aviso){
+      if(lote.fecha && lote.es_hoy === false){
+        const [y,m,dd] = lote.fecha.split('-');
+        set('e-lote-fecha', `${dd}/${m}/${y}`);
+        aviso.style.display='block';
+      } else {
+        aviso.style.display='none';
+      }
+    }
+    // Fecha del lote en subtítulo de Paso 1
+    if(lote.fecha){
+      const [y,m,dd] = lote.fecha.split('-');
+      set('e-fuente-time', `Lote ${dd}/${m} · Google Sheets`);
+    }
 
     set('e-n1',  fmt(sel.seleccionados));
     set('e-n1b', fmt(sel.elegibles));
