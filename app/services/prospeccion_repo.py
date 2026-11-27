@@ -750,6 +750,21 @@ def get_pipeline_card_stats() -> dict:
             ORDER BY 1
         """)
 
+        # Enviados hoy por bandeja — desde ec_lote_items (actualizado vía sync)
+        band_sent = _rows(f"""
+            SELECT {_bq} AS bandeja,
+                   COUNT(*) AS enviados_hoy
+            FROM ec_lote_items li
+            JOIN ec_lotes l ON l.id = li.lote_id
+            WHERE DATE({_eq} AT TIME ZONE 'America/Lima') = :0
+              AND {_eq} IS NOT NULL
+              AND COALESCE(l.dry_run, FALSE) = FALSE
+              AND COALESCE(l.es_prueba, 0) = 0
+              AND {_bq} IS NOT NULL
+            GROUP BY {_bq}
+        """, (hoy,))
+        sent_map = {r['bandeja']: int(r['enviados_hoy'] or 0) for r in band_sent}
+
         # ── 4. Envíos de hoy ──────────────────────────────────────────────────
         # Criterio: fecha_envio (o enviado_at) en Lima = hoy.
         # Independiente del lote al que pertenece el item — cubre lotes de días
@@ -851,7 +866,11 @@ def get_pipeline_card_stats() -> dict:
         },
         'asignacion': {
             'bandejas': [
-                {'bandeja': r['bandeja'], 'asignados': int(r['asignados'] or 0)}
+                {
+                    'bandeja':     r['bandeja'],
+                    'asignados':   int(r['asignados'] or 0),
+                    'enviados_hoy': sent_map.get(r['bandeja'], 0),
+                }
                 for r in band_rows
             ],
             'bandeja_estado': get_bandeja_estado(),

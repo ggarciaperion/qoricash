@@ -341,9 +341,8 @@
 
     ['ggarcia','gerencia','info'].forEach((name,i)=>{
       const b = bandejas.find(x=>x.bandeja===name)||{};
-      const e = estMap[name]||{};
       const ids = ['e-b-gg','e-b-ge','e-b-in'];
-      set(ids[i], fmt(e.enviados_hoy||0)+' hoy');
+      set(ids[i], fmt(b.enviados_hoy||0)+' hoy');
     });
 
     const dot = document.getElementById('e-dot');
