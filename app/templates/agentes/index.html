@@ -187,6 +187,7 @@
             <div class="n-row"><span class="n-row-lbl">gerencia</span><span class="n-row-val" id="e-b-ge">—</span></div>
             <div class="n-row"><span class="n-row-lbl">info</span><span class="n-row-val" id="e-b-in">—</span></div>
           </div>
+          <span class="n-unit" style="margin-top:4px">por bandeja</span>
         </div>
 
         <div class="conn"><div class="conn-line"></div><span class="conn-lbl">09:30–15:00</span></div>
@@ -342,7 +343,7 @@
     ['ggarcia','gerencia','info'].forEach((name,i)=>{
       const b = bandejas.find(x=>x.bandeja===name)||{};
       const ids = ['e-b-gg','e-b-ge','e-b-in'];
-      set(ids[i], fmt(b.enviados_hoy||0)+' hoy');
+      set(ids[i], fmt(b.asignados||0));
     });
 
     const dot = document.getElementById('e-dot');
